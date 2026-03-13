@@ -146,6 +146,33 @@ At the end of every phase or sub-phase (e.g., Phase 2A, Phase 2B, etc.), before 
 
 ---
 
+## Skill Routing Rules — Mandatory
+
+<!--
+  CUSTOMIZE: Update the task-to-skill mappings below based on which skill files
+  exist in your project's .claude/skills/ directory. Remove rows for skills you
+  don't use and add rows for any project-specific skills.
+-->
+
+Before performing any of the following types of work, you MUST read the specified skill file(s) in `.claude/skills/` and follow their conventions. Do not rely on memory from previous sessions — re-read the skill file every time.
+
+| Task Type | Read First | Examples |
+|---|---|---|
+| Any frontend work | `nextjs-frontend.md` | Components, pages, layouts, styling, Tailwind |
+| Any backend work | `python-backend.md` | API endpoints, middleware, data models |
+| Any database work | `supabase.md` | Schema changes, migrations, queries, RLS policies |
+| Any AI/prompt work | `anthropic-api.md` + `prompt-engineering.md` | System prompts, Claude API calls, structured output |
+| Any security-related work | `security.md` | Auth, rate limiting, input validation, CORS, secrets |
+| Any deployment work | `vercel-deployment.md` | Build config, environment variables, preview deploys |
+| Any analytics or logging work | `product-ops.md` | Metrics, tracing, cost tracking, dashboards |
+| Any work touching multiple domains | Read ALL relevant skills | Full-stack features, new phases |
+
+If you are unsure whether a skill applies, read it anyway. It is always better to over-consult than to miss a convention.
+
+If a task requires a skill that does not exist in `.claude/skills/` yet but exists in `~/projects/claude-templates/skills/`, copy it into the project first, then read it.
+
+---
+
 ## Skill Template Sync Convention
 
 At the end of every phase or sub-phase, after completing the standard documentation updates above, you **MUST** also sync any new patterns, lessons, or gotchas discovered during that phase to the portable skill templates at `~/projects/claude-templates/skills/`.
