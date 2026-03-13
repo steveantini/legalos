@@ -1,0 +1,165 @@
+# [PROJECT NAME] — CLAUDE.md
+
+<!--
+  TEMPLATE: Copy this file into your project root and fill in the sections below.
+  Remove these HTML comments once customized.
+  This file is read by Claude Code at the start of every session.
+-->
+
+## Project Overview
+
+<!-- One paragraph: what is this product/project? What problem does it solve? -->
+
+### Current Phase
+
+<!-- What phase of development is the project in? What are the immediate priorities? -->
+
+---
+
+## Architecture
+
+### Tech Stack
+
+| Layer | Technology | Deployment |
+|---|---|---|
+| Frontend | <!-- e.g., Next.js (TypeScript) --> | <!-- e.g., Vercel --> |
+| Backend | <!-- e.g., Python (FastAPI) --> | <!-- e.g., Railway --> |
+| Database | <!-- e.g., Supabase (PostgreSQL) --> | <!-- e.g., Supabase Cloud --> |
+| AI/ML | <!-- e.g., Claude (Anthropic API) --> | <!-- e.g., Via backend --> |
+| Auth | <!-- e.g., Supabase Auth --> | <!-- --> |
+
+### Directory Structure
+
+<!--
+  Document the project's directory layout with brief annotations.
+  Example:
+  ```
+  project/
+  ├── src/          # Frontend source
+  ├── backend/      # API server
+  └── docs/         # Documentation
+  ```
+-->
+
+### Data Flow
+
+<!--
+  Describe the primary data flow through the system.
+  Example: User Input → Frontend → Backend API → AI/Database → Response → Frontend
+  Note any critical constraints (e.g., "frontend never calls external APIs directly").
+-->
+
+---
+
+## Coding Conventions
+
+### [Primary Language] (Frontend)
+
+<!--
+  Cover: naming conventions, file organization, import ordering,
+  server vs. client component rules (if applicable), error handling patterns.
+-->
+
+### [Secondary Language] (Backend)
+
+<!--
+  Cover: naming conventions, type hints/annotations, async patterns,
+  data validation approach, error handling.
+-->
+
+### Git
+
+- **Commit format:** `type: description`
+- **Types:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `security`
+- **Branch naming:** `feature/description`, `fix/description`, `chore/description`
+
+---
+
+## Environment & Configuration
+
+<!--
+  Cover: environment variable naming convention, secrets management approach,
+  development setup instructions, environment separation strategy.
+-->
+
+- **Environment variables:** `UPPER_SNAKE_CASE` with appropriate prefixes
+- **Secrets:** Never hardcoded, never committed. `.env.local` for dev, hosting provider for prod
+- **Environments:** Separate credentials for dev / staging / production
+
+---
+
+## Testing
+
+<!--
+  Cover: test file locations, what must be tested, what can be tested lightly,
+  naming conventions.
+-->
+
+---
+
+## Security Non-Negotiables
+
+<!--
+  List hard security requirements that apply to every change.
+  Examples:
+  - Input sanitization on every endpoint
+  - API keys never in frontend code or git
+  - Rate limiting on all API endpoints
+  - CORS locked to known origins
+-->
+
+---
+
+## AI Integration Rules
+
+<!--
+  If the project uses AI/LLM APIs, document:
+  - Where API calls are made (backend only?)
+  - Prompt template management
+  - Output validation requirements
+  - Cost tracking approach
+  - Rate limiting strategy
+-->
+
+---
+
+## What Not to Do
+
+<!--
+  List explicit anti-patterns and things to never do in this project.
+  Be specific — these prevent the most common mistakes.
+-->
+
+---
+
+## End-of-Phase Documentation Requirements
+
+At the end of every phase or sub-phase (e.g., Phase 2A, Phase 2B, etc.), before the final commit, you **MUST** update the following files to reflect all changes made during that phase:
+
+- **README.md** — Setup instructions, routes, project structure if changed
+- **CLAUDE.md** — New conventions, components, architecture changes
+- **CHANGELOG.md** — What was built, what was fixed, date
+- **Decision log** — Any new architectural decisions (project-specific file name)
+- **.env.example** — Any new environment variables
+
+**This is not optional.** No phase is complete until documentation is current. The final commit of every phase should include documentation updates.
+
+---
+
+## Skill Template Sync Convention
+
+At the end of every phase or sub-phase, after completing the standard documentation updates above, you **MUST** also sync any new patterns, lessons, or gotchas discovered during that phase to the portable skill templates at `~/projects/claude-templates/skills/`.
+
+### Sync Process
+
+1. **Review** every project-specific skill file in `.claude/skills/` that was referenced or updated during this phase
+2. **Extract the generalized principle** — strip out project-specific details (project names, specific API keys, specific database tables, specific design tokens) and keep the universal best practice
+3. **Update** the corresponding portable template skill file with the generalized version
+4. **Create new templates** — if a new skill file was created for this project that doesn't have a portable template equivalent yet, create one in the appropriate subdirectory of `~/projects/claude-templates/skills/`
+5. **Version bump** — add a version bump and "Last updated" date to any modified template skill files
+
+### Example
+
+If during a phase you discover that a database's row-level security has an edge case where service role keys bypass policies on joined tables, the project skill gets the specific fix. The portable template gets: "When using admin/service role keys that bypass row-level security, verify behavior on queries involving joins — RLS policies may not propagate across joined tables as expected."
+
+**This is not optional.** No phase is complete until both project-specific skills AND portable templates are current.
