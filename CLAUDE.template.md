@@ -1,4 +1,4 @@
-# [PROJECT NAME] — CLAUDE.md
+# [PROJECT NAME]: CLAUDE.md
 
 <!--
   TEMPLATE: Copy this file into your project root and fill in the sections below.
@@ -127,26 +127,30 @@
 
 <!--
   List explicit anti-patterns and things to never do in this project.
-  Be specific — these prevent the most common mistakes.
+  Be specific. These prevent the most common mistakes.
 -->
 
 ---
 
-## End-of-Phase Documentation Requirements
+## Documentation Rules
 
-At the end of every phase or sub-phase (e.g., Phase 2A, Phase 2B, etc.), before the final commit, you **MUST** update the following files to reflect all changes made during that phase:
+When making any product change (new feature, renamed component, new page, architectural change, design system change, or brand update), the following files must be checked and updated if affected:
 
-- **README.md** — Setup instructions, routes, project structure if changed
-- **CLAUDE.md** — New conventions, components, architecture changes
-- **CHANGELOG.md** — What was built, what was fixed, date
-- **Decision log** — Any new architectural decisions (project-specific file name)
-- **.env.example** — Any new environment variables
+- **README.md**: Project overview, setup instructions, feature list, routes, project structure
+- **Product vision doc**: Product vision, brand architecture, messaging (project-specific file name)
+- **Product outline**: Roadmap, technical architecture, phase status (project-specific file name)
+- **Decision log**: If the change involves a decision worth recording (project-specific file name)
+- **CLAUDE.md**: New conventions, components, architecture changes
+- **CHANGELOG.md**: What was built, what was fixed, date
+- **.env.example**: Any new environment variables
 
-**This is not optional.** No phase is complete until documentation is current. The final commit of every phase should include documentation updates.
+This is not optional. Documentation updates are part of the definition of done for every change.
+
+At the end of every phase or significant feature completion, sync generalized lessons back to your portable template library (wherever you maintain it locally, such as your own fork of these templates). Extract the universal principle, not the project-specific detail. If a new rule or convention is added to this project's CLAUDE.md, evaluate whether it belongs in your template CLAUDE.md as well.
 
 ---
 
-## Skill Routing Rules — Mandatory
+## Skill Routing Rules (Mandatory)
 
 <!--
   CUSTOMIZE: Update the task-to-skill mappings below based on which skill files
@@ -154,7 +158,7 @@ At the end of every phase or sub-phase (e.g., Phase 2A, Phase 2B, etc.), before 
   don't use and add rows for any project-specific skills.
 -->
 
-Before performing any of the following types of work, you MUST read the specified skill file(s) in `.claude/skills/` and follow their conventions. Do not rely on memory from previous sessions — re-read the skill file every time.
+Before performing any of the following types of work, you MUST read the specified skill file(s) in `.claude/skills/` and follow their conventions. Do not rely on memory from previous sessions; re-read the skill file every time.
 
 | Task Type | Read First | Examples |
 |---|---|---|
@@ -169,24 +173,24 @@ Before performing any of the following types of work, you MUST read the specifie
 
 If you are unsure whether a skill applies, read it anyway. It is always better to over-consult than to miss a convention.
 
-If a task requires a skill that does not exist in `.claude/skills/` yet but exists in `~/projects/claude-templates/skills/`, copy it into the project first, then read it.
+If a task requires a skill that does not exist in `.claude/skills/` yet but exists in your local templates library, copy it into the project first, then read it.
 
 ---
 
 ## Skill Template Sync Convention
 
-At the end of every phase or sub-phase, after completing the standard documentation updates above, you **MUST** also sync any new patterns, lessons, or gotchas discovered during that phase to the portable skill templates at `~/projects/claude-templates/skills/`.
+At the end of every phase or sub-phase, after completing the standard documentation updates above, you **MUST** also sync any new patterns, lessons, or gotchas discovered during that phase to the portable skill templates at `<your-templates-library>/skills/`.
 
 ### Sync Process
 
 1. **Review** every project-specific skill file in `.claude/skills/` that was referenced or updated during this phase
-2. **Extract the generalized principle** — strip out project-specific details (project names, specific API keys, specific database tables, specific design tokens) and keep the universal best practice
+2. **Extract the generalized principle.** Strip out project-specific details (project names, specific API keys, specific database tables, specific design tokens) and keep the universal best practice
 3. **Update** the corresponding portable template skill file with the generalized version
-4. **Create new templates** — if a new skill file was created for this project that doesn't have a portable template equivalent yet, create one in the appropriate subdirectory of `~/projects/claude-templates/skills/`
-5. **Version bump** — add a version bump and "Last updated" date to any modified template skill files
+4. **Create new templates.** If a new skill file was created for this project that doesn't have a portable template equivalent yet, create one in the appropriate subdirectory of `<your-templates-library>/skills/`
+5. **Version bump.** Add a version bump and "Last updated" date to any modified template skill files
 
 ### Example
 
-If during a phase you discover that a database's row-level security has an edge case where service role keys bypass policies on joined tables, the project skill gets the specific fix. The portable template gets: "When using admin/service role keys that bypass row-level security, verify behavior on queries involving joins — RLS policies may not propagate across joined tables as expected."
+If during a phase you discover that a database's row-level security has an edge case where service role keys bypass policies on joined tables, the project skill gets the specific fix. The portable template gets: "When using admin/service role keys that bypass row-level security, verify behavior on queries involving joins, as RLS policies may not propagate across joined tables as expected."
 
 **This is not optional.** No phase is complete until both project-specific skills AND portable templates are current.

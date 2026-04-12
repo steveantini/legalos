@@ -159,6 +159,14 @@ claude-templates/
 
 ---
 
+## License
+
+MIT License. See LICENSE file for details.
+
+This is a personal template library shared publicly. It is not accepting external contributions at this time. Feel free to fork, adapt, and use it in your own projects.
+
+---
+
 **Built by:** Steven J. Antini
 
-**Last updated:** 2026-03-13
+**Last updated:** 2026-04-05

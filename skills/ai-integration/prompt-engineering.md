@@ -1,8 +1,8 @@
 # Prompt Engineering Reference
 
 ```
-Version:        1.0.0
-Last Updated:   2026-03-06
+Version:        1.1.0
+Last Updated:   2026-03-17
 Applicability:  Claude models (Haiku, Sonnet, Opus); most patterns transfer to GPT-4o, Gemini
 Dependencies:   None (model-agnostic techniques); examples use Anthropic Messages API
 ```
@@ -459,3 +459,80 @@ Respond as JSON: {"accuracy": int, "completeness": int, "format": int, "concisen
 | 0.7-1.0 | Creative: brainstorming, writing, exploration |
 
 For most production systems, use `temperature: 0` and add explicit instructions for variety if needed.
+
+---
+
+## Prompt Overlay Pattern (Domain Lenses)
+
+When a multi-prompt pipeline needs to support different emphasis modes (e.g., "scientific focus" vs. "legal focus" vs. "educational" mode) without rewriting the base prompts, use the **prompt overlay** pattern.
+
+### Architecture
+
+```
+[Base system prompt]        ← Shared across all modes, encodes core behavior
+  +
+[Phase-specific prompt]     ← Task-specific instructions (one per pipeline step)
+  +
+[Overlay prompt]            ← Optional emphasis adjustment (3-5 sentences)
+```
+
+The overlay is appended to the phase-specific prompt at runtime. If no overlay is selected, the pipeline runs with its default behavior.
+
+### Overlay Design Principles
+
+1. **Emphasis, not exclusion.** An overlay shifts the primary analytical thread — it does not remove perspectives. Example: "Prioritize empirical evidence... Still surface ethical, cultural, and policy perspectives, but organize the analysis so that empirical evidence is the primary thread."
+
+2. **3-5 sentences per overlay.** Long enough to genuinely shift behavior; short enough to avoid dominating the prompt budget.
+
+3. **Consistent structure.** Each overlay should follow the same pattern:
+   - What to prioritize (primary lens)
+   - What vocabulary/terminology to use
+   - What source types to prefer
+   - What perspectives to still include (the "still surface X" clause)
+
+4. **Registry-based selection.** Store overlays in a data structure (enum + registry dict) rather than hardcoding them into prompt templates. This allows runtime selection, API exposure, and easy addition of new overlays.
+
+### Example Implementation
+
+```python
+@dataclass(frozen=True)
+class Lens:
+    id: str
+    name: str
+    category: str
+    description: str
+    prompt_overlay: str  # The 3-5 sentence overlay text
+
+LENS_REGISTRY: dict[str, Lens] = {
+    "general": Lens(id="general", ..., prompt_overlay=""),  # No overlay
+    "scientific": Lens(
+        id="scientific", ...,
+        prompt_overlay=(
+            "For this analysis, prioritize empirical evidence, peer-reviewed "
+            "research, and scientific methodology. Lead with data and measurable "
+            "outcomes. Prioritize citations from peer-reviewed journals. "
+            "Still surface ethical, cultural, and other perspectives, but "
+            "organize the analysis so that empirical evidence is the primary thread."
+        ),
+    ),
+}
+
+def get_phase_system_prompt(phase: int, *, lens_overlay: str | None = None) -> str:
+    prompt = BASE_SYSTEM_PROMPT + PHASE_INSTRUCTIONS[phase]
+    if lens_overlay:
+        prompt += f"\n\n## Domain Lens\n\n{lens_overlay}"
+    return prompt
+```
+
+### When to Use This Pattern
+
+- Multi-disciplinary analysis platforms with user-selectable focus areas
+- Content generation pipelines with audience/tone selectors
+- Research tools with methodology preferences (qualitative vs. quantitative)
+- Any multi-step AI pipeline where the same core logic should be adjustable by the user without rebuilding the prompts
+
+### Anti-Patterns
+
+- **Overlays that contradict the base prompt.** The overlay should adjust emphasis within the base prompt's rules, not override them.
+- **Too many overlays stacked.** One overlay at a time. Composing multiple overlays creates unpredictable behavior.
+- **Overlays that are too long.** If an overlay is longer than the phase prompt it modifies, it's not an overlay — it's a replacement. Use a separate prompt template instead.
