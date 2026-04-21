@@ -1,0 +1,244 @@
+# Legal Department AI Launchpad Template: CLAUDE.md
+
+## Project Overview
+
+An AI-native, in-house legal department launchpad template. A multi-department web app that gives lawyers and legal ops staff a single, welcoming entry point to the AI agents and tools they use day-to-day — whether those agents are external (Gemini Gems, watsonX Orchestrate, custom links) or natively hosted inside this app.
+
+The project is built to serve one corporate legal department at a time (single-tenant), with a multi-tenant-ready schema so the same codebase can later support a SaaS version for multiple legal departments. It starts with five departments — Commercial, Mergers & Acquisitions, Public Sector, Government Relations & Regulatory Affairs, and Privacy — and is designed so adding more departments (Products, Compliance, Litigation, IP) becomes mostly configuration.
+
+Adoption is a first-class concern. The UI is deliberately simple, clean, modern, and welcoming. Behind that simple front end is real infrastructure: role-based access, Supabase-backed analytics, a productivity gains calculator, support flows, and an admin area.
+
+### Current Phase
+
+**Phase 0 — Foundation.** Repo setup, CLAUDE.md, skill files copied from the `claude-templates` library, Next.js + TypeScript + Tailwind + shadcn/ui scaffolded, Supabase project created, Vercel deployment pipeline verified, theme presets ported from the prior `agent-launchpad-template`.
+
+---
+
+## Architecture
+
+### Tech Stack
+
+| Layer | Technology | Deployment |
+|---|---|---|
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui | Vercel |
+| Backend | Next.js API routes + server actions | Vercel (same deploy) |
+| Database | Supabase (PostgreSQL) with Row-Level Security | Supabase Cloud |
+| Auth | Supabase Auth (email/password + magic link) | Supabase Cloud |
+| AI / LLM | Anthropic API (Claude) for native agents; external links for Gemini Gems, watsonX, etc. | Server-side only |
+| Analytics | Supabase tables; localStorage fallback in Phase 1 | Supabase Cloud |
+
+### Directory Structure
+
+```
+legal-department-launchpad-template/
+├── app/                          # Next.js App Router
+│   ├── (public)/                 # Unauthenticated routes (login, landing)
+│   ├── (app)/                    # Authenticated routes
+│   │   ├── departments/[slug]/   # Per-department launchpad page
+│   │   ├── agents/[id]/          # Native agent chat page
+│   │   └── admin/                # Admin dashboard (role-gated)
+│   ├── api/                      # Route handlers (chat proxy, webhooks)
+│   └── layout.tsx                # Root layout (theme provider, auth provider)
+├── components/                   # Reusable React components
+│   ├── ui/                       # shadcn/ui primitives
+│   ├── launchpad/                # Agent cards, dept grids
+│   ├── chat/                     # Chat UI for native agents
+│   └── admin/                    # Admin dashboard components
+├── lib/                          # Shared utilities
+│   ├── supabase/                 # Supabase clients (server, browser, middleware)
+│   ├── anthropic/                # Anthropic API client wrappers
+│   ├── auth/                     # Auth helpers, role checks
+│   └── analytics/                # Event tracking helpers
+├── config/                       # Site configuration
+│   ├── site.ts                   # Branding, company name, theme preset
+│   ├── departments.ts            # Department metadata (seed/override)
+│   └── theme.ts                  # Theme token definitions
+├── supabase/                     # Supabase config
+│   ├── migrations/               # SQL migrations
+│   ├── seed.sql                  # Seed data
+│   └── policies/                 # RLS policy SQL (organized by table)
+├── .claude/
+│   └── skills/                   # Skill files copied from claude-templates
+├── public/                       # Static assets
+├── CLAUDE.md                     # This file
+├── PROJECT_OUTLINE.md            # Phases, architecture, roadmap
+├── DECISION_LOG.md               # Architecture decisions with reasoning
+├── SETUP.md                      # Setup guide for new forks
+├── CHANGELOG.md                  # Version history
+├── README.md                     # Project overview for GitHub
+├── .env.example                  # Env var template
+└── middleware.ts                 # Auth middleware
+```
+
+### Data Flow
+
+**External agent click (launchpad → third-party platform):**
+User → Launchpad page → Click card → Log analytics event to Supabase → Open external URL in new tab.
+
+**Native agent click (launchpad → in-app chat):**
+User → Launchpad page → Click card → Navigate to `/agents/[id]` → Chat UI loads conversation history from Supabase → User sends message → Next.js server action → Anthropic API → Stream response to UI → Persist messages to Supabase.
+
+**Critical constraints:**
+- The Anthropic API key **never** leaves the server. All LLM calls go through Next.js route handlers or server actions.
+- All data reads and writes to Supabase pass through Row-Level Security. Even if the frontend is compromised, the database is the last line of defense.
+- No agent or department data is trusted from the client; the server re-validates the user's department access on every sensitive action.
+
+---
+
+## Coding Conventions
+
+### TypeScript (Frontend + Backend)
+
+- **File naming:** kebab-case for files, PascalCase for React components (`agent-card.tsx` exports `AgentCard`).
+- **Imports:** external → internal absolute (`@/components/...`) → relative. One blank line between groups.
+- **Server vs. client components:** default to server components. Add `"use client"` only when you need state, effects, or browser APIs. All Anthropic calls happen on the server — never in client components.
+- **Type everything:** no `any`. Use `unknown` and narrow when data shape is uncertain. Database types come from generated Supabase types.
+- **Error handling:** server actions and route handlers return discriminated unions `{ ok: true, data } | { ok: false, error }`. Never throw across trust boundaries.
+- **Validation:** Zod schemas for all user input, all API request bodies, all env vars. Schema definitions live next to the code that uses them.
+- **Async:** `async/await` only. No bare promise chains in application code.
+
+### SQL (Supabase)
+
+- **Migrations:** one migration per logical change, timestamped. Never edit a migration once merged.
+- **RLS:** every table has RLS enabled from the moment it's created. No exceptions.
+- **Policies:** policy names describe the rule in plain English (e.g., `users_can_read_own_conversations`).
+- **Naming:** `snake_case` for tables and columns. Tables are plural (`users`, `agents`, `conversations`).
+- **Foreign keys:** every foreign key has an index unless explicitly justified.
+- **Timestamps:** every table has `created_at` and `updated_at` with defaults and triggers.
+
+### Git
+
+- **Commit format:** `type: description`
+- **Types:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `security`, `db` (for schema/migration-only changes)
+- **Branch naming:** `feature/description`, `fix/description`, `chore/description`, `db/description`
+- **One logical change per commit.** Schema changes never mix with feature changes.
+
+---
+
+## Environment & Configuration
+
+- **Environment variables:** `UPPER_SNAKE_CASE`. Client-exposed vars must be prefixed `NEXT_PUBLIC_`; all others stay server-only.
+- **Secrets:** never hardcoded, never committed. `.env.local` for dev, Vercel env vars for preview/prod. `.env.example` is the canonical list of required variables.
+- **Environments:** separate Supabase projects and Vercel environments for dev, preview, and production. Never share a database across environments.
+- **Anthropic API keys:** server-side only. `ANTHROPIC_API_KEY` (no `NEXT_PUBLIC_` prefix, ever). If you ever see `NEXT_PUBLIC_ANTHROPIC_...` anywhere in this codebase, that is a critical security bug — stop and fix it before continuing.
+
+---
+
+## Testing
+
+- **Unit tests:** colocated as `*.test.ts` next to the code they test. Business logic, auth helpers, and validation schemas are always tested.
+- **Integration tests:** Supabase RLS policies are tested against a local Supabase instance. Every policy has at least one positive and one negative test.
+- **E2E tests:** Playwright for critical flows — login, department access, agent chat, admin dashboard. Kept small and stable.
+- **What must be tested:** all RLS policies, all server actions, all role checks, all validation schemas.
+- **What can be tested lightly:** presentational components, static pages.
+
+---
+
+## Security Non-Negotiables
+
+- **Anthropic API key is server-only.** Never `NEXT_PUBLIC_`, never in a client component, never in a client-side fetch.
+- **RLS on every table.** A table without RLS is a production incident waiting to happen.
+- **Role checks on every sensitive server action.** Client-side role checks are UX, not security — the server re-verifies.
+- **No PII in logs.** Log user IDs (UUIDs), never emails, names, or message content. Redact before structured logging.
+- **No client-rendered markdown without sanitization.** Chat responses are sanitized before render to prevent prompt-injection-driven XSS.
+- **Rate limiting on every route handler that calls Anthropic.** Per-user and per-org limits.
+- **CORS locked** to the app's own origin. No wildcard origins in production.
+- **Input validation with Zod** at every trust boundary.
+- **Admin routes double-gated:** Next.js middleware checks role, and RLS policies re-enforce at the DB level.
+
+---
+
+## AI Integration Rules
+
+This app handles attorney work product, and in some future deployments may handle privileged or confidential information. Treat every AI integration accordingly.
+
+- **All Anthropic API calls happen server-side.** No exceptions.
+- **System prompts live in the database** (`agents` table), not in code, so they can be updated without a deploy. System prompts are loaded server-side and never exposed to the client.
+- **Prompt templates are versioned.** Every change to an agent's system prompt creates a new version row; old conversations retain their original prompt for reproducibility.
+- **User messages are validated** against a max length and a content-type allowlist before being sent to the model.
+- **Model output is treated as untrusted.** Any content rendered in the UI is sanitized. Any action triggered by model output (tool use, agentic behavior) requires explicit user confirmation in the chat, not inferred intent.
+- **Prompt injection defense:** system prompts include explicit instructions that user-supplied content is data, not instructions. Tool-use flows (when added) verify every action with the user.
+- **Cost tracking from day one of native agents.** Every Anthropic call logs tokens in / tokens out / model / user / department / agent ID to a `usage_events` table.
+- **Rate limiting per user and per organization.** Default tier limits configurable per deployment.
+- **Conversations are scoped by user.** A user can never see another user's conversations, even within the same department. RLS enforces this.
+- **No training on customer data.** Anthropic API calls use the standard API, which does not train on inputs. Document this clearly in the privacy page.
+
+---
+
+## What Not to Do
+
+- Do not put the Anthropic API key in any file reachable by the browser.
+- Do not create a table without RLS enabled.
+- Do not disable RLS "temporarily" for debugging. Write a policy instead.
+- Do not trust `user.id` from the client. Always read it from the Supabase server session.
+- Do not hardcode department lists or agent lists in frontend code after Phase 1 — they live in the database.
+- Do not log raw message bodies or email addresses.
+- Do not render model output as HTML without sanitization.
+- Do not call external APIs from client components. Route every external call through a server action or route handler.
+- Do not skip the DECISION_LOG update when making an architectural choice. Future-you will not remember why.
+- Do not add a new department by duplicating pages — departments are dynamic routes driven by the `departments` table.
+
+---
+
+## Documentation Rules
+
+When making any product change (new feature, renamed component, new page, architectural change, design system change, or brand update), the following files must be checked and updated if affected:
+
+- **README.md**: project overview, setup instructions, feature list, routes, project structure
+- **PROJECT_OUTLINE.md**: roadmap, technical architecture, phase status
+- **DECISION_LOG.md**: any decision worth recording
+- **CLAUDE.md**: new conventions, components, architecture changes
+- **CHANGELOG.md**: what was built, what was fixed, date
+- **.env.example**: any new environment variables
+- **SETUP.md**: any change that affects how someone forks and runs this template
+
+This is not optional. Documentation updates are part of the definition of done for every change.
+
+At the end of every phase or significant feature completion, sync generalized lessons back to the portable `claude-templates` library. Extract the universal principle, not the project-specific detail. If a new rule or convention is added to this project's CLAUDE.md, evaluate whether it belongs in the template CLAUDE.md as well.
+
+---
+
+## Skill Routing Rules (Mandatory)
+
+Before performing any of the following types of work, you MUST read the specified skill file(s) in `.claude/skills/` and follow their conventions. Do not rely on memory from previous sessions; re-read the skill file every time.
+
+| Task Type | Read First | Examples |
+|---|---|---|
+| Any frontend work | `nextjs.md` + `react-patterns.md` + `tailwind.md` | Components, pages, layouts, styling |
+| Any UI/UX decision | `ui-patterns.md` + `responsive-design.md` + `ux-writing.md` | Component design, error copy, empty states |
+| Any accessibility concern | `web-accessibility.md` | Forms, navigation, modals, keyboard flows |
+| Any backend/API work | `api-security.md` + `backend-security.md` | Route handlers, server actions, middleware |
+| Any database work | `supabase.md` + `database-patterns.md` + `database-security.md` | Schema changes, migrations, queries, RLS policies |
+| Any auth work | `supabase.md` + `backend-security.md` + `api-security.md` | Login, role checks, session handling |
+| Any AI/prompt work | `anthropic-api.md` + `prompt-engineering.md` | System prompts, Claude API calls, streaming |
+| Any deployment/env work | `vercel-deployment.md` + `environment-management.md` + `infra-security.md` | Build config, env vars, preview deploys |
+| Any frontend security concern | `frontend-security.md` | CSP, XSS prevention, cookie handling |
+| Any analytics or cost work | `analytics.md` + `cost-tracking.md` | Event tracking, dashboards, token logging |
+| Any model provider change | `model-abstraction.md` | Adding OpenAI, Google, or other providers |
+| Any eval or quality work | `eval-framework.md` + `observability.md` | Regression tests, tracing, monitoring |
+| Any CI/CD work | `ci-cd.md` | GitHub Actions, PR checks, deploy gates |
+| Any work touching multiple domains | Read ALL relevant skills | Full-stack features, new phases |
+
+If you are unsure whether a skill applies, read it anyway. It is always better to over-consult than to miss a convention.
+
+If a task requires a skill that does not exist in `.claude/skills/` yet but exists in the `claude-templates` library, copy it into the project first, then read it.
+
+---
+
+## Skill Template Sync Convention
+
+At the end of every phase or sub-phase, after completing the standard documentation updates above, you **MUST** also sync any new patterns, lessons, or gotchas discovered during that phase to the portable skill templates at `<claude-templates>/skills/`.
+
+### Sync Process
+
+1. **Review** every project-specific skill file in `.claude/skills/` that was referenced or updated during this phase.
+2. **Extract the generalized principle.** Strip out project-specific details (project names, specific API keys, specific database tables, specific design tokens) and keep the universal best practice.
+3. **Update** the corresponding portable template skill file with the generalized version.
+4. **Create new templates.** If a new skill file was created for this project that doesn't have a portable template equivalent yet, create one in the appropriate subdirectory of `<claude-templates>/skills/`.
+5. **Version bump.** Add a version bump and "Last updated" date to any modified template skill files.
+
+### Example
+
+If during a phase you discover that Supabase RLS policies behave differently when a service-role key is used on joined tables, the project skill gets the specific fix. The portable template gets: "When using admin/service role keys that bypass row-level security, verify behavior on queries involving joins, as RLS policies may not propagate across joined tables as expected."
+
+**This is not optional.** No phase is complete until both project-specific skills AND portable templates are current.
