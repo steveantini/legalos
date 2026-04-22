@@ -112,10 +112,10 @@ Phase 2 additions:
 
 - Create repo `legal-department-launchpad-template`.
 - Fill in `CLAUDE.md`, `PROJECT_OUTLINE.md`, `DECISION_LOG.md`, `SETUP.md`, `README.md`, `CHANGELOG.md`.
-- Scaffold Next.js 15 + TypeScript + Tailwind + shadcn/ui.
+- Scaffold Next.js 16 + TypeScript + Tailwind v4 + shadcn/ui.
 - Create Supabase project (dev). Enable auth. No tables yet.
 - Deploy to Vercel. Verify preview + prod pipelines.
-- Port theme presets (Carbon, Modern, Minimal) from the prior `agent-launchpad-template` as Tailwind config + CSS variables.
+- Port theme presets (Carbon, Modern, Minimal) from the prior `agent-launchpad-template` using Tailwind v4's `@theme` directive and CSS variables.
 - Copy Phase 0 skills into `.claude/skills/` (see `skills-checklist.md`).
 - Seed `config/site.ts` with placeholder branding.
 

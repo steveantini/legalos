@@ -1,48 +1,63 @@
-# OS files
-.DS_Store
-Thumbs.db
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
+# --- Dependencies -----------------------------------------------------------
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# Node
-node_modules/
+# --- Next.js ----------------------------------------------------------------
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# --- Production build -------------------------------------------------------
+/build
+
+# --- Vercel -----------------------------------------------------------------
+.vercel
+
+# --- Testing ----------------------------------------------------------------
+/coverage
+*.lcov
+playwright-report/
+test-results/
+
+# --- Environment ------------------------------------------------------------
+.env*
+!.env.example
+
+# --- Debug logs -------------------------------------------------------------
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Next.js
-.next/
-out/
-build/
-next-env.d.ts
-*.tsbuildinfo
-
-# Vercel
-.vercel
-
-# Environment
-.env
-.env.*
-!.env.example
-
-# Coverage and test artifacts
-coverage/
-*.lcov
-playwright-report/
-test-results/
-
-# Supabase local dev
+# --- Supabase local dev -----------------------------------------------------
 supabase/.temp/
 supabase/.branches/
 
-# Python
+# --- Claude local settings --------------------------------------------------
+.claude/settings.local.json
+
+# --- OS ---------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Editor -----------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Certs ------------------------------------------------------------------
+*.pem
+
+# --- Python -----------------------------------------------------------------
 __pycache__/
 *.pyc
-
-# Claude local settings
-.claude/settings.local.json

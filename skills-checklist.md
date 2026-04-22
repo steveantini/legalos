@@ -50,16 +50,26 @@ Commit them in a single commit: `chore: copy phase 0 skills from claude-template
 
 Most skills copy cleanly. Two need small tweaks at the top of the file to pin them to this project's specific choices.
 
-### `tailwind.md` — add a project-specific theme note
+### `tailwind.md` — add a project-specific v4 + theme-preset note
 
-Your template covers Tailwind generally. This project uses CSS-variable-driven theme presets (Carbon / Modern / Minimal / Custom) ported from the prior `agent-launchpad-template`. Add a note at the top of `.claude/skills/tailwind.md`:
+Your upstream `tailwind.md` is written against Tailwind v3. This project uses Tailwind v4 (see `DECISION_LOG.md` D-014). v4 is CSS-first: there is no JS `tailwind.config.ts` by default. Design tokens live in CSS via `@import "tailwindcss"` and the `@theme` directive. The project's theme-preset approach (Carbon / Modern / Minimal / Custom) ported from the prior `agent-launchpad-template` maps directly onto v4's CSS-variable-first model.
+
+Add a note at the top of `.claude/skills/tailwind.md`:
 
 ```markdown
-> **Project-specific note:** This project uses CSS-variable-driven theme presets
-> defined in `config/theme.ts` and consumed via Tailwind's `theme.extend`. When
-> adding new color or spacing tokens, add them as CSS variables first, then
-> reference them in `tailwind.config.ts`. Never hardcode hex values in component
-> className strings — use token names.
+> **Project-specific note (Tailwind v4):** This project uses Tailwind CSS v4.
+> Design tokens live in CSS using `@import "tailwindcss"` and the `@theme`
+> directive, not in a JS `tailwind.config.ts`. Theme presets
+> (Carbon / Modern / Minimal / Custom) are expressed as CSS variables and
+> switched by a `data-theme` attribute (or class) on `<html>`. When adding
+> new color or spacing tokens, define them as CSS variables under `@theme`
+> in `app/globals.css` (or a dedicated `config/theme.css`) and reference
+> the generated utilities — never hardcode hex values in component
+> `className` strings.
+>
+> The upstream `claude-templates/skills/frontend/tailwind.md` is written
+> against v3. Generalizing this v4 guidance back to the portable template
+> is an explicit end-of-Phase-0 skill-sync item (see D-014).
 ```
 
 ### `ux-writing.md` — add a legal-domain tone note

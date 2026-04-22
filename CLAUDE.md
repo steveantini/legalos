@@ -20,7 +20,7 @@ Adoption is a first-class concern. The UI is deliberately simple, clean, modern,
 
 | Layer | Technology | Deployment |
 |---|---|---|
-| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui | Vercel |
+| Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui | Vercel |
 | Backend | Next.js API routes + server actions | Vercel (same deploy) |
 | Database | Supabase (PostgreSQL) with Row-Level Security | Supabase Cloud |
 | Auth | Supabase Auth (email/password + magic link) | Supabase Cloud |

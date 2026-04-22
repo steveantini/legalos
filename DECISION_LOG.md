@@ -244,3 +244,39 @@ Status: Accepted
 **Alternatives considered:** Less doc discipline. Rejected — already learned this lesson on prior projects.
 
 **Consequences:** Every PR/commit that changes product behavior updates relevant docs. Every phase ends with a sync back to the `claude-templates` library.
+
+---
+
+## D-013 — Framework version: Next.js 16 (not 15)
+
+Date: 2026-04-22
+Status: Accepted
+
+**Context:** Phase 0 Session 2's `create-next-app@latest` invocation installed Next.js 16.2.4 and React 19.2.4. `CLAUDE.md`, `PROJECT_OUTLINE.md`, and `README.md` had previously stated "Next.js 15" based on the last version the author had been using elsewhere.
+
+**Decision:** Accept Next.js 16. Update `CLAUDE.md`, `PROJECT_OUTLINE.md`, and `README.md` so the docs match the scaffold. D-005 (full-stack Next.js on Vercel) stands; only the version detail is superseded here.
+
+**Reasoning:** Starting a brand-new template on a lagging major is debt we don't want to accrue. Next.js 16 is current stable, the scaffolder's default, and has a supported upgrade path. We have no production dependency requiring a pin to 15, and the marginal breaking changes are survivable in Phase 0.
+
+**Alternatives considered:** Downgrade by pinning `next@^15` and reinstalling — preserves the doc claim but starts us one major behind immediately. Rejected.
+
+**Consequences:** AI-assisted code may need to consult Next.js 16 docs for APIs that differ from 15 (Cache Components, updated PPR and caching conventions, etc.). The `nextjs.md` skill gets a "Next.js 16 specifics" section when copied in Step 5, absorbing the warning content from the scaffold's `AGENTS.md` (which is then deleted).
+
+---
+
+## D-014 — Styling: Tailwind CSS v4 (not v3)
+
+Date: 2026-04-22
+Status: Accepted
+
+**Context:** The same Session 2 scaffold installed Tailwind CSS v4. v4 is architecturally different from v3: CSS-first configuration via `@import "tailwindcss"` and the `@theme` directive, rather than a JS `tailwind.config.ts` with `theme.extend`. This project's theme-preset approach (Carbon / Modern / Minimal / Custom), ported from the prior `agent-launchpad-template`, was designed against v3.
+
+**Decision:** Accept Tailwind v4.
+
+**Reasoning:** v4 is the ecosystem direction. Its CSS-variable-first model and `@theme` directive map more cleanly onto our theme-preset approach than v3's JS config did — CSS variables were always the underlying mechanism, and v4 makes them first-class. Downgrading to v3 to preserve compatibility with a `claude-templates` skill file written against v3 is backwards.
+
+**Alternatives considered:** Downgrade to Tailwind v3 for direct carry-over of the prior template's theme tokens. Rejected — v3 is a dead end for new work.
+
+**Consequences:**
+- The project-local adaptation note at the top of `.claude/skills/tailwind.md` (applied in Step 5) is rewritten to describe v4's `@theme` directive and CSS-variable pattern. `skills-checklist.md` is updated in lock-step so the checklist's adaptation guidance matches what Step 5 will actually write.
+- The upstream `claude-templates/skills/frontend/tailwind.md` is written against v3. Flagged as an explicit Phase 0 end-of-phase skill-sync item: generalize the v4 pattern back to the portable template.

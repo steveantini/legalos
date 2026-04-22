@@ -10,7 +10,7 @@ An AI-native launchpad template for in-house legal departments — a single, wel
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui |
+| Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui |
 | Backend | Next.js API routes + server actions |
 | Database | Supabase (PostgreSQL) with Row-Level Security |
 | Auth | Supabase Auth (email/password + magic link) |
