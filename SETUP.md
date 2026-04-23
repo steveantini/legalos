@@ -114,7 +114,7 @@ You should see the following tables created:
 
 Every table has RLS enabled and policies in place. Verify this in **Authentication → Policies** — every table should show at least one policy.
 
-### 3e. Enable email/password + magic link auth
+### 3e. Enable magic link auth
 
 In the Supabase dashboard:
 1. Go to **Authentication → Providers**.

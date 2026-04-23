@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tech-stack references in `CLAUDE.md`, `README.md`, and `PROJECT_OUTLINE.md` updated from Next.js 15 → Next.js 16 and Tailwind CSS → Tailwind CSS v4 to match the scaffold.
 - `skills-checklist.md` Tailwind adaptation note rewritten to describe the v4 pattern (`@import "tailwindcss"`, `@theme` directive, CSS-first tokens) instead of v3's `theme.extend`.
 - `.gitignore` merged: scaffold's Next.js / Yarn-PnP entries combined with project-specific entries (Supabase local dev, Claude local settings, `!.env.example` allowlist, editor/OS files).
+- Decision: magic link is the sole auth method (D-018, amends D-006).
 
 ### Removed
 

@@ -127,7 +127,7 @@ Phase 2 additions:
 
 **Goal:** A working single-department launchpad with auth and role-based access, matching the UX of the previous `agent-launchpad-template` but in Next.js.
 
-- Supabase Auth: email/password + magic link.
+- Supabase Auth: magic link only (per D-018, amends D-006).
 - Schema + migrations: `organizations`, `users`, `departments`, `user_department_roles`, `agents`.
 - RLS policies on all of the above.
 - Seed data: one organization, five departments, a set of Commercial external agent cards (Gemini Gems, watsonX, generic links).

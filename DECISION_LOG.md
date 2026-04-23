@@ -121,7 +121,7 @@ Briefly adopted when GitHub Pages was the planned host. Reversed when hosting mo
 ## D-006 — Auth: Supabase Auth with email/password + magic link
 
 Date: 2026-04-21
-Status: Accepted
+Status: Amended by D-018 (2026-04-23) — magic link only
 
 **Context:** Initial authentication method for Phase 1.
 
@@ -134,6 +134,8 @@ Status: Accepted
 - Third-party auth service (Clerk, Auth0). Rejected — Supabase Auth is sufficient and avoids an extra vendor.
 
 **Consequences:** SSO providers (Google, Microsoft) are added in a later phase. Auth flow, session handling, and the proxy (`proxy.ts`, per D-017) are designed so adding a provider is drop-in.
+
+**Amendment (2026-04-23 — see D-018):** After shipping magic link in Session 3a and the email/password form in Session 3c, we re-evaluated whether to keep the password form in Phase 1 scope. Decision: drop it. Magic link alone is a complete auth solution and avoids the password-set / password-reset / strength-rules / rate-limiting sub-features a password form implies. See D-018 for the full reasoning.
 
 ---
 
@@ -335,3 +337,22 @@ Status: Accepted
 - `lib/supabase/middleware.ts` and `createSupabaseMiddlewareClient` keep their names; their docstrings clarify the intended use site is `proxy.ts`.
 - CLAUDE.md, PROJECT_OUTLINE.md, and surrounding code comments are updated in lock-step.
 - `PHASE_0_SYNCBACK_TODO.md` now tracks an additional update to the upstream `skills/frontend/nextjs.md`: rename its "Middleware" section to "Proxy" (and keep a cross-reference for Next.js ≤15 users). Bundled with D-016's layout-flexibility note under the same sync-back item.
+
+---
+
+## D-018 — Magic link is sole auth method for Phase 1 (amends D-006)
+
+Date: 2026-04-23
+Status: Accepted
+
+**Context:** D-006 called for email/password + magic link. After shipping magic link in Session 3a, we evaluated whether to add the password form.
+
+**Decision:** Ship magic link only. Drop email/password from Phase 1 scope.
+
+**Reasoning:** Magic link alone is a complete auth solution. It handles first-touch signup, returning users, and password-forgetting users in a single flow — no password reset plumbing ever needed. Shipping password auth would add a password-set flow, password reset flow, password strength rules, and rate limiting considerations. Scope discipline wins; every phase that skips a feature is a phase that ships faster. Forkers who need SSO or password auth can add it against the existing `@supabase/ssr` foundation.
+
+**Alternatives considered:**
+- Shipping password auth in Phase 1. Rejected — adds four sub-features to test a form.
+- Deferring password auth to a later phase with a TODO. Rejected — ambiguous TODOs rot.
+
+**Consequences:** D-006 is amended. `SETUP.md`, `README.md`, `CLAUDE.md`, and `PROJECT_OUTLINE.md` references to email/password have been updated or removed in the same commit. SSO providers (Google, Microsoft) remain on the roadmap for a later phase and will be added against the same `@supabase/ssr` foundation. The email/password form code shipped in Session 3c (`app/(public)/login/page.tsx`, `app/(public)/login/actions.ts`) remains in the tree at the time of this ADR; a follow-up commit to remove it is a reasonable next action but is not bundled here — this commit is docs-only.

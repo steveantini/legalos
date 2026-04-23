@@ -23,7 +23,7 @@ Adoption is a first-class concern. The UI is deliberately simple, clean, modern,
 | Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui | Vercel |
 | Backend | Next.js API routes + server actions | Vercel (same deploy) |
 | Database | Supabase (PostgreSQL) with Row-Level Security | Supabase Cloud |
-| Auth | Supabase Auth (email/password + magic link) | Supabase Cloud |
+| Auth | Supabase Auth (magic link) | Supabase Cloud |
 | AI / LLM | Anthropic API (Claude) for native agents; external links for Gemini Gems, watsonX, etc. | Server-side only |
 | Analytics | Supabase tables; localStorage fallback in Phase 1 | Supabase Cloud |
 
