@@ -33,9 +33,15 @@ export default async function HomePage() {
         <span className="font-medium text-foreground">{user.email}</span>.
       </p>
       <p className="mt-4 text-sm text-muted-foreground">
-        Route protection, role checks, and department pages are coming in
-        Session 3b and beyond.
+        Commercial is the first department wired up in Session 3b. The rest
+        follow in later sessions.
       </p>
+      <Link
+        href="/departments/commercial"
+        className="mt-4 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        Go to Commercial
+      </Link>
     </main>
   );
 }
