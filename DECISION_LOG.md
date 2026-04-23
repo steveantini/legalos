@@ -280,3 +280,20 @@ Status: Accepted
 **Consequences:**
 - The project-local adaptation note at the top of `.claude/skills/tailwind.md` (applied in Step 5) is rewritten to describe v4's `@theme` directive and CSS-variable pattern. `skills-checklist.md` is updated in lock-step so the checklist's adaptation guidance matches what Step 5 will actually write.
 - The upstream `claude-templates/skills/frontend/tailwind.md` is written against v3. Flagged as an explicit Phase 0 end-of-phase skill-sync item: generalize the v4 pattern back to the portable template.
+
+---
+
+## D-015 — Component primitives: shadcn/ui on Base UI (not Radix)
+
+Date: 2026-04-22
+Status: Accepted
+
+**Context:** shadcn/ui 4.x (4.4.0 at the time of Phase 0 Session 2) restructured its CLI and default component model. The `--defaults` preset for `init` expands to `--template=next --preset=base-nova`, which targets shadcn's own Base UI primitive library (`@base-ui/react`) rather than the Radix primitives shadcn used for years. Session 2's scaffold accepted `--defaults` and landed on Base UI.
+
+**Decision:** Accept Base UI.
+
+**Reasoning:** Same logic as D-013 (Next.js 16) and D-014 (Tailwind v4) — for a template that will be long-lived, ecosystem direction matters more than the comfort of the previous default. shadcn's own docs and future components target Base UI; Radix is being framed as a legacy option. Starting a new template on the legacy option is debt we don't want to accrue. Base UI and Radix have comparable consumer APIs, so the replatform cost later would be higher than the adaptation cost now.
+
+**Alternatives considered:** Re-init with `-b radix` to stay on Radix primitives. Rejected — Radix was shadcn 3.x's default; shadcn 4.x is moving to Base UI.
+
+**Consequences:** `components.json` records `"style": "base-nova"` and Base UI is installed as `@base-ui/react`. Any subsequent `shadcn add <component>` pulls the Base-UI-flavored variant. If a specific primitive we need is not yet matched in Base UI, we can consume Radix directly as a peer dep for that one component rather than replatforming.
