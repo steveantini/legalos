@@ -44,10 +44,13 @@ legal-department-launchpad-template/
 │   ├── launchpad/                # Agent cards, dept grids
 │   ├── chat/                     # Chat UI for native agents
 │   └── admin/                    # Admin dashboard components
+├── styles/                       # Global CSS and theme preset files (imported from app/globals.css)
 ├── lib/                          # Shared utilities
 │   ├── supabase/                 # Supabase clients (server, browser, middleware)
 │   ├── anthropic/                # Anthropic API client wrappers
 │   ├── auth/                     # Auth helpers, role checks
+│   ├── actions/                  # Server actions (promote to top-level when >~8 files)
+│   ├── hooks/                    # Custom React hooks (promote to top-level when >~8 files)
 │   └── analytics/                # Event tracking helpers
 ├── config/                       # Site configuration
 │   ├── site.ts                   # Branding, company name, theme preset

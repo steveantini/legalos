@@ -297,3 +297,20 @@ Status: Accepted
 **Alternatives considered:** Re-init with `-b radix` to stay on Radix primitives. Rejected — Radix was shadcn 3.x's default; shadcn 4.x is moving to Base UI.
 
 **Consequences:** `components.json` records `"style": "base-nova"` and Base UI is installed as `@base-ui/react`. Any subsequent `shadcn add <component>` pulls the Base-UI-flavored variant. If a specific primitive we need is not yet matched in Base UI, we can consume Radix directly as a peer dep for that one component rather than replatforming.
+
+---
+
+## D-016 — Directory structure: narrow root, `lib/` as home for actions and hooks
+
+Date: 2026-04-23
+Status: Accepted
+
+**Context:** The `nextjs.md` skill recommended a broader top-level layout with `actions/`, `hooks/`, `types/`, and `styles/` all at the repo root. `CLAUDE.md`'s original directory structure was narrower — `app/`, `components/`, `lib/`, `config/`, `supabase/`, `.claude/`, `public/` — and did not specify where server actions, custom hooks, or TypeScript types should live.
+
+**Decision:** Keep `CLAUDE.md`'s narrow set. Server actions live in `lib/actions/`. Custom hooks live in `lib/hooks/`. Types live inline next to the code that uses them (no top-level `types/`). Add `styles/` at the top level, because global CSS grows quickly in a template.
+
+**Reasoning:** Single source of truth wins over anticipated discovery. For AI-assisted solo development, a doc that accurately describes the repo is more valuable than a layout that self-announces. Promote `lib/actions/` or `lib/hooks/` to top-level the first time either exceeds ~8 files.
+
+**Alternatives considered:** Pre-create `actions/`, `hooks/`, `types/` at root now with `.gitkeep` files — rejected, empty dirs are noise. Accept the full `nextjs.md` recommendation wholesale — rejected, `CLAUDE.md` is the project's authority, not the skill.
+
+**Consequences:** `CLAUDE.md` remains the authoritative directory map. The `nextjs.md` skill differs from this project's choice; that is acceptable because the skill is a portable template and this is a project. `CLAUDE.md`'s directory structure is updated in lock-step with this entry to list `styles/`, `lib/actions/`, and `lib/hooks/`.
