@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project-specific adaptation notes at the top of three skills: `nextjs.md` (Next.js 16 warning, absorbing the scaffold's now-deleted `AGENTS.md`), `tailwind.md` (v4 `@theme` directive + CSS-variable pattern), `ux-writing.md` (legal-audience tone).
 - `config/` directory with three stub files: `site.ts` (branding + active theme preset), `departments.ts` (seed list + shape for the five starting departments), `theme.ts` (preset registry + metadata). TypeScript types and TODOs only; not yet wired into any component.
 - Bootstrap docs: `README.md`, `CHANGELOG.md` (this file), `.env.example` (with server-only vs client-exposed annotations for Supabase and Anthropic keys).
-- DECISION_LOG entries: **D-013** (Next.js 16 version choice), **D-014** (Tailwind v4 styling choice + skill-sync flag), **D-015** (shadcn/ui Base UI primitives over Radix).
+- DECISION_LOG entries: **D-013** (Next.js 16 version choice), **D-014** (Tailwind v4 styling choice + skill-sync flag), **D-015** (shadcn/ui Base UI primitives over Radix), **D-016** (narrow directory structure: `lib/actions/`, `lib/hooks/`, top-level `styles/`), **D-017** (Next.js 16 proxy file convention, formerly middleware).
 - Local magic-link authentication via `@supabase/ssr` (Session 3a): `/login` form + server action, `/auth/callback` code exchange, authenticated landing at `/`, and `lib/supabase/{server,browser}.ts` clients.
+- Route gating via `proxy.ts` + first-login user provisioning (`ensure_user_provisioned()` SECURITY DEFINER RPC), server-side access helpers in `lib/auth/access.ts`, and a gated `/departments/[slug]` route (Commercial wired up; invalid-or-inaccessible slugs return 404 to avoid leaking existence) — Session 3b. Includes migration `0002_user_provisioning.sql` and idempotent seed `supabase/seed/0001_org_and_departments.sql`.
 
 ### Changed
 
