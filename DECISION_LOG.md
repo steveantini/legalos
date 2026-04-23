@@ -133,7 +133,7 @@ Status: Accepted
 - Google SSO only. Deferred — legal departments do live on Google Workspace or Microsoft 365, but locking in one SSO provider in Phase 1 is premature.
 - Third-party auth service (Clerk, Auth0). Rejected — Supabase Auth is sufficient and avoids an extra vendor.
 
-**Consequences:** SSO providers (Google, Microsoft) are added in a later phase. Auth flow, session handling, and middleware are designed so adding a provider is drop-in.
+**Consequences:** SSO providers (Google, Microsoft) are added in a later phase. Auth flow, session handling, and the proxy (`proxy.ts`, per D-017) are designed so adding a provider is drop-in.
 
 ---
 
@@ -184,7 +184,7 @@ Status: Accepted
 
 **Decision:** Every table in this project has RLS enabled from the moment it is created. Every table has explicit policies before any data is inserted. A table with no policies has zero access — which is the safe default.
 
-**Reasoning:** Defense in depth. If middleware is misconfigured, if a server action forgets a role check, if a client is compromised — RLS is the last line that stands. Retrofitting RLS onto a table that already has data is a minefield.
+**Reasoning:** Defense in depth. If the proxy (`proxy.ts`) is misconfigured, if a server action forgets a role check, if a client is compromised — RLS is the last line that stands. Retrofitting RLS onto a table that already has data is a minefield.
 
 **Alternatives considered:**
 - RLS on "sensitive" tables only. Rejected — "sensitive" is a moving target, and every table in this app touches org-scoped data.
@@ -314,3 +314,24 @@ Status: Accepted
 **Alternatives considered:** Pre-create `actions/`, `hooks/`, `types/` at root now with `.gitkeep` files — rejected, empty dirs are noise. Accept the full `nextjs.md` recommendation wholesale — rejected, `CLAUDE.md` is the project's authority, not the skill.
 
 **Consequences:** `CLAUDE.md` remains the authoritative directory map. The `nextjs.md` skill differs from this project's choice; that is acceptable because the skill is a portable template and this is a project. `CLAUDE.md`'s directory structure is updated in lock-step with this entry to list `styles/`, `lib/actions/`, and `lib/hooks/`.
+
+---
+
+## D-017 — Next.js 16 proxy file convention (formerly middleware)
+
+Date: 2026-04-23
+Status: Accepted
+
+**Context:** Session 3b's first `npm run build` produced a Next.js 16 deprecation warning: *"The 'middleware' file convention is deprecated. Please use 'proxy' instead."* Per `node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md`, Next.js 16 renamed the feature — API unchanged, only the filename (`middleware.ts` → `proxy.ts`) and the exported function name (`middleware` → `proxy`) change.
+
+**Decision:** Use `proxy.ts` at repo root. Rename the exported function to `proxy`. Keep internal helper filenames like `lib/supabase/middleware.ts` for filename stability; update docstrings and prose to say "proxy" where the reference is to the Next.js file convention.
+
+**Reasoning:** Template-repo discipline. The deprecation is current as of Next 16.2.4 and may become a hard removal in a future major. Shipping a fork-able template on the deprecated convention would be a quiet gift of tech debt to every forker. Per the project-local adaptation note at the top of `.claude/skills/nextjs.md`: "Heed deprecation notices."
+
+**Alternatives considered:** Ship on the deprecated `middleware.ts`. Build still works with only a warning. Rejected — template expected to live multiple Next.js majors, and forkers who upgrade will hit the removal first.
+
+**Consequences:**
+- `middleware.ts` → `proxy.ts` at repo root; exported function renamed.
+- `lib/supabase/middleware.ts` and `createSupabaseMiddlewareClient` keep their names; their docstrings clarify the intended use site is `proxy.ts`.
+- CLAUDE.md, PROJECT_OUTLINE.md, and surrounding code comments are updated in lock-step.
+- `PHASE_0_SYNCBACK_TODO.md` now tracks an additional update to the upstream `skills/frontend/nextjs.md`: rename its "Middleware" section to "Proxy" (and keep a cross-reference for Next.js ≤15 users). Bundled with D-016's layout-flexibility note under the same sync-back item.

@@ -44,17 +44,25 @@ Specific changes:
   consumable by Tailwind utilities without being the storage format.
 - Dark-mode section similarly uses HSL — convert to OKLCH.
 
-### `skills/frontend/nextjs.md` — layout flexibility note
+### `skills/frontend/nextjs.md` — layout flexibility note + middleware→proxy rename
 
-Trigger: `DECISION_LOG.md` D-016 and review notes from Phase 0 Session 2
-Step 7.
+Trigger: `DECISION_LOG.md` D-016 (layout) and D-017 (middleware→proxy).
+Review notes from Phase 0 Session 2 Step 7 (layout) and Session 3b build
+warnings (proxy).
 
-Specific change:
-- The "Project Structure Recommendation" section recommends a `src/`
-  layout. Add a one-paragraph preamble noting that either `src/` or
-  root-level is valid; the project should pick one and document it in
-  its own CLAUDE.md. Show both variants side-by-side rather than
-  prescribing one.
+Specific changes:
+- **Layout (D-016):** The "Project Structure Recommendation" section
+  recommends a `src/` layout. Add a one-paragraph preamble noting that
+  either `src/` or root-level is valid; the project should pick one and
+  document it in its own CLAUDE.md. Show both variants side-by-side
+  rather than prescribing one.
+- **Middleware → Proxy rename (D-017):** Next.js 16 renamed the
+  `middleware.ts` file convention to `proxy.ts` (API identical; only
+  filename and exported function name change). Update the Reserved
+  Files table (line ~36), the dedicated "Middleware" section (line
+  ~187), the example code (line ~195), and the limitations note (line
+  ~220). Frame as "Proxy (formerly Middleware in Next.js ≤15)" so the
+  skill still aids forkers on older majors.
 
 ## Non-skill items (for completeness)
 

@@ -32,7 +32,7 @@ The app supports two types of agents:
                     │  Vercel (Next.js server)   │
                     │  - Route handlers          │
                     │  - Server actions          │
-                    │  - Middleware (auth)       │
+                    │  - Proxy (auth)            │
                     └──┬───────────────────────┬─┘
                        │                       │
         Supabase JS    │                       │   Anthropic SDK
@@ -75,7 +75,7 @@ Department access is independent of role. A user has zero or more rows in the `u
 ### How access is enforced
 
 - **UI layer (UX only):** Navigation and cards are filtered to departments the user has access to. This is cosmetic — it's meant to reduce confusion, not to enforce security.
-- **Middleware layer:** Auth middleware validates the Supabase session on every request to authenticated routes.
+- **Proxy layer:** The Next.js proxy (`proxy.ts`) validates the Supabase session on every request to authenticated routes.
 - **Server action layer:** Every server action re-reads the user's department permissions from the DB. Never trust a department ID from the client without re-validation.
 - **Database layer (last line):** RLS policies on `agents`, `conversations`, `messages`, and `usage_events` reference `user_department_roles` to determine what the user can see. If the other three layers fail, the DB still refuses.
 
@@ -131,7 +131,7 @@ Phase 2 additions:
 - Schema + migrations: `organizations`, `users`, `departments`, `user_department_roles`, `agents`.
 - RLS policies on all of the above.
 - Seed data: one organization, five departments, a set of Commercial external agent cards (Gemini Gems, watsonX, generic links).
-- Auth middleware; login, logout, magic-link flows.
+- Auth proxy (`proxy.ts`); login, logout, magic-link flows.
 - Commercial department page: card grid, category sections, support button, welcome modal, tips section.
 - Admin dashboard (role-gated): productivity gains calculator (ported from prior template), adoption metrics scaffold.
 - Analytics: localStorage in Phase 1 — we'll promote to Supabase in Phase 2 when usage volume justifies the table design.
@@ -165,7 +165,7 @@ Phase 2 additions:
 - Validate cross-department access: a user with access to both Commercial and M&A can switch between them; a user with access to only Commercial cannot see M&A content anywhere.
 - First test of the RLS policies against a real multi-department user set.
 
-**Definition of done:** A user with Commercial + M&A access sees both departments. A user with only Commercial access gets a clean "not found" or redirect if they try to force-navigate to M&A. RLS stops them at the DB even if middleware misses.
+**Definition of done:** A user with Commercial + M&A access sees both departments. A user with only Commercial access gets a clean "not found" or redirect if they try to force-navigate to M&A. RLS stops them at the DB even if the proxy misses.
 
 ---
 

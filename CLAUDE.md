@@ -70,7 +70,7 @@ legal-department-launchpad-template/
 ├── CHANGELOG.md                  # Version history
 ├── README.md                     # Project overview for GitHub
 ├── .env.example                  # Env var template
-└── middleware.ts                 # Auth middleware
+└── proxy.ts                      # Auth proxy (Next.js 16 file convention, formerly middleware.ts)
 ```
 
 ### Data Flow
@@ -147,7 +147,7 @@ User → Launchpad page → Click card → Navigate to `/agents/[id]` → Chat U
 - **Rate limiting on every route handler that calls Anthropic.** Per-user and per-org limits.
 - **CORS locked** to the app's own origin. No wildcard origins in production.
 - **Input validation with Zod** at every trust boundary.
-- **Admin routes double-gated:** Next.js middleware checks role, and RLS policies re-enforce at the DB level.
+- **Admin routes double-gated:** the Next.js proxy (`proxy.ts`) checks role, and RLS policies re-enforce at the DB level.
 
 ---
 
@@ -210,7 +210,7 @@ Before performing any of the following types of work, you MUST read the specifie
 | Any frontend work | `nextjs.md` + `react-patterns.md` + `tailwind.md` | Components, pages, layouts, styling |
 | Any UI/UX decision | `ui-patterns.md` + `responsive-design.md` + `ux-writing.md` | Component design, error copy, empty states |
 | Any accessibility concern | `web-accessibility.md` | Forms, navigation, modals, keyboard flows |
-| Any backend/API work | `api-security.md` + `backend-security.md` | Route handlers, server actions, middleware |
+| Any backend/API work | `api-security.md` + `backend-security.md` | Route handlers, server actions, proxy (`proxy.ts`) |
 | Any database work | `supabase.md` + `database-patterns.md` + `database-security.md` | Schema changes, migrations, queries, RLS policies |
 | Any auth work | `supabase.md` + `backend-security.md` + `api-security.md` | Login, role checks, session handling |
 | Any AI/prompt work | `anthropic-api.md` + `prompt-engineering.md` | System prompts, Claude API calls, streaming |
