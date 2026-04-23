@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config/` directory with three stub files: `site.ts` (branding + active theme preset), `departments.ts` (seed list + shape for the five starting departments), `theme.ts` (preset registry + metadata). TypeScript types and TODOs only; not yet wired into any component.
 - Bootstrap docs: `README.md`, `CHANGELOG.md` (this file), `.env.example` (with server-only vs client-exposed annotations for Supabase and Anthropic keys).
 - DECISION_LOG entries: **D-013** (Next.js 16 version choice), **D-014** (Tailwind v4 styling choice + skill-sync flag), **D-015** (shadcn/ui Base UI primitives over Radix).
+- Local magic-link authentication via `@supabase/ssr` (Session 3a): `/login` form + server action, `/auth/callback` code exchange, authenticated landing at `/`, and `lib/supabase/{server,browser}.ts` clients.
 
 ### Changed
 
