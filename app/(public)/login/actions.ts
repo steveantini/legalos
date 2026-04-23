@@ -9,6 +9,11 @@ const magicLinkSchema = z.object({
   email: z.string().email().max(254),
 });
 
+const passwordLoginSchema = z.object({
+  email: z.string().email().max(254),
+  password: z.string().min(8).max(128),
+});
+
 /**
  * Send a passwordless magic-link email.
  *
@@ -44,4 +49,43 @@ export async function signInWithMagicLink(formData: FormData) {
   }
 
   redirect("/login?message=check-inbox");
+}
+
+/**
+ * Sign in with email + password.
+ *
+ * Per backend-security.md ("Never leak whether a user exists"), Zod
+ * validation errors, Supabase auth errors, empty passwords, wrong
+ * passwords, and non-existent accounts all collapse to one generic
+ * response: `error=invalid-credentials`. Supabase itself already
+ * returns a generic "Invalid login credentials" for bad credentials,
+ * so this aligns with its default; we still re-wrap to avoid leaking
+ * Supabase error phrasing to the client.
+ *
+ * On success, the @supabase/ssr server client writes the session
+ * cookie and we redirect to the authenticated landing page.
+ */
+export async function signInWithPassword(formData: FormData) {
+  const parsed = passwordLoginSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    redirect("/login?error=invalid-credentials");
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    console.error("signInWithPassword failed");
+    redirect("/login?error=invalid-credentials");
+  }
+
+  redirect("/");
 }
