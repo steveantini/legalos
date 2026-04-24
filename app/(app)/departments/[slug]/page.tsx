@@ -1,13 +1,22 @@
 import { notFound } from "next/navigation";
 
-import { getDepartmentIfAccessible, requireAuthUser } from "@/lib/auth/access";
+import { LaunchpadGrid } from "@/components/launchpad/launchpad-grid";
+import { SupportButton } from "@/components/launchpad/support-button";
+import { TipsSection } from "@/components/launchpad/tips-section";
+import { WelcomeModal } from "@/components/launchpad/welcome-modal";
+import { siteConfig } from "@/config/site";
+import {
+  getAgentsForDepartment,
+  getDepartmentIfAccessible,
+  requireAuthUser,
+} from "@/lib/auth/access";
 
 export default async function DepartmentPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const user = await requireAuthUser();
+  await requireAuthUser();
   const { slug } = await params;
   const department = await getDepartmentIfAccessible(slug);
 
@@ -15,17 +24,30 @@ export default async function DepartmentPage({
     notFound();
   }
 
+  const agents = await getAgentsForDepartment(department.id);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold">{department.name} Department</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Signed in as{" "}
-        <span className="font-medium text-foreground">{user.email}</span>.
-      </p>
-      <p className="mt-4 text-sm text-muted-foreground">
-        Minimal placeholder — agent cards, admin views, and the rest arrive
-        in later sessions.
-      </p>
-    </main>
+    <>
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        <header>
+          <h1 className="text-3xl font-semibold">{department.name}</h1>
+          {department.description ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {department.description}
+            </p>
+          ) : null}
+        </header>
+
+        <LaunchpadGrid
+          agents={agents}
+          departmentSlug={department.slug}
+        />
+
+        <TipsSection />
+      </main>
+
+      <WelcomeModal departmentName={department.name} />
+      <SupportButton supportEmail={siteConfig.adminEmail} />
+    </>
   );
 }
