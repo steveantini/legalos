@@ -95,3 +95,45 @@ export async function getDepartmentIfAccessible(slug: string) {
 
   return department;
 }
+
+/**
+ * Subset of `public.agents` columns the launchpad needs. RLS still scopes
+ * results to the current user's organization and the departments they have
+ * access to. Exported so callers can import the shape alongside the helper.
+ */
+export interface LaunchpadAgent {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  type: "external" | "native";
+  external_url: string | null;
+  category: string | null;
+  sort_order: number;
+}
+
+/**
+ * Returns active agents for a given department, ordered by category then
+ * `sort_order`. Callers typically resolve the department first via
+ * `getDepartmentIfAccessible` and pass its id here.
+ *
+ * The explicit `is_active = true` filter matters: the
+ * `agents_admin_read_all` RLS policy (schema 0001) exposes inactive
+ * agents to `dept_admin` / `org_admin` users. The launchpad shows only
+ * active agents regardless of role.
+ */
+export async function getAgentsForDepartment(
+  departmentId: string,
+): Promise<LaunchpadAgent[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("agents")
+    .select(
+      "id, slug, name, description, type, external_url, category, sort_order",
+    )
+    .eq("department_id", departmentId)
+    .eq("is_active", true)
+    .order("category", { ascending: true })
+    .order("sort_order", { ascending: true });
+  return (data ?? []) as LaunchpadAgent[];
+}
