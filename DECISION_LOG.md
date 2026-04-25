@@ -356,3 +356,35 @@ Status: Accepted
 - Deferring password auth to a later phase with a TODO. Rejected — ambiguous TODOs rot.
 
 **Consequences:** D-006 is amended. `SETUP.md`, `README.md`, `CLAUDE.md`, and `PROJECT_OUTLINE.md` references to email/password have been updated or removed in the same commit. SSO providers (Google, Microsoft) remain on the roadmap for a later phase and will be added against the same `@supabase/ssr` foundation. The email/password form code shipped in Session 3c (`app/(public)/login/page.tsx`, `app/(public)/login/actions.ts`) remains in the tree at the time of this ADR; a follow-up commit to remove it is a reasonable next action but is not bundled here — this commit is docs-only.
+
+---
+
+## D-019 — Functional parity rule for reference ports (Constraint C)
+
+Date: 2026-04-25
+Status: Accepted
+
+**Context:** Session 5 shipped a productivity calculator at `/admin/calculator` that did not match the upstream `agent-launchpad-template/admin.html` original. The port was built against a paraphrased description of the feature (a four-input form: team size, hours/person/week, hourly rate, platform cost) rather than the original (a multi-associate, multi-task workspace with per-row derived values, per-associate totals, grand totals, ROI, info modals, and CSV export). The result was major functional drift — the new calculator was a different feature wearing the same name. The fix session rebuilt the calculator to match the original; this ADR codifies the rule that prevents the failure mode.
+
+**Decision:** Adopt **Constraint C — Functional parity with originals**. When a feature is being ported from an upstream reference, read the original first and replicate field-for-field, formula-for-formula, interaction-for-interaction. Visual style follows Constraint B (shadcn defaults). Behavior follows the originals exactly unless an explicit exception is documented in this log.
+
+The full rule, including how to apply it on a per-session basis, is recorded in `CLAUDE.md` under the "Reference Ports (Constraint C)" section. This entry is the authoritative record of why the rule exists.
+
+**Reasoning:** Paraphrased descriptions of UX leak content. The reference is the source of truth for behavior; even careful paraphrases of multi-component, formula-driven features tend to omit fields, smooth over edge cases, or "improve" interactions. The originals were authored, tested, and shipped with intent — replicating them faithfully is cheaper than reinventing them, and produces a port a forker can recognize as "the same feature, in the new stack."
+
+The corollary is that visual style is the only axis where deviation is encouraged: the originals are styled with project-specific tokens that this template does not aspire to inherit. Constraint B already governs that axis. Constraint C governs the behavioral axis.
+
+**Alternatives considered:**
+
+- *Status quo (no rule).* Rejected — the failure mode just produced a fix session worth of rework; without a rule, the next port will repeat the failure.
+- *"Read the original when convenient" as a soft norm.* Rejected — soft norms are rounded down to zero under deadline pressure. The rule needs to be a hard precondition: a session that ports begins with a verbatim read of the source, and the plan names the source files.
+- *Port the original verbatim including styling.* Rejected — Constraint B already exists for good reason; the brand and theme of the upstream template are explicitly out of scope for this project.
+
+**Consequences:**
+
+- Every future reference port (this project draws from `../agent-launchpad-template/`) begins with a verbatim read of the source. The plan presented to the user names the specific source files and line ranges that informed it.
+- Plans for reference ports must enumerate the formulas, inputs, derived values, storage keys, CSV columns, and modal copy from the original — not paraphrase them.
+- Deviations from the original's behavior must be documented as exceptions in this log, with the reason. The Session 5 fix bundles two such exceptions: (a) no password gate (this project uses middleware-based RBAC; the original's `loginOverlay` + `sessionStorage admin_authenticated` pattern is replaced), and (b) the "Create Report" button is wired to a real CSV download rather than the original's `alert('Report export functionality coming soon!')` placeholder.
+- The Session 5 fix calculator rebuild is the first port shipped under Constraint C and serves as the reference for how subsequent ports are scoped, planned, and verified.
+- Future sessions that port functionality without a verbatim source read are rejected at plan-review time, regardless of how confident the description sounds.
+

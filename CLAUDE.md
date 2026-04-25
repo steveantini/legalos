@@ -183,6 +183,24 @@ This app handles attorney work product, and in some future deployments may handl
 
 ---
 
+## Reference Ports (Constraint C)
+
+When a feature is being ported from an upstream reference (currently the prior `agent-launchpad-template`, located at `../agent-launchpad-template/` relative to this repo, and any future reference repos this project draws from), you must read the original first and replicate it field-for-field, formula-for-formula, interaction-for-interaction.
+
+**Why:** paraphrased descriptions of UX leak content. Ports built against a description rather than the source drift in subtle, compounding ways — field labels shift, formulas get "simplified," interactions get "improved." The reference is the source of truth for behavior; only the visual style is allowed to drift (per Constraint B — shadcn defaults, no theme port).
+
+**How to apply:**
+
+1. Locate the original file(s) in the reference repo before writing any code. Read them verbatim — do not skim.
+2. Replicate every input, every formula, every derived value, every storage key, every CSV column, every modal copy string, exactly. Number-format strings (e.g., locale + minimum/maximum fraction digits) match the original.
+3. Visual style follows Constraint B: shadcn defaults, no port of the original's color palette, fonts, gradients, or brand styling. Layout structure (grids, ordering, button placement) does follow the original.
+4. Any deviation from the original's behavior must be explicitly documented in DECISION_LOG.md as an exception, with the reason. "I thought this was cleaner" is not a reason.
+5. If the original has a feature this project has decided not to port (e.g., the original's password gate, replaced here by middleware-based RBAC), call that out in the relevant DECISION_LOG entry so future reviewers can match the source against the port.
+
+This applies to every reference port from this point forward. Sessions that port functionality begin with a verbatim read of the source; the plan presented to the user names the specific source files and line ranges read.
+
+---
+
 ## Documentation Rules
 
 When making any product change (new feature, renamed component, new page, architectural change, design system change, or brand update), the following files must be checked and updated if affected:
