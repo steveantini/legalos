@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -94,6 +94,62 @@ export async function getDepartmentIfAccessible(slug: string) {
   }
 
   return department;
+}
+
+/**
+ * Returns true if the current user has an org-level admin role
+ * (`super_admin` / `org_admin`) OR is `dept_admin` for at least one
+ * department. Used by the main nav to conditionally render the Admin
+ * link and by `requireAdminUser()` to gate admin routes.
+ *
+ * Two DB reads (org role, then dept_admin existence) — acceptable at
+ * Phase 1 scale. Collapse into a single query in a later phase if this
+ * shows up on a page-load flame graph.
+ */
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (
+    profile &&
+    (profile.role === "super_admin" || profile.role === "org_admin")
+  ) {
+    return true;
+  }
+
+  const { data: deptAdmin } = await supabase
+    .from("user_department_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("role", "dept_admin")
+    .limit(1)
+    .maybeSingle();
+
+  return Boolean(deptAdmin);
+}
+
+/**
+ * Gate for admin routes. Redirects unauthenticated users to /login via
+ * `requireAuthUser()`; for authenticated-but-not-admin users, calls
+ * `notFound()` rather than redirecting — the 404 avoids leaking the
+ * existence of the admin section to non-admin accounts.
+ */
+export async function requireAdminUser() {
+  const user = await requireAuthUser();
+  const admin = await isCurrentUserAdmin();
+  if (!admin) {
+    notFound();
+  }
+  return user;
 }
 
 /**
