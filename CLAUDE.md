@@ -116,6 +116,14 @@ User → Launchpad page → Click card → Navigate to `/agents/[id]` → Chat U
 - **Branch naming:** `feature/description`, `fix/description`, `chore/description`, `db/description`
 - **One logical change per commit.** Schema changes never mix with feature changes.
 
+### Commit Consistency
+
+Every commit must leave the codebase in an internally consistent state. No commit may reference symbols — ADR IDs, function names, files, modules, doc cross-links — that don't exist until a later commit.
+
+When two changes are coupled by reference, either bundle them into one commit or order the commits so the referenced target lands first.
+
+Why: broken intermediate states make `git bisect` unreliable, complicate PR review, and turn future readers of the history into archaeologists. A commit should build, lint, and read coherently when checked out in isolation.
+
 ---
 
 ## Environment & Configuration
@@ -216,6 +224,16 @@ When making any product change (new feature, renamed component, new page, archit
 This is not optional. Documentation updates are part of the definition of done for every change.
 
 At the end of every phase or significant feature completion, sync generalized lessons back to the portable `claude-templates` library. Extract the universal principle, not the project-specific detail. If a new rule or convention is added to this project's CLAUDE.md, evaluate whether it belongs in the template CLAUDE.md as well.
+
+### Session Close Protocol
+
+Before declaring a session done, triple-check that what was reported shipped is actually in `origin/main`:
+
+1. `git status` — must show `working tree clean`. Anything modified or untracked is unshipped work.
+2. `git log --oneline` — recent commits must include the session's deliverables.
+3. `git rev-parse HEAD` vs `git rev-parse origin/main` — must match. A local-only commit is not a shipped commit.
+
+Why: Session 5 closed with the entire admin shell uncommitted, despite reporting "done." The Session 5 fix audit caught the gap by running this triple-check explicitly; adopting it as session-close discipline prevents recurrence.
 
 ---
 
