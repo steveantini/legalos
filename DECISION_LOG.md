@@ -388,3 +388,29 @@ The corollary is that visual style is the only axis where deviation is encourage
 - The Session 5 fix calculator rebuild is the first port shipped under Constraint C and serves as the reference for how subsequent ports are scoped, planned, and verified.
 - Future sessions that port functionality without a verbatim source read are rejected at plan-review time, regardless of how confident the description sounds.
 
+---
+
+## D-020 — Adoption metrics page is paraphrased; Session 6 rebuild required under Constraint C
+
+Date: 2026-04-25
+Status: Accepted
+
+**Context:** The audit conducted during the Session 5 fix (the same fix that established Constraint C in D-019) revealed that `components/admin/adoption-metrics.tsx` was built against a paraphrased description of the original admin.html metrics surface, rather than against the original verbatim. The paraphrased view covers roughly 15% of the source's functionality: it shows top-5 agents by all-time click count and a 7-day daily bucket of clicks. The source (`agent-launchpad-template/admin.html` lines ~925–1112) provides far more — Active Users and Total Interactions metric cards with trend pills, a Top Users table with rank badges, week/month/year time-period selectors throughout, clickable user and agent names that open detail modals showing per-period interaction history, and a bar chart of activity over time with gradient fills. The placeholder also lacks a Create Report button. This is the same failure mode that produced the broken 4-input productivity calculator addressed in the Session 5 fix.
+
+**Decision:** Commit the paraphrased adoption-metrics view as a placeholder (the BACKFILL commit immediately preceding this entry). Rebuild it in Session 6 against the original verbatim under Constraint C. Preserve `lib/analytics/events.ts` (the data sink is correctly factored — committed in `6375d76`, shaped close to the eventual Phase 2 `analytics_events` schema per D-010) and the localStorage-disclosure intro paragraph in `app/(app)/admin/metrics/page.tsx` (it accurately discloses the Phase 1 limitation and was written to survive the rebuild). Replace everything else inside `components/admin/adoption-metrics.tsx`.
+
+**Reasoning:** Same failure mode as the calculator, same remedy. Constraint C (D-019) exists precisely to prevent this drift, and the rebuild pattern is now established. Making D-020 explicit ahead of Session 6 — rather than folding the metrics rebuild into D-019 — gives Session 6 a self-contained scope statement it can reference at plan-review time without re-deriving what's in scope. It also creates a clear precedent for how future paraphrase debt gets recorded: one ADR per affected surface, scoped to that surface, with explicit lists of what survives and what gets replaced.
+
+**Alternatives considered:**
+
+- *Don't commit the paraphrased version; rebuild now.* Rejected — Session 6 is its own focused effort, and the metrics page deserves the same care the calculator received (audit, plan, rebuild). Bundling the rebuild into the Session 5 fix would conflate two reference ports and make both harder to review.
+- *Delete `adoption-metrics.tsx` from the working tree and ship the route with a "coming soon" placeholder.* Rejected — the paraphrased version is at least functional against real localStorage events and serves a useful purpose for forkers exploring the template. Holding the tree empty until Session 6 trades a small amount of present utility for nothing in return.
+- *Fold this into D-019 as a second example.* Rejected — D-019 is a process ADR (the rule itself); D-020 is a scope ADR (the specific surface that owes the rule its remediation). Mixing them would dilute D-019's role as the canonical statement of Constraint C.
+
+**Consequences:**
+
+- Session 6 rebuilds `components/admin/adoption-metrics.tsx` field-for-field against `agent-launchpad-template/admin.html` lines ~925–1112, in accordance with Constraint C. The Session 6 plan-review must enumerate the original's fields, tables, modals, time-period selectors, and chart contents, and present them to the user before any code is written — exactly as the Session 5 fix did for the calculator.
+- `lib/analytics/events.ts` is preserved unchanged across the rebuild. If Session 6 needs to extend the event shape (e.g., to support per-user interaction history for the user detail modal), the changes go there, not in a parallel data layer. D-010's Phase 2 plan still applies.
+- The intro paragraph in `app/(app)/admin/metrics/page.tsx` (the localStorage disclosure referencing D-010) is preserved across the rebuild.
+- The description string for the "Adoption Metrics" card on the admin landing page (`app/(app)/admin/page.tsx`) is currently aligned with the paraphrased view. After the Session 6 rebuild it should be updated to match the rebuilt surface; bundle that update into the Session 6 fix commit, not as a separate commit.
+- D-019 and D-020 together establish a pattern: every reference port that ships paraphrased gets its own scoped ADR documenting the debt, alongside the BACKFILL commit that lands the paraphrased version. Future ports caught at audit time follow this same structure.
