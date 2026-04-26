@@ -41,3 +41,38 @@ export interface UsageRow {
   time: string;
   user: string;
 }
+
+/**
+ * Trend pill on a metric card. Sample mode uses hardcoded values from
+ * the source (lines 941–965). Real mode renders no trend pill — set to
+ * null. The `compare` string is the period anchor copy ("this week",
+ * "vs yesterday", "vs last week").
+ */
+export interface TrendPill {
+  direction: "up" | "down";
+  pct: number;
+  compare: string;
+}
+
+/**
+ * The 5-card grid at the top of the metrics surface. Total Interactions
+ * is always computable; the four user-dependent cards (Daily/Weekly
+ * Active/Repeat Users) are null in real mode because `AgentClickEvent`
+ * does not currently include user identity (Q1 of the Session 6 plan,
+ * D-020). Components render "—" for null values.
+ *
+ * Trend pills are null in real mode (no period-over-period baseline
+ * stored in localStorage). Sample mode populates all five.
+ */
+export interface MetricCardsData {
+  totalInteractions: number;
+  dailyActiveUsers: number | null;
+  weeklyActiveUsers: number | null;
+  dailyRepeatUsers: number | null;
+  weeklyRepeatUsers: number | null;
+  totalInteractionsTrend: TrendPill | null;
+  dailyActiveUsersTrend: TrendPill | null;
+  weeklyActiveUsersTrend: TrendPill | null;
+  dailyRepeatUsersTrend: TrendPill | null;
+  weeklyRepeatUsersTrend: TrendPill | null;
+}
