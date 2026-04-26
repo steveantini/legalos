@@ -414,3 +414,31 @@ Status: Accepted
 - The intro paragraph in `app/(app)/admin/metrics/page.tsx` (the localStorage disclosure referencing D-010) is preserved across the rebuild.
 - The description string for the "Adoption Metrics" card on the admin landing page (`app/(app)/admin/page.tsx`) is currently aligned with the paraphrased view. After the Session 6 rebuild it should be updated to match the rebuilt surface; bundle that update into the Session 6 fix commit, not as a separate commit.
 - D-019 and D-020 together establish a pattern: every reference port that ships paraphrased gets its own scoped ADR documenting the debt, alongside the BACKFILL commit that lands the paraphrased version. Future ports caught at audit time follow this same structure.
+
+---
+
+## D-021 — Demo-data toggle on adoption metrics page completes the original's intended real-data path
+
+Date: 2026-04-26
+Status: Accepted
+
+**Context:** The original `agent-launchpad-template/admin.html` was architected to support both sample data and a live analytics integration via an Apps Script backend (`APPS_SCRIPT_URL`, `isApiConnected`, `loadMetrics` / `loadTopUsers` / `loadClicksByAgent` / `loadUserDetails` / `loadAgentDetails`). The integration was never completed — `isApiConnected` is hardcoded `false` at line 1308, and every `loadXxx` API function falls through to its `updateXxx` sample-data sibling on `if (!isApiConnected)`. In effect, the original always renders sample data, but not because sample-data-only was the design intent; it's an artifact of an incomplete integration.
+
+This project, in contrast, has a real analytics data path: `lib/analytics/events.ts` writes `AgentClickEvent`s to localStorage on every external-agent click (D-010). That data is real, present, and matches the shape the original's API path was designed to consume.
+
+**Decision:** Implement the real-data path the original was architected for, using our existing localStorage analytics events (D-010) as the real-data source. Sample data remains available as a demo mode. The Session 6 adoption metrics rebuild ships with a single user-visible toggle that switches between the two sources.
+
+**Reasoning:** This is not a Constraint C deviation. It is the completion of the original's stated architecture, adapted to this project's data path. Constraint C requires field-for-field parity of behavior; the original's behavior includes a real-data mode that simply was never wired. Wiring it honors the original's intent more faithfully than copying the unfinished state. The toggle gives forkers both surfaces — a demo mode that matches the original's visible behavior verbatim, and a real-data mode that actually exercises their localStorage events.
+
+**Alternatives considered:**
+
+- *Sample-data only.* Rejected — wastes the project's real localStorage events, and replicates the original's incomplete state rather than its design intent.
+- *Real-data only.* Rejected — leaves no demo experience for forkers exploring the template; new clones would land on an empty dashboard.
+- *Side-by-side display (both modes simultaneously).* Considered briefly during the Session 6 audit; rejected — doubles the complexity for marginal benefit, and visually competes with itself when both have data.
+
+**Consequences:**
+
+- The adoption metrics page renders a single toggle (sample vs. real) at the top of its content. Mode-status copy near the toggle is unambiguous so a forker can never misread which data is which: sample mode says "Showing sample data for demonstration." (adapted from the original's `dataSourceText`), real mode says something like "Showing your agent click events from this browser's localStorage."
+- The localStorage-disclosure intro paragraph at the route page level (`app/(app)/admin/metrics/page.tsx`, preserved per D-020) and the inline mode-status copy serve different purposes: the page-level paragraph documents the Phase 1 limitation of localStorage-only events; the inline mode-status documents which data source is currently displayed. Both stay.
+- Real-mode bucketing semantics mirror sample-data bucketing: week / month / year selectors filter on event timestamps from `lib/analytics/events.ts`. The bucketing helpers live alongside the metrics components; the data sink itself is unchanged per D-020.
+- This is the only sanctioned Constraint C exception for the Session 6 rebuild — and the framing in this entry makes it not strictly an exception, but a completion. All other deviations from the original's behavior require a separate ADR.
