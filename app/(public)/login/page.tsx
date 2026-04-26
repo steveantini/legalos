@@ -1,4 +1,4 @@
-import { signInWithMagicLink, signInWithPassword } from "./actions";
+import { signInWithMagicLink } from "./actions";
 
 type SearchParams = Promise<{ message?: string; error?: string }>;
 
@@ -13,8 +13,7 @@ export default async function LoginPage({
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Enter your email for a sign-in link. If you have a password, use it
-        instead.
+        Enter your email for a sign-in link.
       </p>
 
       <form action={signInWithMagicLink} className="mt-6 flex flex-col gap-3">
@@ -31,32 +30,11 @@ export default async function LoginPage({
           className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
 
-        <label htmlFor="password" className="mt-1 text-sm font-medium">
-          Password{" "}
-          <span className="font-normal text-muted-foreground">
-            (only if signing in with password)
-          </span>
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-
         <button
           type="submit"
           className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Send sign-in link
-        </button>
-        <button
-          type="submit"
-          formAction={signInWithPassword}
-          className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          Sign in with password
         </button>
       </form>
 
@@ -76,15 +54,6 @@ export default async function LoginPage({
           className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
         >
           Please enter a valid email address.
-        </p>
-      ) : null}
-
-      {error === "invalid-credentials" ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          Invalid email or password.
         </p>
       ) : null}
 
