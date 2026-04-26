@@ -28,6 +28,7 @@
 import type {
   ClicksRow,
   InteractionRow,
+  MetricCardsData,
   Period,
   TopUserRow,
   UsageRow,
@@ -185,6 +186,25 @@ export const clicksData: Record<Period, ClicksRow[]> = {
     { label: "Regulatory Filing Assistant",           value:  4920 },
     { label: "Public Records Request Triage",         value:  3840 },
   ],
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// Metric cards — hand-written, verbatim from source lines 941–965.
+// Five cards, all hardcoded, all `up` direction, with mixed period
+// anchors per the source ("this week", "vs yesterday", "vs last week").
+// ─────────────────────────────────────────────────────────────────────
+
+export const sampleMetricCards: MetricCardsData = {
+  totalInteractions: 2847,
+  dailyActiveUsers: 156,
+  weeklyActiveUsers: 423,
+  dailyRepeatUsers: 89,
+  weeklyRepeatUsers: 267,
+  totalInteractionsTrend: { direction: "up", pct: 12, compare: "this week" },
+  dailyActiveUsersTrend: { direction: "up", pct: 8, compare: "vs yesterday" },
+  weeklyActiveUsersTrend: { direction: "up", pct: 15, compare: "vs last week" },
+  dailyRepeatUsersTrend: { direction: "up", pct: 5, compare: "vs yesterday" },
+  weeklyRepeatUsersTrend: { direction: "up", pct: 18, compare: "vs last week" },
 };
 
 // ─────────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { AdoptionMetrics } from "@/components/admin/adoption-metrics";
+import { AdoptionMetrics } from "@/components/admin/metrics/adoption-metrics";
 
 export default function AdminMetricsPage() {
   return (

@@ -4,7 +4,7 @@ const ADMIN_CARDS = [
   {
     title: "Adoption Metrics",
     description:
-      "Top agents by click count and activity over the last seven days.",
+      "KPI cards, top users, clicks per agent, and per-user / per-agent drill-downs. Toggle between sample data and your localStorage events.",
     href: "/admin/metrics",
   },
   {
