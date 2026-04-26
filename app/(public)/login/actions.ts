@@ -35,7 +35,18 @@ export async function signInWithMagicLink(formData: FormData) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // Resolution order:
+  // 1. NEXT_PUBLIC_SITE_URL — set explicitly in Vercel Production for the
+  //    canonical prod URL.
+  // 2. VERCEL_URL — auto-injected on every Vercel runtime (Production +
+  //    Preview), unique per deploy. Lets preview branches self-test
+  //    magic-link login without hardcoding URLs.
+  // 3. http://localhost:3000 — local dev fallback.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
 
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
