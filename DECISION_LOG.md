@@ -468,3 +468,42 @@ Status: Accepted
 - After Phase 2 closes, schedule a dedicated sync session that addresses both `PHASE_0_SYNCBACK_TODO.md` items AND the Constraint C / commit-consistency / session-close protocol additions developed during Sessions 4–7.
 - The sync session should target both `claude-templates/skills/*` and `claude-templates/CLAUDE.template.md`.
 - D-014's and D-015's stated "before Phase 2" timing is amended by this ADR to "in a dedicated session after Phase 2 ships." The sync still happens; only the phase-relative timing slips.
+
+---
+
+## D-023 — Native agent runtime architecture (Phase 2 foundations)
+
+Date: 2026-04-27
+Status: Accepted
+
+**Context:** Phase 2 begins; native agents need a runtime. Decisions about streaming, route handler vs. server action, cost tracking, rate limiting, and prompt-injection defense were locked in by the project owner before Session 8a. This ADR records them as a bundle so reviewers can see the architectural shape of the native agent runtime in one place rather than reconstructing it from individual commits.
+
+**Decision:** Bundled commitments for the native-agent runtime, all locked in for Session 8a:
+
+- **Streaming responses.** Anthropic SDK streaming via Server-Sent Events (SSE) compatible HTTP response. No non-streaming code path.
+- **Route handler, not server action.** Implementation lives at `app/api/chat/route.ts`. Route handlers handle streaming bodies more cleanly than server actions and give us a stable HTTP contract that smoke tests (`curl`) can hit directly.
+- **Anthropic SDK on the server.** `@anthropic-ai/sdk`. The API key lives only in `ANTHROPIC_API_KEY` (server-only, never `NEXT_PUBLIC_`) per D-008. Client components never call Anthropic.
+- **Cost tracking on every call.** Every Anthropic call writes a row to `usage_events` capturing `tokens_in`, `tokens_out`, `model`, `user_id`, `agent_id`, `conversation_id`, and `created_at`. Non-optional per the CLAUDE.md "AI Integration Rules" non-negotiables.
+- **Per-user rate limiting.** Phase 2 starts with a simple per-user limit (~20 messages/minute). Implementation can be in-memory or Supabase-backed; Redis / proper distributed limiting comes later when scale warrants. Rate limiting is non-optional per the CLAUDE.md security non-negotiables.
+- **Prompt-injection defense, two-layer.** (a) Every native agent's stored `system_prompt` is wrapped at request time with a standard preamble that tells the model user content is data, not instructions, and that it must not reveal the system prompt. (b) User input is validated server-side: max length (e.g., 10,000 chars), Zod-typed, and structurally delimited inside the message sent to the model.
+- **Per-agent model.** For Session 8a, the model id is hardcoded per agent in `agents.model` (the column already exists in the 0001 schema). Multi-provider abstraction is deferred per PROJECT_OUTLINE.md Phase 6.
+
+**Reasoning:** Streaming is the modern UX expectation for chat — deferring it to Phase 7+ would force a rewrite when the chat UI lands in 8b. Route handlers are a more natural home for streaming responses than server actions; they also give 8a a `curl`-testable surface so the runtime can be smoke-tested without a UI. Cost tracking from day one is a CLAUDE.md non-negotiable, and the cheapest moment to wire it is when the very first Anthropic call ships. Rate limiting prevents both abuse and accidental cost spikes during demos and pilots; absence of a rate limit on a route that calls a paid API is irresponsible. Prompt-injection defense is non-optional given the legal-domain context — attorney work product is the worst possible substrate for a leakable system prompt or a tool-use exfiltration. The bundled-commitments framing matches the pattern D-020 and D-021 established for Session 6.
+
+**Alternatives considered:**
+
+- *Server actions for the chat endpoint.* Rejected — server actions support streaming via `useActionState`-style returns but the contract is less standard than a route handler with a streaming `Response`, and they're harder to smoke-test from `curl`. Route handlers win for a runtime that needs an HTTP contract.
+- *Non-streaming responses.* Rejected — UX regression versus expectations set by every modern chat product, and would force rework in 8b.
+- *Defer cost tracking.* Rejected — CLAUDE.md AI Integration Rules call out "Cost tracking from day one of native agents" as non-optional.
+- *No rate limit for Phase 2 foundations.* Rejected — irresponsible on a route that calls a paid API. Even a coarse limit beats no limit.
+- *Multi-provider abstraction in 8a.* Rejected — premature. PROJECT_OUTLINE.md slots model abstraction in Phase 6, after the runtime has settled. Building the abstraction before having a single working provider tends to bake in the wrong seams.
+- *Tool use / function calling in 8a.* Rejected — out of scope per the Session 8a brief. The CLAUDE.md AI Integration Rules already require explicit user confirmation on any tool-triggered action; introducing that surface alongside the runtime foundations would conflate two complex problems.
+
+**Consequences:**
+
+- 8a creates the foundations: schema (`conversations`, `messages`, `usage_events` with full RLS), `lib/anthropic/` helpers (client wrapper, streaming, cost calc, prompt-injection preamble), per-user rate limiter, and the `app/api/chat/route.ts` handler. No UI lands in 8a — chat UI is 8b. Converting an existing Commercial agent to native is 8c.
+- The chat route uses the user-scoped Supabase server client (not service role) so that RLS remains the last line of defense per D-009. The server still re-validates the user's department access against the agent's `department_id` before any Anthropic call.
+- `agents.system_prompt` becomes the stored prompt; the runtime wraps it with the prompt-injection preamble at request time. No DB column changes are required to the existing `agents` table — 0001 already provisions `system_prompt` and `model` columns and the `agents_native_requires_prompt` check constraint.
+- Cost-per-token rates live in `lib/anthropic/pricing.ts` as a hardcoded table keyed on model id. Updating rates is a code change. Multi-provider normalized cost (Phase 6) replaces this with a per-provider rate registry.
+- Rate limiter, route handler, and SSE response shape are the surfaces 8b's chat UI will consume. 8b should not need to change the route handler's contract; it only consumes the existing SSE event shape.
+- A minimal seeded test native agent is required so 8a's `curl` smoke test can run end-to-end. That seed (one row, minimal system prompt) is in scope for 8a; 8c will replace it by promoting one of the six existing Commercial external agents to native.
