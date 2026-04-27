@@ -78,6 +78,9 @@ Open [http://localhost:3000](http://localhost:3000). You should see the landing 
 
 1. Go to [supabase.com/dashboard](https://supabase.com/dashboard) and click **New project**.
 2. Name it something like `legal-launchpad-dev`.
+   (If you're setting this up directly for production with no local dev,
+   name it `legal-launchpad-prod` instead and follow the production-only
+   notes in 3f and Part 4.)
 3. Pick a region close to you and set a strong database password (save it in a password manager).
 4. Wait for the project to provision (~2 minutes).
 
@@ -122,7 +125,11 @@ In the Supabase dashboard:
 3. Under **Email templates**, review the magic link template. Customize the subject and sender name to match your branding later.
 4. Under **URL Configuration**, set:
    - **Site URL:** `http://localhost:3000` for local dev.
-   - **Redirect URLs:** add `http://localhost:3000/**` for dev and your Vercel URL patterns once you have them.
+   - **Redirect URLs:** add `http://localhost:3000/**`.
+
+   This is **Stage 1** of a two-stage URL Configuration. Stage 2 in
+   Part 4 will add the production Vercel URL once you have one — you
+   can't fill it in until after the first deploy gives you a URL.
 
 ### 3f. Seed your first organization, department, and admin user
 
@@ -169,6 +176,29 @@ where u.email = 'YOUR_EMAIL' and d.organization_id = 'ORG_ID';
 
 Refresh the app. You should now see the admin nav and all five departments.
 
+#### Alternative: production-only setup (no local dev)
+
+If this Supabase project is your **production** project and you don't want
+to spin up local dev just to create the first user, create the auth user
+directly in the dashboard:
+
+1. In Supabase, go to **Authentication → Users → Add user → Create new
+   user**. Enter the admin email. You can either set a temporary password
+   or leave "Auto confirm user" checked and rely on magic-link sign-in
+   later.
+2. Run the organization + departments SQL block above against the prod
+   project.
+3. Run the user promotion + `user_department_roles` SQL block above —
+   it joins on `auth.users` by email, so the user you just created in
+   step 1 will be picked up.
+4. The seeded `public.users` row remains intact; the RPC's idempotent
+   guard means first sign-in is a no-op for the admin user. (For
+   non-admin users created later via magic-link signup, the RPC creates
+   their `public.users` row on first sign-in.)
+
+This is the path Session 7 used for the production deploy. The dev-signup
+path above remains the recommended flow for the dev project.
+
 ---
 
 ## Part 4 — Deploy to Vercel
@@ -197,28 +227,55 @@ In the Vercel project → **Settings → Environment Variables**, add:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key | Production, Preview, Development |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key | Production, Preview only (NOT Development) |
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (Phase 2+) | Production, Preview only |
-| `NEXT_PUBLIC_SITE_URL` | Your Vercel URL (e.g., `https://your-app.vercel.app`) | Production, Preview, Development |
+| `NEXT_PUBLIC_SITE_URL` | Your Vercel **production** URL (set in Stage 2 — see 4e) | Production only |
 
 Important:
 - **No client-side variable** should ever hold the Anthropic API key or the Supabase service role key. If you see `NEXT_PUBLIC_ANTHROPIC_...` or `NEXT_PUBLIC_SUPABASE_SERVICE_...` anywhere, stop and fix it.
-- Use a **separate Supabase project** for production if you want isolation between environments. For an early-stage demo, a single project is fine.
+- Use a **separate Supabase project** for production if you want isolation between environments. For an early-stage Phase 0/1 demo a single project is fine — and that is the default this template assumes: **all three Vercel environments (Production, Preview, Development) share the same Supabase project**. If you provision a second project for prod, repeat 3a–3f against it (using the dashboard add-user path in 3f).
 
-### 4d. Update Supabase redirect URLs
+**Chicken-and-egg note on `NEXT_PUBLIC_SITE_URL`.** You can't set this until Vercel gives you a production URL, which doesn't exist until the first deploy. So:
 
-Back in Supabase → **Authentication → URL Configuration**, add your Vercel URLs to **Redirect URLs**:
+1. Skip `NEXT_PUBLIC_SITE_URL` during the first import — leave it unset.
+2. Trigger the first deploy (4e).
+3. Copy the production URL Vercel assigns and come back to set `NEXT_PUBLIC_SITE_URL` (then redeploy — env var changes don't apply until the next build).
 
-```
-https://your-app.vercel.app/**
-https://your-app-*.vercel.app/**
-```
+**Preview deploys don't need a per-branch URL env var.** The login server action resolves the magic-link redirect base URL with this fallback chain:
 
-The second pattern covers Vercel preview deploys.
+1. `NEXT_PUBLIC_SITE_URL` (Production only, after Stage 2)
+2. `VERCEL_URL` — auto-injected by Vercel on every runtime, including every preview deploy. Unique per deploy. Server-only (never `NEXT_PUBLIC_`).
+3. `http://localhost:3000` (local dev)
 
-### 4e. Trigger a deploy
+You don't need to set `VERCEL_URL` anywhere — Vercel injects it automatically. This is what makes preview branches self-test magic-link login without hardcoding URLs. See `app/(public)/login/actions.ts` for the resolution logic.
 
-Vercel deploys automatically on every push to `main`. Push a small change or click **Redeploy** in the Vercel dashboard.
+### 4d. Stage 2 of URL Configuration
 
-Once the deploy finishes, open your Vercel URL. You should be able to log in and see the same admin experience as on local dev.
+After the first deploy (4e) gives you a production URL, come back to Supabase → **Authentication → URL Configuration** and complete Stage 2:
+
+1. Update **Site URL** from `http://localhost:3000` to your production Vercel URL (e.g., `https://your-app.vercel.app`).
+2. Add to **Redirect URLs**:
+
+   ```
+   https://your-app.vercel.app/**
+   https://your-app-*.vercel.app/**
+   ```
+
+   Keep the existing `http://localhost:3000/**` entry for local dev.
+
+The first pattern covers production. The second covers preview deploys (each preview gets a unique subdomain). Without the wildcard pattern, magic-link clicks from preview deploys will redirect-loop back to login.
+
+### 4e. First deploy
+
+Vercel deploys automatically on the first import. If you imported without pushing first, push a small change or click **Deploy** in the Vercel dashboard.
+
+When the build finishes, copy the production URL Vercel assigns (e.g., `https://your-app.vercel.app`).
+
+### 4f. Set `NEXT_PUBLIC_SITE_URL` and redeploy
+
+1. Vercel → **Settings → Environment Variables** → add `NEXT_PUBLIC_SITE_URL` (Production scope) with the URL from 4e.
+2. Complete Stage 2 of Supabase URL Configuration (4d).
+3. Trigger a redeploy — env var changes don't take effect until the next build. Push any small change to `main`, or use **Deployments → … → Redeploy** in the Vercel dashboard.
+
+Once the redeploy finishes, open your Vercel URL. Magic-link login should now redirect to your production domain (not `localhost:3000`), and you should see the same admin experience as on local dev.
 
 ---
 
