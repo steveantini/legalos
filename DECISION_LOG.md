@@ -442,3 +442,29 @@ This project, in contrast, has a real analytics data path: `lib/analytics/events
 - The localStorage-disclosure intro paragraph at the route page level (`app/(app)/admin/metrics/page.tsx`, preserved per D-020) and the inline mode-status copy serve different purposes: the page-level paragraph documents the Phase 1 limitation of localStorage-only events; the inline mode-status documents which data source is currently displayed. Both stay.
 - Real-mode bucketing semantics mirror sample-data bucketing: week / month / year selectors filter on event timestamps from `lib/analytics/events.ts`. The bucketing helpers live alongside the metrics components; the data sink itself is unchanged per D-020.
 - This is the only sanctioned Constraint C exception for the Session 6 rebuild — and the framing in this entry makes it not strictly an exception, but a completion. All other deviations from the original's behavior require a separate ADR.
+
+---
+
+## D-022 — Defer claude-templates sync-back past Phase 2
+
+Date: 2026-04-27
+Status: Accepted
+
+**Context:** D-014 and D-015 stated that the sync-back from this project's lessons to the portable `claude-templates` library should happen before Phase 2 begins. `PHASE_0_SYNCBACK_TODO.md` plus Constraint C (D-019), the commit-consistency rule, and the session-close triple-check protocol — all developed across Sessions 4–7 — would target that sync. Phase 2 (native agent runtime) is now the next priority over the sync.
+
+**Decision:** Proceed with Phase 2 first; defer the sync-back to a dedicated session after Phase 2 ships.
+
+**Reasoning:** Project momentum is on Phase 2; native agents are the headline feature that makes the project demonstrable. Sync work, while genuinely valuable, can be done after Phase 2 without blocking any Phase 2 needs. Trade-off accepted: the templates library lags this project by Phase 2's worth of lessons; the next project using the templates inherits pre-Phase-2 patterns until the sync session lands.
+
+**Alternatives considered:**
+
+- *Sync first.* Rejected — Phase 2 momentum is the limiting resource right now, and pausing for an internal-tooling task to satisfy the prior ADRs' stated timing trades shippable feature work for housekeeping.
+- *Minimum viable sync (the most-painful gaps only).* Rejected — chose to fully defer rather than half-do. A partial sync leaves an unclear "is this synced?" state that future sessions would have to re-audit, and amortizes the audit cost twice.
+- *Silent deferral (no ADR; just slip the timing).* Rejected — D-014 and D-015 made the timing commitment explicit, and the decision log is the right place to be honest about backing off it. Silent slippage erodes the value of the timing commitments those ADRs make in the first place.
+
+**Consequences:**
+
+- `PHASE_0_SYNCBACK_TODO.md` remains as a tracked open item. It is not closed by this ADR.
+- After Phase 2 closes, schedule a dedicated sync session that addresses both `PHASE_0_SYNCBACK_TODO.md` items AND the Constraint C / commit-consistency / session-close protocol additions developed during Sessions 4–7.
+- The sync session should target both `claude-templates/skills/*` and `claude-templates/CLAUDE.template.md`.
+- D-014's and D-015's stated "before Phase 2" timing is amended by this ADR to "in a dedicated session after Phase 2 ships." The sync still happens; only the phase-relative timing slips.
