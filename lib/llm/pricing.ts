@@ -1,7 +1,11 @@
 /**
- * Per-model Anthropic cost rates in USD per 1,000,000 tokens. Current as of
- * April 2026 — updating rates is a code change. Multi-provider normalized
- * cost is deferred to Phase 6 per D-023.
+ * Per-model cost rates in USD per 1,000,000 tokens, keyed on the
+ * vendor-prefixed model id (e.g. 'anthropic/claude-sonnet-4-6'). Current as
+ * of April 2026 — updating rates is a code change. Multi-vendor sibling
+ * adapters (OpenAI, Google) ship in Phase 6 per D-025; this table grows
+ * vendor-prefixed rows as those adapters land. The file lives at
+ * lib/llm/pricing.ts (vendor-agnostic) rather than under a vendor folder
+ * so a single import covers every supported model.
  *
  * NOTE on Opus 4.7 tokenization: Anthropic introduced a new tokenizer with
  * Opus 4.7 that can produce up to ~35% more tokens for the same source text
@@ -17,14 +21,14 @@ export type ModelPricing = {
 };
 
 export const MODEL_PRICING: Record<string, ModelPricing> = {
-  "claude-opus-4-7":            { inputPerMillion: 5, outputPerMillion: 25 },
-  "claude-opus-4-6":            { inputPerMillion: 5, outputPerMillion: 25 },
-  "claude-sonnet-4-6":          { inputPerMillion: 3, outputPerMillion: 15 },
-  "claude-haiku-4-5-20251001":  { inputPerMillion: 1, outputPerMillion: 5  },
+  "anthropic/claude-opus-4-7":            { inputPerMillion: 5, outputPerMillion: 25 },
+  "anthropic/claude-opus-4-6":            { inputPerMillion: 5, outputPerMillion: 25 },
+  "anthropic/claude-sonnet-4-6":          { inputPerMillion: 3, outputPerMillion: 15 },
+  "anthropic/claude-haiku-4-5-20251001":  { inputPerMillion: 1, outputPerMillion: 5  },
 };
 
 /**
- * Compute Anthropic call cost in micro-USD ($1 = 1,000,000 micro-USD).
+ * Compute model call cost in micro-USD ($1 = 1,000,000 micro-USD).
  *
  * Math: tokens × dollars-per-million yields micro-USD directly.
  * Token counts are bounded (<200K context per call) so the multiplication

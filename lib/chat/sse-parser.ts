@@ -6,7 +6,7 @@
  * is GET-only and cannot carry the JSON request body (agent_id,
  * conversation_id, user_message) that the chat route requires.
  *
- * Frame format (matches lib/anthropic/stream.ts on the server):
+ * Frame format (matches lib/llm/anthropic/stream.ts on the server):
  *
  *   event: <name>\n
  *   data: <JSON>\n

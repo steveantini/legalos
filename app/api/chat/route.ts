@@ -3,18 +3,18 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createAnthropicClient } from "@/lib/anthropic/client";
-import { computeCostMicroUsd } from "@/lib/anthropic/pricing";
+import { createAnthropicClient } from "@/lib/llm/anthropic/client";
 import {
   buildSystemPrompt,
   wrapUserMessage,
-} from "@/lib/anthropic/prompt-defense";
-import { checkChatRateLimit } from "@/lib/anthropic/rate-limit";
+} from "@/lib/llm/anthropic/prompt-defense";
 import {
   encodeSseEvent,
   SSE_RESPONSE_HEADERS,
-} from "@/lib/anthropic/stream";
-import type { MessageRole, NativeAgent } from "@/lib/anthropic/types";
+} from "@/lib/llm/anthropic/stream";
+import type { MessageRole, NativeAgent } from "@/lib/llm/anthropic/types";
+import { computeCostMicroUsd } from "@/lib/llm/pricing";
+import { checkChatRateLimit } from "@/lib/llm/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
