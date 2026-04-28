@@ -515,7 +515,7 @@ Status: Accepted
 Date: 2026-04-28
 Status: Accepted
 
-**Context:** The project initially set up two Supabase projects — a dev project (ref `ebhhqndkitgiwunrgjyb`, named `legal-department-launchpad-template`) for local development, and a prod project (ref `knlnchvfjxchpbkuwtpp`, named `legal-launchpad-prod`) wired up to Vercel. SETUP.md 4c documents single-project as the Phase 0/1 default and a separate prod project as optional isolation. The two-project setup happened by accident rather than by design, and during Session 8b's smoke test the seed data, migrations, and user provisioning had drifted between the two — surfacing as friction the project's solo-developer scale does not justify.
+**Context:** The project initially set up two Supabase projects — a dev project (ref `ebhhqndkitgiwunrgjyb`, named `legal-department-launchpad-template`) for local development, and a prod project (ref `knlnchvfjxchpbkuwtpp`, named `legal-launchpad-prod`, now renamed `legal-department-launchpad-template`) wired up to Vercel. SETUP.md 4c documents single-project as the Phase 0/1 default and a separate prod project as optional isolation. The two-project setup happened by accident rather than by design, and during Session 8b's smoke test the seed data, migrations, and user provisioning had drifted between the two — surfacing as friction the project's solo-developer scale does not justify.
 
 **Decision:** Retire the dev project. Local development and Vercel both point at the prod project (`knlnchvfjxchpbkuwtpp`). The single-tenant deployment now uses one Supabase project across all environments.
 
@@ -532,3 +532,4 @@ Status: Accepted
 - SETUP.md 4c's "use a separate Supabase project for production if you want isolation" sentence remains valid as advice for future forkers; this project's owner has chosen single-project explicitly and that choice is recorded here.
 - `PHASE_0_SYNCBACK_TODO.md` and any future templates sync session should reflect that the template can document either path; neither is the canonical right answer.
 - If a future need for isolation emerges (real users, real data sensitivity, multi-environment QA), provision a fresh prod project and re-promote at that time. The dev project ref `ebhhqndkitgiwunrgjyb` should not be reused — re-provision rather than resurrect.
+- Post-consolidation cleanup (2026-04-28): the retired dev project was deleted from Supabase, and the surviving prod project was renamed `legal-launchpad-prod` → `legal-department-launchpad-template` so the Supabase project name matches the GitHub repo name (D-007). Project ref `knlnchvfjxchpbkuwtpp` is unchanged — Supabase refs are immutable.
