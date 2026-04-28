@@ -507,3 +507,28 @@ Status: Accepted
 - Cost-per-token rates live in `lib/anthropic/pricing.ts` as a hardcoded table keyed on model id. Updating rates is a code change. Multi-provider normalized cost (Phase 6) replaces this with a per-provider rate registry.
 - Rate limiter, route handler, and SSE response shape are the surfaces 8b's chat UI will consume. 8b should not need to change the route handler's contract; it only consumes the existing SSE event shape.
 - A minimal seeded test native agent is required so 8a's `curl` smoke test can run end-to-end. That seed (one row, minimal system prompt) is in scope for 8a; 8c will replace it by promoting one of the six existing Commercial external agents to native.
+
+---
+
+## D-024 — Consolidate to a single Supabase project (retire dev project)
+
+Date: 2026-04-28
+Status: Accepted
+
+**Context:** The project initially set up two Supabase projects — a dev project (ref `ebhhqndkitgiwunrgjyb`, named `legal-department-launchpad-template`) for local development, and a prod project (ref `knlnchvfjxchpbkuwtpp`, named `legal-launchpad-prod`) wired up to Vercel. SETUP.md 4c documents single-project as the Phase 0/1 default and a separate prod project as optional isolation. The two-project setup happened by accident rather than by design, and during Session 8b's smoke test the seed data, migrations, and user provisioning had drifted between the two — surfacing as friction the project's solo-developer scale does not justify.
+
+**Decision:** Retire the dev project. Local development and Vercel both point at the prod project (`knlnchvfjxchpbkuwtpp`). The single-tenant deployment now uses one Supabase project across all environments.
+
+**Reasoning:** For a solo demo at Phase 2 scale, the operational overhead of maintaining two synchronized projects exceeds the "test against real data" risk of using one. SETUP.md 4c already documents single-project as the default; this ADR aligns actual practice with documented default rather than introducing a new pattern.
+
+**Alternatives considered:**
+
+- *Keep two projects, sync via Supabase CLI.* Rejected — tooling overhead for solo development is not justified at Phase 2 scale, and the CLI sync surface is itself a class of bugs we'd be inheriting to solve a problem we don't have.
+- *Keep two projects, document the sync gotchas in SETUP.md.* Rejected — adds documentation complexity rather than removing the underlying complexity. Future forkers reading SETUP.md inherit the gotchas regardless of whether they want a two-project setup.
+
+**Consequences:**
+
+- Local dev now writes to the same database as Vercel deploys. `.env.local` was updated to point at the prod project (gitignored, not committed); the dev project's keys are no longer in active use anywhere in this repo.
+- SETUP.md 4c's "use a separate Supabase project for production if you want isolation" sentence remains valid as advice for future forkers; this project's owner has chosen single-project explicitly and that choice is recorded here.
+- `PHASE_0_SYNCBACK_TODO.md` and any future templates sync session should reflect that the template can document either path; neither is the canonical right answer.
+- If a future need for isolation emerges (real users, real data sensitivity, multi-environment QA), provision a fresh prod project and re-promote at that time. The dev project ref `ebhhqndkitgiwunrgjyb` should not be reused — re-provision rather than resurrect.
