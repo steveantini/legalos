@@ -7,8 +7,10 @@
 -- before Session 8c promotes one of the six existing Commercial external
 -- agents to native — see DECISION_LOG D-023 for the scope rationale.
 --
--- The model id (claude-sonnet-4-6) is chosen for cost during smoke
--- testing; the runtime supports any model in lib/anthropic/pricing.ts.
+-- The model id (anthropic/claude-sonnet-4-6) is chosen for cost during
+-- smoke testing; the runtime supports any model in lib/anthropic/pricing.ts.
+-- The 'anthropic/' prefix is the vendor-namespaced format introduced in
+-- migration 0005; older rows are migrated by 0005's UPDATE statements.
 --
 -- Idempotent: ON CONFLICT (organization_id, slug) DO UPDATE. Safe to
 -- re-run. Replaced (or removed) in Session 8c.
@@ -60,7 +62,7 @@ begin
     'Minimal native agent used by the Session 8a /api/chat smoke test. Replaced in Session 8c by promoting an existing Commercial agent to native.',
     'native',
     'You are a helpful test assistant for the legal department launchpad smoke test. Answer briefly and clearly. You are not a substitute for legal advice.',
-    'claude-sonnet-4-6',
+    'anthropic/claude-sonnet-4-6',
     999,
     true
   )
