@@ -81,26 +81,36 @@ Department access is independent of role. A user has zero or more rows in the `u
 
 ---
 
-## Data Model (Phase 1 seed)
+## Data Model
 
-These tables are created in Phase 1. Phase 2 adds `conversations`, `messages`, and `usage_events`. Later phases may add more.
+### Phase 1 — Shipped
 
 | Table | Purpose | Notes |
 |---|---|---|
 | `organizations` | The tenant. One row for a single-customer deployment. | Multi-tenant ready. |
 | `users` | User profile, joined to Supabase `auth.users`. | One row per auth user. |
-| `departments` | Commercial, M&A, Public Sector, GR&RA, Privacy, etc. | Seed with the initial five. |
+| `departments` | Commercial, M&A, Public Sector, GR&RA, Privacy, etc. | Seeded with the five starter departments. |
 | `user_department_roles` | Join table: which user has which role in which department. | Enforces access control. |
-| `agents` | All agents (external + native). | `type` column: `external` or `native`. |
-| `analytics_events` | Clicks, chat starts, etc. | Phase 1 starts in localStorage; real table is wired in Phase 2. |
+| `agents` | All agents (external + native). | `type` column: `external` or `native`. `category` column added in `0003`. |
 
-Phase 2 additions:
+### Phase 2 — Shipped (Sessions 8a / 8b runtime foundations)
 
 | Table | Purpose |
 |---|---|
-| `conversations` | A chat thread between a user and a native agent. |
-| `messages` | Individual messages in a conversation. |
-| `usage_events` | Per-call token usage and cost tracking. |
+| `conversations` | A chat thread between a user and a native agent. Snapshots `system_prompt` and `model` at creation per CLAUDE.md AI Integration Rules. |
+| `messages` | Individual messages in a conversation. Immutable in practice. |
+| `usage_events` | Per-call token usage and cost tracking. Append-only ledger. |
+
+### Phase 2 — Remaining (per `docs/AGENT_ARCHITECTURE.md`)
+
+| Table | Purpose |
+|---|---|
+| `agent_attachments` | Permanent per-agent attached references (PDF, DOCX, TXT, MD, XLSX). Includes cached `extracted_text`, `delivery_mode`, `source_type`. |
+| `message_attachments` | Per-message file uploads (Section 5a — core chat capability). Turn-scoped, garbage-collected on a longer cadence. |
+| `formatted_outputs` | Audit + dedup record for server-rendered exports (Word `.docx` in v1; XLSX / Google Workspace / PowerPoint deferred). |
+| `analytics_events` | Promotion from localStorage to Supabase per D-010. Independent of agent runtime architecture; tracked as a Phase 2 work item but not part of the architecture doc's phasing list. |
+
+`agents` also gains: `is_template`, `forked_from_agent_id`, `tools_enabled` (JSONB), `default_output_format`, `deleted_at` (soft delete with 30-day undo). `agents.created_by` already exists from `0001` and is reused. `usage_events` gains `cache_creation_tokens` and `cache_read_tokens` for prompt caching. Two Supabase Storage buckets land alongside: `agent-attachments` and `message-attachments`, both RLS-policied.
 
 ---
 
@@ -140,19 +150,33 @@ Phase 2 additions:
 
 ---
 
-### Phase 2 — Native Agent Runtime (1–2 weeks)
+### Phase 2 — Native Agent Runtime + User-Owned Agents (multi-session arc)
 
-**Goal:** First in-app AI chat experience, with real analytics in Supabase.
+**Goal:** Native agents become user-owned, user-configurable workspaces — with attached references, configurable tools, multi-format output, prompt caching, and a multi-vendor-ready directory structure. Phase 2 is a multi-session arc, not a single-week sprint, originally scoped narrower (D-023) and expanded mid-phase (D-025) to match the product vision captured in `docs/AGENT_ARCHITECTURE.md`.
 
-- Schema: `conversations`, `messages`, `usage_events`.
-- RLS policies: users can only see their own conversations and messages.
-- Chat UI: streaming responses, markdown rendering (sanitized), code block display, conversation history, new-conversation button.
-- Server-side chat route handler: receives user message, validates, loads system prompt from `agents` table, calls Anthropic API, streams response, persists messages, logs usage.
-- First native agent: a Commercial contract-review assistant. System prompt stored in DB, not code.
-- Promote analytics from localStorage to Supabase `analytics_events` table.
-- Cost and token usage dashboard scaffold (admin only).
+**Already shipped in Phase 2:**
 
-**Definition of done:** A user can open a native Commercial agent, have a multi-turn streaming conversation, see their message history persist across sessions, and the admin can see token usage logged.
+- **Session 8a — Runtime foundations.** Schema `0004_native_agents.sql` (`conversations`, `messages`, `usage_events`, `message_role` enum, full RLS in the user-owns + admin-read idiom). `lib/anthropic/` runtime helpers (`client.ts`, `pricing.ts`, `prompt-defense.ts`, `rate-limit.ts`, `stream.ts`, `types.ts`). `app/api/chat/route.ts` SSE streaming endpoint. Test Smoke Agent seed at `0003_test_native_agent.sql`. See D-023 for the bundled architectural commitments.
+- **Session 8b — Chat UI.** `/agents/[id]` route, `components/chat/` (interface, message list, bubbles, input, SSE parser, sanitized markdown renderer). `components/launchpad/agent-card.tsx` branches native vs external. End-to-end smoke test passed against the live runtime.
+
+**Remaining work (mirrors `docs/AGENT_ARCHITECTURE.md` § implementation phasing — sequenced when picked up, not pre-numbered):**
+
+1. `lib/anthropic/` → `lib/llm/anthropic/` move + vendor-prefixed model ids + single-case dispatcher. Pure structural; lays the groundwork for multi-vendor without shipping a second adapter.
+2. Schema migration: agents extensions (`is_template`, `forked_from_agent_id`, `tools_enabled`, `default_output_format`, `deleted_at`), `agent_attachments`, `message_attachments`, `formatted_outputs`, `usage_events` cache columns. RLS on every new table; Storage buckets and policies.
+3. Agent CRUD UI — create / edit form, fork-from-template, soft-delete with 30-day undo, My Agents section per department, Templates section (six Commercial templates + Blank Agent). Single form with progressive disclosure; the biggest user-visible session in Phase 2.
+4. Test Smoke Agent retirement — once a real user-created native agent works end-to-end, the seed is removed (or replaced with a no-op preserving documentation comments). Closes the deferred 8a → 8c retirement note.
+5. Permanent attachments — upload, server-side text extraction, `extracted_text` cache, attachments enter the cached prompt portion of every Anthropic request.
+6. Prompt caching wiring — `cache_control: { type: "ephemeral" }` markers on the cacheable portion; `cache_creation_tokens` / `cache_read_tokens` populated in `usage_events`; updated cost math. Required architecture per `docs/AGENT_ARCHITECTURE.md` §1, not optimization.
+7. Per-message file upload — paperclip in chat input, `message-attachments` bucket and table, extraction reused from (5). The "here's the NDA the other side sent us" workflow.
+8. Web search tool — Anthropic's built-in web search, `tools_enabled` validation against the catalog, sources rendered inline in chat for provenance, search cost into `usage_events`.
+9. Word `.docx` export — server-side renderer, "Download as Word" button bound to `default_output_format = docx`, `formatted_outputs` audit row.
+10. Six Commercial templates conversion + Blank Agent template — the moment Phase 2 has a real catalog instead of a Test Smoke Agent.
+
+**Tracked as a Phase 2 commitment but independent of the architecture doc:**
+
+- **Promote analytics from localStorage to Supabase** (per D-010). Phase 1 deferred this to Phase 2; the agent architecture doc deliberately excludes it because it is independent of agent runtime architecture. Lands as part of Phase 2 close-out: `analytics_events` table, write path from existing `lib/analytics/events.ts` call sites, admin metrics page reads from Supabase instead of localStorage.
+
+**Definition of done:** Users can create native agents from templates or from blank, attach references, enable web search, choose Word output, and have full chat conversations with streaming, prompt caching, and cost tracking. Six Commercial templates ship as the baseline catalog. Analytics events live in Supabase with admin metrics reading from the table.
 
 ---
 
@@ -185,31 +209,34 @@ Phase 2 additions:
 
 ### Phase 5 — Agent Admin UI (~1 week)
 
-**Goal:** Let legal ops staff create and edit agents in-app, without a PR or deploy.
+**Goal:** Admin-level oversight surface over the user-owned agent estate.
 
-- Agent create / edit form (org_admin and dept_admin roles only).
-- System prompt editor with version history.
-- Model picker (Anthropic-only for now; abstraction comes in Phase 6).
-- Department assignment.
-- Enable/disable toggle.
-- Audit trail: who changed what, when.
+User-level agent create / edit ships in Phase 2 (per `docs/AGENT_ARCHITECTURE.md` and D-025 — every user creates and owns their own agents from templates or blank). Phase 5's scope is the residual admin work that does not belong in the per-user surface:
 
-**Definition of done:** An org_admin can create a new native agent entirely through the UI, and it appears on the correct department launchpad without a deploy.
+- Cross-user view of every agent in the organization (org_admin) and in a department (dept_admin).
+- Force-disable / re-enable on any user-owned agent.
+- Ownership transfer when a user leaves the organization.
+- Audit trail: who created / edited / deleted / forked which agent, when. Reads from the existing soft-delete and (deferred) versioning data; if agent versioning lands per the deferred items list in the architecture doc, the audit view consumes it.
+- Template management — adding / editing / retiring templates beyond the six Commercial + Blank Agent set that ships in Phase 2 (item 10 of Phase 2's remaining work).
+
+**Definition of done:** An org_admin can see every agent in the organization, force-disable one if needed, transfer ownership, and view an audit trail of changes.
 
 ---
 
-### Phase 6 — Model Abstraction (~1 week)
+### Phase 6 — Multi-Vendor Model Adapters (~1 week)
 
-**Goal:** Agents can run on any supported model provider.
+**Goal:** Agents can run on OpenAI and Google models, not just Anthropic.
 
-- Provider abstraction layer (per `model-abstraction.md` skill).
-- OpenAI adapter.
-- Google (Gemini) adapter.
-- Per-agent model selection in the agent admin UI.
-- Fallback chain: if provider A fails, try provider B.
-- Normalized cost tracking across providers.
+The directory structure (`lib/llm/<vendor>/`), the vendor-prefixed model id format (`anthropic/claude-sonnet-4-6`), the single-case dispatcher, the bounded model picker, and the multi-vendor pricing table all ship in Phase 2 (per `docs/AGENT_ARCHITECTURE.md` § 6 and Phase 2 work item 1). Phase 6's scope is the actual multi-vendor implementation against that structure:
 
-**Definition of done:** An agent can be flipped from Claude to GPT to Gemini via the admin UI, conversations continue to work, and cost tracking correctly attributes spend by provider.
+- OpenAI adapter under `lib/llm/openai/`. Adds a case to the dispatcher; populates pricing table rows for the supported models.
+- Google (Gemini) adapter under `lib/llm/google/`. Same pattern.
+- Per-vendor caching strategy — Anthropic uses `cache_control` markers (already wired in Phase 2 per item 6); OpenAI caches automatically with no markers; Gemini sets cache headers per Google's API. Each adapter owns its caching strategy; the `usage_events` cache columns are vendor-neutral and each adapter populates them from its own SDK's response shape.
+- Surface the new vendor models in the bounded model picker (Section 2 of the architecture doc), so users can pick `openai/gpt-5.1` or `google/gemini-...` from the same dropdown that already offers Claude models.
+- Fallback chain (optional): if vendor A's adapter fails mid-stream, try vendor B with the same prompt and conversation snapshot. Worth shipping if real outages surface; worth deferring if not.
+- Normalized cost tracking is mostly already there — the pricing table is keyed on vendor-prefixed model ids from Phase 2 — so this phase is mostly about adding vendor rows to the same table.
+
+**Definition of done:** A user can select an OpenAI or Google model in the agent edit form, conversations stream through the appropriate adapter, cost tracking attributes spend correctly by vendor, and prompt caching works per each vendor's semantics.
 
 ---
 
@@ -268,5 +295,6 @@ These are adjacent to the legal department's stack but out of scope for a launch
 
 ## Current status
 
-**Phase:** 0 — Foundation
-**Next milestone:** First successful Vercel deploy with Next.js scaffolding and all six docs in place.
+**Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
+**Shipped:** Sessions 8a (runtime foundations) and 8b (chat UI) validated end-to-end against the Test Smoke Agent. Session 8c landed `docs/AGENT_ARCHITECTURE.md` and D-025 expanding Phase 2 scope.
+**Next milestone:** Phase 2 work item 1 — `lib/anthropic/` → `lib/llm/anthropic/` move, vendor-prefixed model ids, single-case dispatcher.
