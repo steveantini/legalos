@@ -3,7 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createAnthropicClient } from "@/lib/llm/anthropic/client";
+import { streamAnthropicChat } from "@/lib/llm/anthropic/chat";
 import {
   buildSystemPrompt,
   wrapUserMessage,
@@ -13,6 +13,7 @@ import {
   SSE_RESPONSE_HEADERS,
 } from "@/lib/llm/anthropic/stream";
 import type { MessageRole, NativeAgent } from "@/lib/llm/anthropic/types";
+import { parseModelId } from "@/lib/llm/parse-model-id";
 import { computeCostMicroUsd } from "@/lib/llm/pricing";
 import { checkChatRateLimit } from "@/lib/llm/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -241,8 +242,24 @@ export async function POST(request: Request) {
       content: wrapUserMessage(user_message),
     });
 
-    const anthropic = createAnthropicClient();
     const fullSystemPrompt = buildSystemPrompt(systemPromptSnapshot);
+
+    // Parse the vendor-prefixed model id snapshot. Single-case dispatcher
+    // today (anthropic only); sibling adapters land in Phase 6 per D-025.
+    // A parse failure here is a configuration bug, not a runtime upstream
+    // error — return a clean JSON 500 before opening the SSE stream so the
+    // client doesn't see a meta event followed immediately by an error.
+    let parsedModel;
+    try {
+      parsedModel = parseModelId(modelSnapshot);
+    } catch (err) {
+      console.error("parseModelId failed", {
+        conversation_id: conversationId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return errorResponse("internal_error", 500);
+    }
+    const { vendor, model: vendorModelName } = parsedModel;
 
     // Capture metadata into closure for the stream callback.
     const sseStream = new ReadableStream<Uint8Array>({
@@ -260,37 +277,44 @@ export async function POST(request: Request) {
         let tokensIn: number | null = null;
         let tokensOut: number | null = null;
 
-        // 2. Stream from Anthropic. On any failure, emit an error event
-        //    and close the stream. The user message stays persisted; the
-        //    assistant message is not inserted, leaving the conversation
-        //    in a "user spoke, no reply" state that 8b's UI can present
-        //    as a regenerate option.
+        // 2. Dispatch to the right vendor adapter and stream. On any
+        //    failure, emit an error event and close the stream. The user
+        //    message stays persisted; the assistant message is not
+        //    inserted, leaving the conversation in a "user spoke, no
+        //    reply" state that 8b's UI can present as a regenerate option.
         try {
-          const anthropicStream = anthropic.messages.stream({
-            model: modelSnapshot,
-            max_tokens: 4096,
-            system: fullSystemPrompt,
-            messages: apiMessages,
-          });
+          let textDeltas: AsyncIterable<string>;
+          let finalUsage: () => Promise<{
+            input_tokens: number;
+            output_tokens: number;
+          }>;
 
-          for await (const event of anthropicStream) {
-            if (
-              event.type === "content_block_delta" &&
-              event.delta.type === "text_delta"
-            ) {
-              const text = event.delta.text;
-              assistantText += text;
-              controller.enqueue(
-                encodeSseEvent({ type: "token", text }),
-              );
+          switch (vendor) {
+            case "anthropic": {
+              const r = streamAnthropicChat({
+                model: vendorModelName,
+                systemPrompt: fullSystemPrompt,
+                messages: apiMessages,
+                maxTokens: 4096,
+              });
+              textDeltas = r.textDeltas;
+              finalUsage = r.finalUsage;
+              break;
             }
+            default:
+              throw new Error(`Unsupported model vendor: ${vendor}`);
           }
 
-          const finalMessage = await anthropicStream.finalMessage();
-          tokensIn = finalMessage.usage.input_tokens;
-          tokensOut = finalMessage.usage.output_tokens;
+          for await (const text of textDeltas) {
+            assistantText += text;
+            controller.enqueue(encodeSseEvent({ type: "token", text }));
+          }
+
+          const usage = await finalUsage();
+          tokensIn = usage.input_tokens;
+          tokensOut = usage.output_tokens;
         } catch (err) {
-          console.error("anthropic stream failed", err);
+          console.error("model stream failed", err);
           controller.enqueue(
             encodeSseEvent({ type: "error", error: "upstream_error" }),
           );
