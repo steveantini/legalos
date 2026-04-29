@@ -24,6 +24,10 @@
 --   - supabase/migrations/0004_native_agents.sql has been applied
 --     (the runtime tables exist; not strictly required to insert this
 --     row, but the smoke test against this agent will fail without it).
+--   - supabase/migrations/0006_agents_extensions.sql has been applied
+--     (agents.is_template column exists). The Test Smoke Agent is
+--     seeded with is_template = false explicitly — same as the column
+--     default, but stated for clarity so a fresh fork is unambiguous.
 -- ============================================================================
 
 do $$
@@ -53,7 +57,7 @@ begin
 
   insert into public.agents (
     organization_id, department_id, slug, name, description, type,
-    system_prompt, model, sort_order, is_active
+    system_prompt, model, sort_order, is_active, is_template
   )
   values (
     v_org_id, v_dept_id,
@@ -64,7 +68,8 @@ begin
     'You are a helpful test assistant for the legal department launchpad smoke test. Answer briefly and clearly. You are not a substitute for legal advice.',
     'anthropic/claude-sonnet-4-6',
     999,
-    true
+    true,
+    false
   )
   on conflict (organization_id, slug) do update set
     department_id = excluded.department_id,
@@ -74,5 +79,6 @@ begin
     system_prompt = excluded.system_prompt,
     model         = excluded.model,
     sort_order    = excluded.sort_order,
-    is_active     = excluded.is_active;
+    is_active     = excluded.is_active,
+    is_template   = excluded.is_template;
 end $$;

@@ -19,6 +19,10 @@
 --      (organization + Commercial department exist).
 --   2. supabase/migrations/0003_agents_category.sql has been applied
 --      (agents table has a `category` column).
+--   3. supabase/migrations/0006_agents_extensions.sql has been applied
+--      (agents table has an `is_template` column). The six rows below
+--      are seeded with is_template = true; existing prod rows had this
+--      flag flipped by 0006's targeted UPDATE.
 -- ============================================================================
 
 do $$
@@ -49,7 +53,7 @@ begin
 
   insert into public.agents (
     organization_id, department_id, slug, name, description, type,
-    external_url, category, sort_order, is_active
+    external_url, category, sort_order, is_active, is_template
   )
   values
     (v_org_id, v_dept_id, 'enterprise-agreement-review',
@@ -57,37 +61,37 @@ begin
      'Reviews enterprise customer agreements — issue-spotting, redline analysis, and clause comparison against a standard playbook.',
      'external',
      'https://gemini.google.com/gem/placeholder-enterprise-agreement-review',
-     'sell-side', 1, true),
+     'sell-side', 1, true, true),
     (v_org_id, v_dept_id, 'mutual-nda-review',
      'Mutual NDA Review',
      'Reviews mutual non-disclosure agreements, flags non-standard clauses (term, jurisdiction, residuals), and suggests fallback language.',
      'external',
      'https://gemini.google.com/gem/placeholder-mutual-nda-review',
-     'sell-side', 2, true),
+     'sell-side', 2, true, true),
     (v_org_id, v_dept_id, 'order-form-sow-review',
      'Order Form & SOW Review',
      'Reviews order forms and statements of work for consistency with the master agreement and standard commercial terms.',
      'external',
      'https://gemini.google.com/gem/placeholder-order-form-sow-review',
-     'sell-side', 3, true),
+     'sell-side', 3, true, true),
     (v_org_id, v_dept_id, 'vendor-agreement-review',
      'Vendor Agreement Review',
      'Reviews inbound vendor and SaaS agreements — liability, indemnity, IP, termination, and renewal triggers.',
      'external',
      'https://gemini.google.com/gem/placeholder-vendor-agreement-review',
-     'buy-side', 4, true),
+     'buy-side', 4, true, true),
     (v_org_id, v_dept_id, 'dpa-review',
      'Data Processing Addendum (DPA) Review',
      'Reviews vendor DPAs against GDPR / CCPA / other privacy baselines and flags deviations from the company''s standard data-protection terms.',
      'external',
      'https://gemini.google.com/gem/placeholder-dpa-review',
-     'buy-side', 5, true),
+     'buy-side', 5, true, true),
     (v_org_id, v_dept_id, 'ai-addendum-review',
      'AI Addendum Review',
      'Reviews vendor AI addendums — data use, training rights, output ownership, model disclosure, and termination rights.',
      'external',
      'https://gemini.google.com/gem/placeholder-ai-addendum-review',
-     'buy-side', 6, true)
+     'buy-side', 6, true, true)
   on conflict (organization_id, slug) do update set
     department_id = excluded.department_id,
     name          = excluded.name,
@@ -96,5 +100,6 @@ begin
     external_url  = excluded.external_url,
     category      = excluded.category,
     sort_order    = excluded.sort_order,
-    is_active     = excluded.is_active;
+    is_active     = excluded.is_active,
+    is_template   = excluded.is_template;
 end $$;
