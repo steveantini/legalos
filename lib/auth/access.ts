@@ -169,32 +169,6 @@ export interface LaunchpadAgent {
 }
 
 /**
- * Returns active agents for a given department, ordered by category then
- * `sort_order`. Callers typically resolve the department first via
- * `getDepartmentIfAccessible` and pass its id here.
- *
- * Superseded by `getAgentsForDepartmentSplit` in Session 8f-A — kept for
- * one transitional commit so the department page can be refactored in a
- * later commit without breaking the build between. Removed when the
- * department page migrates to the split helper.
- */
-export async function getAgentsForDepartment(
-  departmentId: string,
-): Promise<LaunchpadAgent[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("agents")
-    .select(
-      "id, slug, name, description, type, external_url, category, sort_order",
-    )
-    .eq("department_id", departmentId)
-    .eq("is_active", true)
-    .order("category", { ascending: true })
-    .order("sort_order", { ascending: true });
-  return (data ?? []) as LaunchpadAgent[];
-}
-
-/**
  * Two-bucket department agent loader for the Session 8f-A IA: system
  * Templates (is_template = true) and the user's own agents
  * (created_by = auth.uid(), is_template = false, deleted_at IS NULL).
