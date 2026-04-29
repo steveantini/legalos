@@ -173,10 +173,10 @@ export interface LaunchpadAgent {
  * `sort_order`. Callers typically resolve the department first via
  * `getDepartmentIfAccessible` and pass its id here.
  *
- * The explicit `is_active = true` filter matters: the
- * `agents_admin_read_all` RLS policy (schema 0001) exposes inactive
- * agents to `dept_admin` / `org_admin` users. The launchpad shows only
- * active agents regardless of role.
+ * Superseded by `getAgentsForDepartmentSplit` in Session 8f-A — kept for
+ * one transitional commit so the department page can be refactored in a
+ * later commit without breaking the build between. Removed when the
+ * department page migrates to the split helper.
  */
 export async function getAgentsForDepartment(
   departmentId: string,
@@ -192,4 +192,58 @@ export async function getAgentsForDepartment(
     .order("category", { ascending: true })
     .order("sort_order", { ascending: true });
   return (data ?? []) as LaunchpadAgent[];
+}
+
+/**
+ * Two-bucket department agent loader for the Session 8f-A IA: system
+ * Templates (is_template = true) and the user's own agents
+ * (created_by = auth.uid(), is_template = false, deleted_at IS NULL).
+ *
+ * Two queries instead of one because the predicates are different shapes
+ * and Postgres uses different indexes (agents_is_template_idx vs the
+ * partial agents_active_idx from migration 0006). Cleaner and faster
+ * than partitioning a flat result in JS.
+ *
+ * Both queries are RLS-scoped — `agents_read_accessible` requires
+ * `has_department_access(department_id)` for SELECT, so an unauthorized
+ * user gets an empty result without an error.
+ *
+ * Templates are sorted by `sort_order` (preserves curated ordering, with
+ * the Blank Agent at sort_order = 0 leading); user agents are sorted by
+ * `created_at desc` so the most recently created appears first.
+ */
+export async function getAgentsForDepartmentSplit(
+  departmentId: string,
+  userId: string,
+): Promise<{ templates: LaunchpadAgent[]; myAgents: LaunchpadAgent[] }> {
+  const supabase = await createSupabaseServerClient();
+
+  const [templatesResult, myAgentsResult] = await Promise.all([
+    supabase
+      .from("agents")
+      .select(
+        "id, slug, name, description, type, external_url, category, sort_order",
+      )
+      .eq("department_id", departmentId)
+      .eq("is_active", true)
+      .eq("is_template", true)
+      .is("deleted_at", null)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("agents")
+      .select(
+        "id, slug, name, description, type, external_url, category, sort_order",
+      )
+      .eq("department_id", departmentId)
+      .eq("is_active", true)
+      .eq("is_template", false)
+      .eq("created_by", userId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  return {
+    templates: (templatesResult.data ?? []) as LaunchpadAgent[],
+    myAgents: (myAgentsResult.data ?? []) as LaunchpadAgent[],
+  };
 }
