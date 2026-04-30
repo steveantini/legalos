@@ -37,15 +37,28 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
 };
 
 /**
+ * Anthropic's web search tool: $10 per 1,000 searches, model-agnostic
+ * (current as of April 2026, verified against
+ * https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool).
+ * Each search counts as one use regardless of how many results return;
+ * failed searches are not billed. The token costs of search results
+ * (which arrive as input tokens on subsequent turns) are charged
+ * separately at the model's normal input rate — not double-billed.
+ */
+export const WEB_SEARCH_PER_SEARCH_MICRO_USD = 10_000;
+
+/**
  * Compute model call cost in micro-USD ($1 = 1,000,000 micro-USD).
  *
- * Four-component model: regular (uncached) input + cache writes + cache
- * reads + output. Cache token counts default to 0, so this is backwards-
- * compatible for callers that haven't yet wired cache reporting.
+ * Five-component model: regular (uncached) input + cache writes + cache
+ * reads + output + web search fees. All count fields default to 0 in
+ * practice, so callers that don't use a particular feature pay nothing
+ * for it.
  *
  * Math: tokens × dollars-per-million yields micro-USD directly.
  * Token counts are bounded (<200K context per call) so the multiplication
- * stays well within Number's safe-integer range.
+ * stays well within Number's safe-integer range. Web search count is
+ * bounded by per-request max_uses (5 in v1).
  *
  * Throws if the model id is not in MODEL_PRICING. The chat route catches
  * this, logs the unknown model, and persists the usage_events row with
@@ -57,6 +70,7 @@ export function computeCostMicroUsd(
   tokensOut: number,
   cacheCreationTokens: number,
   cacheReadTokens: number,
+  webSearchCount: number,
   model: string,
 ): number {
   const pricing = MODEL_PRICING[model];
@@ -67,6 +81,7 @@ export function computeCostMicroUsd(
     tokensIn * pricing.inputPerMillion
       + tokensOut * pricing.outputPerMillion
       + cacheCreationTokens * pricing.cacheWritePerMillion
-      + cacheReadTokens * pricing.cacheReadPerMillion,
+      + cacheReadTokens * pricing.cacheReadPerMillion
+      + webSearchCount * WEB_SEARCH_PER_SEARCH_MICRO_USD,
   );
 }

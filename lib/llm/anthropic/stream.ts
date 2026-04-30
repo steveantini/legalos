@@ -13,6 +13,17 @@
  * client (8b) and `curl -N` smoke tests both consume it correctly.
  */
 
+/**
+ * Chat citation as the client sees it. The Anthropic adapter normalizes
+ * `web_search_result_location` blocks into this shape; future tools that
+ * surface citations (e.g. file analysis) extend the same vocabulary.
+ */
+export type ChatCitation = {
+  url: string;
+  title: string;
+  cited_text: string;
+};
+
 export type ChatStreamEvent =
   | {
       type: "meta";
@@ -20,6 +31,9 @@ export type ChatStreamEvent =
       user_message_id: string;
     }
   | { type: "token"; text: string }
+  | { type: "tool_use_start"; tool_name: string }
+  | { type: "tool_use_end" }
+  | { type: "citations"; citations: ChatCitation[] }
   | {
       type: "done";
       assistant_message_id: string;

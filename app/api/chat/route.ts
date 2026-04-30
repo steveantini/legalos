@@ -6,6 +6,8 @@ import { z } from "zod";
 import {
   streamAnthropicChat,
   type AnthropicSystemBlock,
+  type AnthropicStreamEvent,
+  type AnthropicTool,
 } from "@/lib/llm/anthropic/chat";
 import {
   buildSystemPrompt,
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
     const { data: agentRow, error: agentErr } = await supabase
       .from("agents")
       .select(
-        "id, organization_id, department_id, slug, name, type, system_prompt, model, is_active",
+        "id, organization_id, department_id, slug, name, type, system_prompt, model, is_active, tools_enabled",
       )
       .eq("id", agent_id)
       .eq("is_active", true)
@@ -289,6 +291,24 @@ export async function POST(request: Request) {
       cache_control: { type: "ephemeral" },
     };
 
+    // Build the tools array from the agent's tools_enabled JSONB.
+    // v1's catalog is one entry: web_search (Anthropic's hosted server
+    // tool). The whitelist below validates the agent's toggle against
+    // known tool ids — anything not in the catalog is silently dropped
+    // rather than passed through to Anthropic, which would 400 on an
+    // unknown tool type.
+    const enabledTools = Array.isArray(agentRow.tools_enabled)
+      ? (agentRow.tools_enabled as unknown as string[])
+      : [];
+    const tools: AnthropicTool[] = [];
+    if (enabledTools.includes("web_search")) {
+      tools.push({
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 5,
+      });
+    }
+
     // Parse the vendor-prefixed model id snapshot. Single-case dispatcher
     // today (anthropic only); sibling adapters land in Phase 6 per D-025.
     // A parse failure here is a configuration bug, not a runtime upstream
@@ -323,6 +343,7 @@ export async function POST(request: Request) {
         let tokensOut: number | null = null;
         let cacheCreationTokens = 0;
         let cacheReadTokens = 0;
+        let webSearchCount = 0;
 
         // 2. Dispatch to the right vendor adapter and stream. On any
         //    failure, emit an error event and close the stream. The user
@@ -330,12 +351,13 @@ export async function POST(request: Request) {
         //    inserted, leaving the conversation in a "user spoke, no
         //    reply" state that 8b's UI can present as a regenerate option.
         try {
-          let textDeltas: AsyncIterable<string>;
+          let events: AsyncIterable<AnthropicStreamEvent>;
           let finalUsage: () => Promise<{
             input_tokens: number;
             output_tokens: number;
             cache_creation_input_tokens: number;
             cache_read_input_tokens: number;
+            web_search_requests: number;
           }>;
 
           switch (vendor) {
@@ -345,8 +367,9 @@ export async function POST(request: Request) {
                 systemBlocks,
                 messages: apiMessages,
                 maxTokens: 4096,
+                tools: tools.length > 0 ? tools : undefined,
               });
-              textDeltas = r.textDeltas;
+              events = r.events;
               finalUsage = r.finalUsage;
               break;
             }
@@ -354,9 +377,34 @@ export async function POST(request: Request) {
               throw new Error(`Unsupported model vendor: ${vendor}`);
           }
 
-          for await (const text of textDeltas) {
-            assistantText += text;
-            controller.enqueue(encodeSseEvent({ type: "token", text }));
+          for await (const event of events) {
+            switch (event.type) {
+              case "text":
+                assistantText += event.text;
+                controller.enqueue(
+                  encodeSseEvent({ type: "token", text: event.text }),
+                );
+                break;
+              case "tool_use_start":
+                controller.enqueue(
+                  encodeSseEvent({
+                    type: "tool_use_start",
+                    tool_name: event.toolName,
+                  }),
+                );
+                break;
+              case "tool_use_end":
+                controller.enqueue(encodeSseEvent({ type: "tool_use_end" }));
+                break;
+              case "citations":
+                controller.enqueue(
+                  encodeSseEvent({
+                    type: "citations",
+                    citations: event.citations,
+                  }),
+                );
+                break;
+            }
           }
 
           const usage = await finalUsage();
@@ -364,6 +412,7 @@ export async function POST(request: Request) {
           tokensOut = usage.output_tokens;
           cacheCreationTokens = usage.cache_creation_input_tokens;
           cacheReadTokens = usage.cache_read_input_tokens;
+          webSearchCount = usage.web_search_requests;
         } catch (err) {
           console.error("model stream failed", err);
           controller.enqueue(
@@ -405,6 +454,7 @@ export async function POST(request: Request) {
             tokensOut!,
             cacheCreationTokens,
             cacheReadTokens,
+            webSearchCount,
             modelSnapshot,
           );
         } catch (err) {
@@ -422,6 +472,7 @@ export async function POST(request: Request) {
           tokens_out: tokensOut!,
           cache_creation_tokens: cacheCreationTokens,
           cache_read_tokens: cacheReadTokens,
+          web_search_count: webSearchCount,
           cost_micro_usd: costMicroUsd,
         });
         if (usageErr) {
