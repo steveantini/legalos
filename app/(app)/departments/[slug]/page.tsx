@@ -74,7 +74,11 @@ export default async function DepartmentPage({
             ) : null}
           </div>
           {myAgents.length > 0 ? (
-            <AgentGrid agents={myAgents} departmentSlug={department.slug} />
+            <AgentGrid
+              agents={myAgents}
+              departmentSlug={department.slug}
+              isMyAgent
+            />
           ) : (
             <div className="rounded-lg border border-dashed border-border p-8 text-center">
               <p className="text-sm text-muted-foreground">
