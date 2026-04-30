@@ -56,6 +56,16 @@ const createAgentSchema = z.object({
     .string()
     .optional()
     .transform((s) => (s && s.length > 0 ? s : "[]")),
+  /**
+   * Form switch sends "on" when checked and is absent when unchecked.
+   * The action shapes the resulting tools_enabled JSONB array from this
+   * field — there is no free-form `tools` input, so unknown tool ids
+   * cannot reach the database. Future tools add a sibling field.
+   */
+  tool_web_search: z
+    .string()
+    .optional()
+    .transform((v) => v === "on"),
 });
 
 const pendingAttachmentSchema = z.object({
@@ -138,6 +148,7 @@ export async function createAgentAction(
     model: formData.get("model"),
     forked_from_agent_id: formData.get("forked_from_agent_id") || undefined,
     pending_attachments: formData.get("pending_attachments") || undefined,
+    tool_web_search: formData.get("tool_web_search") || undefined,
   });
   if (!parsed.success) {
     const fieldErrors: NonNullable<
@@ -223,6 +234,8 @@ export async function createAgentAction(
     }
   }
 
+  const toolsEnabled: string[] = input.tool_web_search ? ["web_search"] : [];
+
   const insertPayload = {
     id: input.agent_id,
     organization_id: profile.organization_id,
@@ -237,7 +250,7 @@ export async function createAgentAction(
     is_active: true,
     is_template: false,
     forked_from_agent_id: input.forked_from_agent_id ?? null,
-    tools_enabled: [],
+    tools_enabled: toolsEnabled,
     default_output_format: "markdown" as const,
     created_by: user.id,
   };
@@ -302,6 +315,10 @@ const updateAgentSchema = z.object({
     .min(1, "System prompt is required.")
     .max(20000, "System prompt is too long."),
   model: z.enum(SUPPORTED_MODELS, { message: "Unsupported model." }),
+  tool_web_search: z
+    .string()
+    .optional()
+    .transform((v) => v === "on"),
 });
 
 export async function updateAgentAction(
@@ -323,6 +340,7 @@ export async function updateAgentAction(
     description: formData.get("description") || undefined,
     system_prompt: formData.get("system_prompt"),
     model: formData.get("model"),
+    tool_web_search: formData.get("tool_web_search") || undefined,
   });
   if (!parsed.success) {
     const fieldErrors: NonNullable<
@@ -355,6 +373,8 @@ export async function updateAgentAction(
     return { ok: false, formError: "You don't have permission to edit this agent." };
   }
 
+  const toolsEnabled: string[] = input.tool_web_search ? ["web_search"] : [];
+
   const { error: updateError } = await supabase
     .from("agents")
     .update({
@@ -362,6 +382,7 @@ export async function updateAgentAction(
       description: input.description ?? null,
       system_prompt: input.system_prompt,
       model: input.model,
+      tools_enabled: toolsEnabled,
     })
     .eq("id", input.agent_id);
   if (updateError) {
