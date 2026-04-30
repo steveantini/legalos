@@ -5,7 +5,7 @@
 -- REPLACE `ADMIN_EMAIL_REPLACE_ME` BELOW WITH YOUR EMAIL ADDRESS BEFORE RUNNING.
 -- That email must already exist in auth.users (i.e., you have signed in via
 -- magic link at least once). The seed promotes that email's auth user to
--- `org_admin` and grants dept_admin access to all five departments.
+-- `org_admin` and grants dept_admin access to all eight departments.
 --
 -- This script is idempotent: safe to re-run. It uses ON CONFLICT DO UPDATE /
 -- DO NOTHING so re-running updates rather than duplicating.
@@ -30,19 +30,25 @@ begin
     select id into v_org_id from public.organizations where slug = 'your-company';
   end if;
 
-  -- 2. The five starting departments.
+  -- 2. The eight starting departments.
   insert into public.departments (organization_id, slug, name, description, sort_order)
   values
     (v_org_id, 'commercial', 'Commercial',
       'Contract review, vendor agreements, commercial operations.', 1),
-    (v_org_id, 'ma', 'Mergers & Acquisitions',
-      'Deal diligence, merger agreements, integration planning.', 2),
     (v_org_id, 'public-sector', 'Public Sector',
-      'Government contracts and public-sector matters.', 3),
+      'Government contracts and public-sector matters.', 2),
     (v_org_id, 'grra', 'Government Relations & Regulatory Affairs',
-      'Lobbying, regulatory monitoring, policy advocacy.', 4),
+      'Lobbying, regulatory monitoring, policy advocacy.', 3),
+    (v_org_id, 'ma', 'Mergers & Acquisitions',
+      'Deal diligence, merger agreements, integration planning.', 4),
     (v_org_id, 'privacy', 'Privacy',
-      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 5)
+      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 5),
+    (v_org_id, 'product', 'Product',
+      'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 6),
+    (v_org_id, 'compliance', 'Compliance',
+      'Compliance program management, regulatory monitoring, and audit support.', 7),
+    (v_org_id, 'operations', 'Operations',
+      'Internal operations, vendor management, procurement, and corporate transactions.', 8)
   on conflict (organization_id, slug) do update set
     name = excluded.name,
     description = excluded.description,

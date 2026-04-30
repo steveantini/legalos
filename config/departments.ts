@@ -5,7 +5,7 @@
  * PROJECT_OUTLINE.md): the `departments` table is the runtime source of
  * truth, scoped per-organization and gated by RLS. This file exists to:
  *
- *   1. Seed the initial five departments in a new deployment.
+ *   1. Seed the initial eight departments in a new deployment.
  *   2. Provide a shared TypeScript type (`DepartmentSeed`) used by the
  *      seed script and any one-time tooling.
  *
@@ -35,21 +35,21 @@ export const departmentSeed: DepartmentSeed[] = [
     sortOrder: 1,
   },
   {
-    slug: "ma",
-    name: "Mergers & Acquisitions",
-    description: "Deal diligence, merger agreements, integration planning.",
-    sortOrder: 2,
-  },
-  {
     slug: "public-sector",
     name: "Public Sector",
     description: "Government contracts and public-sector matters.",
-    sortOrder: 3,
+    sortOrder: 2,
   },
   {
     slug: "grra",
     name: "Government Relations & Regulatory Affairs",
     description: "Lobbying, regulatory monitoring, policy advocacy.",
+    sortOrder: 3,
+  },
+  {
+    slug: "ma",
+    name: "Mergers & Acquisitions",
+    description: "Deal diligence, merger agreements, integration planning.",
     sortOrder: 4,
   },
   {
@@ -58,5 +58,26 @@ export const departmentSeed: DepartmentSeed[] = [
     description:
       "Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).",
     sortOrder: 5,
+  },
+  {
+    slug: "product",
+    name: "Product",
+    description:
+      "Product launches, feature reviews, terms updates, and product-counsel partnerships.",
+    sortOrder: 6,
+  },
+  {
+    slug: "compliance",
+    name: "Compliance",
+    description:
+      "Compliance program management, regulatory monitoring, and audit support.",
+    sortOrder: 7,
+  },
+  {
+    slug: "operations",
+    name: "Operations",
+    description:
+      "Internal operations, vendor management, procurement, and corporate transactions.",
+    sortOrder: 8,
   },
 ];
