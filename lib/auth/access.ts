@@ -221,3 +221,80 @@ export async function getAgentsForDepartmentSplit(
     myAgents: (myAgentsResult.data ?? []) as LaunchpadAgent[],
   };
 }
+
+/**
+ * Subset of `public.agents` the trash page needs. Includes the deletion
+ * timestamp (for the "deleted X ago" relative display) and a join to the
+ * department for context.
+ */
+export interface DeletedAgent {
+  id: string;
+  name: string;
+  description: string | null;
+  deleted_at: string;
+  department: { slug: string; name: string } | null;
+}
+
+const RESTORE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Returns the user's soft-deleted agents within the 30-day undo window,
+ * ordered by deletion time descending (most recently deleted first).
+ *
+ * The 30-day cutoff is computed in the application layer and passed to
+ * Postgres as an ISO timestamp. Slight clock skew between Next and
+ * Postgres is tolerable at single-user scale; if it ever matters, lift
+ * the cutoff into a SQL `now() - interval '30 days'` predicate.
+ *
+ * RLS scopes via the existing agents_read_accessible policy: a user can
+ * only read agents in their org and accessible departments. The explicit
+ * `created_by = userId` filter narrows further to ownership.
+ */
+export async function getDeletedAgentsForUser(
+  userId: string,
+): Promise<DeletedAgent[]> {
+  const supabase = await createSupabaseServerClient();
+  const cutoff = new Date(Date.now() - RESTORE_WINDOW_MS).toISOString();
+
+  const { data } = await supabase
+    .from("agents")
+    .select(
+      "id, name, description, deleted_at, departments(slug, name)",
+    )
+    .eq("created_by", userId)
+    .eq("is_template", false)
+    .not("deleted_at", "is", null)
+    .gt("deleted_at", cutoff)
+    .order("deleted_at", { ascending: false });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    deleted_at: row.deleted_at as string,
+    department: row.departments as unknown as
+      | { slug: string; name: string }
+      | null,
+  }));
+}
+
+/**
+ * Cheap count for the main-nav's conditional Trash link. Returns true
+ * when the user has at least one soft-deleted agent in the 30-day
+ * window. The nav doesn't need the rows themselves; a HEAD count is
+ * the smallest read.
+ */
+export async function userHasDeletedAgents(userId: string): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const cutoff = new Date(Date.now() - RESTORE_WINDOW_MS).toISOString();
+
+  const { count } = await supabase
+    .from("agents")
+    .select("id", { count: "exact", head: true })
+    .eq("created_by", userId)
+    .eq("is_template", false)
+    .not("deleted_at", "is", null)
+    .gt("deleted_at", cutoff);
+
+  return (count ?? 0) > 0;
+}

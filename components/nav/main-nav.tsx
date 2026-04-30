@@ -2,16 +2,29 @@ import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
 import { signOut } from "@/lib/actions/auth";
-import { isCurrentUserAdmin } from "@/lib/auth/access";
+import {
+  isCurrentUserAdmin,
+  requireAuthUser,
+  userHasDeletedAgents,
+} from "@/lib/auth/access";
 
 /**
  * Main navigation shown on every authenticated page (via
- * app/(app)/layout.tsx). Server component — the admin-link gate calls
- * into Supabase, and sign-out is a server action invoked directly from a
- * `<form action={...}>`.
+ * app/(app)/layout.tsx). Server component — admin and trash gates each
+ * issue a small read against Supabase before render. Sign-out is a
+ * server action invoked directly from a `<form action={...}>`.
+ *
+ * The Trash link is conditional: it appears only when the user has at
+ * least one soft-deleted agent in the 30-day window. Empty trash =
+ * no nav clutter; non-empty trash = a way back. Falls back to always-
+ * visible would be acceptable if the count query ever became expensive.
  */
 export async function MainNav() {
-  const showAdmin = await isCurrentUserAdmin();
+  const user = await requireAuthUser();
+  const [showAdmin, showTrash] = await Promise.all([
+    isCurrentUserAdmin(),
+    userHasDeletedAgents(user.id),
+  ]);
 
   return (
     <nav
@@ -33,6 +46,15 @@ export async function MainNav() {
               className="text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               Admin
+            </Link>
+          ) : null}
+
+          {showTrash ? (
+            <Link
+              href="/agents/trash"
+              className="text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              Trash
             </Link>
           ) : null}
 
