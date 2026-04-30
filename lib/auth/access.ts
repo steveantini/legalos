@@ -55,6 +55,51 @@ export async function getCurrentUserProfile() {
 }
 
 /**
+ * Subset of `public.departments` columns the launchpad UI needs.
+ */
+export interface AccessibleDepartment {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  sort_order: number;
+}
+
+/**
+ * Returns the departments the current user has at least one role in,
+ * ordered by `sort_order` ascending. Used by the picker page at `/` and
+ * the department tab bar on `/departments/[slug]` so both surfaces show
+ * the same accessible-departments list.
+ *
+ * The query joins `user_department_roles` with `departments` via an
+ * INNER PostgREST join — same predicate `has_department_access` checks
+ * per row, applied across all departments at once. RLS still scopes
+ * `departments` reads to the user's organization so cross-org leakage
+ * is impossible even if `user_department_roles` were corrupted.
+ */
+export async function getAccessibleDepartments(
+  userId: string,
+): Promise<AccessibleDepartment[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("user_department_roles")
+    .select(
+      "departments!inner(id, slug, name, description, sort_order)",
+    )
+    .eq("user_id", userId);
+
+  const departments = (data ?? [])
+    .map(
+      (row) =>
+        (row as unknown as { departments: AccessibleDepartment }).departments,
+    )
+    .filter((d): d is AccessibleDepartment => Boolean(d));
+
+  departments.sort((a, b) => a.sort_order - b.sort_order);
+  return departments;
+}
+
+/**
  * Returns the department row for `slug` IF the current user has any role
  * in that department, else null.
  *

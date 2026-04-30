@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AgentGrid } from "@/components/launchpad/agent-grid";
+import { DepartmentTabs } from "@/components/launchpad/department-tabs";
 import { SupportButton } from "@/components/launchpad/support-button";
 import { TipsSection } from "@/components/launchpad/tips-section";
 import { WelcomeModal } from "@/components/launchpad/welcome-modal";
 import { buttonVariants } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import {
+  getAccessibleDepartments,
   getAgentsForDepartmentSplit,
   getDepartmentIfAccessible,
   requireAuthUser,
@@ -26,17 +28,21 @@ export default async function DepartmentPage({
     notFound();
   }
 
-  const { templates, myAgents } = await getAgentsForDepartmentSplit(
-    department.id,
-    user.id,
-  );
+  const [{ templates, myAgents }, accessibleDepartments] = await Promise.all([
+    getAgentsForDepartmentSplit(department.id, user.id),
+    getAccessibleDepartments(user.id),
+  ]);
 
   const newAgentHref = `/agents/new?department=${department.slug}`;
 
   return (
     <>
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <header>
+      <main className="mx-auto max-w-5xl px-6 py-6">
+        <DepartmentTabs
+          activeSlug={department.slug}
+          departments={accessibleDepartments}
+        />
+        <header className="mt-8">
           <h1 className="text-3xl font-semibold">{department.name}</h1>
           {department.description ? (
             <p className="mt-2 text-sm text-muted-foreground">
