@@ -1,5 +1,6 @@
 "use client";
 
+import { DownloadMessageButton } from "./download-message-button";
 import { MarkdownRenderer } from "./markdown-renderer";
 
 import type { ChatCitation } from "@/lib/chat/sse-parser";
@@ -60,8 +61,17 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   }
 
   // assistant
+  // Gate the download button on a server-issued message id. Streaming
+  // turns use a "tmp-..." placeholder until the SSE done event finalizes
+  // the id; exporting a half-streamed message would produce truncated
+  // .docx output and a junk formatted_outputs row. Once the temp prefix
+  // is gone the message has fully landed in the DB and is exportable.
+  const isExportable = !message.id.startsWith("tmp-");
   return (
-    <li role="article" className="flex justify-start">
+    <li
+      role="article"
+      className="group/message flex items-start justify-start gap-2"
+    >
       <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-2.5 text-sm text-card-foreground">
         <MarkdownRenderer content={message.content} />
         {message.citations && message.citations.length > 0 ? (
@@ -84,6 +94,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           </div>
         ) : null}
       </div>
+      {isExportable ? <DownloadMessageButton messageId={message.id} /> : null}
     </li>
   );
 }

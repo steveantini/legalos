@@ -1,0 +1,105 @@
+"use client";
+
+import { DownloadIcon, Loader2Icon } from "lucide-react";
+import { useTransition } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+
+interface DownloadMessageButtonProps {
+  messageId: string;
+}
+
+/**
+ * Hover-revealed "Download as Word" button for a single assistant
+ * message. Click triggers a fetch against the export route, converts
+ * the response to a Blob, and uses a virtual anchor click to fire the
+ * native browser download — equivalent visible behavior to a plain
+ * `<a href download>` but with proper error surfaces (toast on failure
+ * instead of a broken download).
+ *
+ * The opacity-0 / group-hover:opacity-100 / focus-visible:opacity-100
+ * pattern hides the button until the parent message is hovered or the
+ * button itself is keyboard-focused. Parent <li> must carry the
+ * `group/message` named group class.
+ *
+ * Filename comes from the response's Content-Disposition header
+ * (server constructs it as `<agent-slug>-<YYYY-MM-DD>.docx`); we
+ * parse it client-side so the download UI shows the right name.
+ * Falls back to "message.docx" if parsing fails.
+ */
+export function DownloadMessageButton({ messageId }: DownloadMessageButtonProps) {
+  const [pending, startTransition] = useTransition();
+
+  function handleClick() {
+    startTransition(async () => {
+      let response: Response;
+      try {
+        response = await fetch(`/api/exports/messages/${messageId}/docx`);
+      } catch {
+        toast.error("Could not export message. Check your connection.");
+        return;
+      }
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        toast.error(messageForErrorCode(body.error));
+        return;
+      }
+
+      const blob = await response.blob();
+      const filename =
+        parseFilename(response.headers.get("content-disposition")) ??
+        "message.docx";
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      onClick={handleClick}
+      disabled={pending}
+      aria-label="Download as Word"
+      className="self-start opacity-0 transition-opacity group-hover/message:opacity-100 focus-visible:opacity-100"
+    >
+      {pending ? (
+        <Loader2Icon className="size-3.5 animate-spin" />
+      ) : (
+        <DownloadIcon className="size-3.5" />
+      )}
+    </Button>
+  );
+}
+
+function parseFilename(header: string | null): string | null {
+  if (!header) return null;
+  const match = header.match(/filename="?([^"]+)"?/);
+  return match ? match[1] : null;
+}
+
+function messageForErrorCode(code: string | undefined): string {
+  switch (code) {
+    case "unauthenticated":
+      return "Your session expired. Sign in again to download.";
+    case "not_found":
+      return "Message not found.";
+    case "invalid_message":
+      return "Only assistant messages can be exported.";
+    case "internal_error":
+    default:
+      return "Could not export message. Try again.";
+  }
+}
