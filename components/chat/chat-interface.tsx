@@ -53,6 +53,7 @@ export function ChatInterface({
   const [draft, setDraft] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [waitingForFirstToken, setWaitingForFirstToken] = useState(false);
+  const [toolUseLabel, setToolUseLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -79,6 +80,17 @@ export function ChatInterface({
       const last = prev[prev.length - 1];
       if (last.role !== "assistant") return prev;
       return [...prev.slice(0, -1), { ...last, id: serverMessageId }];
+    });
+  }
+
+  function attachAssistantCitations(citations: ChatMessage["citations"]) {
+    if (!citations || citations.length === 0) return;
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (last.role !== "assistant") return prev;
+      const merged = [...(last.citations ?? []), ...citations];
+      return [...prev.slice(0, -1), { ...last, citations: merged }];
     });
   }
 
@@ -148,6 +160,11 @@ export function ChatInterface({
     } finally {
       setIsStreaming(false);
       setWaitingForFirstToken(false);
+      // Defensive clear: any unmatched tool_use_start (server bug, dropped
+      // SSE event, etc.) leaves the indicator stuck without this. The
+      // adapter's message_stop fallback is the primary defense; this is
+      // belt-and-suspenders.
+      setToolUseLabel(null);
       textareaRef.current?.focus();
     }
   }
@@ -164,6 +181,18 @@ export function ChatInterface({
       case "token":
         if (waitingForFirstToken) setWaitingForFirstToken(false);
         appendAssistantToken(event.text);
+        break;
+      case "tool_use_start":
+        setWaitingForFirstToken(false);
+        setToolUseLabel(
+          event.tool_name === "web_search" ? "Searching the web…" : "Using a tool…",
+        );
+        break;
+      case "tool_use_end":
+        setToolUseLabel(null);
+        break;
+      case "citations":
+        attachAssistantCitations(event.citations);
         break;
       case "done":
         finalizeAssistantId(event.assistant_message_id);
@@ -190,6 +219,7 @@ export function ChatInterface({
         messages={messages}
         isStreaming={isStreaming}
         isWaitingForFirstToken={waitingForFirstToken}
+        toolUseLabel={toolUseLabel}
       />
       {error ? (
         <div className="px-4 pb-2">

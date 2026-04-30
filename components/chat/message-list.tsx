@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { ChatEmptyState } from "./chat-empty-state";
@@ -13,6 +14,13 @@ interface MessageListProps {
   isStreaming: boolean;
   /** True when streaming has started but no assistant token has arrived yet. */
   isWaitingForFirstToken: boolean;
+  /**
+   * Non-null when the model is using a server-side tool (e.g., web
+   * search). Renders an inline status row in place of the typing
+   * indicator with the given label. Cleared on tool_use_end or stream
+   * completion.
+   */
+  toolUseLabel: string | null;
 }
 
 /**
@@ -35,6 +43,7 @@ export function MessageList({
   messages,
   isStreaming,
   isWaitingForFirstToken,
+  toolUseLabel,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -54,7 +63,7 @@ export function MessageList({
     const el = containerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, isWaitingForFirstToken]);
+  }, [messages, isWaitingForFirstToken, toolUseLabel]);
 
   if (messages.length === 0 && !isStreaming) {
     return (
@@ -83,7 +92,14 @@ export function MessageList({
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}
-        {isWaitingForFirstToken ? (
+        {toolUseLabel ? (
+          <li className="flex justify-start">
+            <div className="flex max-w-[80%] items-center gap-2 rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-2.5 text-sm italic text-muted-foreground">
+              <Loader2Icon className="size-3.5 animate-spin" />
+              {toolUseLabel}
+            </div>
+          </li>
+        ) : isWaitingForFirstToken ? (
           <li className="flex justify-start">
             <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-2.5">
               <TypingIndicator />

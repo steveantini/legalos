@@ -2,11 +2,20 @@
 
 import { MarkdownRenderer } from "./markdown-renderer";
 
+import type { ChatCitation } from "@/lib/chat/sse-parser";
+
 export type ChatMessage = {
   /** Server-issued UUID once known; transient client id otherwise. */
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  /**
+   * Web-search citations attached to this assistant message, if any.
+   * Populated from the SSE citations event before the done event fires.
+   * Does not persist across page reloads — when conversation-resumption
+   * lands, citations move to a messages.citations column.
+   */
+  citations?: ChatCitation[];
 };
 
 interface MessageBubbleProps {
@@ -55,6 +64,25 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     <li role="article" className="flex justify-start">
       <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-2.5 text-sm text-card-foreground">
         <MarkdownRenderer content={message.content} />
+        {message.citations && message.citations.length > 0 ? (
+          <div className="mt-3 border-t border-border pt-2 text-xs">
+            <p className="font-medium text-muted-foreground">Sources</p>
+            <ol className="mt-1 list-inside list-decimal space-y-0.5">
+              {message.citations.map((c, i) => (
+                <li key={`${c.url}-${i}`}>
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline hover:no-underline"
+                  >
+                    {c.title || c.url}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </div>
     </li>
   );

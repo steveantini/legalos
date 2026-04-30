@@ -17,6 +17,16 @@
  * \n; expand if the contract evolves.
  */
 
+/**
+ * Citation as it crosses the wire from the chat route. Mirrors the
+ * server-side ChatCitation in lib/llm/anthropic/stream.ts.
+ */
+export type ChatCitation = {
+  url: string;
+  title: string;
+  cited_text: string;
+};
+
 export type ChatStreamEvent =
   | {
       type: "meta";
@@ -24,6 +34,9 @@ export type ChatStreamEvent =
       user_message_id: string;
     }
   | { type: "token"; text: string }
+  | { type: "tool_use_start"; tool_name: string }
+  | { type: "tool_use_end" }
+  | { type: "citations"; citations: ChatCitation[] }
   | {
       type: "done";
       assistant_message_id: string;
