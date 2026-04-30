@@ -13,6 +13,14 @@ interface ChatInterfaceProps {
   agentId: string;
   agentName: string;
   agentDescription: string | null;
+  /**
+   * True when the agent has been soft-deleted (deleted_at IS NOT NULL).
+   * The transcript stays accessible — conversations are immutable history
+   * per architecture §3 — but the message input is replaced with a copy
+   * banner pointing the user to the trash. Restoring the agent flips this
+   * back to false on the next page load.
+   */
+  isDeleted?: boolean;
 }
 
 /**
@@ -38,6 +46,7 @@ export function ChatInterface({
   agentId,
   agentName,
   agentDescription,
+  isDeleted,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -191,13 +200,23 @@ export function ChatInterface({
         </div>
       ) : null}
       <div className="border-t border-border">
-        <MessageInput
-          value={draft}
-          onChange={setDraft}
-          onSend={handleSend}
-          disabled={isStreaming}
-          focusRef={textareaRef}
-        />
+        {isDeleted ? (
+          <div
+            role="status"
+            className="px-4 py-3 text-sm text-muted-foreground"
+          >
+            This agent has been deleted. Restore it from the trash to send new
+            messages.
+          </div>
+        ) : (
+          <MessageInput
+            value={draft}
+            onChange={setDraft}
+            onSend={handleSend}
+            disabled={isStreaming}
+            focusRef={textareaRef}
+          />
+        )}
       </div>
     </div>
   );
