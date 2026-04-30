@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentFormResult } from "@/lib/actions/agents";
 
@@ -61,6 +62,12 @@ interface AgentFormDefaults {
   description: string;
   systemPrompt: string;
   model: string;
+  /**
+   * Tool ids to start enabled. Forks inherit from the source template;
+   * fresh from-scratch agents start with an empty array; edit mode
+   * loads the agent's current tools_enabled column.
+   */
+  toolsEnabled: string[];
 }
 
 type AgentFormAction = (
@@ -287,11 +294,28 @@ export function AgentForm({
             extractionWarning: a.extractionWarning,
           }))}
         />
-        <div className="space-y-2">
-          <Label className="text-muted-foreground">Tools</Label>
-          <p className="text-sm text-muted-foreground">
-            Coming soon. Per-agent tool toggles such as web search.
-          </p>
+        <div className="space-y-3">
+          <Label>Tools</Label>
+          <div className="flex items-start justify-between gap-3 rounded-md border border-border p-3">
+            <div className="space-y-1">
+              <Label
+                htmlFor="tool-web-search"
+                className="text-sm font-medium"
+              >
+                Web search
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Allows the agent to search the web for current information.
+                Each search costs $0.01 in addition to the model's token
+                charges.
+              </p>
+            </div>
+            <Switch
+              id="tool-web-search"
+              name="tool_web_search"
+              defaultChecked={defaults.toolsEnabled.includes("web_search")}
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label className="text-muted-foreground">Default output format</Label>

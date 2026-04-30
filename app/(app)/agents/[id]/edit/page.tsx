@@ -26,7 +26,7 @@ export default async function EditAgentPage({ params }: PageProps) {
   const { data: agent } = await supabase
     .from("agents")
     .select(
-      "id, name, description, type, is_template, system_prompt, model, created_by, deleted_at, departments(slug, name)",
+      "id, name, description, type, is_template, system_prompt, model, tools_enabled, created_by, deleted_at, departments(slug, name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -103,6 +103,9 @@ export default async function EditAgentPage({ params }: PageProps) {
           description: agent.description ?? "",
           systemPrompt: agent.system_prompt,
           model: agent.model,
+          toolsEnabled: Array.isArray(agent.tools_enabled)
+            ? (agent.tools_enabled as unknown as string[])
+            : [],
         }}
         departmentSlug={department.slug}
         forkedFromAgent={null}

@@ -34,6 +34,7 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
     description: "",
     systemPrompt: "",
     model: "anthropic/claude-sonnet-4-6",
+    toolsEnabled: [] as string[],
   };
 
   if (forkFromId) {
@@ -41,7 +42,7 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
     const { data: template } = await supabase
       .from("agents")
       .select(
-        "id, name, description, type, is_template, department_id, system_prompt, model",
+        "id, name, description, type, is_template, department_id, system_prompt, model, tools_enabled",
       )
       .eq("id", forkFromId)
       .maybeSingle();
@@ -66,6 +67,12 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
       description: template.description ?? "",
       systemPrompt: template.system_prompt,
       model: template.model,
+      // Forks inherit the template's tools_enabled per architecture §2;
+      // the user can flip toggles before saving if they want to change
+      // the inherited behavior.
+      toolsEnabled: Array.isArray(template.tools_enabled)
+        ? (template.tools_enabled as unknown as string[])
+        : [],
     };
   }
 
