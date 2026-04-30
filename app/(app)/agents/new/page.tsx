@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { AgentForm } from "@/components/agents/agent-form";
+import { createAgentAction } from "@/lib/actions/agents";
 import {
   getDepartmentIfAccessible,
   requireAuthUser,
@@ -81,9 +82,11 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
       </header>
 
       <AgentForm
+        mode="create"
         defaults={defaults}
         departmentSlug={department.slug}
         forkedFromAgent={forkedFromAgent}
+        action={createAgentAction}
       />
     </main>
   );

@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createAgentAction, type CreateAgentResult } from "@/lib/actions/agents";
+import type { AgentFormResult } from "@/lib/actions/agents";
 
 /**
  * Models the bounded model dropdown is allowed to render. Kept in step
@@ -52,31 +52,75 @@ interface AgentFormDefaults {
   model: string;
 }
 
+type AgentFormAction = (
+  state: AgentFormResult,
+  formData: FormData,
+) => Promise<AgentFormResult>;
+
 interface AgentFormProps {
+  /**
+   * Drives the submit-button label and where Cancel returns to. Create
+   * mode (with or without a fork source) returns to the department page;
+   * edit mode returns to the agent's chat surface.
+   */
+  mode: "create" | "edit";
   defaults: AgentFormDefaults;
+  /**
+   * The agent's department slug. In create mode this is required for the
+   * server action; in edit mode it's only used by Cancel as a fallback if
+   * the agent's chat surface is unreachable for any reason.
+   */
   departmentSlug: string;
+  /**
+   * When set, renders the "Forked from <name>" indicator and submits a
+   * hidden forked_from_agent_id input. Only meaningful in create mode.
+   */
   forkedFromAgent: { id: string; name: string } | null;
+  /**
+   * Required when mode === "edit". Submitted as a hidden input so the
+   * update server action can identify the row.
+   */
+  agentId?: string;
+  /**
+   * The server action this form binds to via useActionState. The page
+   * passes createAgentAction or updateAgentAction depending on mode.
+   */
+  action: AgentFormAction;
 }
 
-const initialState: CreateAgentResult = { ok: true };
+const initialState: AgentFormResult = { ok: true };
 
 export function AgentForm({
+  mode,
   defaults,
   departmentSlug,
   forkedFromAgent,
+  agentId,
+  action,
 }: AgentFormProps) {
-  const [state, formAction, pending] = useActionState(
-    createAgentAction,
-    initialState,
-  );
+  const [state, formAction, pending] = useActionState(action, initialState);
 
-  const fieldError = (field: keyof NonNullable<
-    Extract<CreateAgentResult, { ok: false }>["fieldErrors"]
-  >) => (state.ok === false ? state.fieldErrors?.[field] : undefined);
+  const fieldError = (
+    field: keyof NonNullable<
+      Extract<AgentFormResult, { ok: false }>["fieldErrors"]
+    >,
+  ) => (state.ok === false ? state.fieldErrors?.[field] : undefined);
+
+  const cancelHref =
+    mode === "edit" && agentId
+      ? `/agents/${agentId}`
+      : `/departments/${departmentSlug}`;
+  const submitLabelIdle = mode === "edit" ? "Save changes" : "Save agent";
+  const submitLabelPending = mode === "edit" ? "Saving…" : "Saving…";
 
   return (
     <form action={formAction} className="space-y-8">
-      <input type="hidden" name="department_slug" value={departmentSlug} />
+      {mode === "create" ? (
+        <input type="hidden" name="department_slug" value={departmentSlug} />
+      ) : null}
+      {mode === "edit" && agentId ? (
+        <input type="hidden" name="agent_id" value={agentId} />
+      ) : null}
       {forkedFromAgent ? (
         <input
           type="hidden"
@@ -110,7 +154,6 @@ export function AgentForm({
         <Input
           id="agent-name"
           name="name"
-          required
           maxLength={120}
           defaultValue={defaults.name}
           aria-invalid={Boolean(fieldError("name"))}
@@ -158,7 +201,6 @@ export function AgentForm({
         <Textarea
           id="agent-system-prompt"
           name="system_prompt"
-          required
           rows={10}
           maxLength={20000}
           defaultValue={defaults.systemPrompt}
@@ -240,14 +282,11 @@ export function AgentForm({
       </details>
 
       <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
-        <Link
-          href={`/departments/${departmentSlug}`}
-          className={buttonVariants({ variant: "ghost" })}
-        >
+        <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>
           Cancel
         </Link>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save agent"}
+          {pending ? submitLabelPending : submitLabelIdle}
         </Button>
       </div>
     </form>
