@@ -245,17 +245,44 @@ export async function POST(request: Request) {
       content: wrapUserMessage(user_message),
     });
 
+    // Load the agent's active attachments to include in the system
+    // content. ORDER BY created_at ASC keeps the block sequence
+    // deterministic across turns — required for prefix caching to hit
+    // (a different ordering would change the cached prefix and force
+    // a re-write each turn). Per architecture §3 / Decision B, we use
+    // the LIVE attachments at send time, not a per-conversation
+    // snapshot — conversations are immutable transcripts of what the
+    // model said, but the configuration that produced them (system
+    // prompt, attachments) reflects the agent's current state.
+    // Attachments where extracted_text is null (failed extraction)
+    // are skipped — they exist as files in storage and rows in the
+    // table, but contribute no model context.
+    const { data: attRows, error: attErr } = await supabase
+      .from("agent_attachments")
+      .select("original_filename, extracted_text")
+      .eq("agent_id", agent.id)
+      .is("deleted_at", null)
+      .not("extracted_text", "is", null)
+      .order("created_at", { ascending: true });
+    if (attErr) {
+      console.error("agent_attachments fetch failed", { code: attErr.code });
+      return errorResponse("internal_error", 500);
+    }
+
     // Build the system content as an array of text blocks with a single
     // cache_control marker on the last block. Content up to and including
-    // the marker is cached for ~5 minutes (architecture §1). When no
-    // attachments are present (8h commit 1), the system is one block —
-    // preamble + agent prompt — and the marker is on that single block.
-    // Below ~1024 tokens (Sonnet/Opus; ~2048 Haiku), Anthropic's caching
-    // threshold means the marker is a no-op and both
-    // cache_creation_input_tokens and cache_read_input_tokens come back
-    // as 0. That is correct behavior, not a bug — the math still works.
+    // the marker is cached for ~5 minutes (architecture §1). Below
+    // Anthropic's threshold (~1024 tokens for Sonnet/Opus, ~2048 for
+    // Haiku), the marker is a no-op — cache_creation_input_tokens and
+    // cache_read_input_tokens both come back as 0, which is correct
+    // behavior, not a bug. Cost math still works in that case
+    // because pricing.ts charges 0 × any-rate = 0.
     const systemBlocks: AnthropicSystemBlock[] = [
       { type: "text", text: buildSystemPrompt(systemPromptSnapshot) },
+      ...(attRows ?? []).map((att) => ({
+        type: "text" as const,
+        text: `<attachment filename="${att.original_filename}">\n${att.extracted_text}\n</attachment>`,
+      })),
     ];
     systemBlocks[systemBlocks.length - 1] = {
       ...systemBlocks[systemBlocks.length - 1],

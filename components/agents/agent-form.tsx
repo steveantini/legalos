@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
+import { AgentAttachmentsSection } from "@/components/agents/agent-attachments-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentFormResult } from "@/lib/actions/agents";
+
+type ExistingAttachment = {
+  attachmentId: string;
+  storagePath: string;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  extractedText: string | null;
+  extractionWarning: string | null;
+};
 
 /**
  * Models the bounded model dropdown is allowed to render. Kept in step
@@ -77,10 +88,16 @@ interface AgentFormProps {
    */
   forkedFromAgent: { id: string; name: string } | null;
   /**
-   * Required when mode === "edit". Submitted as a hidden input so the
-   * update server action can identify the row.
+   * Agent UUID. Required in BOTH modes — in create mode it's pre-allocated
+   * client-side so attachments can upload to <user_id>/<agent_id>/...
+   * before the agent row exists; in edit mode it's the existing row's id.
    */
-  agentId?: string;
+  agentId: string;
+  /**
+   * Existing attachments (edit mode only — create mode receives []).
+   * Drives auto-expand of the Advanced section per 8h plan Q5.
+   */
+  existingAttachments: ExistingAttachment[];
   /**
    * The server action this form binds to via useActionState. The page
    * passes createAgentAction or updateAgentAction depending on mode.
@@ -96,6 +113,7 @@ export function AgentForm({
   departmentSlug,
   forkedFromAgent,
   agentId,
+  existingAttachments,
   action,
 }: AgentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -107,19 +125,24 @@ export function AgentForm({
   ) => (state.ok === false ? state.fieldErrors?.[field] : undefined);
 
   const cancelHref =
-    mode === "edit" && agentId
+    mode === "edit"
       ? `/agents/${agentId}`
       : `/departments/${departmentSlug}`;
   const submitLabelIdle = mode === "edit" ? "Save changes" : "Save agent";
   const submitLabelPending = mode === "edit" ? "Saving…" : "Saving…";
 
+  // Auto-expand the Advanced section when editing an agent that already
+  // has attachments — gives the user immediate visibility of what's
+  // attached without forcing a click. Create mode and edit-with-zero-
+  // attachments stay collapsed.
+  const advancedOpenByDefault =
+    mode === "edit" && existingAttachments.length > 0;
+
   return (
     <form action={formAction} className="space-y-8">
+      <input type="hidden" name="agent_id" value={agentId} />
       {mode === "create" ? (
         <input type="hidden" name="department_slug" value={departmentSlug} />
-      ) : null}
-      {mode === "edit" && agentId ? (
-        <input type="hidden" name="agent_id" value={agentId} />
       ) : null}
       {forkedFromAgent ? (
         <input
@@ -254,18 +277,27 @@ export function AgentForm({
         ) : null}
       </div>
 
-      <details className="rounded-md border border-border">
+      <details
+        className="rounded-md border border-border"
+        open={advancedOpenByDefault}
+      >
         <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
           Advanced
         </summary>
         <div className="space-y-6 border-t border-border px-4 py-4">
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Attached references</Label>
-            <p className="text-sm text-muted-foreground">
-              Coming soon. Up to 5 files (PDF, DOCX, TXT, MD, XLSX) can be
-              attached to provide the model with playbooks or standards.
-            </p>
-          </div>
+          <AgentAttachmentsSection
+            mode={mode}
+            agentId={agentId}
+            initialAttachments={existingAttachments.map((a) => ({
+              attachmentId: a.attachmentId,
+              storagePath: a.storagePath,
+              originalFilename: a.originalFilename,
+              contentType: a.contentType,
+              sizeBytes: a.sizeBytes,
+              extractedText: a.extractedText,
+              extractionWarning: a.extractionWarning,
+            }))}
+          />
           <div className="space-y-2">
             <Label className="text-muted-foreground">Tools</Label>
             <p className="text-sm text-muted-foreground">

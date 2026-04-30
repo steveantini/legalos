@@ -5,6 +5,15 @@ import { updateAgentAction } from "@/lib/actions/agents";
 import { requireAuthUser } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+type ExistingAttachmentRow = {
+  id: string;
+  storage_path: string;
+  original_filename: string;
+  content_type: string;
+  size_bytes: number;
+  extracted_text: string | null;
+};
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -46,6 +55,34 @@ export default async function EditAgentPage({ params }: PageProps) {
     notFound();
   }
 
+  // Load active attachments for the form's existing-list. Filtering on
+  // deleted_at IS NULL skips removed attachments; ordering by created_at
+  // ASC matches the deterministic ordering used in the chat route's
+  // system-block construction so a user sees the same order both
+  // places.
+  const { data: attachmentRows } = await supabase
+    .from("agent_attachments")
+    .select(
+      "id, storage_path, original_filename, content_type, size_bytes, extracted_text",
+    )
+    .eq("agent_id", agent.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+  const existingAttachments = (attachmentRows ?? []).map(
+    (row: ExistingAttachmentRow) => ({
+      attachmentId: row.id,
+      storagePath: row.storage_path,
+      originalFilename: row.original_filename,
+      contentType: row.content_type,
+      sizeBytes: row.size_bytes,
+      extractedText: row.extracted_text,
+      extractionWarning:
+        row.extracted_text === null
+          ? "Couldn't extract text from this file."
+          : null,
+    }),
+  );
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <header className="mb-8">
@@ -60,6 +97,7 @@ export default async function EditAgentPage({ params }: PageProps) {
       <AgentForm
         mode="edit"
         agentId={agent.id}
+        existingAttachments={existingAttachments}
         defaults={{
           name: agent.name,
           description: agent.description ?? "",

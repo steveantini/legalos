@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { notFound, redirect } from "next/navigation";
 
 import { AgentForm } from "@/components/agents/agent-form";
@@ -83,6 +85,8 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
 
       <AgentForm
         mode="create"
+        agentId={randomUUID()}
+        existingAttachments={[]}
         defaults={defaults}
         departmentSlug={department.slug}
         forkedFromAgent={forkedFromAgent}

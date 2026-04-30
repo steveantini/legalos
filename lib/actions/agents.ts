@@ -27,8 +27,17 @@ const SUPPORTED_MODELS = Object.keys(MODEL_PRICING) as [string, ...string[]];
  * fields (name, description, system_prompt) are length-bounded; the
  * backstop CHECK constraints in 0001 / 0006 / 0009 catch anything that
  * slips past.
+ *
+ * agent_id is pre-allocated client-side so the form can upload draft
+ * attachments to <user_id>/<agent_id>/... before the agent row exists,
+ * then atomically insert agent + attachment_rows here at save time.
+ *
+ * pending_attachments arrives as a JSON-encoded string in the form's
+ * hidden field — FormData can carry primitives and Files but not
+ * structured objects directly.
  */
 const createAgentSchema = z.object({
+  agent_id: z.string().uuid(),
   department_slug: z.string().min(1),
   name: z.string().trim().min(1, "Name is required.").max(120, "Name is too long."),
   description: z.string().trim().max(500, "Description is too long.").optional(),
@@ -43,6 +52,18 @@ const createAgentSchema = z.object({
     .uuid()
     .optional()
     .or(z.literal("").transform(() => undefined)),
+  pending_attachments: z
+    .string()
+    .optional()
+    .transform((s) => (s && s.length > 0 ? s : "[]")),
+});
+
+const pendingAttachmentSchema = z.object({
+  storagePath: z.string().min(1),
+  originalFilename: z.string().min(1),
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+  extractedText: z.string().nullable(),
 });
 
 export type CreateAgentResult =
@@ -109,12 +130,14 @@ export async function createAgentAction(
   }
 
   const parsed = createAgentSchema.safeParse({
+    agent_id: formData.get("agent_id"),
     department_slug: formData.get("department_slug"),
     name: formData.get("name"),
     description: formData.get("description") || undefined,
     system_prompt: formData.get("system_prompt"),
     model: formData.get("model"),
     forked_from_agent_id: formData.get("forked_from_agent_id") || undefined,
+    pending_attachments: formData.get("pending_attachments") || undefined,
   });
   if (!parsed.success) {
     const fieldErrors: NonNullable<
@@ -173,7 +196,35 @@ export async function createAgentAction(
     }
   }
 
+  // Parse pending attachments uploaded as drafts during the form's life
+  // (architecture §3 + 8h plan §2). Storage paths must live under
+  // <user_id>/<agent_id>/ so the storage policies in 0008 cover them
+  // and so they're addressable after the agent row inserts. Anything
+  // else gets rejected here as a defense-in-depth check.
+  let pendingAttachments: Array<z.infer<typeof pendingAttachmentSchema>> = [];
+  try {
+    const raw = JSON.parse(input.pending_attachments) as unknown;
+    if (Array.isArray(raw)) {
+      pendingAttachments = raw
+        .map((item) => pendingAttachmentSchema.safeParse(item))
+        .filter((r): r is { success: true; data: z.infer<typeof pendingAttachmentSchema> } => r.success)
+        .map((r) => r.data);
+    }
+  } catch {
+    pendingAttachments = [];
+  }
+  const expectedPathPrefix = `${user.id}/${input.agent_id}/`;
+  for (const att of pendingAttachments) {
+    if (!att.storagePath.startsWith(expectedPathPrefix)) {
+      return {
+        ok: false,
+        formError: "Attachment metadata is malformed. Try again.",
+      };
+    }
+  }
+
   const insertPayload = {
+    id: input.agent_id,
     organization_id: profile.organization_id,
     department_id: department.id,
     slug: generateSlug(input.name),
@@ -199,6 +250,36 @@ export async function createAgentAction(
   if (insertError) {
     console.error("createAgentAction insert failed", insertError);
     return { ok: false, formError: "Could not create agent. Try again." };
+  }
+
+  if (pendingAttachments.length > 0) {
+    const { error: attErr } = await supabase
+      .from("agent_attachments")
+      .insert(
+        pendingAttachments.map((att) => ({
+          agent_id: input.agent_id,
+          user_id: user.id,
+          organization_id: profile.organization_id,
+          storage_path: att.storagePath,
+          original_filename: att.originalFilename,
+          content_type: att.contentType,
+          size_bytes: att.sizeBytes,
+          extracted_text: att.extractedText,
+        })),
+      );
+    if (attErr) {
+      console.error("agent_attachments bulk insert failed", {
+        code: attErr.code,
+      });
+      // The agent row is in. Don't roll back — let the user open the
+      // edit form and re-attach. Surface a soft warning via the form
+      // error rather than a hard failure.
+      return {
+        ok: false,
+        formError:
+          "Agent created, but attachments could not be linked. Open the agent and try attaching again.",
+      };
+    }
   }
 
   redirect(`/departments/${department.slug}`);
