@@ -7,6 +7,13 @@
  * lib/llm/pricing.ts (vendor-agnostic) rather than under a vendor folder
  * so a single import covers every supported model.
  *
+ * Cache rates: Anthropic's 5-minute ephemeral prompt cache charges
+ * 1.25× the base input rate on the cache-write turn and 0.1× on
+ * cache-read turns. The break-even is one cache-read turn after the
+ * write — any conversation longer than two turns saves money. Multi-
+ * vendor caching is per-adapter (OpenAI auto-caches, Gemini differs);
+ * each vendor's row carries its own rates.
+ *
  * NOTE on Opus 4.7 tokenization: Anthropic introduced a new tokenizer with
  * Opus 4.7 that can produce up to ~35% more tokens for the same source text
  * vs. older models. Real cost per request can vary noticeably even at the
@@ -18,17 +25,23 @@
 export type ModelPricing = {
   inputPerMillion: number;
   outputPerMillion: number;
+  cacheWritePerMillion: number;
+  cacheReadPerMillion: number;
 };
 
 export const MODEL_PRICING: Record<string, ModelPricing> = {
-  "anthropic/claude-opus-4-7":            { inputPerMillion: 5, outputPerMillion: 25 },
-  "anthropic/claude-opus-4-6":            { inputPerMillion: 5, outputPerMillion: 25 },
-  "anthropic/claude-sonnet-4-6":          { inputPerMillion: 3, outputPerMillion: 15 },
-  "anthropic/claude-haiku-4-5-20251001":  { inputPerMillion: 1, outputPerMillion: 5  },
+  "anthropic/claude-opus-4-7":            { inputPerMillion: 5, outputPerMillion: 25, cacheWritePerMillion: 6.25, cacheReadPerMillion: 0.5 },
+  "anthropic/claude-opus-4-6":            { inputPerMillion: 5, outputPerMillion: 25, cacheWritePerMillion: 6.25, cacheReadPerMillion: 0.5 },
+  "anthropic/claude-sonnet-4-6":          { inputPerMillion: 3, outputPerMillion: 15, cacheWritePerMillion: 3.75, cacheReadPerMillion: 0.3 },
+  "anthropic/claude-haiku-4-5-20251001":  { inputPerMillion: 1, outputPerMillion: 5,  cacheWritePerMillion: 1.25, cacheReadPerMillion: 0.1 },
 };
 
 /**
  * Compute model call cost in micro-USD ($1 = 1,000,000 micro-USD).
+ *
+ * Four-component model: regular (uncached) input + cache writes + cache
+ * reads + output. Cache token counts default to 0, so this is backwards-
+ * compatible for callers that haven't yet wired cache reporting.
  *
  * Math: tokens × dollars-per-million yields micro-USD directly.
  * Token counts are bounded (<200K context per call) so the multiplication
@@ -42,6 +55,8 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
 export function computeCostMicroUsd(
   tokensIn: number,
   tokensOut: number,
+  cacheCreationTokens: number,
+  cacheReadTokens: number,
   model: string,
 ): number {
   const pricing = MODEL_PRICING[model];
@@ -49,6 +64,9 @@ export function computeCostMicroUsd(
     throw new Error(`Unknown model for cost calculation: ${model}`);
   }
   return Math.round(
-    tokensIn * pricing.inputPerMillion + tokensOut * pricing.outputPerMillion,
+    tokensIn * pricing.inputPerMillion
+      + tokensOut * pricing.outputPerMillion
+      + cacheCreationTokens * pricing.cacheWritePerMillion
+      + cacheReadTokens * pricing.cacheReadPerMillion,
   );
 }

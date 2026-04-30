@@ -3,7 +3,10 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { streamAnthropicChat } from "@/lib/llm/anthropic/chat";
+import {
+  streamAnthropicChat,
+  type AnthropicSystemBlock,
+} from "@/lib/llm/anthropic/chat";
 import {
   buildSystemPrompt,
   wrapUserMessage,
@@ -242,7 +245,22 @@ export async function POST(request: Request) {
       content: wrapUserMessage(user_message),
     });
 
-    const fullSystemPrompt = buildSystemPrompt(systemPromptSnapshot);
+    // Build the system content as an array of text blocks with a single
+    // cache_control marker on the last block. Content up to and including
+    // the marker is cached for ~5 minutes (architecture §1). When no
+    // attachments are present (8h commit 1), the system is one block —
+    // preamble + agent prompt — and the marker is on that single block.
+    // Below ~1024 tokens (Sonnet/Opus; ~2048 Haiku), Anthropic's caching
+    // threshold means the marker is a no-op and both
+    // cache_creation_input_tokens and cache_read_input_tokens come back
+    // as 0. That is correct behavior, not a bug — the math still works.
+    const systemBlocks: AnthropicSystemBlock[] = [
+      { type: "text", text: buildSystemPrompt(systemPromptSnapshot) },
+    ];
+    systemBlocks[systemBlocks.length - 1] = {
+      ...systemBlocks[systemBlocks.length - 1],
+      cache_control: { type: "ephemeral" },
+    };
 
     // Parse the vendor-prefixed model id snapshot. Single-case dispatcher
     // today (anthropic only); sibling adapters land in Phase 6 per D-025.
@@ -276,6 +294,8 @@ export async function POST(request: Request) {
         let assistantText = "";
         let tokensIn: number | null = null;
         let tokensOut: number | null = null;
+        let cacheCreationTokens = 0;
+        let cacheReadTokens = 0;
 
         // 2. Dispatch to the right vendor adapter and stream. On any
         //    failure, emit an error event and close the stream. The user
@@ -287,13 +307,15 @@ export async function POST(request: Request) {
           let finalUsage: () => Promise<{
             input_tokens: number;
             output_tokens: number;
+            cache_creation_input_tokens: number;
+            cache_read_input_tokens: number;
           }>;
 
           switch (vendor) {
             case "anthropic": {
               const r = streamAnthropicChat({
                 model: vendorModelName,
-                systemPrompt: fullSystemPrompt,
+                systemBlocks,
                 messages: apiMessages,
                 maxTokens: 4096,
               });
@@ -313,6 +335,8 @@ export async function POST(request: Request) {
           const usage = await finalUsage();
           tokensIn = usage.input_tokens;
           tokensOut = usage.output_tokens;
+          cacheCreationTokens = usage.cache_creation_input_tokens;
+          cacheReadTokens = usage.cache_read_input_tokens;
         } catch (err) {
           console.error("model stream failed", err);
           controller.enqueue(
@@ -352,6 +376,8 @@ export async function POST(request: Request) {
           costMicroUsd = computeCostMicroUsd(
             tokensIn!,
             tokensOut!,
+            cacheCreationTokens,
+            cacheReadTokens,
             modelSnapshot,
           );
         } catch (err) {
@@ -367,6 +393,8 @@ export async function POST(request: Request) {
           model: modelSnapshot,
           tokens_in: tokensIn!,
           tokens_out: tokensOut!,
+          cache_creation_tokens: cacheCreationTokens,
+          cache_read_tokens: cacheReadTokens,
           cost_micro_usd: costMicroUsd,
         });
         if (usageErr) {
