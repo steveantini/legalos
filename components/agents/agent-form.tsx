@@ -131,13 +131,6 @@ export function AgentForm({
   const submitLabelIdle = mode === "edit" ? "Save changes" : "Save agent";
   const submitLabelPending = mode === "edit" ? "Saving…" : "Saving…";
 
-  // Auto-expand the Advanced section when editing an agent that already
-  // has attachments — gives the user immediate visibility of what's
-  // attached without forcing a click. Create mode and edit-with-zero-
-  // attachments stay collapsed.
-  const advancedOpenByDefault =
-    mode === "edit" && existingAttachments.length > 0;
-
   return (
     <form action={formAction} className="space-y-8">
       <input type="hidden" name="agent_id" value={agentId} />
@@ -277,41 +270,36 @@ export function AgentForm({
         ) : null}
       </div>
 
-      <details
-        className="rounded-md border border-border"
-        open={advancedOpenByDefault}
-      >
-        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
-          Advanced
-        </summary>
-        <div className="space-y-6 border-t border-border px-4 py-4">
-          <AgentAttachmentsSection
-            mode={mode}
-            agentId={agentId}
-            initialAttachments={existingAttachments.map((a) => ({
-              attachmentId: a.attachmentId,
-              storagePath: a.storagePath,
-              originalFilename: a.originalFilename,
-              contentType: a.contentType,
-              sizeBytes: a.sizeBytes,
-              extractedText: a.extractedText,
-              extractionWarning: a.extractionWarning,
-            }))}
-          />
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Tools</Label>
-            <p className="text-sm text-muted-foreground">
-              Coming soon. Per-agent tool toggles such as web search.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Default output format</Label>
-            <p className="text-sm text-muted-foreground">
-              Markdown is the default. Word document export is coming soon.
-            </p>
-          </div>
+      <div className="space-y-6 border-t border-border pt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Advanced settings
+        </h2>
+        <AgentAttachmentsSection
+          mode={mode}
+          agentId={agentId}
+          initialAttachments={existingAttachments.map((a) => ({
+            attachmentId: a.attachmentId,
+            storagePath: a.storagePath,
+            originalFilename: a.originalFilename,
+            contentType: a.contentType,
+            sizeBytes: a.sizeBytes,
+            extractedText: a.extractedText,
+            extractionWarning: a.extractionWarning,
+          }))}
+        />
+        <div className="space-y-2">
+          <Label className="text-muted-foreground">Tools</Label>
+          <p className="text-sm text-muted-foreground">
+            Coming soon. Per-agent tool toggles such as web search.
+          </p>
         </div>
-      </details>
+        <div className="space-y-2">
+          <Label className="text-muted-foreground">Default output format</Label>
+          <p className="text-sm text-muted-foreground">
+            Markdown is the default. Word document export is coming soon.
+          </p>
+        </div>
+      </div>
 
       <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
         <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>
