@@ -25,7 +25,7 @@ export interface SiteConfig {
 
 export const siteConfig: SiteConfig = {
   companyName: "Your Company, Inc.",
-  siteTitle: "Legal AI Launchpad",
+  siteTitle: "legalOS",
   departmentName: "Legal",
   themePreset: "carbon",
   adminEmail: "legal-ops@example.com",

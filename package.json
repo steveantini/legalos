@@ -1,7 +1,8 @@
 {
-  "name": "legal-department-launchpad-template",
+  "name": "legalos",
   "version": "0.1.0",
   "private": true,
+  "description": "An operating system for legal departments — AI-native entry point for the workflows, agents, and tools in-house legal teams use day-to-day.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
