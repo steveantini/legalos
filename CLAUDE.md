@@ -1,16 +1,16 @@
-# Legal Department AI Launchpad Template: CLAUDE.md
+# legalOS: CLAUDE.md
 
 ## Project Overview
 
-An AI-native, in-house legal department launchpad template. A multi-department web app that gives lawyers and legal ops staff a single, welcoming entry point to the AI agents and tools they use day-to-day — whether those agents are external (Gemini Gems, watsonX Orchestrate, custom links) or natively hosted inside this app.
+legalOS — an operating system for legal departments. A multi-department, AI-native web app that gives lawyers and legal-ops staff a single, welcoming entry point to the agents and tools they use day-to-day — whether external (Gemini Gems, watsonX Orchestrate, custom links) or natively hosted inside the app.
 
-The project is built to serve one corporate legal department at a time (single-tenant), with a multi-tenant-ready schema so the same codebase can later support a SaaS version for multiple legal departments. It starts with five departments — Commercial, Mergers & Acquisitions, Public Sector, Government Relations & Regulatory Affairs, and Privacy — and is designed so adding more departments (Products, Compliance, Litigation, IP) becomes mostly configuration.
+legalOS is built to serve one corporate legal department at a time (single-tenant), with a multi-tenant-ready schema so the same codebase can later support a SaaS version for multiple legal departments. It ships with eight departments — Commercial, Public Sector, Government Relations & Regulatory Affairs, Mergers & Acquisitions, Privacy, Product, Compliance, Operations — and is designed so adding more (Litigation, IP, etc.) is mostly configuration.
 
-Adoption is a first-class concern. The UI is deliberately simple, clean, modern, and welcoming. Behind that simple front end is real infrastructure: role-based access, Supabase-backed analytics, a productivity gains calculator, support flows, and an admin area.
+Adoption is a first-class concern. The UI is deliberately simple, clean, modern, and welcoming. Behind that simple front end is real infrastructure: role-based access, native chat with prompt caching, web search, attached references, per-message Word export, soft-delete with 30-day undo, Supabase-backed analytics, a productivity gains calculator, support flows, and an admin area.
 
 ### Current Phase
 
-**Phase 0 — Foundation.** Repo setup, CLAUDE.md, skill files copied from the `claude-templates` library, Next.js + TypeScript + Tailwind + shadcn/ui scaffolded, Supabase project created, Vercel deployment pipeline verified, theme presets ported from the prior `agent-launchpad-template`.
+**Phase 2 — Agent product surface.** Native agents fully wired (chat, attachments, caching, web search, exports); agent CRUD + soft delete + trash + 8-department launchpad behind RBAC.
 
 ---
 
@@ -30,7 +30,7 @@ Adoption is a first-class concern. The UI is deliberately simple, clean, modern,
 ### Directory Structure
 
 ```
-legal-department-launchpad-template/
+legalos/
 ├── app/                          # Next.js App Router
 │   ├── (public)/                 # Unauthenticated routes (login, landing)
 │   ├── (app)/                    # Authenticated routes

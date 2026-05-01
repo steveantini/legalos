@@ -1,6 +1,6 @@
 # Setup Guide
 
-This guide walks you from an empty machine to a running local dev environment for `legal-department-launchpad-template`, and then through deploying your own instance to Vercel.
+This guide walks you from an empty machine to a running local dev environment for legalOS, and then through deploying your own instance to Vercel.
 
 Estimated time: **30–45 minutes** the first time through.
 
@@ -34,8 +34,8 @@ Accounts you'll need:
 
 ```bash
 # Create the repo on GitHub first, then:
-git clone git@github.com:<your-username>/legal-department-launchpad-template.git
-cd legal-department-launchpad-template
+git clone git@github.com:<your-username>/legalos.git
+cd legalos
 ```
 
 ### If you are forking the template for your own legal department
@@ -290,7 +290,7 @@ Edit `config/site.ts`:
 ```typescript
 export const siteConfig = {
   companyName: "Your Company, Inc.",
-  siteTitle: "Legal AI Launchpad",
+  siteTitle: "legalOS",
   departmentName: "Legal",
   themePreset: "carbon",  // "carbon" | "modern" | "minimal" | "custom"
   adminEmail: "legal-ops@yourcompany.com",

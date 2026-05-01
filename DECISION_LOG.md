@@ -1,6 +1,8 @@
-# Legal Department AI Launchpad Template: Decision Log
+# legalOS: Decision Log
 
-A running record of architectural decisions, with context, the decision, and the reasoning. New decisions are appended; old decisions are not edited — if a decision is reversed, add a new entry referencing the old one.
+A running record of architectural decisions for legalOS, with context, the decision, and the reasoning. New decisions are appended; old decisions are not edited — if a decision is reversed, add a new entry referencing the old one.
+
+Entries D-001 through D-025 reference the project by its previous name, "Legal Department Launchpad Template" / `legal-department-launchpad-template`. Those are preserved verbatim per the standing rule that decision-log history is immutable. The rename to legalOS is recorded in D-026.
 
 Format for each entry:
 
@@ -561,3 +563,35 @@ Status: Accepted
 - The deferred-to-roadmap list at the end of `docs/AGENT_ARCHITECTURE.md` is the source of truth for what Phase 2 does NOT include. Items there have explicit re-evaluation triggers; no item is "deferred forever," only "deferred until X surfaces."
 - D-010's analytics-promotion commitment (localStorage → Supabase, originally a Phase 2 work item) survives this scope expansion. It is deliberately excluded from the architecture doc's phasing list because it is independent of agent runtime architecture, but it remains a Phase 2 commitment tracked in PROJECT_OUTLINE.md.
 - Prompt caching is locked in as required architecture (not optimization) from the first user-created native agent. `usage_events` will gain `cache_creation_tokens` and `cache_read_tokens` columns when the relevant migration session lands; cost analytics that ignored the cache layer would systematically misreport spend on subsequent turns of every conversation.
+
+---
+
+## D-026 — Rename to legalOS
+
+Date: 2026-04-30
+Status: Accepted (supersedes the slug commitment in D-007)
+
+**Context:** The project has carried "Legal Department Launchpad Template" / `legal-department-launchpad-template` as its name since D-007 (2026-04-21). Through Sessions 8a–8l the product surface has grown well past "launchpad" — native chat with prompt caching, configurable per-agent tools (web search), attached references with text extraction, per-message Word export, soft-delete with 30-day undo, agent CRUD, an 8-department launchpad with role-based access, productivity-calculator and adoption-metrics admin surfaces. The "launchpad" framing reads as one entry point to other tools; the actual product is the operating layer in-house legal teams work inside.
+
+**Decision:** Rename to **legalOS**. Display name "legalOS" (camelCase, lowercase 'l'); slug / package name / repo name "legalos" (all lowercase). Browser tab title pattern: `<page> · legalOS`. Header on all surfaces: `legalOS` alone, no tagline.
+
+**Reasoning:** The new framing — "an operating system for legal departments" — is a more accurate description of what's been built. "Launchpad" describes a single capability; "operating system" describes the substrate. Choosing the substrate framing now sets the right reader expectation for the docs, the README, and the marketing surface that this project will eventually need.
+
+The casing choice (camelCase legalOS / lowercase legalos) follows the loose convention of `nodeJS`, `iOS`, `macOS` — domain-name and command-line cases use lowercase, brand cases use the camel form. Consistent with how those names are written in user-visible chrome (tab title, headers) versus identifiers (package names, URLs, slugs).
+
+**Alternatives considered:**
+
+- *Stay with "Legal Department Launchpad Template."* Rejected — accurate when the project was a starter scaffold; misleading after the substrate-shaped capabilities of Phase 2 landed.
+- *"Legal OS"* (with space, two words). Rejected — splits the brand name visually and tokenizes weirdly in command-line / URL contexts. The closed-up `legalOS` form reads as one identifier.
+- *"LegalOS"* (capital L). Rejected — looks like a misspelling of a product name where the lowercase prefix is the recognizable hook (cf. `iPhone`, `iPad`, `nodeJS`).
+- *"Atrium," "Aegis," "Keystone," "Chambers," "Docket"* (codenames considered in D-007). Rejected for the same reason as in D-007 — branded names are opaque without a tagline; descriptive names earn faster recognition. legalOS is a hybrid: descriptive (`legal`) plus categorical (`OS`).
+
+**Consequences:**
+
+- Display copy on every UI surface flips to "legalOS." `siteConfig.siteTitle` and the layout's metadata title template carry the brand text.
+- Browser tab title flips to `legalOS` (default) and `<page> · legalOS` (per-page) via `app/layout.tsx`'s `metadata.title.template`.
+- `package.json` `name` field flips to `legalos`.
+- README, PROJECT_OUTLINE, CLAUDE.md, DECISION_LOG, SETUP, docs/AGENT_ARCHITECTURE all reframed to legalOS identity. Existing decision-log entries D-001–D-025 stay verbatim per the immutable-history rule; this entry (D-026) is the canonical rename record.
+- Migration and seed file headers (`supabase/migrations/0001_*.sql` through `0012_*.sql`, `supabase/seed/0003_*.sql`) preserve their original `legal-department-launchpad-template` headers as historical run artifacts — they document what the project was called when each migration was authored and applied. Future migrations use the new name.
+- D-007's slug commitment (`legal-department-launchpad-template`) is superseded by this entry. The GitHub repo, Vercel project, and Supabase project (ref `knlnchvfjxchpbkuwtpp`, immutable per D-024) all rename to `legalos`. GitHub keeps a redirect from the old URL.
+- White-labeling per-deployment (an organization-level `brand_name` column overriding `siteConfig.siteTitle`) is deferred — not in scope here. Forks today inherit the legalOS branding by default; the option to override per-tenant lands when multi-tenancy actually ships.

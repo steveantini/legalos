@@ -1,10 +1,12 @@
-# Legal Department Launchpad Template
+# legalOS
 
-An AI-native launchpad template for in-house legal departments — a single, welcoming entry point for every AI agent and tool a legal team uses day-to-day, whether external (Gemini Gems, watsonX Orchestrate, custom links) or natively hosted.
+An operating system for legal departments. legalOS gives in-house lawyers and legal-ops teams a single, AI-native entry point for the workflows, agents, and tools they use day-to-day — built around how legal work actually happens, with role-based access, conversation history, attached references, web search, and per-message Word export already in place.
+
+This is open-source software you can fork and run for your own legal department, or adapt as the starting point for a multi-tenant SaaS.
 
 ## Current phase
 
-**Phase 0 — Foundation.** Repo scaffolding and planning docs. See [`PROJECT_OUTLINE.md`](./PROJECT_OUTLINE.md) for the full phase plan.
+**Phase 2 — Agent product surface.** Native agents with chat, attachments, prompt caching, web search, and per-message Word export are live; agent CRUD, soft-delete + 30-day undo, and an 8-department launchpad ship behind RBAC. See [`PROJECT_OUTLINE.md`](./PROJECT_OUTLINE.md) for the full phase plan.
 
 ## Tech stack
 

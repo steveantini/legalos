@@ -3,7 +3,7 @@
 **Status:** Living Document
 **Last updated:** 2026-04-28 (Session 8c)
 
-This document is the design specification for the agent product surface in `legal-department-launchpad-template`. Phase 2 originally landed with a single hardcoded native agent so the runtime could be smoke-tested end-to-end (Sessions 8a / 8b — see DECISION_LOG D-023). After that runtime came online, the product scope was deliberately expanded: native agents are no longer "one of two columns on a launchpad," but user-owned, user-configurable workspaces with attached references, configurable tools, multi-format output, and a forward path to multi-vendor model support. D-025 records the scope decision; this document is the spec the subsequent Phase 2 sessions implement.
+This document is the design specification for the agent product surface in legalOS. Phase 2 originally landed with a single hardcoded native agent so the runtime could be smoke-tested end-to-end (Sessions 8a / 8b — see DECISION_LOG D-023). After that runtime came online, the product scope was deliberately expanded: native agents are no longer "one of two columns on a launchpad," but user-owned, user-configurable workspaces with attached references, configurable tools, multi-format output, and a forward path to multi-vendor model support. D-025 records the scope decision; this document is the spec the subsequent Phase 2 sessions implement.
 
 It is not a decision log entry — DECISION_LOG.md handles single-question commitments. It is not a migration plan — that lives session by session as work proceeds. It is the architectural shape: what an agent _is_, what surfaces a user can tune, how data and tools attach to an agent, what gets sent to the model, and what the system explicitly does not yet do.
 

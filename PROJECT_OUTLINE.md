@@ -1,16 +1,16 @@
-# Legal Department AI Launchpad Template: Project Outline
+# legalOS: Project Outline
 
-This is the living roadmap and architecture document for `legal-department-launchpad-template`. It complements `CLAUDE.md` (conventions) and `DECISION_LOG.md` (why the architecture is what it is).
+This is the living roadmap and architecture document for legalOS — an operating system for legal departments. It complements `CLAUDE.md` (conventions) and `DECISION_LOG.md` (why the architecture is what it is).
 
 ---
 
 ## Vision
 
-An AI-native, welcoming, high-adoption web app that serves as the single entry point for all AI agents and tools used by an in-house legal department. Starts with one corporate legal department (single-tenant) but is designed to become a multi-tenant SaaS if that path is chosen later.
+legalOS is the AI-native operating system that serves as the single entry point for every workflow, agent, and tool used by an in-house legal department. It starts with one corporate legal department (single-tenant) but is designed to become a multi-tenant SaaS if that path is chosen later.
 
 The app supports two types of agents:
 - **External agents:** Cards that link out to Gemini Gems, watsonX Orchestrate, custom-built widgets, or any other URL.
-- **Native agents:** In-app chat experiences powered by the Anthropic API today, with a model abstraction layer added in Phase 6 to support OpenAI, Google, and other providers.
+- **Native agents:** In-app chat experiences powered by the Anthropic API today, with attached references, prompt caching, web search, and Word-document export. A model abstraction layer added in Phase 6 supports OpenAI, Google, and other providers.
 
 ---
 
