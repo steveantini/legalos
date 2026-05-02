@@ -6,7 +6,7 @@
  * both content-only (not behavior):
  *
  * 1. Agent names. Ten total — six from the seeded Commercial department
- *    and four invented for M&A / Privacy / GR&RA / Public Sector.
+ *    and four invented for M&A / Privacy / Public Sector / General Tools.
  *    Demonstrates the dashboard against this project's real surface;
  *    agents that don't exist on the launchpad would be more confusing
  *    than helpful in a demo.

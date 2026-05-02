@@ -142,13 +142,16 @@ values (gen_random_uuid(), 'Your Company, Inc.', 'your-company')
 returning id;
 -- Copy the returned id; you'll paste it into the next queries.
 
--- 2. Create the five starting departments (replace ORG_ID with the id from step 1)
+-- 2. Create the eight starting departments (replace ORG_ID with the id from step 1)
 insert into departments (organization_id, slug, name, description, sort_order) values
   ('ORG_ID', 'commercial', 'Commercial', 'Contract review, vendor agreements, commercial operations.', 1),
-  ('ORG_ID', 'ma', 'Mergers & Acquisitions', 'Deal diligence, merger agreements, integration planning.', 2),
-  ('ORG_ID', 'public-sector', 'Public Sector', 'Government contracts and public-sector matters.', 3),
-  ('ORG_ID', 'grra', 'Government Relations & Regulatory Affairs', 'Lobbying, regulatory monitoring, policy advocacy.', 4),
-  ('ORG_ID', 'privacy', 'Privacy', 'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 5);
+  ('ORG_ID', 'public-sector', 'Public Sector', 'Government relations, regulatory affairs, public-sector contracts, and policy advocacy.', 2),
+  ('ORG_ID', 'ma', 'Mergers & Acquisitions', 'Deal diligence, merger agreements, integration planning.', 3),
+  ('ORG_ID', 'privacy', 'Privacy', 'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 4),
+  ('ORG_ID', 'product', 'Product', 'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 5),
+  ('ORG_ID', 'compliance', 'Compliance', 'Compliance program management, regulatory monitoring, and audit support.', 6),
+  ('ORG_ID', 'operations', 'Operations', 'Internal operations, vendor management, procurement, and corporate transactions.', 7),
+  ('ORG_ID', 'general-tools', 'General Tools', 'general purpose agentic tools', 8);
 ```
 
 Then create your first admin user. The cleanest way:
@@ -166,7 +169,7 @@ from auth.users au
 where au.email = 'YOUR_EMAIL'
 on conflict (id) do update set role = 'org_admin';
 
--- Grant yourself access to all five departments
+-- Grant yourself access to all eight departments
 insert into user_department_roles (user_id, department_id, role)
 select u.id, d.id, 'dept_admin'
 from users u
@@ -174,7 +177,7 @@ cross join departments d
 where u.email = 'YOUR_EMAIL' and d.organization_id = 'ORG_ID';
 ```
 
-Refresh the app. You should now see the admin nav and all five departments.
+Refresh the app. You should now see the admin nav and all eight departments.
 
 #### Alternative: production-only setup (no local dev)
 
@@ -339,7 +342,7 @@ For a native agent, set `type = 'native'`, leave `external_url` null, and popula
 ## Troubleshooting
 
 **Login works but I can't see any departments after logging in.**
-Check the `user_department_roles` table — your user needs at least one row per department they should see. The admin seed block in 3f grants access to all five.
+Check the `user_department_roles` table — your user needs at least one row per department they should see. The admin seed block in 3f grants access to all eight.
 
 **"Could not find the function public.xyz" or missing table errors.**
 The schema migration didn't run cleanly. Re-run `supabase/migrations/0001_initial_schema.sql` in the SQL editor. Check the query log for errors.

@@ -2,11 +2,11 @@
 -- 0004_blank_agents.sql — Blank Agent template seeded into every department
 -- ============================================================================
 --
--- Creates a "Blank Agent" template row in each of the five starting
--- departments (Commercial, M&A, Public Sector, GR&RA, Privacy). The Blank
--- Agent is a system template (is_template = true, created_by = null) that
--- the agent CRUD UI (Phase 2 sub-session) presents alongside curated
--- templates as a "start from scratch" option.
+-- Creates a "Blank Agent" template row in each of the eight starting
+-- departments (Commercial, Public Sector, M&A, Privacy, Product, Compliance,
+-- Operations, General Tools). The Blank Agent is a system template
+-- (is_template = true, created_by = null) that the agent CRUD UI presents
+-- alongside curated templates as a "start from scratch" option.
 --
 -- Each department gets its own row because the agents table's unique
 -- constraint is (organization_id, slug); to allow a Blank Agent on every

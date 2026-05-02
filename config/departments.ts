@@ -37,47 +37,48 @@ export const departmentSeed: DepartmentSeed[] = [
   {
     slug: "public-sector",
     name: "Public Sector",
-    description: "Government contracts and public-sector matters.",
+    description:
+      "Government relations, regulatory affairs, public-sector contracts, and policy advocacy.",
     sortOrder: 2,
-  },
-  {
-    slug: "grra",
-    name: "Government Relations & Regulatory Affairs",
-    description: "Lobbying, regulatory monitoring, policy advocacy.",
-    sortOrder: 3,
   },
   {
     slug: "ma",
     name: "Mergers & Acquisitions",
     description: "Deal diligence, merger agreements, integration planning.",
-    sortOrder: 4,
+    sortOrder: 3,
   },
   {
     slug: "privacy",
     name: "Privacy",
     description:
       "Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).",
-    sortOrder: 5,
+    sortOrder: 4,
   },
   {
     slug: "product",
     name: "Product",
     description:
       "Product launches, feature reviews, terms updates, and product-counsel partnerships.",
-    sortOrder: 6,
+    sortOrder: 5,
   },
   {
     slug: "compliance",
     name: "Compliance",
     description:
       "Compliance program management, regulatory monitoring, and audit support.",
-    sortOrder: 7,
+    sortOrder: 6,
   },
   {
     slug: "operations",
     name: "Operations",
     description:
       "Internal operations, vendor management, procurement, and corporate transactions.",
+    sortOrder: 7,
+  },
+  {
+    slug: "general-tools",
+    name: "General Tools",
+    description: "general purpose agentic tools",
     sortOrder: 8,
   },
 ];
