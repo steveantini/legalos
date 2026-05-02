@@ -100,6 +100,37 @@ export async function getAccessibleDepartments(
 }
 
 /**
+ * Returns active, non-deleted agent counts per department, keyed by
+ * department UUID. RLS scopes the underlying `agents` read to rows the
+ * current user can see; `is_active = true` and `deleted_at IS NULL`
+ * layer on top of RLS so soft-deleted and deactivated agents don't
+ * inflate the count.
+ *
+ * Used by the Workspace landing (Session 9e) to render "{N} agents"
+ * in each department card's foot. Templates and user-owned agents both
+ * count — the foot shows total available.
+ *
+ * One round-trip: returns ~50–100 department_id rows for the current
+ * setup (8 departments × ~1–8 agents each), aggregated in JS.
+ */
+export async function getAgentCountsByDepartment(): Promise<
+  Record<string, number>
+> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("agents")
+    .select("department_id")
+    .eq("is_active", true)
+    .is("deleted_at", null);
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.department_id] = (counts[row.department_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
  * Returns the department row for `slug` IF the current user has any role
  * in that department, else null.
  *

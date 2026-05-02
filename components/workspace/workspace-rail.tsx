@@ -1,0 +1,127 @@
+import Link from "next/link";
+
+import { siteConfig } from "@/config/site";
+import type { AccessibleDepartment } from "@/lib/auth/access";
+
+type ProfileShape = {
+  full_name: string | null;
+  email: string;
+  role: "super_admin" | "org_admin" | "user";
+};
+
+const RESOURCE_LINKS: ReadonlyArray<{ slug: string; label: string }> = [
+  { slug: "knowledge", label: "Knowledge" },
+  { slug: "matters", label: "Matters / Deals" },
+  { slug: "inbox", label: "Inbox" },
+  { slug: "resources", label: "Resources" },
+];
+
+const ROLE_LABEL: Record<ProfileShape["role"], string> = {
+  super_admin: "Super admin",
+  org_admin: "Org admin",
+  user: "User",
+};
+
+function getDisplayName(profile: ProfileShape): string {
+  const trimmed = profile.full_name?.trim();
+  if (trimmed) return trimmed;
+  const local = profile.email.split("@")[0] ?? "";
+  return local ? local.charAt(0).toUpperCase() + local.slice(1) : profile.email;
+}
+
+function getInitials(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    const first = parts[0]?.[0] ?? "";
+    const last = parts[parts.length - 1]?.[0] ?? "";
+    return `${first}${last}`.toUpperCase();
+  }
+  return (parts[0] ?? "").slice(0, 2).toUpperCase();
+}
+
+const linkBase =
+  "flex items-center justify-between rounded-lg px-3 py-[7px] text-[13.5px] font-[450] tracking-[-0.005em] text-ink-2 transition-colors duration-150 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+const linkActive =
+  "bg-sidebar-primary text-sidebar-primary-foreground font-medium hover:bg-sidebar-primary";
+
+const captionLabel =
+  "mx-2 mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-caption";
+
+export function WorkspaceRail({
+  departments,
+  profile,
+}: {
+  departments: AccessibleDepartment[];
+  profile: ProfileShape;
+}) {
+  const displayName = getDisplayName(profile);
+  const initials = getInitials(displayName);
+  const roleLabel = ROLE_LABEL[profile.role];
+
+  return (
+    <nav
+      aria-label="Workspace"
+      className="flex w-[232px] flex-col gap-[22px] overflow-auto border-r border-hairline bg-sidebar px-[14px] py-[22px]"
+    >
+      {/* Brand mark */}
+      <div className="flex items-center gap-[10px] px-2 pt-[2px] text-[15px] font-semibold tracking-[-0.015em]">
+        <span
+          aria-hidden
+          className="h-[7px] w-[7px] rounded-full bg-primary"
+        />
+        {siteConfig.siteTitle}
+      </div>
+
+      {/* Group 1 — Workspace (always active on this page) */}
+      <div className="flex flex-col gap-px">
+        <Link
+          href="/"
+          aria-current="page"
+          className={`${linkBase} ${linkActive}`}
+        >
+          Workspace
+        </Link>
+      </div>
+
+      {/* Group 2 — Departments */}
+      <div className="flex flex-col gap-px">
+        <p className={captionLabel}>Departments</p>
+        {departments.map((d) => (
+          <Link key={d.id} href={`/departments/${d.slug}`} className={linkBase}>
+            {d.name}
+          </Link>
+        ))}
+      </div>
+
+      {/* Group 3 — Resource links (no group label per spec) */}
+      <div className="flex flex-col gap-px">
+        {RESOURCE_LINKS.map(({ slug, label }) => (
+          <Link
+            key={slug}
+            href={`/coming-soon/${slug}`}
+            className={linkBase}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+
+      {/* Profile block — pinned to bottom via mt-auto */}
+      <div className="mt-auto flex items-center gap-[10px] border-t border-hairline-strong px-2 pb-[2px] pt-[14px]">
+        <span
+          aria-hidden
+          className="grid h-7 w-7 place-items-center rounded-full bg-foreground text-[11px] font-medium text-background"
+        >
+          {initials}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-medium leading-[1.2] tracking-[-0.005em]">
+            {displayName}
+          </p>
+          <p className="truncate text-[11px] text-caption">{roleLabel}</p>
+        </div>
+      </div>
+    </nav>
+  );
+}
