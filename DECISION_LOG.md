@@ -632,3 +632,76 @@ The lowercase "general purpose agentic tools" description is a user-chosen devia
 - Stale current-state references updated in `CLAUDE.md` (Project Overview line listing the eight departments), `SETUP.md` (the manual SQL fallback in 3f, plus the surrounding "all five" prose), `lib/metrics/sample-data.ts` (header comment listing the four departments the invented agents belong to). Historical phase-description content in `PROJECT_OUTLINE.md` (Phase 1 Shipped table; Phase 4 plan) and `docs/AGENT_ARCHITECTURE.md` (the "five starter departments, no AI department" section describing Phase 2's design-time scope) is preserved verbatim per the same rule that preserved migration headers in D-026 — phase descriptions stay as-is, decision-log entries record the changes.
 - Migrations 0001–0012 are NOT touched. They remain the historical record of what was applied at the time. Future migrations reference the post-9b state (8 departments without GRRA, with General Tools).
 - D-027 (Aperture font choice) and D-028 (Constraint B relaxation for the Aperture visual style) are reserved for the implementation sessions that surface them; they will land out-of-order relative to D-029 because 9b's data work happens before 9c–9e's UI work. The numbering reflects topic ordering, not chronology.
+
+## D-027 — Font reversal: D-022 system-ui → Inter Tight + Geist Mono, self-hosted
+
+Date: 2026-05-02
+Status: Accepted (supersedes D-022)
+
+**Context:** Session 8g (D-022) dropped `next/font/google` (Geist + Geist_Mono) and replaced the font tokens with system-ui stacks (`-apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, …` for sans; `ui-monospace, "SF Mono", Menlo, …` for mono). The motivation at the time was avoiding the Google Fonts runtime dependency and matching whatever the user's OS already provided. With Sessions 9a–9e (Aperture UI/UX overhaul) underway, the Aperture design's typography is load-bearing — a 52px hero headline, 10–11px mono caption labels, and a tight-tracking + variable-weight rhythm that depends on Inter Tight specifically. System-ui fonts render meaningfully differently across operating systems (San Francisco on macOS, Segoe UI on Windows, Roboto on Android), and at the design's small sizes the differences become legibility-affecting, not just stylistic.
+
+**Decision:** Reverse D-022. Self-host two fonts via `next/font/local`:
+
+- **Inter Tight** (display + UI surfaces, weights 100–900 via the variable axis). Sourced from `@fontsource-variable/inter-tight` (npm), copied into `app/fonts/inter-tight-variable-latin.woff2` plus the SIL OFL 1.1 LICENSE.
+- **Geist Mono** (mono surfaces, same variable-axis approach). Sourced from `@fontsource-variable/geist-mono` (npm), copied into `app/fonts/geist-mono-variable-latin.woff2` plus the SIL OFL 1.1 LICENSE.
+
+Aperture's spec calls for IBM Plex Mono; **Geist Mono is substituted** for three reasons: (a) we don't want IBM-branded font assets in this project, (b) Geist Mono lives in the same humanist-mono neighborhood as Plex (similar x-height and weight rhythm, designed for UI density), and (c) Geist Mono pairs naturally with Inter Tight — both have clean lowercase forms designed for small sizes.
+
+`localFont` declarations in `app/layout.tsx` expose two CSS variables (`--font-display` for Inter Tight, `--font-mono` for Geist Mono). `app/globals.css`'s `@theme inline` block references those variables in `--font-sans`, `--font-mono`, and `--font-heading` with `system-ui, sans-serif` / `ui-monospace, monospace` fallbacks.
+
+**Reasoning:**
+
+The pivot is that the project now has a commissioned design (Aperture, Session 9a) with specific typographic intent. Deferring to system fonts was a Phase-1 speed call when no specific design was in play; with a design in hand, type rendering needs to be consistent across platforms and weights — including the non-standard weight 450 that Inter Tight's variable axis makes available.
+
+Self-hosting via `next/font/local` rather than `next/font/google` keeps the runtime dependency-free (no Google Fonts CDN call), commits the fonts into the repo (version-pinned to whatever was in `@fontsource-variable/*` at copy time), and lets `next/font` apply its automatic metric-overridden fallback (size-adjusted Arial during loading, eliminating layout shift). Variable woff2 files (1 file per family — ~45KB Inter Tight + ~31KB Geist Mono = ~76KB total) cover all weights including 450 from a single asset; static-instance distributions per weight would balloon to 6 + 2 = 8 woff2 files and still wouldn't cover the 450 axis point.
+
+**Alternatives considered:**
+
+- *Use `next/font/google`.* Rejected — re-introduces a runtime dependency on Google Fonts and the privacy / perf concerns that originally motivated D-022.
+- *Use IBM Plex Mono as the Aperture spec specifies.* Rejected — we don't want IBM-branded assets in the project. Geist Mono is a near-equivalent visually.
+- *Use the `geist` npm package directly.* Rejected — the package wraps `next/font` internally; self-hosting via `next/font/local` is the cleaner pattern matching how Inter Tight is set up.
+- *Static-instance distributions per weight.* Rejected — Inter Tight at weight 450 is only available via the variable axis, and static instances inflate the asset count without benefit.
+
+**Consequences:**
+
+- D-022's system-ui font stack is removed from `app/globals.css`. The `@theme inline` font tokens (`--font-sans`, `--font-mono`, `--font-heading`) now resolve through the localFont CSS variables.
+- All UI surfaces re-render in Inter Tight (sans / heading / UI) + Geist Mono (mono / code) instead of San Francisco / Segoe UI / Roboto. Existing screens designed against the system-ui stack may look slightly off in Inter Tight (different metrics, different feel) — they get renovated in 9d / 9e or ad-hoc later.
+- Both fonts ship with their SIL OFL 1.1 LICENSE files committed alongside the woff2 in `app/fonts/`. License compliance is in-repo, not deferred.
+- `@fontsource-variable/inter-tight` and `@fontsource-variable/geist-mono` were installed as dev deps for the file copy and then uninstalled. They are not runtime dependencies. The fonts live in `app/fonts/`, not `node_modules/`.
+- Future font tweaks (adding italic axes, swapping families, adjusting feature settings like `ss01` / `cv11` from the Aperture spec) happen by editing `app/layout.tsx`'s `localFont` declarations.
+
+## D-028 — Constraint B relaxed: shadcn primitives for interaction, design tokens for visual
+
+Date: 2026-05-02
+Status: Accepted (relaxes Constraint B from D-014)
+
+**Context:** Constraint B (D-014, the Tailwind-v4 + shadcn decision) was: let shadcn defaults drive the visual style. No theme port from the prior `agent-launchpad-template`, no custom palette, just shadcn's neutral OKLCH defaults. The motivation was Phase-1 speed — shipping a working app without spending days picking colors that would change anyway when a real design landed. With Sessions 9a–9e (Aperture UI/UX overhaul) underway, a real design HAS landed, and the discipline shifts.
+
+**Decision:** Relax Constraint B. Replace it with this new constraint:
+
+> **Use shadcn primitives for interaction; override visual styling via Aperture design tokens.**
+
+Concretely:
+
+- **Keep using shadcn for interaction correctness.** Button, Input, Dialog, DropdownMenu, Popover, Sheet, Command, Tooltip, etc. — anything whose value is in interaction logic (focus management, keyboard shortcuts, ARIA, portal handling, click-outside, animation orchestration). These are hard problems that shadcn solved well; don't reimplement.
+- **Override visual styling via Aperture tokens.** Don't fight shadcn's CSS variables — rebind them. Session 9c remaps the existing shadcn tokens (`--background`, `--foreground`, `--primary`, `--muted`, etc.) to Aperture roles so existing className references like `bg-background` and `text-muted-foreground` keep working but resolve to the new palette. New tokens that don't have a shadcn analog (`--paper-2`, `--hairline`, `--hairline-strong`, `--card-divider`, `--ink-2`, `--caption`, `--accent-hover`) are added alongside and exposed via `@theme inline` so Tailwind generates first-class utilities.
+- **When shadcn's component visual conventions diverge from Aperture**, override at the className / `cn()` layer in the consuming component — not by forking the primitive. If the override grows past a few utility classes, that's a signal to extract a project-level wrapper component.
+
+**Reasoning:**
+
+This is what most teams do once they have a real visual identity. The shadcn-defaults posture is right for the first weeks of a project; it's not right once a designer has shipped a palette, type system, and spacing rhythm. Treating shadcn as an interaction library (not a visual library) gives us interaction correctness for free and visual sovereignty where it matters.
+
+The token-rebinding approach (Session 9c's mechanism) is specifically chosen to avoid component-by-component visual rewrites. By rebinding what `--background`, `--primary`, etc. resolve to, every existing screen visually shifts in one CSS edit — without touching any component or page file. This is the lowest-touch path from "shadcn neutral" to "Aperture warm-paper" and the right shape for a design-system change of this scale.
+
+**Alternatives considered:**
+
+- *Hold Constraint B as-is.* Rejected — wastes the Aperture commission and means the product looks like a generic shadcn starter despite the design work.
+- *Fork shadcn primitives and rewrite their visual styling internally.* Rejected — couples us to specific shadcn versions, makes future updates hard, and concentrates visual choices inside primitive code where it's harder to audit. Token rebinding keeps the change reviewable in one CSS file.
+- *Adopt a non-shadcn primitive library that ships with Aperture-compatible visuals.* Rejected — we'd lose interaction correctness, accessibility work, and the keyboard / focus behavior shadcn already gets right. The visual is the easier half to override.
+
+**Consequences:**
+
+- Future component work in 9d / 9e renovates UI surfaces by composing shadcn primitives + project tokens, NOT by writing custom React components from scratch. The Aperture department card, for instance, would be a `Card` (shadcn or near-equivalent) styled with `bg-card`, `border-border`, custom radius and shadow utilities, and the `ArrowRight` icon — not a hand-built `<div>` with inline styles.
+- The new Aperture tokens (`--paper-2`, `--hairline`, etc.) are available via standard Tailwind utilities (`bg-paper-2`, `border-hairline`, `text-caption`). Component code consumes these the same way it consumes `bg-background` — no special syntax.
+- Constraint B from D-014 is no longer load-bearing. References to it in code review, planning, or skill files should be updated to the new constraint above. The two are NOT contradictory in spirit (both prefer "don't reinvent what shadcn does well") — D-028 just sharpens the boundary between interaction and visual.
+- Dark mode tokens (the `.dark` block in `app/globals.css`) are deliberately untouched in 9c. Aperture is light-mode only by spec; dark mode retune is a future session.
