@@ -2,7 +2,10 @@
 
 import { usePathname } from "next/navigation";
 
-import type { AccessibleDepartment } from "@/lib/auth/access";
+import type {
+  AccessibleDepartment,
+  AgentBreadcrumbContext,
+} from "@/lib/auth/access";
 
 /**
  * Shared lookup of the rail's resource-link area slugs to display labels.
@@ -35,12 +38,14 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
  */
 export function WorkspaceBreadcrumb({
   departments,
+  agents,
 }: {
   departments: AccessibleDepartment[];
+  agents: AgentBreadcrumbContext[];
 }) {
   const pathname = usePathname();
 
-  const segments = computeSegments(pathname, departments);
+  const segments = computeSegments(pathname, departments, agents);
 
   return (
     <div className="text-[13px] text-caption">
@@ -66,6 +71,7 @@ export function WorkspaceBreadcrumb({
 function computeSegments(
   pathname: string,
   departments: AccessibleDepartment[],
+  agents: AgentBreadcrumbContext[],
 ): string[] {
   if (pathname === "/") {
     return ["workspace", "departments"];
@@ -76,6 +82,37 @@ function computeSegments(
     const slug = deptMatch[1];
     const dept = departments.find((d) => d.slug === slug);
     return ["workspace", "departments", dept?.name ?? slug];
+  }
+
+  // /agents/<id>/edit must match BEFORE /agents/<id> because the edit
+  // pathname also satisfies the simpler agent regex.
+  const agentEditMatch = pathname.match(/^\/agents\/([^/]+)\/edit/);
+  if (agentEditMatch) {
+    const agentId = agentEditMatch[1];
+    const agent = agents.find((a) => a.id === agentId);
+    if (agent) {
+      return [
+        "workspace",
+        "departments",
+        agent.department_name,
+        agent.name,
+        "Edit",
+      ];
+    }
+    // Defensive fallback — RLS should prevent this branch (the layout's
+    // notFound() gate runs first). Keep the breadcrumb readable rather
+    // than crashing on a missing lookup.
+    return ["workspace", "departments", "Agent", "Edit"];
+  }
+
+  const agentMatch = pathname.match(/^\/agents\/([^/]+)/);
+  if (agentMatch) {
+    const agentId = agentMatch[1];
+    const agent = agents.find((a) => a.id === agentId);
+    if (agent) {
+      return ["workspace", "departments", agent.department_name, agent.name];
+    }
+    return ["workspace", "departments", "Agent"];
   }
 
   const comingSoonMatch = pathname.match(/^\/coming-soon\/([^/]+)/);

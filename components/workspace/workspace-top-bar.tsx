@@ -1,4 +1,7 @@
-import type { AccessibleDepartment } from "@/lib/auth/access";
+import type {
+  AccessibleDepartment,
+  AgentBreadcrumbContext,
+} from "@/lib/auth/access";
 
 import { WorkspaceBreadcrumb } from "./workspace-breadcrumb";
 
@@ -22,8 +25,10 @@ import { WorkspaceBreadcrumb } from "./workspace-breadcrumb";
  */
 export function WorkspaceTopBar({
   departments,
+  agents,
 }: {
   departments: AccessibleDepartment[];
+  agents: AgentBreadcrumbContext[];
 }) {
   const now = new Date();
   const weekday = new Intl.DateTimeFormat("en-US", {
@@ -37,7 +42,7 @@ export function WorkspaceTopBar({
 
   return (
     <div className="flex h-[56px] items-center gap-5 border-b border-hairline px-10">
-      <WorkspaceBreadcrumb departments={departments} />
+      <WorkspaceBreadcrumb departments={departments} agents={agents} />
       <div className="ml-auto flex gap-[22px] text-[12.5px] text-caption">
         <span>{dateStr}</span>
       </div>

@@ -1,8 +1,9 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AgentForm } from "@/components/agents/agent-form";
 import { updateAgentAction } from "@/lib/actions/agents";
-import { requireAuthUser } from "@/lib/auth/access";
+import { getAgent, requireAuthUser } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ExistingAttachmentRow = {
@@ -18,23 +19,30 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Override the layout's default title (`<Agent.name>`) with `Edit
+ * <Agent.name>`. Reuses the cached `getAgent(id)` so this is a no-op
+ * fetch repeating the layout's resolved value.
+ */
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const agent = await getAgent(id);
+  return { title: agent ? `Edit ${agent.name}` : "Edit agent" };
+}
+
 export default async function EditAgentPage({ params }: PageProps) {
   const user = await requireAuthUser();
   const { id } = await params;
-
-  const supabase = await createSupabaseServerClient();
-  const { data: agent } = await supabase
-    .from("agents")
-    .select(
-      "id, name, description, type, is_template, system_prompt, model, tools_enabled, created_by, deleted_at, departments(slug, name)",
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const agent = await getAgent(id);
 
   // Single notFound() outcome for any failure path so we never leak which
-  // condition tripped: missing agent, RLS-hidden, owned by someone else,
-  // template, external, or already soft-deleted (deleted agents are edited
-  // through restore from /agents/trash, not directly).
+  // condition tripped: missing agent (caught by the layout already, but
+  // defensive here too), RLS-hidden, owned by someone else, template,
+  // external, soft-deleted (deleted agents are restored from
+  // `/agents/trash`, not edited directly), missing prompt or model
+  // (which would mean the agent's a malformed native row), or no
+  // department on the join (defensive — `getAgent` uses inner join, so
+  // department is always present for visible agents).
   if (
     !agent ||
     agent.created_by !== user.id ||
@@ -42,24 +50,21 @@ export default async function EditAgentPage({ params }: PageProps) {
     agent.type !== "native" ||
     agent.deleted_at !== null ||
     !agent.system_prompt ||
-    !agent.model
+    !agent.model ||
+    !agent.department
   ) {
     notFound();
   }
 
-  const department = agent.departments as unknown as {
-    slug: string;
-    name: string;
-  } | null;
-  if (!department) {
-    notFound();
-  }
-
-  // Load active attachments for the form's existing-list. Filtering on
-  // deleted_at IS NULL skips removed attachments; ordering by created_at
-  // ASC matches the deterministic ordering used in the chat route's
-  // system-block construction so a user sees the same order both
-  // places.
+  // Attachments live in a sibling table; `getAgent` doesn't fetch them
+  // (correct — the helper is per-row on `agents`). One inline query
+  // here. If a second consumer of attachments emerges, extract a
+  // `getAgentAttachments(id)` helper at that point. Filtering on
+  // `deleted_at IS NULL` skips removed attachments; ordering by
+  // `created_at ASC` matches the deterministic ordering used in the
+  // chat route's system-block construction so a user sees the same
+  // order both places.
+  const supabase = await createSupabaseServerClient();
   const { data: attachmentRows } = await supabase
     .from("agent_attachments")
     .select(
@@ -86,7 +91,7 @@ export default async function EditAgentPage({ params }: PageProps) {
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <header className="mb-8">
-        <p className="text-sm text-muted-foreground">{department.name}</p>
+        <p className="text-sm text-muted-foreground">{agent.department.name}</p>
         <h1 className="mt-1 text-3xl font-semibold">Edit agent</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Changes apply to new conversations. Existing conversations keep their
@@ -107,7 +112,7 @@ export default async function EditAgentPage({ params }: PageProps) {
             ? (agent.tools_enabled as unknown as string[])
             : [],
         }}
-        departmentSlug={department.slug}
+        departmentSlug={agent.department.slug}
         forkedFromAgent={null}
         action={updateAgentAction}
       />

@@ -143,6 +143,139 @@ export async function getAgentCountsByDepartment(): Promise<
 }
 
 /**
+ * Unified agent shape returned by `getAgent`. Carries every column the
+ * chat surface, edit form, and breadcrumb collectively need — the chat
+ * page narrows further via its `notFound()` clause (`type='native' &&
+ * is_active`); the edit page narrows further (owner + non-template +
+ * non-deleted + has-prompt-and-model). The helper itself stays general
+ * with a single null contract on any failure mode (missing, RLS-hidden).
+ */
+export type AccessibleAgent = {
+  id: string;
+  name: string;
+  description: string | null;
+  type: "external" | "native";
+  is_active: boolean;
+  is_template: boolean;
+  system_prompt: string | null;
+  model: string | null;
+  tools_enabled: unknown;
+  created_by: string | null;
+  deleted_at: string | null;
+  department: { slug: string; name: string } | null;
+};
+
+/**
+ * Returns the agent row for `id` IF the current user can read it (RLS
+ * scoped via `agents_read_accessible`), else null. Includes the nested
+ * department slug + name for breadcrumb resolution.
+ *
+ * Single null contract covers all failure modes (missing, RLS-hidden,
+ * etc.) — same idiom as `getDepartmentIfAccessible`. Callers narrow
+ * further with their own `notFound()` clauses for type/owner/deleted
+ * refinement.
+ *
+ * Wrapped in React's `cache()` for per-request memoization keyed by
+ * `id` — agent layout + breadcrumb + rail-active-state + page can all
+ * call this with the same id and resolve to a single Supabase
+ * round-trip.
+ */
+export const getAgent = cache(
+  async (id: string): Promise<AccessibleAgent | null> => {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("agents")
+      .select(
+        "id, name, description, type, is_active, is_template, system_prompt, model, tools_enabled, created_by, deleted_at, departments!inner(slug, name)",
+      )
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!data) return null;
+
+    const dept =
+      (data.departments as unknown as { slug: string; name: string } | null) ??
+      null;
+
+    return {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      type: data.type,
+      is_active: data.is_active,
+      is_template: data.is_template,
+      system_prompt: data.system_prompt,
+      model: data.model,
+      tools_enabled: data.tools_enabled,
+      created_by: data.created_by,
+      deleted_at: data.deleted_at,
+      department: dept,
+    };
+  },
+);
+
+/**
+ * Slim per-agent context the workspace chrome (breadcrumb + rail
+ * active-state) needs to resolve `<id>` paths to human-readable names
+ * and parent department slugs.
+ */
+export interface AgentBreadcrumbContext {
+  id: string;
+  name: string;
+  department_slug: string;
+  department_name: string;
+}
+
+/**
+ * Returns every agent the current user can read, projected to the slim
+ * `AgentBreadcrumbContext` shape. Active, non-deleted only — soft-
+ * deleted agents keep their chat surface (architecture §3) but are
+ * intentionally NOT in the rail's active-resolution list since they
+ * don't appear in the launchpad either; navigating to a soft-deleted
+ * agent's chat URL falls through to the breadcrumb's defensive "Agent"
+ * fallback rather than highlighting a parent department.
+ *
+ * The slim shape is deliberate — the workspace layout fetches this on
+ * every render to feed the breadcrumb + rail; full agent rows would
+ * be wasteful for what's essentially a `(id, name, dept)` lookup table.
+ *
+ * Wrapped in `cache()` keyed by `userId` for per-request dedup with
+ * any other caller (none today, but matches the 10a posture).
+ */
+export const getAccessibleAgentsForBreadcrumb = cache(
+  async (userId: string): Promise<AgentBreadcrumbContext[]> => {
+    // RLS handles row-level scoping; userId is included in the cache
+    // key so different user contexts don't share a cached promise.
+    void userId;
+
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("agents")
+      .select("id, name, departments!inner(slug, name)")
+      .eq("is_active", true)
+      .is("deleted_at", null);
+
+    if (!data) return [];
+
+    return data
+      .map((row) => {
+        const dept = row.departments as unknown as {
+          slug: string;
+          name: string;
+        } | null;
+        if (!dept) return null;
+        return {
+          id: row.id as string,
+          name: row.name as string,
+          department_slug: dept.slug,
+          department_name: dept.name,
+        };
+      })
+      .filter((a): a is AgentBreadcrumbContext => Boolean(a));
+  },
+);
+
+/**
  * Returns the department row for `slug` IF the current user has any role
  * in that department, else null.
  *

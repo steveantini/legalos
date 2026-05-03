@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { WorkspaceRail } from "@/components/workspace/workspace-rail";
 import { WorkspaceTopBar } from "@/components/workspace/workspace-top-bar";
 import {
+  getAccessibleAgentsForBreadcrumb,
   getAccessibleDepartments,
   getCurrentUserProfile,
   requireAuthUser,
@@ -47,16 +48,23 @@ export default async function WorkspaceLayout({
     redirect("/login");
   }
 
-  const departments = await getAccessibleDepartments(authUser.id);
+  const [departments, agents] = await Promise.all([
+    getAccessibleDepartments(authUser.id),
+    getAccessibleAgentsForBreadcrumb(authUser.id),
+  ]);
 
   return (
     <div
       className="grid h-screen grid-cols-[232px_1fr] grid-rows-[100vh] overflow-hidden bg-background text-foreground"
       style={{ fontFeatureSettings: '"ss01", "cv11"' }}
     >
-      <WorkspaceRail departments={departments} profile={profile} />
+      <WorkspaceRail
+        departments={departments}
+        profile={profile}
+        agents={agents}
+      />
       <main className="grid min-h-0 grid-rows-[56px_1fr]">
-        <WorkspaceTopBar departments={departments} />
+        <WorkspaceTopBar departments={departments} agents={agents} />
         <div className="flex min-h-0 flex-col gap-9 overflow-auto px-14 pb-8 pt-14">
           {children}
         </div>

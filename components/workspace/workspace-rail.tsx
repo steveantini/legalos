@@ -1,5 +1,8 @@
 import { siteConfig } from "@/config/site";
-import type { AccessibleDepartment } from "@/lib/auth/access";
+import type {
+  AccessibleDepartment,
+  AgentBreadcrumbContext,
+} from "@/lib/auth/access";
 
 import { WorkspaceNavLink } from "./workspace-nav-link";
 
@@ -51,9 +54,11 @@ const captionLabel =
 export function WorkspaceRail({
   departments,
   profile,
+  agents,
 }: {
   departments: AccessibleDepartment[];
   profile: ProfileShape;
+  agents: AgentBreadcrumbContext[];
 }) {
   const displayName = getDisplayName(profile);
   const initials = getInitials(displayName);
@@ -85,7 +90,9 @@ export function WorkspaceRail({
         </WorkspaceNavLink>
       </div>
 
-      {/* Group 2 — Departments (prefix-match active state) */}
+      {/* Group 2 — Departments (prefix-match active state, plus
+          agent-aware: navigating to /agents/<id> keeps the agent's
+          parent department highlighted via agentsLookup). */}
       <div className="flex flex-col gap-px">
         <p className={captionLabel}>Departments</p>
         {departments.map((d) => (
@@ -95,6 +102,7 @@ export function WorkspaceRail({
             match="prefix"
             className={linkBase}
             activeClassName={`${linkBase} ${linkActive}`}
+            agentsLookup={agents}
           >
             {d.name}
           </WorkspaceNavLink>
