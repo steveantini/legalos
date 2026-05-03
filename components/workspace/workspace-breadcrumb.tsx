@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import type { ReadonlyURLSearchParams } from "next/navigation";
 
 import type {
   AccessibleDepartment,
@@ -44,8 +45,9 @@ export function WorkspaceBreadcrumb({
   agents: AgentBreadcrumbContext[];
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const segments = computeSegments(pathname, departments, agents);
+  const segments = computeSegments(pathname, searchParams, departments, agents);
 
   return (
     <div className="text-[13px] text-caption">
@@ -70,6 +72,7 @@ export function WorkspaceBreadcrumb({
 
 function computeSegments(
   pathname: string,
+  searchParams: ReadonlyURLSearchParams,
   departments: AccessibleDepartment[],
   agents: AgentBreadcrumbContext[],
 ): string[] {
@@ -82,6 +85,31 @@ function computeSegments(
     const slug = deptMatch[1];
     const dept = departments.find((d) => d.slug === slug);
     return ["workspace", "departments", dept?.name ?? slug];
+  }
+
+  // Literal /agents/new and /agents/trash must match BEFORE the generic
+  // /agents/<id> regex below — otherwise "new" / "trash" would be
+  // interpreted as agent ids and fall through to the defensive "Agent"
+  // placeholder.
+  if (pathname === "/agents/new") {
+    const deptSlug = searchParams.get("department");
+    const forkFrom = searchParams.get("fork_from");
+    const lastSegment = forkFrom ? "Fork template" : "New agent";
+    if (deptSlug) {
+      const dept = departments.find((d) => d.slug === deptSlug);
+      if (dept) {
+        return ["workspace", "departments", dept.name, lastSegment];
+      }
+    }
+    // Defensive fallback — the page redirects to "/" on missing
+    // department slug and notFound()s on unresolvable slug, so this
+    // branch shouldn't render in practice. Keep the breadcrumb readable
+    // rather than crashing.
+    return ["workspace", "departments", lastSegment];
+  }
+
+  if (pathname === "/agents/trash") {
+    return ["workspace", "trash"];
   }
 
   // /agents/<id>/edit must match BEFORE /agents/<id> because the edit

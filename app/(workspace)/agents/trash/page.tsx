@@ -2,10 +2,12 @@ import { RestoreButton } from "@/components/agents/restore-button";
 import { getDeletedAgentsForUser, requireAuthUser } from "@/lib/auth/access";
 
 /**
- * Trash page lists the user's soft-deleted agents within the 30-day undo
- * window. Each row offers a Restore button that calls restoreAgentAction
- * via a `<form>` (no client-side state — the action runs server-side and
- * revalidates the page).
+ * Trash page — content only. Inherits chrome (rail + top bar) from
+ * `app/(workspace)/layout.tsx`. Lists the user's soft-deleted agents
+ * within the 30-day undo window. Each row offers a Restore button that
+ * calls `restoreAgentAction` via a `<form>` (no client-side state — the
+ * action runs server-side and `revalidatePath("/agents/trash")` removes
+ * the row from the list on the next render).
  *
  * Beyond-30-day rows are filtered out by the query and remain in the DB
  * until a future cron job hard-deletes them. Hard delete is not user-

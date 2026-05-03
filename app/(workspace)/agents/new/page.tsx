@@ -14,6 +14,28 @@ interface PageProps {
   searchParams: Promise<{ department?: string; fork_from?: string }>;
 }
 
+/**
+ * New agent surface — content only. Inherits chrome (rail + top bar)
+ * from `app/(workspace)/layout.tsx`.
+ *
+ * Two flows in one page:
+ * - **Blank create** — `?department=<slug>` only. Form opens with empty
+ *   defaults and the department-bound name copy "New agent".
+ * - **Fork from template** — `?department=<slug>&fork_from=<id>`. Inline
+ *   query loads the template (single-caller, no helper extraction);
+ *   notFound() on any of 6 conditions (missing, RLS-hidden, wrong type,
+ *   not a template, wrong department, missing prompt or model). Defaults
+ *   inherit the template's prompt / model / tools_enabled with a name
+ *   suffix " (My Copy)".
+ *
+ * `randomUUID()` pre-generates the new agent's primary key server-side;
+ * the form submits it via `createAgentAction` as the row's id. Action
+ * redirects to `/departments/<slug>` (the renovated launchpad) on
+ * success — the new agent appears under My Agents there.
+ *
+ * Missing department slug → redirect to `/` (the workspace landing) so
+ * the user lands somewhere useful instead of a hard error.
+ */
 export default async function NewAgentPage({ searchParams }: PageProps) {
   await requireAuthUser();
   const { department: departmentSlug, fork_from: forkFromId } =
