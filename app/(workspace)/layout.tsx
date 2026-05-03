@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { WorkspaceFooter } from "@/components/workspace/workspace-footer";
+import { Toaster } from "@/components/ui/sonner";
 import { WorkspaceRail } from "@/components/workspace/workspace-rail";
 import { WorkspaceTopBar } from "@/components/workspace/workspace-top-bar";
 import {
@@ -51,17 +51,17 @@ export default async function WorkspaceLayout({
 
   return (
     <div
-      className="grid h-screen grid-cols-[232px_1fr] overflow-hidden bg-background text-foreground"
+      className="grid h-screen grid-cols-[232px_1fr] grid-rows-[100vh] overflow-hidden bg-background text-foreground"
       style={{ fontFeatureSettings: '"ss01", "cv11"' }}
     >
       <WorkspaceRail departments={departments} profile={profile} />
-      <main className="grid min-h-0 grid-rows-[56px_1fr_36px]">
-        <WorkspaceTopBar />
+      <main className="grid min-h-0 grid-rows-[56px_1fr]">
+        <WorkspaceTopBar departments={departments} />
         <div className="flex min-h-0 flex-col gap-9 overflow-auto px-14 pb-8 pt-14">
           {children}
         </div>
-        <WorkspaceFooter />
       </main>
+      <Toaster />
     </div>
   );
 }

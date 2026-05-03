@@ -37,49 +37,57 @@ interface AgentCardProps {
   };
   departmentSlug: string;
   /**
-   * True when this card represents a system template (is_template = true).
-   * Native templates link to the fork form (`/agents/new?fork_from=...`)
+   * True when this card represents a system template (`is_template = true`).
+   * Native templates link to the fork form (`/agents/new?fork_from=…`)
    * instead of the chat surface; external templates fall through to the
    * external-link branch unchanged. The 6 Commercial templates remain
-   * type='external' until a future session promotes them to native, so
+   * `type='external'` until a future session promotes them to native, so
    * external + isTemplate is a real, transitional state — not a bug.
    */
   isTemplate?: boolean;
   /**
    * True when this card represents an agent the current user owns and
    * can edit / delete. The Templates query and the My Agents query are
-   * separate buckets in `getAgentsForDepartmentSplit`, so the page knows
-   * which is which and passes this prop. The Test Smoke Agent (created_by
-   * NULL, not a template) is in neither bucket and never reaches this
-   * card; menus only render when explicitly enabled.
+   * separate buckets in `getAgentsForDepartmentLaunchpad`; the page
+   * passes this flag to the cards in each bucket. Menus only render
+   * when explicitly enabled.
    */
   isMyAgent?: boolean;
 }
 
+/**
+ * Agent card for the Aperture department launchpad. Visual vocabulary
+ * matches the landing's `<DepartmentCard>` (white card surface, hairline
+ * border, hover lift + shadow grow + border darken with the same
+ * 220ms cubic-bezier(.2,.7,.2,1) timing) but the body shape is simpler:
+ * just name + description, no foot or arrow circle. Agents are leaves
+ * (click → chat or fork form), not navigational containers.
+ *
+ * Three render branches:
+ *
+ * - `type === 'external'` → `<a target="_blank">` to `external_url`
+ * - `type === 'native' && isTemplate` → `<Link>` to the fork form
+ * - `type === 'native' && !isTemplate && isMyAgent` → stretched-link card
+ *   with overflow menu (Edit / Delete with Undo toast). The card body is
+ *   pointer-events-none; the link is absolute-positioned to fill the
+ *   card; the menu trigger sits at z-20 with pointer-events-auto so its
+ *   own clicks register without bubbling.
+ * - `type === 'native' && !isTemplate && !isMyAgent` → plain `<Link>` to
+ *   the chat surface. (Shouldn't happen in normal usage — the launchpad
+ *   query buckets every native non-template into My Agents — but this
+ *   keeps the component total over the agent shape.)
+ *
+ * Analytics fires on `onPointerDown` so cmd-click / middle-click
+ * open-in-new-tab behaviors don't tear down the React tree before
+ * onClick fires.
+ */
+
 const cardClassName =
-  "flex min-h-[160px] flex-col justify-center rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md";
+  "flex min-h-[160px] flex-col gap-3 rounded-[14px] border border-card-border bg-card p-[22px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)] transition-[transform,box-shadow,border-color] duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] hover:-translate-y-[2px] hover:border-hairline-strong hover:shadow-[0_1px_0_rgba(26,24,22,0.03),0_4px_8px_rgba(26,24,22,0.06),0_22px_38px_-12px_rgba(26,24,22,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 const stretchedLinkClassName =
-  "absolute inset-0 z-10 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "absolute inset-0 z-10 rounded-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
-/**
- * Card for a single agent. Three branches:
- *
- * - `type === 'external'`: opens `external_url` in a new tab.
- * - `type === 'native' && isTemplate`: links to the fork form.
- * - `type === 'native' && !isTemplate`: links to the chat surface, and
- *   when `isMyAgent` is true, renders an overflow menu with Edit + Delete.
- *
- * The my-agent branch uses the stretched-link pattern: a relative card
- * container with the navigation link absolute-positioned to fill it
- * (z-10), and the overflow-menu button positioned in the top-right corner
- * (z-20). The card body is rendered with pointer-events-none so clicks
- * pass through to the link, while the menu button has pointer-events-auto
- * so its own clicks register without bubbling.
- *
- * Analytics fires on `onPointerDown` so cmd-click / middle-click open-in-
- * new-tab behaviors don't tear down the React tree before onClick fires.
- */
 export function AgentCard({
   agent,
   departmentSlug,
@@ -97,9 +105,13 @@ export function AgentCard({
 
   const body = (
     <>
-      <h3 className="text-base font-semibold">{agent.name}</h3>
+      <h3 className="text-[19px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
+        {agent.name}
+      </h3>
       {agent.description ? (
-        <p className="mt-2 text-sm text-muted-foreground">{agent.description}</p>
+        <p className="text-[13px] leading-[1.45] text-muted-foreground">
+          {agent.description}
+        </p>
       ) : null}
     </>
   );
@@ -111,7 +123,8 @@ export function AgentCard({
         target="_blank"
         rel="noopener noreferrer"
         onPointerDown={handlePointerDown}
-        className={`${cardClassName} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+        aria-label={`Open ${agent.name} (external)`}
+        className={cardClassName}
       >
         {body}
       </a>
@@ -123,22 +136,22 @@ export function AgentCard({
       <Link
         href={`/agents/new?department=${departmentSlug}&fork_from=${agent.id}`}
         onPointerDown={handlePointerDown}
-        className={`${cardClassName} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+        aria-label={`Fork ${agent.name}`}
+        className={cardClassName}
       >
         {body}
       </Link>
     );
   }
 
-  // Native, not a template. If isMyAgent: stretched-link card with menu.
-  // Otherwise: plain link (covers the Test Smoke Agent's edge case if it
-  // ever appears, though the launchpad query no longer surfaces it).
+  // Native, not a template, not isMyAgent — defensive plain link.
   if (!isMyAgent) {
     return (
       <Link
         href={`/agents/${agent.id}`}
         onPointerDown={handlePointerDown}
-        className={`${cardClassName} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+        aria-label={`Open ${agent.name}`}
+        className={cardClassName}
       >
         {body}
       </Link>
@@ -148,7 +161,6 @@ export function AgentCard({
   return (
     <MyAgentCard
       agent={agent}
-      departmentSlug={departmentSlug}
       onPointerDownLink={handlePointerDown}
       body={body}
     />
@@ -157,17 +169,11 @@ export function AgentCard({
 
 interface MyAgentCardProps {
   agent: AgentCardProps["agent"];
-  departmentSlug: string;
   onPointerDownLink: () => void;
   body: React.ReactNode;
 }
 
-function MyAgentCard({
-  agent,
-  departmentSlug,
-  onPointerDownLink,
-  body,
-}: MyAgentCardProps) {
+function MyAgentCard({ agent, onPointerDownLink, body }: MyAgentCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -211,7 +217,7 @@ function MyAgentCard({
           className={stretchedLinkClassName}
           onPointerDown={onPointerDownLink}
         />
-        <div className="absolute right-2 top-2 z-20 pointer-events-auto">
+        <div className="pointer-events-auto absolute right-2 top-2 z-20">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon-sm" />}

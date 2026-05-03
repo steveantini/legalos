@@ -28,6 +28,12 @@ This is open-source software you can fork and run for your own legal department,
 - [`CHANGELOG.md`](./CHANGELOG.md) — version history.
 - [`skills-checklist.md`](./skills-checklist.md) — which skill files live in `.claude/skills/` per phase.
 
+## Future / Backlog
+
+Features and surfaces deliberately deferred. Capturing intent here so it isn't lost.
+
+- **In-app support chat** — replaces the legacy floating support button removed in 10b. User-initiated chat surface for product support; surfaces from inside the workspace chrome rather than emailing legal-ops out-of-band.
+
 ## License
 
 TBD. A license file will be added before the first public release.

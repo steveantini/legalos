@@ -257,13 +257,13 @@ export interface LaunchpadAgent {
 }
 
 /**
- * Two-bucket department agent loader for the Session 8f-A IA: system
- * Templates (is_template = true) and the user's own agents
- * (created_by = auth.uid(), is_template = false, deleted_at IS NULL).
+ * Two-bucket department agent loader for the Aperture launchpad: system
+ * Templates (`is_template = true`) and the user's own agents
+ * (`created_by = userId`, `is_template = false`, `deleted_at IS NULL`).
  *
  * Two queries instead of one because the predicates are different shapes
- * and Postgres uses different indexes (agents_is_template_idx vs the
- * partial agents_active_idx from migration 0006). Cleaner and faster
+ * and Postgres uses different indexes (`agents_is_template_idx` vs the
+ * partial `agents_active_idx` from migration 0006). Cleaner and faster
  * than partitioning a flat result in JS.
  *
  * Both queries are RLS-scoped — `agents_read_accessible` requires
@@ -273,8 +273,12 @@ export interface LaunchpadAgent {
  * Templates are sorted by `sort_order` (preserves curated ordering, with
  * the Blank Agent at sort_order = 0 leading); user agents are sorted by
  * `created_at desc` so the most recently created appears first.
+ *
+ * Not wrapped in `cache()` — only one caller per request (the launchpad
+ * page itself). If a future surface (e.g., a launchpad-loading skeleton
+ * that fetches the same data) emerges, wrap it then.
  */
-export async function getAgentsForDepartmentSplit(
+export async function getAgentsForDepartmentLaunchpad(
   departmentId: string,
   userId: string,
 ): Promise<{ templates: LaunchpadAgent[]; myAgents: LaunchpadAgent[] }> {

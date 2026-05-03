@@ -1,7 +1,7 @@
-import Link from "next/link";
-
 import { siteConfig } from "@/config/site";
 import type { AccessibleDepartment } from "@/lib/auth/access";
+
+import { WorkspaceNavLink } from "./workspace-nav-link";
 
 type ProfileShape = {
   full_name: string | null;
@@ -73,37 +73,46 @@ export function WorkspaceRail({
         {siteConfig.siteTitle}
       </div>
 
-      {/* Group 1 — Workspace (always active on this page) */}
+      {/* Group 1 — Workspace */}
       <div className="flex flex-col gap-px">
-        <Link
+        <WorkspaceNavLink
           href="/"
-          aria-current="page"
-          className={`${linkBase} ${linkActive}`}
+          match="exact"
+          className={linkBase}
+          activeClassName={`${linkBase} ${linkActive}`}
         >
           Workspace
-        </Link>
+        </WorkspaceNavLink>
       </div>
 
-      {/* Group 2 — Departments */}
+      {/* Group 2 — Departments (prefix-match active state) */}
       <div className="flex flex-col gap-px">
         <p className={captionLabel}>Departments</p>
         {departments.map((d) => (
-          <Link key={d.id} href={`/departments/${d.slug}`} className={linkBase}>
+          <WorkspaceNavLink
+            key={d.id}
+            href={`/departments/${d.slug}`}
+            match="prefix"
+            className={linkBase}
+            activeClassName={`${linkBase} ${linkActive}`}
+          >
             {d.name}
-          </Link>
+          </WorkspaceNavLink>
         ))}
       </div>
 
       {/* Group 3 — Resource links (no group label per spec) */}
       <div className="flex flex-col gap-px">
         {RESOURCE_LINKS.map(({ slug, label }) => (
-          <Link
+          <WorkspaceNavLink
             key={slug}
             href={`/coming-soon/${slug}`}
+            match="exact"
             className={linkBase}
+            activeClassName={`${linkBase} ${linkActive}`}
           >
             {label}
-          </Link>
+          </WorkspaceNavLink>
         ))}
       </div>
 
