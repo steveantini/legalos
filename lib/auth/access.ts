@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { cache } from "react";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -16,8 +17,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * Returns the current Supabase auth user, or redirects to /login if no
  * session exists. The proxy (`proxy.ts`) already gates protected routes;
  * calling this at the top of a server component is defense in depth.
+ *
+ * Wrapped in React's `cache()` so multiple call sites within the same
+ * request (e.g., a layout + its child page) resolve to the same auth
+ * lookup. Per-request memoization only — does not leak across requests.
  */
-export async function requireAuthUser() {
+export const requireAuthUser = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -28,14 +33,17 @@ export async function requireAuthUser() {
   }
 
   return user;
-}
+});
 
 /**
  * Returns the `public.users` profile for the current auth user, or null
  * if the user is unauthenticated or not yet provisioned (proxy race,
  * or the organization row doesn't exist yet).
+ *
+ * Wrapped in React's `cache()` for per-request memoization (see
+ * `requireAuthUser` above).
  */
-export async function getCurrentUserProfile() {
+export const getCurrentUserProfile = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user: authUser },
@@ -52,7 +60,7 @@ export async function getCurrentUserProfile() {
     .maybeSingle();
 
   return data;
-}
+});
 
 /**
  * Subset of `public.departments` columns the launchpad UI needs.
@@ -76,28 +84,32 @@ export interface AccessibleDepartment {
  * per row, applied across all departments at once. RLS still scopes
  * `departments` reads to the user's organization so cross-org leakage
  * is impossible even if `user_department_roles` were corrupted.
+ *
+ * Wrapped in React's `cache()` for per-request memoization keyed by
+ * `userId` — layout + child page calling this with the same userId
+ * resolve to a single PostgREST round-trip.
  */
-export async function getAccessibleDepartments(
-  userId: string,
-): Promise<AccessibleDepartment[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("user_department_roles")
-    .select(
-      "departments!inner(id, slug, name, description, sort_order)",
-    )
-    .eq("user_id", userId);
+export const getAccessibleDepartments = cache(
+  async (userId: string): Promise<AccessibleDepartment[]> => {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("user_department_roles")
+      .select(
+        "departments!inner(id, slug, name, description, sort_order)",
+      )
+      .eq("user_id", userId);
 
-  const departments = (data ?? [])
-    .map(
-      (row) =>
-        (row as unknown as { departments: AccessibleDepartment }).departments,
-    )
-    .filter((d): d is AccessibleDepartment => Boolean(d));
+    const departments = (data ?? [])
+      .map(
+        (row) =>
+          (row as unknown as { departments: AccessibleDepartment }).departments,
+      )
+      .filter((d): d is AccessibleDepartment => Boolean(d));
 
-  departments.sort((a, b) => a.sort_order - b.sort_order);
-  return departments;
-}
+    departments.sort((a, b) => a.sort_order - b.sort_order);
+    return departments;
+  },
+);
 
 /**
  * Returns active, non-deleted agent counts per department, keyed by

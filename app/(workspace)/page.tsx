@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DepartmentGrid } from "@/components/workspace/department-grid";
-import { WorkspaceFooter } from "@/components/workspace/workspace-footer";
 import { WorkspaceHero } from "@/components/workspace/workspace-hero";
-import { WorkspaceRail } from "@/components/workspace/workspace-rail";
-import { WorkspaceTopBar } from "@/components/workspace/workspace-top-bar";
 import {
   getAccessibleDepartments,
   getAgentCountsByDepartment,
@@ -14,23 +11,23 @@ import {
 } from "@/lib/auth/access";
 
 /**
- * Aperture Workspace landing (Session 9e). Replaces the prior
- * department picker that lived at `app/(app)/page.tsx`. Three reads
- * compose the page: the auth user (gated), the public.users profile
- * (greeting + rail profile block), and accessible departments + agent
- * counts (rail + grid).
+ * Aperture Workspace landing — content only. The chrome (rail + top bar
+ * + footer + outer grid shell) lives in `app/(workspace)/layout.tsx` so
+ * it persists across navigation as more workspace routes land.
  *
- * Per the phantom-data scope rules: hero stats are hidden, the live-
- * agents pulse in the top bar is hidden, and the per-department counts
- * in the rail are hidden. Cards show real `{N} agents` from the DB.
+ * Three reads compose this page; `requireAuthUser`,
+ * `getCurrentUserProfile`, and `getAccessibleDepartments` are all
+ * wrapped in React's `cache()` (see `lib/auth/access.ts`), so the
+ * layout's earlier calls to the same helpers + this page's calls
+ * resolve to a single Supabase round-trip per helper, per request.
+ * `getAgentCountsByDepartment` is page-only (the chrome doesn't need
+ * counts) and not memoized today since there's only one caller.
  *
- * The subline is a literal placeholder per the session 9e plan ("Eight
- * agents are working across eight departments. ..."). Real data may
- * make these numbers inaccurate (Commercial alone has more than one
- * agent today); the copy is acknowledged-static and a future content
- * pass can swap to dynamic numbers when we want them. The empty-
+ * Per the phantom-data scope rules: hero stats are hidden in the
+ * `<WorkspaceHero>` component, and the bolded-phrase mechanic stays
+ * in the hero parser but is a no-op for plain greetings. The empty-
  * departments branch (defensive — every seeded user has all 8) shows
- * a contact-admin message instead.
+ * a contact-admin subline instead of the dynamic counts.
  */
 
 export const metadata: Metadata = {
@@ -64,8 +61,10 @@ export default async function WorkspacePage() {
   const profile = await getCurrentUserProfile();
 
   if (!profile) {
-    // Defensive: proxy provisioning may have raced. Send to login so the
-    // next sign-in re-runs ensure_user_provisioned.
+    // Layout already redirects on null profile, but TypeScript needs
+    // the narrowing here for the firstName derivation below. The
+    // `cache()` wrap means this is a no-op fetch repeating the layout's
+    // result.
     redirect("/login");
   }
 
@@ -84,22 +83,9 @@ export default async function WorkspacePage() {
       : `${totalAgents} ${totalAgents === 1 ? "agent is" : "agents are"} working across ${deptCount} ${deptCount === 1 ? "department" : "departments"}. Pick a department to pivot in.`;
 
   return (
-    <div
-      className="grid h-screen grid-cols-[232px_1fr] overflow-hidden bg-background text-foreground"
-      style={{ fontFeatureSettings: '"ss01", "cv11"' }}
-    >
-      <WorkspaceRail departments={departments} profile={profile} />
-      <main className="grid min-h-0 grid-rows-[56px_1fr_36px]">
-        <WorkspaceTopBar />
-        <div className="flex min-h-0 flex-col gap-9 overflow-auto px-14 pb-8 pt-14">
-          <WorkspaceHero greeting={greeting} subline={subline} />
-          <DepartmentGrid
-            departments={departments}
-            agentCounts={agentCounts}
-          />
-        </div>
-        <WorkspaceFooter />
-      </main>
-    </div>
+    <>
+      <WorkspaceHero greeting={greeting} subline={subline} />
+      <DepartmentGrid departments={departments} agentCounts={agentCounts} />
+    </>
   );
 }
