@@ -320,14 +320,17 @@ export async function getDepartmentIfAccessible(slug: string) {
 /**
  * Returns true if the current user has an org-level admin role
  * (`super_admin` / `org_admin`) OR is `dept_admin` for at least one
- * department. Used by the main nav to conditionally render the Admin
- * link and by `requireAdminUser()` to gate admin routes.
+ * department. Used by the workspace layout to conditionally render
+ * the Admin item in the rail's profile dropdown, and by
+ * `requireAdminUser()` to gate admin routes — both paths run on
+ * `/admin` requests, which the `cache()` wrap dedupes to a single
+ * pair of Supabase reads per request.
  *
  * Two DB reads (org role, then dept_admin existence) — acceptable at
- * Phase 1 scale. Collapse into a single query in a later phase if this
- * shows up on a page-load flame graph.
+ * Phase 1 scale. Collapse into a single query in a later phase if
+ * this shows up on a page-load flame graph.
  */
-export async function isCurrentUserAdmin(): Promise<boolean> {
+export const isCurrentUserAdmin = cache(async (): Promise<boolean> => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -356,7 +359,7 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
     .maybeSingle();
 
   return Boolean(deptAdmin);
-}
+});
 
 /**
  * Gate for admin routes. Redirects unauthenticated users to /login via
@@ -503,23 +506,3 @@ export async function getDeletedAgentsForUser(
   }));
 }
 
-/**
- * Cheap count for the main-nav's conditional Trash link. Returns true
- * when the user has at least one soft-deleted agent in the 30-day
- * window. The nav doesn't need the rows themselves; a HEAD count is
- * the smallest read.
- */
-export async function userHasDeletedAgents(userId: string): Promise<boolean> {
-  const supabase = await createSupabaseServerClient();
-  const cutoff = new Date(Date.now() - RESTORE_WINDOW_MS).toISOString();
-
-  const { count } = await supabase
-    .from("agents")
-    .select("id", { count: "exact", head: true })
-    .eq("created_by", userId)
-    .eq("is_template", false)
-    .not("deleted_at", "is", null)
-    .gt("deleted_at", cutoff);
-
-  return (count ?? 0) > 0;
-}

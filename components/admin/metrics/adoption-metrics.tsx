@@ -49,7 +49,6 @@ import type {
 } from "@/lib/metrics/types";
 
 import { AgentDetailModal } from "./agent-detail-modal";
-import { BackToTop } from "./back-to-top";
 import { ClicksPerAgent } from "./clicks-per-agent";
 import { DataSourceToggle, type DataSourceMode } from "./data-source-toggle";
 import { MetricCardsGrid } from "./metric-cards-grid";
@@ -169,8 +168,6 @@ export function AdoptionMetrics() {
         rowsFor={agentRowsFor}
         onClose={() => setSelectedAgent(null)}
       />
-
-      <BackToTop />
     </div>
   );
 }

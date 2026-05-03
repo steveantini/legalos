@@ -5,6 +5,7 @@ import type {
 } from "@/lib/auth/access";
 
 import { WorkspaceNavLink } from "./workspace-nav-link";
+import { WorkspaceProfileBlock } from "./workspace-profile-block";
 
 type ProfileShape = {
   full_name: string | null;
@@ -55,10 +56,12 @@ export function WorkspaceRail({
   departments,
   profile,
   agents,
+  isAdmin,
 }: {
   departments: AccessibleDepartment[];
   profile: ProfileShape;
   agents: AgentBreadcrumbContext[];
+  isAdmin: boolean;
 }) {
   const displayName = getDisplayName(profile);
   const initials = getInitials(displayName);
@@ -124,21 +127,12 @@ export function WorkspaceRail({
         ))}
       </div>
 
-      {/* Profile block — pinned to bottom via mt-auto */}
-      <div className="mt-auto flex items-center gap-[10px] border-t border-hairline-strong px-2 pb-[2px] pt-[14px]">
-        <span
-          aria-hidden
-          className="grid h-7 w-7 place-items-center rounded-full bg-foreground text-[11px] font-medium text-background"
-        >
-          {initials}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium leading-[1.2] tracking-[-0.005em]">
-            {displayName}
-          </p>
-          <p className="truncate text-[11px] text-caption">{roleLabel}</p>
-        </div>
-      </div>
+      <WorkspaceProfileBlock
+        initials={initials}
+        displayName={displayName}
+        roleLabel={roleLabel}
+        isAdmin={isAdmin}
+      />
     </nav>
   );
 }

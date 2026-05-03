@@ -7,22 +7,21 @@ import {
   getAccessibleAgentsForBreadcrumb,
   getAccessibleDepartments,
   getCurrentUserProfile,
+  isCurrentUserAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
 
 /**
- * Layout for the Aperture Workspace surface.
+ * Layout for the Aperture Workspace surface — the only layout for
+ * authenticated routes after Session 14 retired the legacy
+ * `(app)/layout.tsx` + `MainNav` chrome. Auth gating is handled
+ * globally by `proxy.ts` (path is not in PUBLIC_PATHS); this layout
+ * adds `requireAuthUser()` as defense-in-depth and serves the actual
+ * workspace chrome (rail, top bar, body wrapper).
  *
- * Lives in its own route group `(workspace)` rather than `(app)` so the
- * workspace surface renders WITHOUT the global MainNav top bar — the
- * Aperture rail IS the navigation here. Other authenticated routes
- * still live under `(app)/` and continue to inherit MainNav + Toaster
- * via `(app)/layout.tsx`. Auth gating is handled globally by
- * `proxy.ts` (path is not in PUBLIC_PATHS).
- *
- * The chrome (outer two-column shell, rail, inner three-row grid, top
- * bar, body wrapper, footer) lives here so it persists across every
- * workspace-group route. Pages plug their content into the body
+ * The chrome (outer two-column shell, rail, inner two-row grid, top
+ * bar, body wrapper, Toaster sink) lives here so it persists across
+ * every workspace-group route. Pages plug their content into the body
  * wrapper's `{children}` slot. Body padding (`px-14 pt-14 pb-8`) and
  * section gap (`gap-9`) match the Aperture spec's body rhythm
  * (`56px 56px 32px` / `36px gap`) and are workspace-wide.
@@ -30,9 +29,12 @@ import {
  * Data fetches: `requireAuthUser` (redirects to /login on absence),
  * `getCurrentUserProfile` (rail profile block + redirect to /login if
  * the proxy provisioning hasn't yet caught up), `getAccessibleDepartments`
- * (rail Departments group). All three are wrapped in React's `cache()`
- * so child pages calling the same helpers reuse the resolved value
- * within the same request — no duplicate Supabase queries.
+ * (rail Departments group + breadcrumb dept-name lookup),
+ * `getAccessibleAgentsForBreadcrumb` (breadcrumb + rail agent-aware
+ * active state), `isCurrentUserAdmin` (rail profile dropdown's
+ * conditional Admin item). All five are wrapped in React's `cache()`
+ * so the layout's calls and any child page calls within the same
+ * request resolve to a single Supabase round-trip per helper.
  */
 export default async function WorkspaceLayout({
   children,
@@ -48,9 +50,10 @@ export default async function WorkspaceLayout({
     redirect("/login");
   }
 
-  const [departments, agents] = await Promise.all([
+  const [departments, agents, isAdmin] = await Promise.all([
     getAccessibleDepartments(authUser.id),
     getAccessibleAgentsForBreadcrumb(authUser.id),
+    isCurrentUserAdmin(),
   ]);
 
   return (
@@ -62,6 +65,7 @@ export default async function WorkspaceLayout({
         departments={departments}
         profile={profile}
         agents={agents}
+        isAdmin={isAdmin}
       />
       <main className="grid min-h-0 grid-rows-[56px_1fr]">
         <WorkspaceTopBar departments={departments} agents={agents} />
