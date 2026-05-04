@@ -70,9 +70,9 @@
      of each declaration are the originals; OKLCH is the canonical form. */
   --background: oklch(0.9591 0.0074 80.7209);             /* paper        #f4f1ec */
   --foreground: oklch(0.2106 0.0050 67.5509);             /* ink          #1a1816 */
-  --card: oklch(1 0 0);                                   /* white        #ffffff */
+  --card: oklch(0.976 0.0082 91.48);                      /* warm off-white  #f9f7f1 */
   --card-foreground: oklch(0.2106 0.0050 67.5509);        /* ink */
-  --popover: oklch(1 0 0);                                /* white */
+  --popover: oklch(0.976 0.0082 91.48);                   /* warm off-white  #f9f7f1 */
   --popover-foreground: oklch(0.2106 0.0050 67.5509);     /* ink */
   --primary: oklch(0.4512 0.0766 258.9642);               /* accent       #3b5680 */
   --primary-foreground: oklch(0.9591 0.0074 80.7209);     /* paper */

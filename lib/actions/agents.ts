@@ -397,6 +397,81 @@ const agentIdSchema = z.object({
   agent_id: z.string().uuid(),
 });
 
+/**
+ * Composer model-picker server action (session 17a). The chat composer
+ * exposes a 3-model picker inline, so users can change the agent's
+ * runtime model without leaving the conversation. Web search is a
+ * read-only indicator in the composer (see WebSearchIndicator) — its
+ * toggle stays in the edit form, no companion server action lives here.
+ *
+ * Owner-only at the application layer, matching `updateAgentAction`. RLS
+ * enforces the same scope at the DB layer regardless. Widening to
+ * dept_admin is deferred to a session that loosens the form action in
+ * the same pass — partial widening would let a dept_admin change the
+ * composer model but not save edits via the form, which is inconsistent.
+ *
+ * `revalidatePath('/agents/<id>')` after each write so the agent header's
+ * model chip reflects the new state without a full reload (chips are
+ * server-rendered from the agent record per session 15).
+ */
+
+export type AgentSettingResult = { ok: true } | { ok: false; error: string };
+
+const updateAgentModelInputSchema = z.object({
+  agent_id: z.string().uuid(),
+  model: z.enum(SUPPORTED_MODELS, { message: "Unsupported model." }),
+});
+
+export async function updateAgentModelAction(
+  formData: FormData,
+): Promise<AgentSettingResult> {
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "You must be signed in." };
+  }
+
+  const parsed = updateAgentModelInputSchema.safeParse({
+    agent_id: formData.get("agent_id"),
+    model: formData.get("model"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid request." };
+  }
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, created_by, is_template, type, deleted_at")
+    .eq("id", parsed.data.agent_id)
+    .maybeSingle();
+  if (
+    !agent ||
+    agent.created_by !== user.id ||
+    agent.is_template === true ||
+    agent.type !== "native"
+  ) {
+    return { ok: false, error: "You don't have permission to edit this agent." };
+  }
+  if (agent.deleted_at !== null) {
+    return { ok: false, error: "This agent has been deleted." };
+  }
+
+  const { error: updateError } = await supabase
+    .from("agents")
+    .update({ model: parsed.data.model })
+    .eq("id", agent.id);
+  if (updateError) {
+    console.error("updateAgentModelAction update failed", updateError);
+    return { ok: false, error: "Could not update model. Try again." };
+  }
+
+  revalidatePath(`/agents/${agent.id}`);
+  return { ok: true };
+}
+
 export type SoftDeleteResult =
   | { ok: true; agentId: string; agentName: string; departmentSlug: string }
   | { ok: false; error: string };

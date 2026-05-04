@@ -181,6 +181,7 @@ export function AgentForm({
           defaultValue={defaults.name}
           aria-invalid={Boolean(fieldError("name"))}
           aria-describedby={fieldError("name") ? "agent-name-error" : undefined}
+          className="bg-card"
         />
         {fieldError("name") ? (
           <p id="agent-name-error" className="text-sm text-destructive">
@@ -204,6 +205,7 @@ export function AgentForm({
           aria-describedby={
             fieldError("description") ? "agent-description-error" : undefined
           }
+          className="bg-card"
         />
         {fieldError("description") ? (
           <p
@@ -220,43 +222,9 @@ export function AgentForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="agent-system-prompt">System prompt</Label>
-        <Textarea
-          id="agent-system-prompt"
-          name="system_prompt"
-          rows={10}
-          maxLength={20000}
-          defaultValue={defaults.systemPrompt}
-          aria-invalid={Boolean(fieldError("system_prompt"))}
-          aria-describedby={
-            fieldError("system_prompt")
-              ? "agent-system-prompt-error"
-              : "agent-system-prompt-helper"
-          }
-          className="min-h-[220px] font-mono text-sm"
-        />
-        {fieldError("system_prompt") ? (
-          <p
-            id="agent-system-prompt-error"
-            className="text-sm text-destructive"
-          >
-            {fieldError("system_prompt")}
-          </p>
-        ) : (
-          <p
-            id="agent-system-prompt-helper"
-            className="text-sm text-muted-foreground"
-          >
-            Instructions sent to the model on every turn. Be specific about role,
-            tone, and what to avoid.
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="agent-model">Model</Label>
         <Select name="model" defaultValue={defaults.model}>
-          <SelectTrigger id="agent-model" className="w-full">
+          <SelectTrigger id="agent-model" className="w-full bg-card">
             <SelectValue placeholder="Select a model" />
           </SelectTrigger>
           <SelectContent>
@@ -277,53 +245,77 @@ export function AgentForm({
         ) : null}
       </div>
 
-      <div className="space-y-6 border-t border-border pt-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Advanced settings
-        </h2>
-        <AgentAttachmentsSection
-          mode={mode}
-          agentId={agentId}
-          initialAttachments={existingAttachments.map((a) => ({
-            attachmentId: a.attachmentId,
-            storagePath: a.storagePath,
-            originalFilename: a.originalFilename,
-            contentType: a.contentType,
-            sizeBytes: a.sizeBytes,
-            extractedText: a.extractedText,
-            extractionWarning: a.extractionWarning,
-          }))}
-        />
-        <div className="space-y-3">
-          <Label>Tools</Label>
-          <div className="flex items-start justify-between gap-3 rounded-md border border-border p-3">
-            <div className="space-y-1">
-              <Label
-                htmlFor="tool-web-search"
-                className="text-sm font-medium"
-              >
-                Web search
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Allows the agent to search the web for current information.
-                Each search costs $0.01 in addition to the model's token
-                charges.
-              </p>
-            </div>
-            <Switch
-              id="tool-web-search"
-              name="tool_web_search"
-              defaultChecked={defaults.toolsEnabled.includes("web_search")}
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-muted-foreground">Default output format</Label>
+      <div
+        id="web-search"
+        className="flex scroll-mt-8 items-start justify-between gap-3"
+      >
+        <div className="space-y-1">
+          <Label htmlFor="tool-web-search" className="text-sm font-medium">
+            Web search
+          </Label>
           <p className="text-sm text-muted-foreground">
-            Markdown is the default. Word document export is coming soon.
+            Allows the agent to search the web for current information. Each
+            search costs $0.01 in addition to the model&rsquo;s token charges.
           </p>
         </div>
+        <Switch
+          id="tool-web-search"
+          name="tool_web_search"
+          defaultChecked={defaults.toolsEnabled.includes("web_search")}
+        />
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="agent-system-prompt">System prompt</Label>
+        <Textarea
+          id="agent-system-prompt"
+          name="system_prompt"
+          rows={10}
+          maxLength={20000}
+          defaultValue={defaults.systemPrompt}
+          aria-invalid={Boolean(fieldError("system_prompt"))}
+          aria-describedby={
+            fieldError("system_prompt")
+              ? "agent-system-prompt-error"
+              : "agent-system-prompt-helper"
+          }
+          className="min-h-[220px] bg-card font-mono text-sm"
+        />
+        {fieldError("system_prompt") ? (
+          <p
+            id="agent-system-prompt-error"
+            className="text-sm text-destructive"
+          >
+            {fieldError("system_prompt")}
+          </p>
+        ) : (
+          <p
+            id="agent-system-prompt-helper"
+            className="text-sm text-muted-foreground"
+          >
+            Instructions sent to the model on every turn. Be specific about role,
+            tone, and what to avoid.
+          </p>
+        )}
+      </div>
+
+      <AgentAttachmentsSection
+        mode={mode}
+        agentId={agentId}
+        initialAttachments={existingAttachments.map((a) => ({
+          attachmentId: a.attachmentId,
+          storagePath: a.storagePath,
+          originalFilename: a.originalFilename,
+          contentType: a.contentType,
+          sizeBytes: a.sizeBytes,
+          extractedText: a.extractedText,
+          extractionWarning: a.extractionWarning,
+        }))}
+      />
+
+      <p className="text-sm text-muted-foreground">
+        Export to Word, Google Docs, and more &mdash; coming soon.
+      </p>
 
       <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
         <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
+import { modelLabel } from "@/lib/llm/model-label";
 
 /**
  * Rich agent header for the chat surface, per Aperture chat spec §2.1.
@@ -38,13 +39,6 @@ interface AgentHeaderProps {
   attachmentCount: number;
   isOwner: boolean;
   isDeleted: boolean;
-}
-
-function modelLabel(model: string | null): string {
-  if (!model) return "";
-  // anthropic/claude-sonnet-4-6 → claude-sonnet-4-6
-  const slash = model.indexOf("/");
-  return slash === -1 ? model : model.slice(slash + 1);
 }
 
 function isWebSearchOn(toolsEnabled: unknown): boolean {

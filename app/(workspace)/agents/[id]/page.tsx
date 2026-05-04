@@ -53,6 +53,12 @@ export default async function AgentChatPage({
 
   const isOwner = agent.created_by === user.id;
   const isDeleted = agent.deleted_at !== null;
+  // Defensive read of tools_enabled (jsonb on the DB; typed as `unknown`
+  // through the helper). Mirrors the same shape check `<AgentHeader>` uses
+  // on its meta-chip side; both consumers should land on the same boolean.
+  const webSearchEnabled =
+    Array.isArray(agent.tools_enabled) &&
+    (agent.tools_enabled as unknown[]).includes("web_search");
 
   // Active attachment count for the header's meta chip — head-only count
   // query, no rows returned. Single inline read; if a second consumer
@@ -77,6 +83,8 @@ export default async function AgentChatPage({
         agentId={agent.id}
         agentName={agent.name}
         agentDescription={agent.description}
+        agentModel={agent.model ?? ""}
+        webSearchEnabled={webSearchEnabled}
         isDeleted={isDeleted}
       />
     </main>

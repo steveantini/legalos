@@ -74,7 +74,12 @@ export default async function WorkspacePage() {
   ]);
 
   const firstName = getFirstName(profile);
-  const greeting = `${getGreetingPrefix()}, ${firstName}.`;
+  // Wrap the first name in **...** so WorkspaceHero's emphasis parser
+  // renders it as slate-blue + weight-500 per the Aperture spec's
+  // bold-highlighted-phrase pattern. The page-level decision (vs.
+  // hardcoding inside the hero) keeps the parser content-driven —
+  // future copy can highlight any phrase, not just the username.
+  const greeting = `${getGreetingPrefix()}, **${firstName}**.`;
   const totalAgents = Object.values(agentCounts).reduce((s, n) => s + n, 0);
   const deptCount = departments.length;
   const subline =

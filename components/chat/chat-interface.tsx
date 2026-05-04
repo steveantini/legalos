@@ -14,6 +14,17 @@ interface ChatInterfaceProps {
   agentName: string;
   agentDescription: string | null;
   /**
+   * Composer-quick-config seed (session 17a). The chat composer's
+   * <ModelPicker/> reads `agentModel` for its initial trigger label;
+   * after the first selection it owns optimistic state and
+   * `revalidatePath('/agents/<id>')` re-renders with the new value
+   * on the next visit. <WebSearchIndicator/> is read-only — when
+   * `webSearchEnabled` is true the composer renders the chip; when
+   * false the slot is empty (toggling lives in the edit form).
+   */
+  agentModel: string;
+  webSearchEnabled: boolean;
+  /**
    * True when the agent has been soft-deleted (deleted_at IS NOT NULL).
    * The transcript stays accessible — conversations are immutable history
    * per architecture §3 — but the message input is replaced with a copy
@@ -46,6 +57,8 @@ export function ChatInterface({
   agentId,
   agentName,
   agentDescription,
+  agentModel,
+  webSearchEnabled,
   isDeleted,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -240,6 +253,9 @@ export function ChatInterface({
           </div>
         ) : (
           <MessageInput
+            agentId={agentId}
+            agentModel={agentModel}
+            webSearchEnabled={webSearchEnabled}
             value={draft}
             onChange={setDraft}
             onSend={handleSend}
