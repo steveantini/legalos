@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AgentHeader } from "@/components/chat/agent-header";
 import { ChatInterface } from "@/components/chat/chat-interface";
-import { buttonVariants } from "@/components/ui/button";
 import { getAgent, requireAuthUser } from "@/lib/auth/access";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
  * Native-agent chat page. Mirrors the access-control idiom from
@@ -54,19 +54,25 @@ export default async function AgentChatPage({
   const isOwner = agent.created_by === user.id;
   const isDeleted = agent.deleted_at !== null;
 
+  // Active attachment count for the header's meta chip — head-only count
+  // query, no rows returned. Single inline read; if a second consumer
+  // surfaces, extract `getAgentAttachmentCount(id)` to lib/auth/access.ts.
+  const supabase = await createSupabaseServerClient();
+  const { count } = await supabase
+    .from("agent_attachments")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", agent.id)
+    .is("deleted_at", null);
+  const attachmentCount = count ?? 0;
+
   return (
-    <main className="mx-auto flex min-h-0 max-w-4xl flex-1 flex-col px-0">
-      <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
-        <h1 className="text-lg font-semibold">{agent.name}</h1>
-        {isOwner && !isDeleted ? (
-          <Link
-            href={`/agents/${agent.id}/edit`}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            Edit
-          </Link>
-        ) : null}
-      </header>
+    <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden px-0">
+      <AgentHeader
+        agent={agent}
+        attachmentCount={attachmentCount}
+        isOwner={isOwner}
+        isDeleted={isDeleted}
+      />
       <ChatInterface
         agentId={agent.id}
         agentName={agent.name}

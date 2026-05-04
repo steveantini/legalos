@@ -212,7 +212,7 @@ export function ChatInterface({
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <MessageList
         agentName={agentName}
         agentDescription={agentDescription}
@@ -222,7 +222,7 @@ export function ChatInterface({
         toolUseLabel={toolUseLabel}
       />
       {error ? (
-        <div className="px-4 pb-2">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-2">
           <ChatErrorBanner
             message={error}
             onDismiss={() => setError(null)}
@@ -233,7 +233,7 @@ export function ChatInterface({
         {isDeleted ? (
           <div
             role="status"
-            className="px-4 py-3 text-sm text-muted-foreground"
+            className="mx-auto w-full max-w-3xl px-4 py-3 text-sm text-muted-foreground"
           >
             This agent has been deleted. Restore it from the trash to send new
             messages.

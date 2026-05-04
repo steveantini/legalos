@@ -46,6 +46,15 @@
   --color-ink-2: var(--ink-2);
   --color-caption: var(--caption);
   --color-accent-hover: var(--accent-hover);
+  --color-border-strong: var(--border-strong);
+  --color-warn-fg: var(--warn-fg);
+  --color-warn-fg-deep: var(--warn-fg-deep);
+  --color-warn-bg: var(--warn-bg);
+  --color-chat-user-bubble-bg: var(--chat-user-bubble-bg);
+  --color-chat-prose-fg: var(--chat-prose-fg);
+  --color-chat-code-bg: var(--chat-code-bg);
+  --color-chat-code-fg: var(--chat-code-fg);
+  --color-chat-cite-bg: var(--chat-cite-bg);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -61,9 +70,9 @@
      of each declaration are the originals; OKLCH is the canonical form. */
   --background: oklch(0.9591 0.0074 80.7209);             /* paper        #f4f1ec */
   --foreground: oklch(0.2106 0.0050 67.5509);             /* ink          #1a1816 */
-  --card: oklch(1 0);                                     /* white        #ffffff */
+  --card: oklch(1 0 0);                                   /* white        #ffffff */
   --card-foreground: oklch(0.2106 0.0050 67.5509);        /* ink */
-  --popover: oklch(1 0);                                  /* white */
+  --popover: oklch(1 0 0);                                /* white */
   --popover-foreground: oklch(0.2106 0.0050 67.5509);     /* ink */
   --primary: oklch(0.4512 0.0766 258.9642);               /* accent       #3b5680 */
   --primary-foreground: oklch(0.9591 0.0074 80.7209);     /* paper */
@@ -107,6 +116,24 @@
   --ink-2: oklch(0.2827 0.0084 75.2446);                  /* ink-2       #2c2925 — nav link text */
   --caption: oklch(0.6074 0.0221 77.2148);                /* mute-2      #8a8174 — caption / mono text */
   --accent-hover: oklch(0.5141 0.0884 261.1831);          /* accent-hover #4a679a */
+
+  /* Chat surface tokens (Session 15). See docs/design/aperture/chat-aperture-spec.md
+     §3.1 (existing token roles consumed by chat) and §3.2 (net-new tokens
+     introduced by the chat spec). All values pinned directly rather than
+     aliased via var() chains so chat-* call sites can be tuned independently.
+     Several land without a session-15 consumer (chat-user-bubble-bg,
+     chat-prose-fg, chat-code-bg, chat-code-fg, chat-cite-bg) — they're
+     consumed by the chat composer / message bubbles / citations renovation
+     in sessions 16–18. */
+  --border-strong: oklch(0.8655 0.0164 82.7910);          /* #d8d2c7 — composer + archived header border */
+  --warn-fg: oklch(0.4568 0.1098 22.4083);                /* #8a3a3a — error icon, archive banner */
+  --warn-fg-deep: oklch(0.3905 0.0915 22.2302);           /* #6e2e2e — error message body */
+  --warn-bg: oklch(0.9610 0.0111 45.7216);                /* #f9f0ec — error banner fill */
+  --chat-user-bubble-bg: oklch(0.9385 0.0132 82.4017);    /* #efeae1 — user message body (alias of stone) */
+  --chat-prose-fg: oklch(0.2106 0.0050 67.5509);          /* #1a1816 — assistant prose text (alias of ink) */
+  --chat-code-bg: oklch(0.2106 0.0050 67.5509);           /* #1a1816 — inverted code surface */
+  --chat-code-fg: oklch(0.9314 0.0140 88.6868);           /* #ece8de — inverted code text */
+  --chat-cite-bg: oklch(0.4512 0.0766 258.9642 / 0.08);   /* rgba(59,86,128,0.08) — citation chip fill */
 }
 
 .dark {
@@ -153,4 +180,12 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Reserves the vertical scrollbar's track in the layout box even when
+   no bar is rendered, so first-overflow doesn't shift centered content
+   leftward by ~15px. Used on the chat MessageList scroll container —
+   the diagnosed source of width jitter when the first message arrives. */
+@utility scrollbar-stable {
+  scrollbar-gutter: stable;
 }

@@ -33,6 +33,7 @@ This is open-source software you can fork and run for your own legal department,
 Features and surfaces deliberately deferred. Capturing intent here so it isn't lost.
 
 - **In-app support chat** — replaces the legacy floating support button removed in 10b. User-initiated chat surface for product support; surfaces from inside the workspace chrome rather than emailing legal-ops out-of-band.
+- **Card access-rights treatment.** Department and agent cards conditionally rendered as inactive based on user role. Inactive cards visually disappear into the page background (`bg-background` instead of `bg-card`, no shadow, no hover state, click target disabled or removed) so users see that other surfaces exist without being able to act on them. Implementation when needed: add an `inactive` boolean prop to DepartmentCard and AgentCard; conditional className swaps the surface tone and removes the slate-blue hover treatment introduced in session 15.
 
 ## License
 

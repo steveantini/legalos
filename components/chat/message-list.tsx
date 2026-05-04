@@ -70,7 +70,7 @@ export function MessageList({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto"
+        className="scrollbar-stable min-h-0 flex-1 overflow-y-auto"
       >
         <ChatEmptyState
           agentName={agentName}
@@ -84,26 +84,22 @@ export function MessageList({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto"
+      className="scrollbar-stable min-h-0 flex-1 overflow-y-auto"
       aria-live="polite"
       aria-busy={isStreaming}
     >
-      <ul className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+      <ul className="mx-auto flex w-full max-w-4xl flex-col gap-7 py-6">
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}
         {toolUseLabel ? (
-          <li className="flex justify-start">
-            <div className="flex max-w-[80%] items-center gap-2 rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-2.5 text-sm italic text-muted-foreground">
-              <Loader2Icon className="size-3.5 animate-spin" />
-              {toolUseLabel}
-            </div>
+          <li className="flex items-center gap-2 text-sm italic text-muted-foreground">
+            <Loader2Icon className="size-3.5 animate-spin" />
+            {toolUseLabel}
           </li>
         ) : isWaitingForFirstToken ? (
-          <li className="flex justify-start">
-            <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-2.5">
-              <TypingIndicator />
-            </div>
+          <li>
+            <TypingIndicator />
           </li>
         ) : null}
       </ul>

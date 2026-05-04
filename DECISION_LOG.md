@@ -705,3 +705,44 @@ The token-rebinding approach (Session 9c's mechanism) is specifically chosen to 
 - The new Aperture tokens (`--paper-2`, `--hairline`, etc.) are available via standard Tailwind utilities (`bg-paper-2`, `border-hairline`, `text-caption`). Component code consumes these the same way it consumes `bg-background` — no special syntax.
 - Constraint B from D-014 is no longer load-bearing. References to it in code review, planning, or skill files should be updated to the new constraint above. The two are NOT contradictory in spirit (both prefer "don't reinvent what shadcn does well") — D-028 just sharpens the boundary between interaction and visual.
 - Dark mode tokens (the `.dark` block in `app/globals.css`) are deliberately untouched in 9c. Aperture is light-mode only by spec; dark mode retune is a future session.
+
+## D-030 — Chat surface widens to max-w-4xl while prose stays at max-w-3xl
+
+Date: 2026-05-04
+Status: Accepted
+
+**Context:** Session 15 ports the Aperture chat surface (`/agents/<id>`) toward spec `docs/design/aperture/chat-aperture-spec.md`. The spec's §1.4 visual reference puts the entire turn — 64px speaker-label gutter + gap + flexible content — inside a single `max-w-3xl` (768px) column. After the initial 15a smoke pass landed the surface at the spec's max-w-4xl-then-3xl arrangement (heading + lists at 4xl, message body at 3xl, with bubble-style user-right / assistant-left layout), user feedback during smoke surfaced two distinct problems: (a) the chat width visibly jittered when the first message overflowed the scroll container and a vertical scrollbar appeared, narrowing the content area and re-centering the inner column; (b) the surface read as narrow at rest, with margins that didn't communicate "this is the work area" the way Claude's own chat surface does. The fixes for (a) and (b) couple: replacing the bubble paradigm with the speaker-gutter pattern from spec §1.4 unifies turn shape and removes the per-bubble width-cap escape hatches that contributed to (a); pulling session 16's turn-layout work forward into 15 lets both fixes ship together rather than landing the diagnosed jitter fix on top of a layout that's about to be replaced anyway.
+
+**Decision:**
+
+- **Outer chat wrapper widens to `max-w-4xl` (896px).** The page `<main>` and the message-list `<ul>` both cap at 4xl, mx-auto centered. This is the "chat surface" width the user sees as the chrome boundary of the conversation.
+- **Prose column stays at `max-w-3xl` (768px).** The MarkdownRenderer's outer div applies `max-w-3xl`, and the user-message tinted card matches at `max-w-3xl`. Both speakers' content visually align with the composer (also `max-w-3xl mx-auto`), giving a single consistent prose column for the whole conversation. Legal reading at 14.5–15px stays in the 56–60ch sweet spot per spec §1.
+- **64px speaker-label gutter sits between the wrapper and the prose column.** Each turn `<li>` is a flex row: `[64px gutter][gap-4][flex-1 content with max-w-3xl][optional download button]`. The gutter holds mono-caps `YOU` (slate-blue, the only place YOU shows in slate per spec §2.2) or `AGENT` (caption tone). At full 4xl width, the prose left edge sits at gutter-end ≈ 80px from the wrapper's left, exactly aligned with the composer's left edge underneath. The right side of each turn carries ~64px of breathing room where the eventual hover-reveal metadata gutter (spec §2.10) will live in a later session.
+- **`scrollbar-gutter: stable`** on the message-list scroll container, applied via a Tailwind v4 `@utility scrollbar-stable` rule in `app/globals.css` (not an arbitrary value at the call site). Reserves the scrollbar track's width in the layout box so the first overflow does not shift centered content leftward.
+- **`min-w-0` on the flex-1 content column** in every turn shape. Defeats the `min-width: auto` (= min-content) default that lets unbreakable tokens (long URLs, wide inline code) push past `max-w-3xl`.
+- **Sizing fix shipped same session.** `ChatInterface`'s legacy `h-[calc(100vh-4rem)]` is replaced with `min-h-0 flex-1`, and the page `<main>` gains `min-h-0 flex-1 overflow-hidden`, so the chat surface contains its own scroll inside `MessageList`. Without this, the composer falls below the visible fold (~92px on a typical viewport) and the visible width fix would land on top of a still-broken sizing story. The workspace body wrapper at `app/(workspace)/layout.tsx` is unchanged — other workspace routes (departments, agents listings, admin) need its `overflow-auto` behavior.
+
+**Reasoning:**
+
+The user's "just like Claude" requirement is about the felt presence of the chat surface, not just line-length. Claude's own chat sits at a wider chrome with prose constrained tighter inside. The spec's literal max-w-3xl-everywhere reading optimizes line-length but produces a chat surface that reads as narrow at rest, especially on the 1440–1920px viewports the product targets. Splitting the two layers (wrapper at 4xl, prose at 3xl) keeps the legal-reading argument intact while giving the chrome the presence the user is asking for.
+
+The speaker-gutter pattern from spec §1.4 was already going to land in session 16; pulling it forward into 15 avoids shipping a layout (Session 15's `max-w-[80%]` bubbles) that the very next session was going to throw out. The width-jitter bug and the bubble paradigm share root causes — three nested width layers (page main 4xl, message ul 3xl, per-bubble 80% with no min-w-0) all recomputing independently against parents whose effective width changed when a scrollbar appeared. Collapsing to one canonical width per layer (4xl wrapper, 3xl prose, no per-message cap) plus stable scrollbar gutter plus min-w-0 fixes the jitter directly rather than papering over it.
+
+The sizing fix is in scope because shipping a width-correct layout where the input falls below the fold defeats the visible improvement. The two are not separable from a "does this surface feel like a real chat" perspective.
+
+**Alternatives considered:**
+
+- *Implement spec §1.4 as written: max-w-3xl entire turn including gutter.* Rejected — produces the narrow-feel the user explicitly pushed back on. The line-length win is real but the user's lived experience of the surface is the actual requirement.
+- *Widen prose to max-w-4xl too.* Rejected — pushes typical lines past 90 characters at 14.5–15px, hurting legal long-read comprehension. The spec's line-length argument is correct; we keep it for prose.
+- *Fix only the scrollbar-gutter jitter and defer the speaker-gutter rewrite to session 16.* Rejected — Session 16 was about to replace the entire bubble paradigm. Stabilizing a layout that's getting thrown out costs review/test/QA time on dead-end code. The bubble paradigm also had `max-w-[80%]` per-bubble caps without `min-w-0` — separately a contributor to width jitter. Both fixes belong together.
+- *Move the prose constraint (`max-w-3xl`) to a per-message wrapper, not into MarkdownRenderer.* Rejected for now — single consumer, no propagation concern. If a future MarkdownRenderer consumer wants unconstrained prose, the override is a className prop or a sibling renderer at the call site. Revisit if a second consumer appears.
+- *Defer the sizing fix (`h-[calc(100vh-4rem)]` → flex sizing) to a separate session.* Rejected — composer below the fold would undercut the visible width win. Pulling it forward keeps the session's deliverable coherent.
+
+**Consequences:**
+
+- Spec §1.4's "max-w-3xl entire turn" reading is a documented deviation, not a misread. Future spec readers should trust this entry over a literal reading of §1.4. The §2.2 (YOU label slate-blue), §2.3 (assistant prose type ramp), and §2.7 (composer max-w-3xl) parts of the spec are followed exactly.
+- The right side of each turn carries ~64px of empty space at full 4xl width. This is intentional headroom for spec §2.10's hover-reveal metadata gutter. When that lands, no width math changes — the existing layout already reserves the space.
+- `MarkdownRenderer`'s outer div now applies `max-w-3xl`. Currently a single consumer (assistant message bubble); no propagation surface.
+- The chat surface is the only workspace route with self-contained scroll. Departments, agents listings, admin, and the chat-input-disabled archived state continue to use the workspace body wrapper's `overflow-auto`. This split is intentional — chat needs a fixed input at the bottom, the others don't.
+- Spec §2.6 streaming caret, §2.5 tool-trace state machine, §2.4 superscript-and-footnote citations, and §2.10 hover-reveal metadata gutter remain deferred. Session 18 (citations renovation) and session 19 (streaming/tool-trace) pick them up.
+- `gap-7` (28px) between turns matches the visual reference's `.col { gap: 28px }`, replacing Session 15a's `gap-4` (16px). If the rhythm reads too airy in long sessions, tighten to `gap-6` in a follow-up — not blocking sign-off.

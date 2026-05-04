@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Chat surface · Aperture</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;450;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --display: "Inter Tight", -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+  }
+  html, body { margin: 0; padding: 0; background: #1a1816; font-family: var(--display); }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="chat-aperture.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+function App() {
+  return (
+    <DesignCanvas title="Chat surface · Aperture" subtitle="legalOS · /agents/<id> — message turns, streaming, tool-use, citations, composer, empty/error/archived states.">
+      <DCSection id="active" title="Active conversation">
+        <DCArtboard id="active-streaming" label="Streaming · with tool-use & citations" width={1120} height={900}>
+          <SceneActive/>
+        </DCArtboard>
+      </DCSection>
+      <DCSection id="empty" title="Empty state">
+        <DCArtboard id="empty-rich" label="First open · agent identity surfaced" width={1120} height={900}>
+          <SceneEmpty/>
+        </DCArtboard>
+      </DCSection>
+      <DCSection id="error" title="Error states">
+        <DCArtboard id="error-stream" label="Stream interrupted · tool failed" width={1120} height={900}>
+          <SceneError/>
+        </DCArtboard>
+      </DCSection>
+      <DCSection id="archived" title="Archived agent">
+        <DCArtboard id="archived" label="Soft-deleted · transcript retained" width={1120} height={900}>
+          <SceneDeleted/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
