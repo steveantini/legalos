@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChatErrorBanner } from "./chat-error-banner";
 import { MessageInput } from "./message-input";
@@ -8,6 +8,29 @@ import { MessageList } from "./message-list";
 import type { ChatMessage } from "./message-bubble";
 
 import { parseSseStream, type ChatStreamEvent } from "@/lib/chat/sse-parser";
+
+/**
+ * localStorage key for the per-agent draft autosave (session 17b, spec §2.7).
+ * One key per agent so switching between agents preserves both drafts
+ * independently. Drafts are cleared on successful send and never on
+ * abort — partial typing survives a Stop just like a network drop would.
+ */
+const DRAFT_STORAGE_KEY = (agentId: string) => `legalos.draft.${agentId}`;
+const DRAFT_DEBOUNCE_MS = 200;
+
+/**
+ * Read `error.name === "AbortError"` from any thrown value. Used to
+ * distinguish user-initiated stop (no banner, no system bubble — the
+ * user knows) from network errors and unexpected stream failures.
+ */
+function isAbortError(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "name" in err &&
+    (err as { name: unknown }).name === "AbortError"
+  );
+}
 
 interface ChatInterfaceProps {
   agentId: string;
@@ -70,6 +93,85 @@ export function ChatInterface({
   const [error, setError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  /**
+   * AbortController for the in-flight /api/chat fetch (session 17b).
+   * Created fresh in handleSend, reset to null in finally. handleStop
+   * aborts whichever controller is current; the catch blocks below
+   * discriminate AbortError from real failures so user-initiated stops
+   * land silently. The unmount cleanup at the bottom of this component
+   * aborts any request that's in-flight when the user navigates away.
+   */
+  const abortRef = useRef<AbortController | null>(null);
+  /**
+   * Debounce handle for the per-agent draft autosave (session 17b).
+   * Cleared on every keystroke and on unmount; fires the localStorage
+   * write 200ms after the last change.
+   */
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---- Draft autosave: restore on mount (session 17b)
+  // One-shot per agentId — re-fires if the user navigates between
+  // agents, seeding the new agent's draft from its own localStorage key.
+  // The cursor lands at end-of-text via rAF so the textarea has rendered
+  // with the restored value before we set the selection range.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(DRAFT_STORAGE_KEY(agentId));
+    if (stored && stored.length > 0) {
+      setDraft(stored);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.setSelectionRange(stored.length, stored.length);
+      });
+    }
+  }, [agentId]);
+
+  // ---- Draft autosave: debounced write on change (session 17b)
+  // Clears any pending save on every keystroke, schedules a fresh write
+  // 200ms after the last change. Empty drafts remove the key (so a
+  // cleared composer doesn't leave a stale entry).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = setTimeout(() => {
+      if (draft.length === 0) {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY(agentId));
+      } else {
+        window.localStorage.setItem(DRAFT_STORAGE_KEY(agentId), draft);
+      }
+    }, DRAFT_DEBOUNCE_MS);
+    return () => {
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    };
+  }, [draft, agentId]);
+
+  // ---- Esc-while-streaming → stop generation (session 17b)
+  // Window-level listener because <textarea disabled> doesn't dispatch
+  // keyboard events per the WHATWG spec. Gated on isStreaming so plain
+  // Esc doesn't hijack focus or other UI elements when no request is
+  // in flight.
+  useEffect(() => {
+    if (!isStreaming) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        abortRef.current?.abort();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isStreaming]);
+
+  // ---- Unmount cleanup: abort any in-flight request (session 17b)
+  // Empty deps so this only fires on unmount, not on re-render. Without
+  // this, navigating away mid-stream leaves the fetch running until the
+  // browser closes it; explicit abort is good hygiene and prevents dev-
+  // server hangs on hot reload.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   function appendMessage(msg: ChatMessage) {
     setMessages((prev) => [...prev, msg]);
@@ -113,6 +215,13 @@ export function ChatInterface({
 
     setError(null);
     setDraft("");
+    // Belt-and-suspenders draft clear: the debounced effect would clear
+    // it 200ms after the next render anyway (since draft is now ""), but
+    // doing it inline removes the race where a fast user re-types before
+    // the debounce flushes.
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(DRAFT_STORAGE_KEY(agentId));
+    }
     setIsStreaming(true);
     setWaitingForFirstToken(true);
 
@@ -125,6 +234,12 @@ export function ChatInterface({
     appendMessage({ id: tempUserId, role: "user", content: userMessage });
     appendMessage({ id: tempAssistantId, role: "assistant", content: "" });
 
+    // Fresh AbortController per request. handleStop reads from
+    // abortRef.current; the finally block clears the ref so a stale
+    // controller can't accidentally abort a future request.
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     let response: Response;
     try {
       response = await fetch("/api/chat", {
@@ -135,14 +250,18 @@ export function ChatInterface({
           conversation_id: conversationId,
           user_message: userMessage,
         }),
+        signal: controller.signal,
       });
-    } catch {
-      setError("Lost connection. Check your network and try again.");
-      // Drop the empty assistant placeholder so we don't show a hanging
-      // bubble.
+    } catch (err) {
+      if (!isAbortError(err)) {
+        setError("Lost connection. Check your network and try again.");
+      }
+      // Drop the empty assistant placeholder either way. On abort, the
+      // user knows they stopped — no banner, no system bubble.
       setMessages((prev) => prev.filter((m) => m.id !== tempAssistantId));
       setIsStreaming(false);
       setWaitingForFirstToken(false);
+      abortRef.current = null;
       textareaRef.current?.focus();
       return;
     }
@@ -153,6 +272,7 @@ export function ChatInterface({
       setMessages((prev) => prev.filter((m) => m.id !== tempAssistantId));
       setIsStreaming(false);
       setWaitingForFirstToken(false);
+      abortRef.current = null;
       textareaRef.current?.focus();
       return;
     }
@@ -161,15 +281,23 @@ export function ChatInterface({
       for await (const event of parseSseStream(response)) {
         handleStreamEvent(event);
       }
-    } catch {
-      // Reading the stream itself threw (network drop mid-stream). Show
-      // banner + system bubble.
-      setError("Lost connection during the response. Try again.");
-      appendMessage({
-        id: `sys-${Date.now()}`,
-        role: "system",
-        content: "The assistant didn't finish responding.",
-      });
+    } catch (err) {
+      if (!isAbortError(err)) {
+        // Reading the stream itself threw (network drop mid-stream). Show
+        // banner + system bubble.
+        setError("Lost connection during the response. Try again.");
+        appendMessage({
+          id: `sys-${Date.now()}`,
+          role: "system",
+          content: "The assistant didn't finish responding.",
+        });
+      }
+      // On AbortError: whatever tokens arrived before the abort stay in
+      // the assistant message as-is. Per spec §2.6: no "[stopped by user]"
+      // footer — the user knows. Note: the server-side Anthropic call
+      // continues to completion (no signal threading to the SDK in this
+      // session), so reloading the page will show the FULL assistant
+      // message, not the partial. Cost-bleed pattern B is deferred.
     } finally {
       setIsStreaming(false);
       setWaitingForFirstToken(false);
@@ -178,8 +306,13 @@ export function ChatInterface({
       // adapter's message_stop fallback is the primary defense; this is
       // belt-and-suspenders.
       setToolUseLabel(null);
+      abortRef.current = null;
       textareaRef.current?.focus();
     }
+  }
+
+  function handleStop() {
+    abortRef.current?.abort();
   }
 
   function handleStreamEvent(event: ChatStreamEvent) {
@@ -235,7 +368,7 @@ export function ChatInterface({
         toolUseLabel={toolUseLabel}
       />
       {error ? (
-        <div className="mx-auto w-full max-w-3xl px-4 pb-2">
+        <div className="mx-auto w-full max-w-3xl pb-2">
           <ChatErrorBanner
             message={error}
             onDismiss={() => setError(null)}
@@ -246,7 +379,7 @@ export function ChatInterface({
         {isDeleted ? (
           <div
             role="status"
-            className="mx-auto w-full max-w-3xl px-4 py-3 text-sm text-muted-foreground"
+            className="mx-auto w-full max-w-3xl py-3 text-sm text-muted-foreground"
           >
             This agent has been deleted. Restore it from the trash to send new
             messages.
@@ -259,6 +392,7 @@ export function ChatInterface({
             value={draft}
             onChange={setDraft}
             onSend={handleSend}
+            onStop={handleStop}
             disabled={isStreaming}
             focusRef={textareaRef}
           />

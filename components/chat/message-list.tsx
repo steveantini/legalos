@@ -36,6 +36,40 @@ interface MessageListProps {
  * The container has aria-live="polite" so screen readers announce new
  * assistant content without interrupting earlier reading; aria-busy reflects
  * isStreaming so assistive tech can convey "in progress".
+ *
+ * Centerline alignment (three-piece dependency, both branches below):
+ *
+ *   1. Page main has `scrollbar-stable` + `overflow-hidden`. Reserves a
+ *      ~15px gutter on its right edge — empty space that's never used
+ *      (the page main never scrolls), but pulls the page main's content
+ *      area in to ~881px.
+ *   2. This scroll container has `scrollbar-stable`. Its own ~15px
+ *      gutter is reserved on its right; the actual MessageList scrollbar
+ *      lives in this gutter when content overflows. Without this, the
+ *      scrollbar appearing/disappearing would jitter the message column
+ *      width by 15px — the bug session 15 (D-030) fixed.
+ *   3. This scroll container has `-mr-[15px]`. The negative right margin
+ *      extends the container's outer 15px back into the page main's
+ *      reserved gutter (overflow-hidden on page main clips at the
+ *      padding-box edge, so the extension fits). Net: scroll container
+ *      outer = full 896px instead of 881px; with its own scrollbar gutter
+ *      reserving 15px, visible message content = 881px — matching the
+ *      header / composer / banner content frame (also 881px since they
+ *      live in page main's content area directly).
+ *
+ * All three pieces are load-bearing. Drop any one and alignment breaks:
+ *
+ *   - Without (1): page main has no gutter, header/composer center in
+ *     896 (centerline 448) but messages center in 881 (centerline 440.5).
+ *   - Without (2): scrollbar appearance jitters message content by 15px.
+ *   - Without (3): scroll container narrows to 881, then its own gutter
+ *     pulls visible content to 866 — messages center 7.5px left of the
+ *     header/composer centerline.
+ *
+ * The 15px hardcoded value is a browser-default approximation (12–17px
+ * actual depending on OS/browser). The 2–3px variance is invisible at
+ * the chat surface scale; computing exact width at runtime adds JS hooks
+ * for marginal correctness gain — explicitly not pursued.
  */
 export function MessageList({
   agentName,
@@ -70,7 +104,7 @@ export function MessageList({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="scrollbar-stable min-h-0 flex-1 overflow-y-auto"
+        className="scrollbar-stable -mr-[15px] min-h-0 flex-1 overflow-y-auto"
       >
         <ChatEmptyState
           agentName={agentName}
@@ -84,11 +118,11 @@ export function MessageList({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="scrollbar-stable min-h-0 flex-1 overflow-y-auto"
+      className="scrollbar-stable -mr-[15px] min-h-0 flex-1 overflow-y-auto"
       aria-live="polite"
       aria-busy={isStreaming}
     >
-      <ul className="mx-auto flex w-full max-w-4xl flex-col gap-7 py-6">
+      <ul className="flex w-full flex-col gap-7 py-6">
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}

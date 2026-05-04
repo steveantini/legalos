@@ -64,7 +64,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (message.role === "user") {
     return (
       <li role="article">
-        <div className="max-w-3xl rounded-[10px] border border-border bg-chat-user-bubble-bg px-4 py-3 text-[14.5px] leading-[1.55] text-foreground whitespace-pre-wrap break-words">
+        <div className="mx-auto max-w-3xl rounded-[10px] border border-border bg-chat-user-bubble-bg px-4 py-3 text-[14.5px] leading-[1.55] text-foreground whitespace-pre-wrap break-words">
           {message.content}
         </div>
       </li>
@@ -77,32 +77,45 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   // the id; exporting a half-streamed message would produce truncated
   // .docx output and a junk formatted_outputs row. Once the temp prefix
   // is gone the message has fully landed in the DB and is exportable.
+  //
+  // Layout note: prose + citations + download button are wrapped in a
+  // single `mx-auto max-w-3xl` flex container so the whole unit centers
+  // within the li at the same centerline as the user card. Without this,
+  // the download button as a flex sibling on the li itself would
+  // asymmetrically narrow the prose's available width and offset the
+  // prose centerline ~16px left of the user-card centerline. When
+  // isExportable becomes true the prose's right edge pulls in by ~44px
+  // (download mounts); acceptable since the button is opacity-0 until
+  // hover and only mounts at a real state boundary (server-confirmed
+  // message id).
   const isExportable = !message.id.startsWith("tmp-");
   return (
-    <li role="article" className="group/message flex items-start gap-2">
-      <div className="min-w-0 flex-1">
-        <MarkdownRenderer content={message.content} />
-        {message.citations && message.citations.length > 0 ? (
-          <div className="mt-3 max-w-3xl border-t border-border pt-2 text-xs">
-            <p className="font-medium text-muted-foreground">Sources</p>
-            <ol className="mt-1 list-inside list-decimal space-y-0.5">
-              {message.citations.map((c, i) => (
-                <li key={`${c.url}-${i}`}>
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline hover:no-underline"
-                  >
-                    {c.title || c.url}
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </div>
-        ) : null}
+    <li role="article" className="group/message">
+      <div className="mx-auto flex max-w-3xl items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <MarkdownRenderer content={message.content} />
+          {message.citations && message.citations.length > 0 ? (
+            <div className="mt-3 border-t border-border pt-2 text-xs">
+              <p className="font-medium text-muted-foreground">Sources</p>
+              <ol className="mt-1 list-inside list-decimal space-y-0.5">
+                {message.citations.map((c, i) => (
+                  <li key={`${c.url}-${i}`}>
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline hover:no-underline"
+                    >
+                      {c.title || c.url}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+        </div>
+        {isExportable ? <DownloadMessageButton messageId={message.id} /> : null}
       </div>
-      {isExportable ? <DownloadMessageButton messageId={message.id} /> : null}
     </li>
   );
 }

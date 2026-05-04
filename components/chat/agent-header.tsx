@@ -21,6 +21,17 @@ import { modelLabel } from "@/lib/llm/model-label";
  * page's existing `isOwner && !isDeleted` guard already covers this,
  * but defensively suppress here too).
  *
+ * Centerline alignment: the header content sits at `max-w-3xl mx-auto`
+ * to share the conversation column's width with user cards, assistant
+ * prose, the composer, and the error/soft-delete banners. The active
+ * state's `<header>` stays at the full chat-surface width (max-w-4xl
+ * frame from the page main) so its `border-b` reads as a chat-surface
+ * separator between agent context and conversation, with a 64px
+ * overhang on each side past the 3xl content. The soft-deleted card
+ * narrows to 3xl alongside the conversation column — it's a card
+ * block, not a separator, so matching the column reads better than
+ * a wider card.
+ *
  * Composer disabling on archive is OUT OF SCOPE for session 15 — the
  * banner copy reads as if the composer is disabled, and session 17
  * will land that wiring. The disconnect is acceptable for one session.
@@ -56,7 +67,7 @@ export function AgentHeader({
 }: AgentHeaderProps) {
   if (isDeleted) {
     return (
-      <header className="mb-4 rounded-[10px] border border-border-strong bg-card-divider p-4">
+      <header className="mx-auto mb-4 w-full max-w-3xl rounded-[10px] border border-border-strong bg-card-divider p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-[28px] font-normal leading-[1.05] tracking-[-0.025em] text-foreground">
@@ -81,7 +92,7 @@ export function AgentHeader({
 
   return (
     <header className="mb-4 border-b border-border pb-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="mx-auto flex max-w-3xl items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-[28px] font-normal leading-[1.05] tracking-[-0.025em] text-foreground">
             {agent.name}

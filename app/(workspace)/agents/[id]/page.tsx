@@ -72,7 +72,7 @@ export default async function AgentChatPage({
   const attachmentCount = count ?? 0;
 
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden px-0">
+    <main className="scrollbar-stable mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden">
       <AgentHeader
         agent={agent}
         attachmentCount={attachmentCount}
