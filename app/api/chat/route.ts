@@ -16,6 +16,8 @@ import {
 import {
   encodeSseEvent,
   SSE_RESPONSE_HEADERS,
+  type ChatSource,
+  type ChatToolCall,
 } from "@/lib/llm/anthropic/stream";
 import type { MessageRole, NativeAgent } from "@/lib/llm/anthropic/types";
 import { parseModelId } from "@/lib/llm/parse-model-id";
@@ -35,10 +37,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  *   6. Resolve / create conversation; snapshot system_prompt + model
  *      at conversation creation per AI Integration Rules.
  *   7. Insert user message; emit SSE meta event.
- *   8. Stream from Anthropic, emit token events as text deltas arrive.
- *   9. On stream end: persist assistant message + usage_events row,
- *      emit done event. Mid-stream errors emit an error event and
- *      close the stream cleanly.
+ *   8. Stream from Anthropic, emitting:
+ *        - token            text deltas (may include inline <sup ...> markers)
+ *        - tool_trace_start  per server tool invocation
+ *        - tool_trace_done   per matching tool result
+ *        - tool_trace_error  per tool result error
+ *        - source_added      per new citation URL (deduped within message)
+ *   9. On stream end: persist assistant message (content + sources +
+ *      tool_calls) + usage_events row, emit done event.
+ *      On stream error: persist what we have so far so the conversation
+ *      reload path doesn't lose accumulated state. tool_calls in flight
+ *      stay at status="running"; emit error SSE and close.
  *
  * The user-scoped Supabase server client is used throughout (not the
  * service-role key), so RLS remains the last line of defense per D-009.
@@ -84,6 +93,60 @@ function errorResponse(error: ChatErrorCode, status: number) {
   return NextResponse.json({ ok: false, error }, { status });
 }
 
+/**
+ * Generate a short opaque id (12 hex chars) prefixed with the given tag.
+ * Used for source ids (`src_xxx`) and as a fallback for tool call ids
+ * when Anthropic's tool_use_id is missing. Web Crypto's randomUUID is
+ * available in Node 22 / Vercel runtime; takes the first 12 hex chars
+ * of the dash-stripped UUID for a 48-bit random space — collision risk
+ * within a single message (≤ tens of items) is negligible.
+ */
+function shortId(prefix: string): string {
+  const hex = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  return `${prefix}_${hex}`;
+}
+
+/**
+ * Extract a clean display domain from a URL: hostname stripped of a
+ * leading "www.". Returns the input unchanged if URL parsing fails so
+ * a malformed citation URL doesn't crash the stream.
+ */
+function domainFromUrl(url: string): string {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Citation-marker drain points for the deferred-injection pipeline
+ * (Session 18c addendum). Anthropic's web_search emits citations_delta
+ * BEFORE the cited text rather than after, so injecting markers at the
+ * stream position lands pills in front of claims ("[1] The FTC banned…")
+ * — frontier-product convention is markers AFTER the cited claim, after
+ * the sentence-ending period.
+ *
+ * The pipeline buffers markers in a per-stream pendingCitations queue
+ * and drains at the first match of this regex within a text chunk:
+ *
+ *   [.!?](?=\s|$)    — sentence-ending punctuation followed by space or
+ *                      end of chunk
+ *   (?=\n\n)         — paragraph break (zero-length lookahead so markers
+ *                      land at end of paragraph, not start of next)
+ *   (?=\n[*\-+] )    — bullet list-item start
+ *   (?=\n#{1,6}\s)   — heading start
+ *   (?=\n>\s)        — blockquote start
+ *   (?=\n\d+\. )     — ordered list-item start
+ *
+ * Tool events (tool_trace_*) and end-of-stream also force a drain —
+ * citations belong to text already emitted, never to text that hasn't
+ * arrived yet.
+ */
+const CITATION_DRAIN_RE =
+  /[.!?](?=\s|$)|(?=\n\n)|(?=\n[*\-+] )|(?=\n#{1,6}\s)|(?=\n>\s)|(?=\n\d+\. )/;
+
 export async function POST(request: Request) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -119,8 +182,6 @@ export async function POST(request: Request) {
     if (!agentRow) return errorResponse("agent_not_found", 404);
     if (agentRow.type !== "native") return errorResponse("agent_not_native", 404);
     if (!agentRow.system_prompt || !agentRow.model) {
-      // Should be enforced by the agents_native_requires_prompt CHECK
-      // constraint in 0001; defend at the application layer too.
       console.error("native agent missing prompt or model", {
         agent_id: agentRow.id,
       });
@@ -162,8 +223,6 @@ export async function POST(request: Request) {
         return errorResponse("internal_error", 500);
       }
       if (!convo || convo.user_id !== user.id) {
-        // Either the conversation does not exist or it belongs to another
-        // user. Collapse both cases to forbidden so we don't leak existence.
         return errorResponse("forbidden", 403);
       }
       conversationId = convo.id;
@@ -224,11 +283,6 @@ export async function POST(request: Request) {
     }
 
     // ---- Build Anthropic messages array
-    // Strategy: replay history in role order, re-wrapping every user turn
-    // (current and historical) in <user_input> delimiter tags. Persisted
-    // content stores the raw text — wrapping is a runtime concern that
-    // applies on every send so the prompt-injection structure is
-    // consistent across multi-turn conversations.
     const apiMessages: Array<{
       role: "user" | "assistant";
       content: string;
@@ -239,26 +293,13 @@ export async function POST(request: Request) {
       } else if (m.role === "assistant") {
         apiMessages.push({ role: "assistant", content: m.content });
       }
-      // Skip "system" role messages — the system prompt is passed via the
-      // system parameter, not as a turn.
     }
     apiMessages.push({
       role: "user",
       content: wrapUserMessage(user_message),
     });
 
-    // Load the agent's active attachments to include in the system
-    // content. ORDER BY created_at ASC keeps the block sequence
-    // deterministic across turns — required for prefix caching to hit
-    // (a different ordering would change the cached prefix and force
-    // a re-write each turn). Per architecture §3 / Decision B, we use
-    // the LIVE attachments at send time, not a per-conversation
-    // snapshot — conversations are immutable transcripts of what the
-    // model said, but the configuration that produced them (system
-    // prompt, attachments) reflects the agent's current state.
-    // Attachments where extracted_text is null (failed extraction)
-    // are skipped — they exist as files in storage and rows in the
-    // table, but contribute no model context.
+    // ---- Load active attachments (deterministic order for prefix caching)
     const { data: attRows, error: attErr } = await supabase
       .from("agent_attachments")
       .select("original_filename, extracted_text")
@@ -271,14 +312,6 @@ export async function POST(request: Request) {
       return errorResponse("internal_error", 500);
     }
 
-    // Build the system content as an array of text blocks with a single
-    // cache_control marker on the last block. Content up to and including
-    // the marker is cached for ~5 minutes (architecture §1). Below
-    // Anthropic's threshold (~1024 tokens for Sonnet/Opus, ~2048 for
-    // Haiku), the marker is a no-op — cache_creation_input_tokens and
-    // cache_read_input_tokens both come back as 0, which is correct
-    // behavior, not a bug. Cost math still works in that case
-    // because pricing.ts charges 0 × any-rate = 0.
     const systemBlocks: AnthropicSystemBlock[] = [
       { type: "text", text: buildSystemPrompt(systemPromptSnapshot) },
       ...(attRows ?? []).map((att) => ({
@@ -291,12 +324,7 @@ export async function POST(request: Request) {
       cache_control: { type: "ephemeral" },
     };
 
-    // Build the tools array from the agent's tools_enabled JSONB.
-    // v1's catalog is one entry: web_search (Anthropic's hosted server
-    // tool). The whitelist below validates the agent's toggle against
-    // known tool ids — anything not in the catalog is silently dropped
-    // rather than passed through to Anthropic, which would 400 on an
-    // unknown tool type.
+    // ---- Tools whitelist (web_search v1)
     const enabledTools = Array.isArray(agentRow.tools_enabled)
       ? (agentRow.tools_enabled as unknown as string[])
       : [];
@@ -309,11 +337,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // Parse the vendor-prefixed model id snapshot. Single-case dispatcher
-    // today (anthropic only); sibling adapters land in Phase 6 per D-025.
-    // A parse failure here is a configuration bug, not a runtime upstream
-    // error — return a clean JSON 500 before opening the SSE stream so the
-    // client doesn't see a meta event followed immediately by an error.
+    // ---- Vendor dispatch
     let parsedModel;
     try {
       parsedModel = parseModelId(modelSnapshot);
@@ -338,18 +362,62 @@ export async function POST(request: Request) {
           }),
         );
 
+        // ---- Stream-local accumulators ----
+        // assistantText accumulates the full body, including inline
+        // <sup data-source-id="..." /> markers injected at citation time.
+        // sources / toolCalls are the records that will land on the
+        // assistant message row at end-of-stream (or mid-stream error).
+        // sourceByUrl dedups within-message: a URL appearing twice in
+        // citations_delta still produces a single source record, but
+        // each citation still emits its own <sup> marker pointing at
+        // the existing source's id.
         let assistantText = "";
+        const sources: ChatSource[] = [];
+        const sourceByUrl = new Map<string, string>();
+        const toolCalls: ChatToolCall[] = [];
+        // Sources that arrived since the last finalized tool call. At
+        // tool_trace_done emit time we move these into the matching
+        // tool call's output.source_ids on the persisted record (live
+        // SSE event still ships output.source_ids: [] per Step B
+        // attribution-timing decision).
+        let pendingSourceAttributions: string[] = [];
+        let lastDoneToolCallIndex: number | null = null;
+        // Citation markers awaiting injection (Session 18c addendum).
+        // Citations queue here when their citations_delta arrives and
+        // drain into assistantText / the SSE token stream at the next
+        // sentence-ending punctuation, structural boundary, tool event,
+        // or end-of-stream — so pills land AFTER cited claims rather
+        // than before.
+        let pendingCitations: string[] = [];
+
+        function drainCitations() {
+          if (pendingCitations.length === 0) return;
+          // Dedup within drain — if Anthropic emits three citations to
+          // the same source for one cited claim, render one pill, not
+          // three. Stable insertion order across the dedup'd set.
+          const seen = new Set<string>();
+          let markers = "";
+          for (const sid of pendingCitations) {
+            if (seen.has(sid)) continue;
+            seen.add(sid);
+            markers += `<sup data-source-id="${sid}"></sup>`;
+          }
+          pendingCitations = [];
+          if (markers.length > 0) {
+            assistantText += markers;
+            controller.enqueue(
+              encodeSseEvent({ type: "token", text: markers }),
+            );
+          }
+        }
+
         let tokensIn: number | null = null;
         let tokensOut: number | null = null;
         let cacheCreationTokens = 0;
         let cacheReadTokens = 0;
         let webSearchCount = 0;
+        let streamError: Error | null = null;
 
-        // 2. Dispatch to the right vendor adapter and stream. On any
-        //    failure, emit an error event and close the stream. The user
-        //    message stays persisted; the assistant message is not
-        //    inserted, leaving the conversation in a "user spoke, no
-        //    reply" state that 8b's UI can present as a regenerate option.
         try {
           let events: AsyncIterable<AnthropicStreamEvent>;
           let finalUsage: () => Promise<{
@@ -379,33 +447,165 @@ export async function POST(request: Request) {
 
           for await (const event of events) {
             switch (event.type) {
-              case "text":
-                assistantText += event.text;
-                controller.enqueue(
-                  encodeSseEvent({ type: "token", text: event.text }),
-                );
+              case "text": {
+                // Defer-and-split: if any citations are queued and this
+                // chunk contains a sentence-end / structural boundary,
+                // emit chunk up-to-and-including the boundary, drain
+                // markers there, then emit the tail. If no boundary
+                // OR no pending citations, just emit the chunk.
+                if (pendingCitations.length === 0) {
+                  assistantText += event.text;
+                  controller.enqueue(
+                    encodeSseEvent({ type: "token", text: event.text }),
+                  );
+                  break;
+                }
+                const m = event.text.match(CITATION_DRAIN_RE);
+                if (!m || m.index === undefined) {
+                  assistantText += event.text;
+                  controller.enqueue(
+                    encodeSseEvent({ type: "token", text: event.text }),
+                  );
+                  break;
+                }
+                const splitEnd = m.index + m[0].length;
+                const head = event.text.slice(0, splitEnd);
+                const tail = event.text.slice(splitEnd);
+                if (head.length > 0) {
+                  assistantText += head;
+                  controller.enqueue(
+                    encodeSseEvent({ type: "token", text: head }),
+                  );
+                }
+                drainCitations();
+                if (tail.length > 0) {
+                  assistantText += tail;
+                  controller.enqueue(
+                    encodeSseEvent({ type: "token", text: tail }),
+                  );
+                }
                 break;
-              case "tool_use_start":
+              }
+              case "tool_trace_start": {
+                // Citations belong to text already emitted, never to
+                // text that hasn't arrived yet — drain before any tool
+                // boundary so pending pills land at the end of the
+                // text block that just closed.
+                drainCitations();
+                const position = assistantText.length;
+                const toolCall: ChatToolCall = {
+                  id: event.id,
+                  name: event.toolName,
+                  input: event.input,
+                  output: null,
+                  status: "running",
+                  started_at: event.startedAt,
+                  position,
+                };
+                toolCalls.push(toolCall);
                 controller.enqueue(
                   encodeSseEvent({
-                    type: "tool_use_start",
-                    tool_name: event.toolName,
+                    type: "tool_trace_start",
+                    id: event.id,
+                    name: event.toolName,
+                    input: event.input,
+                    started_at: event.startedAt,
+                    position,
                   }),
                 );
                 break;
-              case "tool_use_end":
-                controller.enqueue(encodeSseEvent({ type: "tool_use_end" }));
-                break;
-              case "citations":
+              }
+              case "tool_trace_done": {
+                drainCitations();
+                const idx = toolCalls.findIndex((t) => t.id === event.id);
+                if (idx >= 0) {
+                  // Roll any source_ids that streamed since the previous
+                  // done event into the previous tool call's output.
+                  if (
+                    lastDoneToolCallIndex !== null &&
+                    pendingSourceAttributions.length > 0
+                  ) {
+                    const prev = toolCalls[lastDoneToolCallIndex];
+                    prev.output = {
+                      source_ids: [
+                        ...(prev.output?.source_ids ?? []),
+                        ...pendingSourceAttributions,
+                      ],
+                    };
+                  }
+                  pendingSourceAttributions = [];
+                  toolCalls[idx].status = "done";
+                  toolCalls[idx].finished_at = event.finishedAt;
+                  toolCalls[idx].output = { source_ids: [] };
+                  lastDoneToolCallIndex = idx;
+                }
                 controller.enqueue(
                   encodeSseEvent({
-                    type: "citations",
-                    citations: event.citations,
+                    type: "tool_trace_done",
+                    id: event.id,
+                    output: { source_ids: [] },
+                    finished_at: event.finishedAt,
                   }),
                 );
                 break;
+              }
+              case "tool_trace_error": {
+                drainCitations();
+                const idx = toolCalls.findIndex((t) => t.id === event.id);
+                if (idx >= 0) {
+                  toolCalls[idx].status = "error";
+                  toolCalls[idx].finished_at = event.finishedAt;
+                  toolCalls[idx].error = event.error;
+                }
+                controller.enqueue(
+                  encodeSseEvent({
+                    type: "tool_trace_error",
+                    id: event.id,
+                    error: event.error,
+                    finished_at: event.finishedAt,
+                  }),
+                );
+                break;
+              }
+              case "citation": {
+                let sourceId = sourceByUrl.get(event.url);
+                if (!sourceId) {
+                  sourceId = shortId("src");
+                  sourceByUrl.set(event.url, sourceId);
+                  const source: ChatSource = {
+                    id: sourceId,
+                    title: event.title,
+                    url: event.url,
+                    domain: domainFromUrl(event.url),
+                  };
+                  sources.push(source);
+                  controller.enqueue(
+                    encodeSseEvent({
+                      type: "source_added",
+                      id: source.id,
+                      title: source.title,
+                      url: source.url,
+                      domain: source.domain,
+                    }),
+                  );
+                  pendingSourceAttributions.push(sourceId);
+                }
+                // Queue marker for next drain point. Anthropic emits
+                // citations_delta BEFORE the cited text rather than
+                // after; injecting at stream position lands pills in
+                // front of claims. Deferring to the next sentence-end /
+                // paragraph break / tool boundary / end-of-stream lands
+                // them in academic-citation position (after the period).
+                pendingCitations.push(sourceId);
+                break;
+              }
             }
           }
+
+          // End-of-stream drain: any citations queued after the last
+          // sentence-end / boundary land at the current end of body
+          // rather than dropping silently.
+          drainCitations();
 
           const usage = await finalUsage();
           tokensIn = usage.input_tokens;
@@ -414,15 +614,36 @@ export async function POST(request: Request) {
           cacheReadTokens = usage.cache_read_input_tokens;
           webSearchCount = usage.web_search_requests;
         } catch (err) {
+          // Stream failed mid-flight. Per Step B "persist what we have so
+          // far": fall through to the persistence block below with
+          // whatever assistantText / sources / toolCalls accumulated.
+          // Tool calls still in "running" stay that way — that's honest
+          // about the stream state at termination.
+          streamError = err instanceof Error ? err : new Error(String(err));
           console.error("model stream failed", err);
-          controller.enqueue(
-            encodeSseEvent({ type: "error", error: "upstream_error" }),
-          );
-          controller.close();
-          return;
+          // Drain any pending citations into the partial body so the
+          // persisted assistantText has its markers in (approximately)
+          // the right place even on interrupt.
+          drainCitations();
         }
 
-        // 3. Persist assistant message.
+        // Final source-attribution flush: any sources accumulated after
+        // the last tool_trace_done belong to that call.
+        if (
+          lastDoneToolCallIndex !== null &&
+          pendingSourceAttributions.length > 0
+        ) {
+          const prev = toolCalls[lastDoneToolCallIndex];
+          prev.output = {
+            source_ids: [
+              ...(prev.output?.source_ids ?? []),
+              ...pendingSourceAttributions,
+            ],
+          };
+        }
+
+        // 3. Persist assistant message — full body + sources + tool_calls.
+        // Persist even on stream error so reload reflects partial state.
         const { data: assistantMsg, error: assistantInsertErr } = await supabase
           .from("messages")
           .insert({
@@ -431,6 +652,8 @@ export async function POST(request: Request) {
             content: assistantText,
             tokens_in: tokensIn,
             tokens_out: tokensOut,
+            sources,
+            tool_calls: toolCalls,
           })
           .select("id")
           .single();
@@ -440,6 +663,16 @@ export async function POST(request: Request) {
           });
           controller.enqueue(
             encodeSseEvent({ type: "error", error: "internal_error" }),
+          );
+          controller.close();
+          return;
+        }
+
+        // If the stream errored mid-flight, surface error then close —
+        // skip usage_events (we don't have final usage) and skip done.
+        if (streamError) {
+          controller.enqueue(
+            encodeSseEvent({ type: "error", error: "upstream_error" }),
           );
           controller.close();
           return;
@@ -476,8 +709,6 @@ export async function POST(request: Request) {
           cost_micro_usd: costMicroUsd,
         });
         if (usageErr) {
-          // Do not fail the user-facing stream over a ledger insert error.
-          // Phase 7 observability will surface ledger gaps via reconciliation.
           console.error("usage_events insert failed", {
             code: usageErr.code,
           });

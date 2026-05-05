@@ -1,12 +1,15 @@
 "use client";
 
 /**
- * Three pulsing dots shown in an assistant-styled bubble while waiting for
- * the first SSE token event. Replaced by the streaming assistant bubble
- * once tokens start arriving.
+ * Three pulsing dots shown in the assistant lane while waiting for the
+ * first SSE event (token OR tool_trace_start) to arrive.
  *
- * Staggered delays via inline style so the three dots pulse out of phase.
- * Pure CSS animation (animate-pulse from Tailwind) — no JS timer.
+ * Animation per chat-aperture-spec.md §4: 1.4s ease-in-out, opacity
+ * 0.3 → 1.0, staggered 180ms across dots. Driven by the chat-typing-dot
+ * keyframe utility in app/globals.css; prefers-reduced-motion: reduce
+ * collapses the keyframe to a static end-state via the global media
+ * query so users with motion sensitivity see three quiet dots rather
+ * than a pulse.
  */
 export function TypingIndicator() {
   return (
@@ -16,16 +19,16 @@ export function TypingIndicator() {
       className="flex items-center gap-1.5 px-1 py-2"
     >
       <span
-        className="size-2 animate-pulse rounded-full bg-muted-foreground/60"
+        className="chat-typing-dot size-2 rounded-full bg-muted-foreground"
         style={{ animationDelay: "0ms" }}
       />
       <span
-        className="size-2 animate-pulse rounded-full bg-muted-foreground/60"
-        style={{ animationDelay: "150ms" }}
+        className="chat-typing-dot size-2 rounded-full bg-muted-foreground"
+        style={{ animationDelay: "180ms" }}
       />
       <span
-        className="size-2 animate-pulse rounded-full bg-muted-foreground/60"
-        style={{ animationDelay: "300ms" }}
+        className="chat-typing-dot size-2 rounded-full bg-muted-foreground"
+        style={{ animationDelay: "360ms" }}
       />
     </div>
   );

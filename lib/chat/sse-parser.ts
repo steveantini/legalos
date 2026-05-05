@@ -18,13 +18,30 @@
  */
 
 /**
- * Citation as it crosses the wire from the chat route. Mirrors the
- * server-side ChatCitation in lib/llm/anthropic/stream.ts.
+ * One citation source referenced by an assistant message. Mirrors the
+ * server-side ChatSource in lib/llm/anthropic/stream.ts.
  */
-export type ChatCitation = {
-  url: string;
+export type ChatSource = {
+  id: string;
   title: string;
-  cited_text: string;
+  url: string;
+  domain: string;
+  fetched_at?: string;
+};
+
+/**
+ * Tool invocation record. Mirrors the server-side ChatToolCall.
+ */
+export type ChatToolCall = {
+  id: string;
+  name: string;
+  input: unknown;
+  output: { source_ids: string[] } | null;
+  status: "running" | "done" | "error";
+  started_at: string;
+  finished_at?: string;
+  error?: string;
+  position: number;
 };
 
 export type ChatStreamEvent =
@@ -34,9 +51,34 @@ export type ChatStreamEvent =
       user_message_id: string;
     }
   | { type: "token"; text: string }
-  | { type: "tool_use_start"; tool_name: string }
-  | { type: "tool_use_end" }
-  | { type: "citations"; citations: ChatCitation[] }
+  | {
+      type: "tool_trace_start";
+      id: string;
+      name: string;
+      input: unknown;
+      started_at: string;
+      position: number;
+    }
+  | {
+      type: "tool_trace_done";
+      id: string;
+      output: { source_ids: string[] } | null;
+      finished_at: string;
+    }
+  | {
+      type: "tool_trace_error";
+      id: string;
+      error: string;
+      finished_at: string;
+    }
+  | {
+      type: "source_added";
+      id: string;
+      title: string;
+      url: string;
+      domain: string;
+      fetched_at?: string;
+    }
   | {
       type: "done";
       assistant_message_id: string;

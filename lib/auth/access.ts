@@ -506,3 +506,67 @@ export async function getDeletedAgentsForUser(
   }));
 }
 
+/**
+ * One conversation message hydrated for the chat surface on reload, with
+ * the Session 18 sources and tool_calls JSONB columns selected so the
+ * chat surface can reconstruct the same block list (text + trace cards
+ * + sources list) it would have built from streamed events.
+ *
+ * `content` carries inline `<sup data-source-id="..." />` markers; the
+ * markdown renderer + sanitize schema let those through to a
+ * <CitationMarker /> override. Tool calls' `position` field is the
+ * splice offset into `content` where each trace card slots in.
+ */
+export interface ConversationMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  sources: unknown;
+  tool_calls: unknown;
+}
+
+/**
+ * Loads a conversation by id WITH its full message list, but only if the
+ * conversation belongs to the current user and to the given agent. The
+ * agent_id check guards against `?c=<id>` pointing at another agent's
+ * conversation — the chat surface assumes its messages belong to the
+ * agent in the URL path.
+ *
+ * Returns null on any of: missing, foreign-user, foreign-agent. Single
+ * null contract so callers can fall through to "fresh conversation"
+ * without leaking which check failed. RLS would already block foreign
+ * reads at the DB layer; the explicit owner+agent check is belt-and-
+ * suspenders and lets us return null cleanly rather than receiving an
+ * empty PostgREST result.
+ */
+export async function getConversationForChatSurface(
+  conversationId: string,
+  agentId: string,
+  userId: string,
+): Promise<{
+  id: string;
+  messages: ConversationMessage[];
+} | null> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: convo } = await supabase
+    .from("conversations")
+    .select("id, user_id, agent_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (!convo || convo.user_id !== userId || convo.agent_id !== agentId) {
+    return null;
+  }
+
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("id, role, content, sources, tool_calls")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
+  return {
+    id: convo.id,
+    messages: (messages ?? []) as ConversationMessage[],
+  };
+}

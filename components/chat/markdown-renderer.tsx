@@ -1,56 +1,105 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
-import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, {
+  defaultSchema,
+  type Options as SanitizeOptions,
+} from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+
+import { CitationMarker } from "./citation-marker";
+import type { ChatSource } from "@/lib/chat/sse-parser";
 
 interface MarkdownRendererProps {
   content: string;
+  /**
+   * Citation source records for the message. The `sup` component override
+   * looks up `data-source-id` against this array to compute the rendered
+   * superscript number. Optional for non-assistant or pre-citation
+   * contexts; sup tags fall back to a `?` marker if no sources are passed.
+   */
+  sources?: ChatSource[];
+}
+
+/**
+ * Sanitize schema extension: allow `<sup data-source-id="src_xxx">`.
+ * The default GitHub schema already allows the `sup` tag, but does not
+ * permit `data-source-id` — we whitelist exactly the one attribute we
+ * inject. Everything else stays default (drops <script>, <style>, on*,
+ * javascript: URIs, etc.) so XSS posture is unchanged.
+ *
+ * IMPORTANT: hast-util-sanitize represents `data-source-id` via the
+ * camelCase property name `dataSourceId`. Bare-string allows the attr
+ * regardless of value; a tuple `[name, value]` would only allow it
+ * when the value matches — `["dataSourceId"]` (1-element tuple) is
+ * interpreted as `[name, undefined]` and silently strips every
+ * actual value, which is the bug Step C smoke caught.
+ */
+const citationSchema: SanitizeOptions = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    sup: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.sup) ?? []),
+      "dataSourceId",
+    ],
+  },
+};
+
+/**
+ * Normalize legacy self-closing `<sup ... />` markers (Step B emitted
+ * this form, which HTML5 parsers treat as an unclosed open tag, causing
+ * every subsequent token to nest INSIDE the sup as children — breaking
+ * lists, citations, and tone of the rest of the message).
+ *
+ * The route now emits `<sup ...></sup>` directly, but messages persisted
+ * before that fix carry the old shape; rewrite at render time so existing
+ * conversations look right without a backfill migration.
+ */
+const LEGACY_SELF_CLOSING_SUP = /<sup\s+data-source-id="([^"]*)"\s*\/>/gi;
+
+function normalizeCitationMarkers(content: string): string {
+  return content.replace(
+    LEGACY_SELF_CLOSING_SUP,
+    (_match, id) => `<sup data-source-id="${id}"></sup>`,
+  );
 }
 
 /**
  * Renders assistant message content as sanitized markdown using the
  * Aperture chat type ramp from chat-aperture-spec.md §2.3.
  *
- * Pipeline: react-markdown parses → remark-gfm adds GitHub flavor (tables,
- * strikethrough, task lists, autolinks) → rehype-sanitize strips dangerous
- * HTML at the AST level using the GitHub-style defaultSchema (drops
- * <script>, <style>, on* handlers, javascript: URIs, dangerous attrs) →
- * react-markdown renders to React elements.
+ * Pipeline (Session 18b extension):
+ *   react-markdown parses
+ *     → remark-gfm adds GitHub flavor (tables, strikethrough, autolinks)
+ *     → rehype-raw promotes inline HTML in markdown into HAST nodes so
+ *       `<sup data-source-id="..." />` survives the AST round-trip
+ *     → rehype-sanitize strips dangerous HTML at the AST level using a
+ *       schema extending GitHub defaults to whitelist the sup data attr
+ *     → react-markdown renders to React elements; the `sup` component
+ *       override routes citation markers to <CitationMarker />
  *
- * Two layers of XSS defense:
+ * Two layers of XSS defense remain intact:
  *   1. AST-level sanitization (rehype-sanitize) ensures untrusted HTML
- *      never reaches the renderer.
- *   2. react-markdown produces real React elements rather than injecting
- *      raw HTML strings, so JSX text-node auto-escaping covers anything
+ *      never reaches the renderer except for the explicitly whitelisted
+ *      <sup data-source-id="..."> shape.
+ *   2. react-markdown produces React elements rather than injecting raw
+ *      HTML strings, so JSX text-node auto-escaping covers anything
  *      sanitization might miss.
  *
  * Per CLAUDE.md "Security Non-Negotiables": all model output is treated
- * as untrusted and sanitized before render. Per "What Not to Do": no
- * client-rendered markdown without sanitization.
- *
- * Type-ramp implementation note (Session 15): the legacy version used
- * `prose prose-sm` from @tailwindcss/typography. Spec §2.3 review
- * checklist explicitly says "not the default @tailwind/typography
- * defaults". Switched to per-element overrides via ReactMarkdown's
- * `components` prop. Pinned values from the spec table — every size,
- * weight, line-height, and tracking value is intentional. Colors use
- * Aperture tokens (text-foreground, text-caption, text-primary,
- * bg-card-divider, bg-chat-code, text-chat-code-fg, border-border).
- *
- * Spacing: top margins (`mt-4` paragraphs, `mt-6`/`mt-8` headings)
- * provide hierarchy. Paragraphs use `[&:not(:first-child)]:mt-4` so the
- * first paragraph in a message doesn't have a leading gap.
- *
- * h1 isn't in the spec's type ramp (the page-level h1 is the agent
- * header). Defensive fallback: render h1 with h2's styling.
+ * as untrusted and sanitized before render. The sup whitelist preserves
+ * that posture — the only structural addition is one self-closing tag
+ * carrying one opaque data attribute.
  */
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, sources }: MarkdownRendererProps) {
+  const normalized = normalizeCitationMarkers(content);
   return (
     <div className="max-w-3xl text-chat-prose-fg">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSanitize, defaultSchema]]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, citationSchema]]}
         components={{
           p: ({ children }) => (
             <p className="text-[14.5px] leading-[1.65] text-foreground [&:not(:first-child)]:mt-4">
@@ -90,11 +139,6 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             </a>
           ),
           code: ({ children, className }) => {
-            // Inline code (no language hint) vs block code (language-…
-            // className applied by remark-gfm / mdast). The block-code
-            // path renders the raw <code> here; the surrounding <pre>
-            // (handled by the pre override below) wraps it with the
-            // dark-surface treatment.
             const isBlock =
               typeof className === "string" && className.startsWith("language-");
             return isBlock ? (
@@ -147,9 +191,40 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
               {children}
             </td>
           ),
+          sup: (props) => {
+            // hast stores `data-source-id` as `dataSourceId`. react-markdown
+            // forwards properties via hast-util-to-jsx-runtime, which emits
+            // data-* attrs back to their kebab-case form on the React prop
+            // bag — but different versions / paths can leave the camelCase
+            // form intact, so we check both for resilience.
+            const bag = props as unknown as Record<string, string | undefined>;
+            const sourceId =
+              bag["data-source-id"] ?? bag.dataSourceId ?? undefined;
+            if (!sourceId) {
+              return <sup>{props.children}</sup>;
+            }
+            const idx = sources?.findIndex((s) => s.id === sourceId) ?? -1;
+            if (idx < 0) {
+              // Source-id pointed at a record we don't have in the array —
+              // e.g. a stale message body referencing a removed source.
+              // Render a plain "?" sup as a degraded fallback rather than
+              // a broken anchor that scrolls nowhere.
+              return (
+                <sup className="text-[10.5px] text-muted-foreground">[?]</sup>
+              );
+            }
+            const source = sources![idx];
+            return (
+              <CitationMarker
+                index={idx + 1}
+                sourceId={sourceId}
+                title={source.title || source.url}
+              />
+            );
+          },
         }}
       >
-        {content}
+        {normalized}
       </ReactMarkdown>
     </div>
   );

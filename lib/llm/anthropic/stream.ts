@@ -1,27 +1,61 @@
 /**
  * Server-Sent Events helpers for the /api/chat streaming response.
  *
- * Per D-023 the chat route emits an SSE-compatible HTTP body with four
- * documented event types: meta, token, done, and error.
+ * Per D-023 the chat route emits an SSE-compatible HTTP body. Session 18b
+ * extended the event vocabulary from { meta, token, done, error,
+ * tool_use_start, tool_use_end, citations } to first-class trace + source
+ * events:
+ *
+ *   meta             — first frame; conversation + user message ids
+ *   token            — text delta (may include inline <sup ...> markers)
+ *   tool_trace_start — server tool invocation began; { id, name, input, started_at }
+ *   tool_trace_done  — tool invocation finished cleanly; { id, output, finished_at }
+ *   tool_trace_error — tool invocation surfaced an error; { id, error, finished_at }
+ *   source_added     — citation referenced a new URL; { id, title, url, domain, fetched_at? }
+ *   done             — stream finalized successfully
+ *   error            — fatal stream error before persistence
  *
  * Format (W3C SSE spec):
  *   event: <name>\n
  *   data: <JSON>\n
  *   \n                    ← blank line terminates the event
- *
- * The response uses Content-Type: text/event-stream so EventSource on the
- * client (8b) and `curl -N` smoke tests both consume it correctly.
  */
 
 /**
- * Chat citation as the client sees it. The Anthropic adapter normalizes
- * `web_search_result_location` blocks into this shape; future tools that
- * surface citations (e.g. file analysis) extend the same vocabulary.
+ * One citation source referenced by an assistant message. Generated
+ * server-side when a citations_delta arrives; deduplicated within a
+ * single message by URL.
  */
-export type ChatCitation = {
-  url: string;
+export type ChatSource = {
+  id: string;
   title: string;
-  cited_text: string;
+  url: string;
+  domain: string;
+  /** Optional ISO timestamp; reserved for tools that surface fetch time. */
+  fetched_at?: string;
+};
+
+/**
+ * Tool invocation record. `output` shape is tool-specific. For web_search
+ * the live SSE event carries an empty source_ids array (attribution is
+ * computed at end-of-stream and only present in the persisted record);
+ * Step C polish may revisit live attribution. `status` collapses pending
+ * + running into "running" — pending is too brief a window to render.
+ */
+export type ChatToolCall = {
+  id: string;
+  name: string;
+  input: unknown;
+  output: { source_ids: string[] } | null;
+  status: "running" | "done" | "error";
+  started_at: string;
+  finished_at?: string;
+  error?: string;
+  /**
+   * Character offset in the assistant body where this trace block slots in
+   * during render. Captured server-side at tool_trace_start emit time.
+   */
+  position: number;
 };
 
 export type ChatStreamEvent =
@@ -31,9 +65,34 @@ export type ChatStreamEvent =
       user_message_id: string;
     }
   | { type: "token"; text: string }
-  | { type: "tool_use_start"; tool_name: string }
-  | { type: "tool_use_end" }
-  | { type: "citations"; citations: ChatCitation[] }
+  | {
+      type: "tool_trace_start";
+      id: string;
+      name: string;
+      input: unknown;
+      started_at: string;
+      position: number;
+    }
+  | {
+      type: "tool_trace_done";
+      id: string;
+      output: { source_ids: string[] } | null;
+      finished_at: string;
+    }
+  | {
+      type: "tool_trace_error";
+      id: string;
+      error: string;
+      finished_at: string;
+    }
+  | {
+      type: "source_added";
+      id: string;
+      title: string;
+      url: string;
+      domain: string;
+      fetched_at?: string;
+    }
   | {
       type: "done";
       assistant_message_id: string;
@@ -58,14 +117,7 @@ export function encodeSseEvent(event: ChatStreamEvent): Uint8Array {
 }
 
 /**
- * SSE response headers per the W3C spec + Vercel streaming requirements:
- *
- * - text/event-stream content type triggers EventSource on the client.
- * - no-cache, no-transform prevents intermediaries from buffering or
- *   replaying the stream.
- * - X-Accel-Buffering: no signals nginx-style proxies (and Vercel's edge)
- *   to disable response buffering, which is what makes token-by-token
- *   streaming actually appear token-by-token in the browser / curl.
+ * SSE response headers per the W3C spec + Vercel streaming requirements.
  */
 export const SSE_RESPONSE_HEADERS = {
   "Content-Type": "text/event-stream; charset=utf-8",

@@ -7,22 +7,18 @@ import { MessageInput } from "./message-input";
 import { MessageList } from "./message-list";
 import type { ChatMessage } from "./message-bubble";
 
-import { parseSseStream, type ChatStreamEvent } from "@/lib/chat/sse-parser";
+import {
+  parseSseStream,
+  type ChatStreamEvent,
+  type ChatToolCall,
+} from "@/lib/chat/sse-parser";
 
 /**
  * localStorage key for the per-agent draft autosave (session 17b, spec §2.7).
- * One key per agent so switching between agents preserves both drafts
- * independently. Drafts are cleared on successful send and never on
- * abort — partial typing survives a Stop just like a network drop would.
  */
 const DRAFT_STORAGE_KEY = (agentId: string) => `legalos.draft.${agentId}`;
 const DRAFT_DEBOUNCE_MS = 200;
 
-/**
- * Read `error.name === "AbortError"` from any thrown value. Used to
- * distinguish user-initiated stop (no banner, no system bubble — the
- * user knows) from network errors and unexpected stream failures.
- */
 function isAbortError(err: unknown): boolean {
   return (
     err !== null &&
@@ -36,45 +32,39 @@ interface ChatInterfaceProps {
   agentId: string;
   agentName: string;
   agentDescription: string | null;
-  /**
-   * Composer-quick-config seed (session 17a). The chat composer's
-   * <ModelPicker/> reads `agentModel` for its initial trigger label;
-   * after the first selection it owns optimistic state and
-   * `revalidatePath('/agents/<id>')` re-renders with the new value
-   * on the next visit. <WebSearchIndicator/> is read-only — when
-   * `webSearchEnabled` is true the composer renders the chip; when
-   * false the slot is empty (toggling lives in the edit form).
-   */
   agentModel: string;
   webSearchEnabled: boolean;
-  /**
-   * True when the agent has been soft-deleted (deleted_at IS NOT NULL).
-   * The transcript stays accessible — conversations are immutable history
-   * per architecture §3 — but the message input is replaced with a copy
-   * banner pointing the user to the trash. Restoring the agent flips this
-   * back to false on the next page load.
-   */
   isDeleted?: boolean;
+  /**
+   * Hydrated message list when `?c=<conversation_id>` is in the URL.
+   * Empty array on first visit. Carries assistant-side sources +
+   * toolCalls so trace cards and citation markers render the same
+   * after a hard reload as they did mid-stream.
+   */
+  initialMessages?: ChatMessage[];
+  /**
+   * Conversation id matching `initialMessages`, or null on first visit.
+   * On first send when null, the SSE meta event populates this and the
+   * URL is updated via history.replaceState so a subsequent hard reload
+   * preserves the conversation.
+   */
+  initialConversationId?: string | null;
 }
 
 /**
  * Top-level chat surface for a native agent. Owns the conversation state
- * for the lifetime of the page mount:
+ * for the lifetime of the page mount.
  *
- *   - messages           : array of user / assistant / system bubbles
- *   - conversationId     : null on first send; populated from SSE meta
- *   - isStreaming        : true between user-send and SSE done/error
- *   - waitingForFirstToken : true between user-send and the first token
- *                            event arriving (drives the typing indicator)
- *   - error              : banner copy or null
- *
- * Refresh = new conversation per the Session 8b plan (no URL state, no
- * localStorage). Conversation listing and resumption are deferred sessions.
- *
- * Auth flows automatically via cookies on same-origin fetch — no manual
- * Authorization header. /api/chat reads the Supabase session cookie via
- * the user-scoped server client, so RLS is the last line of defense per
- * D-009 even though the route also checks dept access explicitly.
+ * Session 18b changes:
+ *   - State seeds from initialMessages / initialConversationId props for
+ *     the conversation reload path (?c=<conv_id>).
+ *   - Replaces tool_use_start/end + end-of-stream citations with per-call
+ *     tool_trace_* events and per-citation source_added events. The
+ *     toolUseLabel ribbon is gone — trace cards are first-class blocks
+ *     in the assistant message and serve as their own indicator.
+ *   - Assistant message state carries content (with inline <sup> markers),
+ *     sources[], and toolCalls[] — the message-bubble splices trace cards
+ *     into the rendered block list at toolCalls[i].position.
  */
 export function ChatInterface({
   agentId,
@@ -83,37 +73,23 @@ export function ChatInterface({
   agentModel,
   webSearchEnabled,
   isDeleted,
+  initialMessages = [],
+  initialConversationId = null,
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [conversationId, setConversationId] = useState<string | null>(
+    initialConversationId,
+  );
   const [draft, setDraft] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [waitingForFirstToken, setWaitingForFirstToken] = useState(false);
-  const [toolUseLabel, setToolUseLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  /**
-   * AbortController for the in-flight /api/chat fetch (session 17b).
-   * Created fresh in handleSend, reset to null in finally. handleStop
-   * aborts whichever controller is current; the catch blocks below
-   * discriminate AbortError from real failures so user-initiated stops
-   * land silently. The unmount cleanup at the bottom of this component
-   * aborts any request that's in-flight when the user navigates away.
-   */
   const abortRef = useRef<AbortController | null>(null);
-  /**
-   * Debounce handle for the per-agent draft autosave (session 17b).
-   * Cleared on every keystroke and on unmount; fires the localStorage
-   * write 200ms after the last change.
-   */
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ---- Draft autosave: restore on mount (session 17b)
-  // One-shot per agentId — re-fires if the user navigates between
-  // agents, seeding the new agent's draft from its own localStorage key.
-  // The cursor lands at end-of-text via rAF so the textarea has rendered
-  // with the restored value before we set the selection range.
+  // ---- Draft autosave: restore on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(DRAFT_STORAGE_KEY(agentId));
@@ -127,10 +103,7 @@ export function ChatInterface({
     }
   }, [agentId]);
 
-  // ---- Draft autosave: debounced write on change (session 17b)
-  // Clears any pending save on every keystroke, schedules a fresh write
-  // 200ms after the last change. Empty drafts remove the key (so a
-  // cleared composer doesn't leave a stale entry).
+  // ---- Draft autosave: debounced write on change
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
@@ -146,11 +119,7 @@ export function ChatInterface({
     };
   }, [draft, agentId]);
 
-  // ---- Esc-while-streaming → stop generation (session 17b)
-  // Window-level listener because <textarea disabled> doesn't dispatch
-  // keyboard events per the WHATWG spec. Gated on isStreaming so plain
-  // Esc doesn't hijack focus or other UI elements when no request is
-  // in flight.
+  // ---- Esc-while-streaming → stop generation
   useEffect(() => {
     if (!isStreaming) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -162,11 +131,7 @@ export function ChatInterface({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isStreaming]);
 
-  // ---- Unmount cleanup: abort any in-flight request (session 17b)
-  // Empty deps so this only fires on unmount, not on re-render. Without
-  // this, navigating away mid-stream leaves the fetch running until the
-  // browser closes it; explicit abort is good hygiene and prevents dev-
-  // server hangs on hot reload.
+  // ---- Unmount cleanup: abort any in-flight request
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
@@ -177,35 +142,19 @@ export function ChatInterface({
     setMessages((prev) => [...prev, msg]);
   }
 
-  function appendAssistantToken(text: string) {
+  /**
+   * Mutate the last assistant message via a callback. Centralizes the
+   * "find last, replace last" pattern used by every streamed update so
+   * we don't litter the event switch with array-slice boilerplate.
+   */
+  function updateLastAssistant(
+    update: (msg: ChatMessage) => ChatMessage,
+  ) {
     setMessages((prev) => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
       if (last.role !== "assistant") return prev;
-      return [
-        ...prev.slice(0, -1),
-        { ...last, content: last.content + text },
-      ];
-    });
-  }
-
-  function finalizeAssistantId(serverMessageId: string) {
-    setMessages((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      if (last.role !== "assistant") return prev;
-      return [...prev.slice(0, -1), { ...last, id: serverMessageId }];
-    });
-  }
-
-  function attachAssistantCitations(citations: ChatMessage["citations"]) {
-    if (!citations || citations.length === 0) return;
-    setMessages((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      if (last.role !== "assistant") return prev;
-      const merged = [...(last.citations ?? []), ...citations];
-      return [...prev.slice(0, -1), { ...last, citations: merged }];
+      return [...prev.slice(0, -1), update(last)];
     });
   }
 
@@ -215,28 +164,29 @@ export function ChatInterface({
 
     setError(null);
     setDraft("");
-    // Belt-and-suspenders draft clear: the debounced effect would clear
-    // it 200ms after the next render anyway (since draft is now ""), but
-    // doing it inline removes the race where a fast user re-types before
-    // the debounce flushes.
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(DRAFT_STORAGE_KEY(agentId));
     }
     setIsStreaming(true);
     setWaitingForFirstToken(true);
 
-    // Append the user bubble and a placeholder assistant bubble. The
-    // assistant placeholder starts with empty content; the typing indicator
-    // (driven by waitingForFirstToken) covers the gap until the first token
-    // arrives.
     const tempUserId = `tmp-user-${Date.now()}`;
     const tempAssistantId = `tmp-assistant-${Date.now()}`;
-    appendMessage({ id: tempUserId, role: "user", content: userMessage });
-    appendMessage({ id: tempAssistantId, role: "assistant", content: "" });
+    appendMessage({
+      id: tempUserId,
+      role: "user",
+      content: userMessage,
+      sources: [],
+      toolCalls: [],
+    });
+    appendMessage({
+      id: tempAssistantId,
+      role: "assistant",
+      content: "",
+      sources: [],
+      toolCalls: [],
+    });
 
-    // Fresh AbortController per request. handleStop reads from
-    // abortRef.current; the finally block clears the ref so a stale
-    // controller can't accidentally abort a future request.
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -256,8 +206,6 @@ export function ChatInterface({
       if (!isAbortError(err)) {
         setError("Lost connection. Check your network and try again.");
       }
-      // Drop the empty assistant placeholder either way. On abort, the
-      // user knows they stopped — no banner, no system bubble.
       setMessages((prev) => prev.filter((m) => m.id !== tempAssistantId));
       setIsStreaming(false);
       setWaitingForFirstToken(false);
@@ -283,29 +231,18 @@ export function ChatInterface({
       }
     } catch (err) {
       if (!isAbortError(err)) {
-        // Reading the stream itself threw (network drop mid-stream). Show
-        // banner + system bubble.
         setError("Lost connection during the response. Try again.");
         appendMessage({
           id: `sys-${Date.now()}`,
           role: "system",
           content: "The assistant didn't finish responding.",
+          sources: [],
+          toolCalls: [],
         });
       }
-      // On AbortError: whatever tokens arrived before the abort stay in
-      // the assistant message as-is. Per spec §2.6: no "[stopped by user]"
-      // footer — the user knows. Note: the server-side Anthropic call
-      // continues to completion (no signal threading to the SDK in this
-      // session), so reloading the page will show the FULL assistant
-      // message, not the partial. Cost-bleed pattern B is deferred.
     } finally {
       setIsStreaming(false);
       setWaitingForFirstToken(false);
-      // Defensive clear: any unmatched tool_use_start (server bug, dropped
-      // SSE event, etc.) leaves the indicator stuck without this. The
-      // adapter's message_stop fallback is the primary defense; this is
-      // belt-and-suspenders.
-      setToolUseLabel(null);
       abortRef.current = null;
       textareaRef.current?.focus();
     }
@@ -317,43 +254,107 @@ export function ChatInterface({
 
   function handleStreamEvent(event: ChatStreamEvent) {
     switch (event.type) {
-      case "meta":
-        // First message of a conversation populates conversationId; later
-        // messages reuse it. user_message_id is informational; we don't
-        // currently update the temp user id since nothing in 8b's UI
-        // references it.
-        if (!conversationId) setConversationId(event.conversation_id);
+      case "meta": {
+        if (!conversationId) {
+          setConversationId(event.conversation_id);
+          // Pin the conversation id to the URL so a hard reload restores
+          // the same thread. replaceState (not pushState) — we don't
+          // want a back-button entry between "fresh agent" and "agent
+          // mid-conversation"; visiting the agent page later via the
+          // unparameterized URL still gets a fresh conversation.
+          if (typeof window !== "undefined") {
+            const u = new URL(window.location.href);
+            u.searchParams.set("c", event.conversation_id);
+            window.history.replaceState({}, "", u.toString());
+          }
+        }
         break;
-      case "token":
+      }
+      case "token": {
         if (waitingForFirstToken) setWaitingForFirstToken(false);
-        appendAssistantToken(event.text);
+        updateLastAssistant((m) => ({ ...m, content: m.content + event.text }));
         break;
-      case "tool_use_start":
-        setWaitingForFirstToken(false);
-        setToolUseLabel(
-          event.tool_name === "web_search" ? "Searching the web…" : "Using a tool…",
-        );
+      }
+      case "tool_trace_start": {
+        if (waitingForFirstToken) setWaitingForFirstToken(false);
+        const newCall: ChatToolCall = {
+          id: event.id,
+          name: event.name,
+          input: event.input,
+          output: null,
+          status: "running",
+          started_at: event.started_at,
+          position: event.position,
+        };
+        updateLastAssistant((m) => ({
+          ...m,
+          toolCalls: [...m.toolCalls, newCall],
+        }));
         break;
-      case "tool_use_end":
-        setToolUseLabel(null);
+      }
+      case "tool_trace_done": {
+        updateLastAssistant((m) => ({
+          ...m,
+          toolCalls: m.toolCalls.map((c) =>
+            c.id === event.id
+              ? {
+                  ...c,
+                  status: "done" as const,
+                  finished_at: event.finished_at,
+                  output: event.output,
+                }
+              : c,
+          ),
+        }));
         break;
-      case "citations":
-        attachAssistantCitations(event.citations);
+      }
+      case "tool_trace_error": {
+        updateLastAssistant((m) => ({
+          ...m,
+          toolCalls: m.toolCalls.map((c) =>
+            c.id === event.id
+              ? {
+                  ...c,
+                  status: "error" as const,
+                  finished_at: event.finished_at,
+                  error: event.error,
+                }
+              : c,
+          ),
+        }));
         break;
-      case "done":
-        finalizeAssistantId(event.assistant_message_id);
+      }
+      case "source_added": {
+        updateLastAssistant((m) => ({
+          ...m,
+          sources: [
+            ...m.sources,
+            {
+              id: event.id,
+              title: event.title,
+              url: event.url,
+              domain: event.domain,
+              fetched_at: event.fetched_at,
+            },
+          ],
+        }));
         break;
-      case "error":
-        // Mid-stream error from the server: append a system bubble. No
-        // banner here — the user has already seen partial assistant output
-        // (or a typing indicator); the system bubble inline is the right
-        // place to surface the failure.
+      }
+      case "done": {
+        updateLastAssistant((m) => ({ ...m, id: event.assistant_message_id }));
+        break;
+      }
+      case "error": {
         appendMessage({
           id: `sys-${Date.now()}`,
           role: "system",
-          content: "The assistant didn't finish responding. Try again with the same prompt.",
+          content:
+            "The assistant didn't finish responding. Try again with the same prompt.",
+          sources: [],
+          toolCalls: [],
         });
         break;
+      }
     }
   }
 
@@ -365,7 +366,6 @@ export function ChatInterface({
         messages={messages}
         isStreaming={isStreaming}
         isWaitingForFirstToken={waitingForFirstToken}
-        toolUseLabel={toolUseLabel}
       />
       {error ? (
         <div className="mx-auto w-full max-w-3xl pb-2">
@@ -402,11 +402,6 @@ export function ChatInterface({
   );
 }
 
-/**
- * Try to extract the discriminated-union error code from the JSON error
- * body. Falls back to `internal_error` if the body is missing or malformed,
- * which maps to a generic banner message.
- */
 async function readErrorCode(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { error?: string };

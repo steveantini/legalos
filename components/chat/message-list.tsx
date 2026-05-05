@@ -1,6 +1,5 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { ChatEmptyState } from "./chat-empty-state";
@@ -14,13 +13,6 @@ interface MessageListProps {
   isStreaming: boolean;
   /** True when streaming has started but no assistant token has arrived yet. */
   isWaitingForFirstToken: boolean;
-  /**
-   * Non-null when the model is using a server-side tool (e.g., web
-   * search). Renders an inline status row in place of the typing
-   * indicator with the given label. Cleared on tool_use_end or stream
-   * completion.
-   */
-  toolUseLabel: string | null;
 }
 
 /**
@@ -77,7 +69,6 @@ export function MessageList({
   messages,
   isStreaming,
   isWaitingForFirstToken,
-  toolUseLabel,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -97,7 +88,7 @@ export function MessageList({
     const el = containerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, isWaitingForFirstToken, toolUseLabel]);
+  }, [messages, isWaitingForFirstToken]);
 
   if (messages.length === 0 && !isStreaming) {
     return (
@@ -123,15 +114,22 @@ export function MessageList({
       aria-busy={isStreaming}
     >
       <ul className="flex w-full flex-col gap-7 py-6">
-        {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} />
-        ))}
-        {toolUseLabel ? (
-          <li className="flex items-center gap-2 text-sm italic text-muted-foreground">
-            <Loader2Icon className="size-3.5 animate-spin" />
-            {toolUseLabel}
-          </li>
-        ) : isWaitingForFirstToken ? (
+        {messages.map((m, i) => {
+          // Only the last assistant message gets the streaming caret —
+          // never the user message (no caret on user prose), never a
+          // mid-list assistant message (only the actively streaming
+          // one). Cleared once isStreaming flips false on stream end.
+          const isLast = i === messages.length - 1;
+          const showCaret =
+            isStreaming &&
+            isLast &&
+            m.role === "assistant" &&
+            !isWaitingForFirstToken;
+          return (
+            <MessageBubble key={m.id} message={m} isStreaming={showCaret} />
+          );
+        })}
+        {isWaitingForFirstToken ? (
           <li>
             <TypingIndicator />
           </li>

@@ -220,8 +220,20 @@ function blockToParagraphs(token: Token): Paragraph[] {
   }
 }
 
+/**
+ * Strip Session 18b citation markers (`<sup data-source-id="src_xxx" />`)
+ * before lexing — docx export doesn't render citation superscripts in v1
+ * (the source URL is dropped along with hyperlinks per Decision 3), so
+ * leaving the tag in would surface as literal text. Step C polish may
+ * revisit by either rendering numeric superscripts or appending a
+ * "Sources" section to the docx.
+ */
+const CITATION_MARKER_RE =
+  /<sup\s+data-source-id="[^"]*"\s*(?:\/>|><\/sup>)/gi;
+
 export async function renderMessageAsDocx(markdown: string): Promise<Buffer> {
-  const tokens = marked.lexer(markdown);
+  const stripped = markdown.replace(CITATION_MARKER_RE, "");
+  const tokens = marked.lexer(stripped);
   const paragraphs: Paragraph[] = [];
   for (const token of tokens) {
     paragraphs.push(...blockToParagraphs(token));

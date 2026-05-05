@@ -11,40 +11,56 @@ import { createAnthropicClient } from "./client";
  * adapter is a new file plus a new case in the dispatcher's switch, with
  * no change to the route handler's stream-consumption code.
  *
- * 8j refactored the contract from a text-only AsyncIterable<string> to a
- * discriminated AsyncIterable<AnthropicStreamEvent> so the route can
- * surface tool-use indicators and citations from Anthropic's web search
- * tool. The events contract is vendor-agnostic in shape; per-vendor
- * specifics (which content_block types map to which event kind) stay
- * inside each adapter.
+ * Session 18b refactored the contract from end-of-stream `tool_use_*` and
+ * `citations` events to per-call `tool_trace_*` and per-citation `citation`
+ * events, so the route can build first-class trace cards and stream
+ * inline source markers as the model produces them. The events contract
+ * is vendor-agnostic in shape; per-vendor specifics (which Anthropic
+ * content_block types map to which event kind) stay inside this adapter.
  */
-
-/** A citation Anthropic attaches to a text block when web search was used. */
-export type AnthropicCitation = {
-  url: string;
-  title: string;
-  cited_text: string;
-};
 
 /**
  * Discriminated stream event surfaced from the Anthropic SDK loop.
  *
- *   - `text`           — text delta to append to the assistant bubble
- *   - `tool_use_start` — server-side tool invocation began (web search)
- *   - `tool_use_end`   — model resumed text generation; clear indicator
- *   - `citations`      — emitted once at end-of-stream with all citations
- *                        gathered across every text block in the response
+ *   - `text`             — text delta to append to the assistant body
+ *   - `tool_trace_start` — server tool invocation started; emitted at
+ *                          content_block_stop of the server_tool_use block
+ *                          so `input` (the search query) is fully
+ *                          accumulated before the trace card lands
+ *   - `tool_trace_done`  — matching tool_use_id's tool_result block
+ *                          finalized successfully
+ *   - `tool_trace_error` — tool_result block surfaced an error code
+ *                          (e.g. unavailable, max_uses_exceeded)
+ *   - `citation`         — a citations_delta arrived on a text block;
+ *                          the route turns these into source records and
+ *                          inline <sup> markers
  *
- * Per the 8j plan: tool_use_start/end track a single contiguous "in
- * tool-use" interval — back-to-back searches don't flicker the indicator,
- * and a message_stop while still in tool-use emits a fallback tool_use_end
- * so the UI never gets stuck on the "Searching..." state.
+ * `finishedAt` / `startedAt` are ISO timestamps captured at emit time.
+ * The route handler treats them as authoritative; persistence stores
+ * them on tool_calls.started_at / tool_calls.finished_at.
  */
 export type AnthropicStreamEvent =
   | { type: "text"; text: string }
-  | { type: "tool_use_start"; toolName: string }
-  | { type: "tool_use_end" }
-  | { type: "citations"; citations: AnthropicCitation[] };
+  | {
+      type: "tool_trace_start";
+      id: string;
+      toolName: string;
+      input: unknown;
+      startedAt: string;
+    }
+  | { type: "tool_trace_done"; id: string; finishedAt: string }
+  | {
+      type: "tool_trace_error";
+      id: string;
+      error: string;
+      finishedAt: string;
+    }
+  | {
+      type: "citation";
+      url: string;
+      title: string;
+      citedText: string;
+    };
 
 /**
  * One block in the Anthropic system content array. cache_control marks a
@@ -118,67 +134,113 @@ export function streamAnthropicChat(
   });
 
   async function* events(): AsyncIterable<AnthropicStreamEvent> {
-    // Track whether we're currently inside a server-tool block (server_tool_use
-    // OR web_search_tool_result). The indicator should stay continuously on
-    // across back-to-back search → result → search → result cycles, only
-    // clearing when text content begins. message_stop is a fallback for the
-    // case where the model decides search alone answered the question and
-    // emits no trailing text.
-    let inToolUse = false;
+    // Per-block bookkeeping. Anthropic's stream emits events in block order:
+    // content_block_start → 0+ content_block_delta → content_block_stop.
+    // The delta phase carries input_json_delta chunks for server_tool_use
+    // blocks, so input is only complete at content_block_stop. Track
+    // server_tool_use start metadata (id, name, partial_json) keyed by
+    // block index, then emit tool_trace_start at stop with the
+    // accumulated input. Errors on the matching web_search_tool_result
+    // block emit tool_trace_error; success emits tool_trace_done.
+    type PendingServerTool = {
+      id: string;
+      name: string;
+      partialJson: string;
+      startedAt: string;
+    };
+    const pendingByIndex = new Map<number, PendingServerTool>();
+
     for await (const event of stream) {
       switch (event.type) {
         case "content_block_start": {
-          const blockType = event.content_block.type;
-          if (
-            blockType === "server_tool_use" ||
-            blockType === "web_search_tool_result"
-          ) {
-            if (!inToolUse) {
-              inToolUse = true;
-              yield { type: "tool_use_start", toolName: "web_search" };
-            }
-          } else if (blockType === "text") {
-            if (inToolUse) {
-              inToolUse = false;
-              yield { type: "tool_use_end" };
+          const block = event.content_block;
+          if (block.type === "server_tool_use") {
+            pendingByIndex.set(event.index, {
+              id: block.id,
+              name: block.name,
+              partialJson: "",
+              startedAt: new Date().toISOString(),
+            });
+          } else if (block.type === "web_search_tool_result") {
+            // The result arrives in the start event itself for tool result
+            // blocks (no input_json_delta phase). Emit done/error here.
+            const finishedAt = new Date().toISOString();
+            const content = block.content;
+            if (
+              content &&
+              !Array.isArray(content) &&
+              content.type === "web_search_tool_result_error"
+            ) {
+              yield {
+                type: "tool_trace_error",
+                id: block.tool_use_id,
+                error: content.error_code,
+                finishedAt,
+              };
+            } else {
+              yield {
+                type: "tool_trace_done",
+                id: block.tool_use_id,
+                finishedAt,
+              };
             }
           }
           break;
         }
-        case "content_block_delta":
-          if (event.delta.type === "text_delta") {
-            yield { type: "text", text: event.delta.text };
+        case "content_block_delta": {
+          const delta = event.delta;
+          if (delta.type === "text_delta") {
+            yield { type: "text", text: delta.text };
+          } else if (delta.type === "input_json_delta") {
+            const pending = pendingByIndex.get(event.index);
+            if (pending) {
+              pending.partialJson += delta.partial_json;
+            }
+          } else if (delta.type === "citations_delta") {
+            const citation = delta.citation;
+            if (citation.type === "web_search_result_location") {
+              if (citation.url) {
+                yield {
+                  type: "citation",
+                  url: citation.url,
+                  title: citation.title ?? citation.url,
+                  citedText: citation.cited_text ?? "",
+                };
+              }
+            }
           }
           break;
-        case "message_stop":
-          if (inToolUse) {
-            inToolUse = false;
-            yield { type: "tool_use_end" };
+        }
+        case "content_block_stop": {
+          const pending = pendingByIndex.get(event.index);
+          if (pending) {
+            // Server_tool_use block finalized — input fully accumulated.
+            // partial_json may be empty for tool calls with no inputs;
+            // try-parse and fall back to {} so the route always sees a
+            // structured value.
+            let parsedInput: unknown = {};
+            if (pending.partialJson.length > 0) {
+              try {
+                parsedInput = JSON.parse(pending.partialJson);
+              } catch {
+                // Malformed partial JSON would be an Anthropic bug; we'd
+                // rather still surface the trace card with empty input
+                // than swallow the entire tool call.
+                parsedInput = { _raw: pending.partialJson };
+              }
+            }
+            yield {
+              type: "tool_trace_start",
+              id: pending.id,
+              toolName: pending.name,
+              input: parsedInput,
+              startedAt: pending.startedAt,
+            };
+            pendingByIndex.delete(event.index);
           }
           break;
-      }
-    }
-
-    // Once the stream loop has drained, finalMessage() resolves immediately
-    // with the cached final assembly. Walk every text block and pull
-    // citations Anthropic attached when web search produced cited results.
-    const final = await stream.finalMessage();
-    const citations: AnthropicCitation[] = [];
-    for (const block of final.content) {
-      if (block.type !== "text" || !block.citations) continue;
-      for (const c of block.citations) {
-        if (c.type === "web_search_result_location") {
-          if (!c.url) continue; // skip degenerate citations with no link
-          citations.push({
-            url: c.url,
-            title: c.title ?? c.url,
-            cited_text: c.cited_text ?? "",
-          });
         }
       }
-    }
-    if (citations.length > 0) {
-      yield { type: "citations", citations };
     }
   }
 
