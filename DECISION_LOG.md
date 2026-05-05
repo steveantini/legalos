@@ -782,3 +782,35 @@ Status: Accepted
 - `tool_calls` JSONB stays at one-record-per-tool-use-id forever. A future change to grouping rules edits `buildBlocks` only — no migration, no backfill, no historical-data risk. The persisted shape carries the fine-grained truth; presentation reshapes it.
 - The citation-after-text positioning (Step C addendum) is a single-source-of-truth fix at the server-side stream handler, not a render-time post-processor. Markers are persisted in their final position by the time the assistant message INSERT runs. Old messages persisted before the fix retain their pre-period placement; we accept that as historical and don't backfill. This means a regeneration of an old message will produce a body with markers in the new (after-period) position while sibling old messages retain the old position — visible inconsistency only at the boundary, which is acceptable.
 - The grouping rule's "trim() === '' between positions" definition has one edge: tool calls with the same `position` offset (parallel calls fired without writing prose between) always group regardless of the trim check, because `slice(N, N) === ""` trivially. Future tools that write meaningful position-distance metadata (e.g. "this tool ran on retrieved doc X, this one on doc Y, in conceptually different parts of the response") would need a different signal — a `group_hint` field on the tool call record, or a name-based grouping override. Not a problem today; flagged for if/when a non-search server tool lands.
+
+---
+
+## D-035 — Open signup posture deferred (Session 20)
+
+Date: 2026-05-05
+Status: Accepted (with sunset)
+
+**Context:** Session 20 Step B audited the post-auth flow for a stranger — a person the operator has never met who completes magic-link auth at `/login`. The audit found that `proxy.ts:51` calls `ensure_user_provisioned()` (migration `0002_user_provisioning.sql`) on every authenticated request, which auto-inserts a `public.users` row linked to the single-tenant org as `role='user'` with zero `user_department_roles`. There is no invitation gate, no allowlist, no "pending approval" state. Magic-link auth is open to any email address (Supabase Auth defaults). The schema enforces `public.users.organization_id NOT NULL`, so the data model has no representation for "authenticated but not a member" — provisioning makes membership unconditional. Session 20 Step C closed two RLS leaks (D-031-adjacent metadata exposure on `users` and `departments`) but left the open-provisioning posture untouched.
+
+**Decision:** Accept the open-provisioning posture for Phase 2 with two stipulations:
+
+- **Threat model is small.** Through Phase 2 the production URL is shared only with a small set of trusted feedback users. Anyone who completes auth becomes an inert `role='user'` row with zero department roles — they can't read any agent, send any chat, or access admin. The post-Step-C RLS posture means they also can't enumerate the member or department lists via the anon key.
+- **An invitation gate is required before broader rollout.** Before the production URL is publicized to a wider audience (Phase 3 onward, public demo, marketing), one of these must land:
+  - Allowlist by email domain on `organizations` (e.g., a `allowed_email_domains text[]` column; `ensure_user_provisioned` only inserts if `auth.email`'s domain matches).
+  - Invitation table (`auth_invitations`) — operator pre-creates rows; provisioning only fires for invited emails.
+  - Manual approval — `ensure_user_provisioned` inserts with `is_active=false`, the workspace landing branches into a "Pending approval" page, an admin UI flips the flag.
+
+**Reasoning:** Building an invitation gate now would consume a session at a phase where (a) the URL isn't publicized, (b) the only authenticated users so far are the operator and named feedback contacts, and (c) the post-Step-C surface — empty rail Departments group, mailto request-access CTA, all routes 404 except `/`, `/coming-soon/*` — is gracefully inert for a stranger. The cost of one stranger landing on the soft fence is approximately zero. The cost of building the gate is one session of design + migration + UI work. Defer until the threat model changes.
+
+**Alternatives considered:**
+
+- *Build the invitation gate now.* Rejected — premature for the current threat model; would cost a session ahead of when it's needed. Re-cost it when the URL is about to be publicized.
+- *Disable magic-link auth for non-allowlisted emails via Supabase Auth dashboard rules.* Rejected as the only mechanism — Supabase's allowlist rules are blunt (whole-domain; no per-email granularity for strangers-at-a-known-domain). Domain-allowlist as one signal can be combined with an invitation table when the gate lands; not sufficient alone.
+- *Tighten `ensure_user_provisioned` to require some flag on `auth.users` raw_user_meta_data.* Rejected — uses Supabase Auth as a gating layer the operator can't easily set per-user from the app side. Cleaner to own the gate in `public` schema.
+
+**Consequences:**
+
+- A stranger who completes magic-link auth lands on `/`, sees the empty workspace landing with the request-access mailto CTA pointing at `siteConfig.adminEmail` (Session 20, Step C, Piece 3). They have no path forward inside the app. Their `public.users` row sits inert.
+- Inert rows accumulate in `public.users` — a stranger who tries auth then leaves leaves a row behind. No active cleanup; if the table ever grows large enough to matter, a cron-driven cleanup of `is_active=true && zero user_department_roles && created_at older than X` is straightforward to add.
+- The Step C RLS tightening (migration 0015) is the load-bearing safety net here — strangers cannot enumerate other members, departments, or agents. If those policies regress (a future migration loosens them, or a PostgREST upgrade changes function semantics), the open-provisioning posture becomes much riskier. Treat any future change to `users_read_*` or `departments_read_*` as triggering a fresh audit.
+- This entry sunsets when (a) the production URL is publicized to any wider audience, OR (b) any of the three gate options listed above lands, whichever is first.

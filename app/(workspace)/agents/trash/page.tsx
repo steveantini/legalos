@@ -18,7 +18,7 @@ export default async function TrashPage() {
   const deleted = await getDeletedAgentsForUser(user.id);
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
+    <main className="mx-auto max-w-3xl">
       <header className="mb-8">
         <h1 className="text-3xl font-semibold">Trash</h1>
         <p className="mt-2 text-sm text-muted-foreground">

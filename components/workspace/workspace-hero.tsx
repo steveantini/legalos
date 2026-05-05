@@ -38,7 +38,15 @@ export function WorkspaceHero({
   subline,
 }: {
   greeting: string;
-  subline: string;
+  /**
+   * Body copy under the greeting. Accepts a plain string for the standard
+   * dynamic-counts case OR a ReactNode for richer compositions (e.g. the
+   * empty-departments branch's mailto-CTA two-line treatment in
+   * `app/(workspace)/page.tsx`). The wrapping `<p>` retains the muted-
+   * foreground styling either way; inline anchors inherit the color and
+   * can lift on hover.
+   */
+  subline: ReactNode;
 }) {
   return (
     <section className="flex items-end justify-between gap-6">

@@ -89,7 +89,7 @@ export default async function EditAgentPage({ params }: PageProps) {
   );
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
+    <main className="mx-auto max-w-3xl">
       <header className="mb-8">
         <p className="text-sm text-muted-foreground">{agent.department.name}</p>
         <h1 className="mt-1 text-3xl font-semibold">Edit agent</h1>

@@ -28,7 +28,7 @@ export const siteConfig: SiteConfig = {
   siteTitle: "legalOS",
   departmentName: "Legal",
   themePreset: "carbon",
-  adminEmail: "legal-ops@example.com",
+  adminEmail: "steven@legalos.io",
 };
 
 /**

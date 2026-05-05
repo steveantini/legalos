@@ -95,22 +95,29 @@ export function WorkspaceRail({
 
       {/* Group 2 — Departments (prefix-match active state, plus
           agent-aware: navigating to /agents/<id> keeps the agent's
-          parent department highlighted via agentsLookup). */}
-      <div className="flex flex-col gap-px">
-        <p className={captionLabel}>Departments</p>
-        {departments.map((d) => (
-          <WorkspaceNavLink
-            key={d.id}
-            href={`/departments/${d.slug}`}
-            match="prefix"
-            className={linkBase}
-            activeClassName={`${linkBase} ${linkActive}`}
-            agentsLookup={agents}
-          >
-            {d.name}
-          </WorkspaceNavLink>
-        ))}
-      </div>
+          parent department highlighted via agentsLookup). Hidden
+          entirely when the user has zero accessible departments — for
+          a stranger or a roles-revoked user, the empty caption + zero
+          links read as a layout wart. The other rail groups still
+          render so they retain Workspace + Resources + profile
+          access. */}
+      {departments.length > 0 ? (
+        <div className="flex flex-col gap-px">
+          <p className={captionLabel}>Departments</p>
+          {departments.map((d) => (
+            <WorkspaceNavLink
+              key={d.id}
+              href={`/departments/${d.slug}`}
+              match="prefix"
+              className={linkBase}
+              activeClassName={`${linkBase} ${linkActive}`}
+              agentsLookup={agents}
+            >
+              {d.name}
+            </WorkspaceNavLink>
+          ))}
+        </div>
+      ) : null}
 
       {/* Group 3 — Resource links (no group label per spec) */}
       <div className="flex flex-col gap-px">

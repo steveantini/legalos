@@ -19,6 +19,6 @@ export default async function AdminLayout({
   await requireAdminUser();
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">{children}</main>
+    <main className="mx-auto max-w-5xl">{children}</main>
   );
 }

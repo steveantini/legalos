@@ -30,7 +30,7 @@ export function ComingSoon({ area }: { area?: string }) {
   const recognized = area ? AREA_COPY[area] : undefined;
 
   return (
-    <main className="mx-auto flex min-h-0 max-w-2xl flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+    <main className="mx-auto flex min-h-0 max-w-2xl flex-1 flex-col items-center justify-center text-center">
       {recognized ? (
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-caption">
           {recognized.label}
