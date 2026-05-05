@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { updateAgentModelAction } from "@/lib/actions/agents";
-import { modelLabel } from "@/lib/llm/model-label";
+import { modelDisplayNameShort } from "@/lib/llm/model-label";
 
 interface ModelPickerProps {
   agentId: string;
@@ -45,10 +45,10 @@ interface ModelPickerProps {
  * is a neutral picker, not a state indicator. Chevron rotates 180°
  * when open per the spec's 220ms cubic-bezier rotation timing.
  */
-const COMPOSER_MODEL_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: "anthropic/claude-sonnet-4-6", label: "Sonnet 4.6" },
-  { value: "anthropic/claude-opus-4-7", label: "Opus 4.7" },
-  { value: "anthropic/claude-haiku-4-5-20251001", label: "Haiku 4.5" },
+const COMPOSER_MODEL_OPTIONS: ReadonlyArray<string> = [
+  "anthropic/claude-sonnet-4-6",
+  "anthropic/claude-opus-4-7",
+  "anthropic/claude-haiku-4-5-20251001",
 ];
 
 export function ModelPicker({ agentId, initialModel }: ModelPickerProps) {
@@ -78,21 +78,21 @@ export function ModelPicker({ agentId, initialModel }: ModelPickerProps) {
       <DropdownMenuTrigger
         disabled={pending}
         className="group inline-flex items-center gap-1.5 rounded-[7px] border border-border bg-paper-2 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground transition-[background-color,color,border-color] duration-[180ms] ease hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-        aria-label={`Model: ${modelLabel(model)}. Change model.`}
+        aria-label={`Model: ${modelDisplayNameShort(model)}. Change model.`}
       >
-        <span>{modelLabel(model)}</span>
+        <span>{modelDisplayNameShort(model)}</span>
         <ChevronDownIcon className="size-3 transition-transform duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] group-data-[popup-open]:rotate-180" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6}>
-        {COMPOSER_MODEL_OPTIONS.map((option) => {
-          const selected = option.value === model;
+        {COMPOSER_MODEL_OPTIONS.map((value) => {
+          const selected = value === model;
           return (
             <DropdownMenuItem
-              key={option.value}
-              onClick={() => handleSelect(option.value)}
+              key={value}
+              onClick={() => handleSelect(value)}
               className="flex items-center justify-between gap-3 pr-2"
             >
-              <span>{option.label}</span>
+              <span>{modelDisplayNameShort(value)}</span>
               {selected ? <CheckIcon className="size-3.5 text-primary" /> : null}
             </DropdownMenuItem>
           );

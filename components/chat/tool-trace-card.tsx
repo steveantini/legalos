@@ -3,6 +3,7 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import type { ChatToolCall } from "@/lib/chat/sse-parser";
 
 interface ToolTraceCardProps {
@@ -28,6 +29,16 @@ interface ToolTraceCardProps {
    * attribution. Parent passes true when message id is server-issued.
    */
   messageIsHydrated: boolean;
+  /**
+   * Optional retry handler (Session 19, spec §2.9). When provided AND
+   * the group surfaces an error state, a "Retry turn" button renders
+   * at the bottom of the expanded panel. Click discards the partial
+   * assistant turn and re-fires the user's last message — same
+   * semantics as the stream-interrupted error banner. The callback
+   * takes no parameters; the parent (MessageList) closes over the
+   * messages array and computes the right cleanup.
+   */
+  onRetry?: () => void;
 }
 
 const FRIENDLY_TOOL_NAME: Record<string, string> = {
@@ -138,6 +149,7 @@ function resultText(
 export function ToolTraceCard({
   toolCalls,
   messageIsHydrated,
+  onRetry,
 }: ToolTraceCardProps) {
   const [open, setOpen] = useState(false);
 
@@ -211,30 +223,45 @@ export function ToolTraceCard({
         />
       </div>
       {open ? (
-        isGroup ? (
-          <ol className="divide-y divide-border-strong/40 border-t border-border-strong/60">
-            {toolCalls.map((call, idx) => (
-              <li key={call.id} className="px-4 py-3 text-[13px]">
-                <div className="mb-2 flex items-baseline gap-3">
-                  <span className="font-mono text-[11px] tabular-nums text-caption">
-                    {idx + 1}
-                  </span>
-                  <ToolTraceRowBody
-                    call={call}
-                    messageIsHydrated={messageIsHydrated}
-                  />
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="border-t border-border-strong/60 px-4 pb-4 pt-3 text-[13px]">
-            <ToolTraceRowBody
-              call={head}
-              messageIsHydrated={messageIsHydrated}
-            />
-          </div>
-        )
+        <>
+          {isGroup ? (
+            <ol className="divide-y divide-border-strong/40 border-t border-border-strong/60">
+              {toolCalls.map((call, idx) => (
+                <li key={call.id} className="px-4 py-3 text-[13px]">
+                  <div className="mb-2 flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] tabular-nums text-caption">
+                      {idx + 1}
+                    </span>
+                    <ToolTraceRowBody
+                      call={call}
+                      messageIsHydrated={messageIsHydrated}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="border-t border-border-strong/60 px-4 pb-4 pt-3 text-[13px]">
+              <ToolTraceRowBody
+                call={head}
+                messageIsHydrated={messageIsHydrated}
+              />
+            </div>
+          )}
+          {status.isError && onRetry ? (
+            <div className="flex justify-end border-t border-border-strong/60 px-4 py-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRetry}
+                className="font-mono text-[11px] uppercase tracking-[0.06em] text-warn-fg-deep hover:bg-warn-fg/10 hover:text-warn-fg-deep"
+              >
+                Retry turn
+              </Button>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

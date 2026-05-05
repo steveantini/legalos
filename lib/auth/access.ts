@@ -162,6 +162,13 @@ export type AccessibleAgent = {
   tools_enabled: unknown;
   created_by: string | null;
   deleted_at: string | null;
+  /**
+   * Last-modified timestamp from the agents table. Surfaced in the chat
+   * empty-state facts row (Session 19, spec §2.8) as "Last updated".
+   * The `agents_updated_at` trigger from migration 0001 keeps this
+   * current on every UPDATE.
+   */
+  updated_at: string;
   department: { slug: string; name: string } | null;
 };
 
@@ -186,7 +193,7 @@ export const getAgent = cache(
     const { data } = await supabase
       .from("agents")
       .select(
-        "id, name, description, type, is_active, is_template, system_prompt, model, tools_enabled, created_by, deleted_at, departments!inner(slug, name)",
+        "id, name, description, type, is_active, is_template, system_prompt, model, tools_enabled, created_by, deleted_at, updated_at, departments!inner(slug, name)",
       )
       .eq("id", id)
       .maybeSingle();
@@ -209,6 +216,7 @@ export const getAgent = cache(
       tools_enabled: data.tools_enabled,
       created_by: data.created_by,
       deleted_at: data.deleted_at,
+      updated_at: data.updated_at,
       department: dept,
     };
   },

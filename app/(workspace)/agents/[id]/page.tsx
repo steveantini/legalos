@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { AgentHeader } from "@/components/chat/agent-header";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import {
   getAgent,
@@ -65,13 +64,24 @@ export default async function AgentChatPage({
     Array.isArray(agent.tools_enabled) &&
     (agent.tools_enabled as unknown[]).includes("web_search");
 
+  // Load full attachment rows. ChatInterface forwards `attachments` to
+  // ChatEmptyState's file list (Session 19, spec §2.8) and synthesizes
+  // `attachmentCount = attachments.length` for AgentHeader's chip.
+  // RLS via agent_attachments_user_owns (migration 0007) scopes to the
+  // user's own rows; the page-level guard already established `isOwner`,
+  // so this query returns either the owner's attachments or empty.
   const supabase = await createSupabaseServerClient();
-  const { count } = await supabase
+  const { data: attachmentRows } = await supabase
     .from("agent_attachments")
-    .select("id", { count: "exact", head: true })
+    .select("id, original_filename, size_bytes")
     .eq("agent_id", agent.id)
-    .is("deleted_at", null);
-  const attachmentCount = count ?? 0;
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+  const attachments = (attachmentRows ?? []).map((r) => ({
+    id: r.id as string,
+    originalFilename: r.original_filename as string,
+    sizeBytes: Number(r.size_bytes),
+  }));
 
   // ---- Optional conversation hydration ----
   // Validate the param shape before the DB call so a malformed `?c=foo`
@@ -91,14 +101,13 @@ export default async function AgentChatPage({
     }
   }
 
+  // AgentHeader is rendered inside ChatInterface as of Session 19 (Fix 3)
+  // so the empty-state header variant can read `messages.length === 0`
+  // live. The page's job shrinks to data load + access checks; the
+  // chat surface owns its own internal layout (header + messages +
+  // composer) end-to-end.
   return (
     <main className="scrollbar-stable mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden">
-      <AgentHeader
-        agent={agent}
-        attachmentCount={attachmentCount}
-        isOwner={isOwner}
-        isDeleted={isDeleted}
-      />
       <ChatInterface
         agentId={agent.id}
         agentName={agent.name}
@@ -106,6 +115,9 @@ export default async function AgentChatPage({
         agentModel={agent.model ?? ""}
         webSearchEnabled={webSearchEnabled}
         isDeleted={isDeleted}
+        isOwner={isOwner}
+        agentUpdatedAt={agent.updated_at}
+        agentAttachments={attachments}
         initialMessages={initialMessages}
         initialConversationId={initialConversationId}
       />

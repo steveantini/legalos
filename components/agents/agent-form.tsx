@@ -17,6 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentFormResult } from "@/lib/actions/agents";
+import { modelDisplayName } from "@/lib/llm/model-label";
 
 type ExistingAttachment = {
   attachmentId: string;
@@ -34,25 +35,21 @@ type ExistingAttachment = {
  * The Zod schema in the server action is the trust boundary — this list
  * is UX, not a security gate.
  */
-const MODEL_OPTIONS: { value: string; label: string; helper: string }[] = [
+const MODEL_OPTIONS: { value: string; helper: string }[] = [
   {
     value: "anthropic/claude-sonnet-4-6",
-    label: "Claude Sonnet 4.6",
     helper: "Fast, cost-effective. Good default for most tasks.",
   },
   {
     value: "anthropic/claude-opus-4-7",
-    label: "Claude Opus 4.7",
     helper: "Slower, more capable. Best for hard reasoning.",
   },
   {
     value: "anthropic/claude-opus-4-6",
-    label: "Claude Opus 4.6",
     helper: "Previous Opus generation. Use only if a workflow requires it.",
   },
   {
     value: "anthropic/claude-haiku-4-5-20251001",
-    label: "Claude Haiku 4.5",
     helper: "Fastest, cheapest. Good for simple tasks at high volume.",
   },
 ];
@@ -231,7 +228,7 @@ export function AgentForm({
             {MODEL_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 <div className="flex flex-col">
-                  <span>{option.label}</span>
+                  <span>{modelDisplayName(option.value)}</span>
                   <span className="text-xs text-muted-foreground">
                     {option.helper}
                   </span>

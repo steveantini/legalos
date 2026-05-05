@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -6,20 +8,29 @@ import { modelLabel } from "@/lib/llm/model-label";
 /**
  * Rich agent header for the chat surface, per Aperture chat spec §2.1.
  * Replaces the legacy thin-strip `<header>` that lived inline in the
- * chat page (small h1 + Edit link). Two render branches:
+ * chat page (small h1 + Edit link). Three variants:
  *
- * Active state — name (Inter Tight 28 / 400 / -0.025em / 1.05) +
- * description (14 / 1.55 / muted-fg, max 60ch) + meta chips row
+ * Active state (default) — name (Inter Tight 28 / 400 / -0.025em / 1.05)
+ * + description (14 / 1.55 / muted-fg, max 60ch) + meta chips row
  * (model / web search / attachment count) + Edit link top-right.
- * Total height ≈ 92px. 16px bottom border separation from the
- * message list (`border-b border-border pb-4 mb-4`).
+ *
+ * Empty-state variant (Session 19) — when `emptyState` is true, the
+ * header drops the model and web-search chips because the §2.8
+ * identity panel below carries those facts at full weight as part of
+ * the empty-state hierarchy. Same three facts twice in the same
+ * viewport reads as redundant noise. Once any message lands
+ * (messages.length flips > 0), the header reverts to its full §2.1
+ * form because §2.8 is no longer rendered. The transition is plain
+ * conditional render — no animations on the chip elements, so the
+ * model + web-search chips appear instantly when the first user
+ * message lands rather than animating in mid-conversation.
+ * Description, attachment count, name, and Edit link remain in both
+ * variants; only model + web-search are conditional.
  *
  * Soft-deleted state — wraps in a card (`bg-card-divider`,
  * `border-border-strong`, `rounded-[10px]`). Replaces the meta-chips
  * row with an `archived · transcript retained for record · no new
- * turns accepted` banner in `text-warn-fg`. No Edit link (the chat
- * page's existing `isOwner && !isDeleted` guard already covers this,
- * but defensively suppress here too).
+ * turns accepted` banner in `text-warn-fg`. No Edit link.
  *
  * Centerline alignment: the header content sits at `max-w-3xl mx-auto`
  * to share the conversation column's width with user cards, assistant
@@ -28,15 +39,12 @@ import { modelLabel } from "@/lib/llm/model-label";
  * frame from the page main) so its `border-b` reads as a chat-surface
  * separator between agent context and conversation, with a 64px
  * overhang on each side past the 3xl content. The soft-deleted card
- * narrows to 3xl alongside the conversation column — it's a card
- * block, not a separator, so matching the column reads better than
- * a wider card.
+ * narrows to 3xl alongside the conversation column.
  *
- * Composer disabling on archive is OUT OF SCOPE for session 15 — the
- * banner copy reads as if the composer is disabled, and session 17
- * will land that wiring. The disconnect is acceptable for one session.
- *
- * Server component — no interactivity beyond the Edit `<Link>`.
+ * Client component as of Session 19 — moved out of the page's server
+ * tree into ChatInterface so the `emptyState` prop can flip live as
+ * messages arrive. No interactivity is added beyond what was here
+ * before; "use client" is for prop-flow wiring, not for new behavior.
  */
 
 interface AgentHeaderProps {
@@ -50,6 +58,13 @@ interface AgentHeaderProps {
   attachmentCount: number;
   isOwner: boolean;
   isDeleted: boolean;
+  /**
+   * True when the conversation has zero messages (the §2.8 identity
+   * panel is rendered below). Hides the model + web-search chips to
+   * avoid duplicating those facts with the panel's facts row. Default
+   * false — populated conversations show the full meta chip set.
+   */
+  emptyState?: boolean;
 }
 
 function isWebSearchOn(toolsEnabled: unknown): boolean {
@@ -64,6 +79,7 @@ export function AgentHeader({
   attachmentCount,
   isOwner,
   isDeleted,
+  emptyState = false,
 }: AgentHeaderProps) {
   if (isDeleted) {
     return (
@@ -103,12 +119,12 @@ export function AgentHeader({
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            {model ? (
+            {model && !emptyState ? (
               <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-caption">
                 {model}
               </span>
             ) : null}
-            {webSearchOn ? (
+            {webSearchOn && !emptyState ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-chat-cite-bg px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
                 <span
                   aria-hidden

@@ -10,11 +10,25 @@ import type { ChatSource, ChatToolCall } from "@/lib/chat/sse-parser";
 export type ChatMessage = {
   /** Server-issued UUID once known; transient client id otherwise. */
   id: string;
-  role: "user" | "assistant" | "system";
+  /**
+   * Roles:
+   *   - `user` / `assistant`: normal turns, persisted to DB.
+   *   - `system`: defensive support for `messages.role = system` rows
+   *     from DB hydration (rare; not produced by client code today).
+   *     Renders as a centered italic-muted line.
+   *   - `error_banner`: synthetic, client-only marker that MessageList
+   *     renders as a `<ChatErrorMessage>` rather than a bubble.
+   *     Surfaces stream-interrupted and SSE-error states inline at the
+   *     end of the partial assistant turn (Session 19, spec §2.9).
+   *     `content` is unused for this role — copy is locked at the
+   *     render call site.
+   */
+  role: "user" | "assistant" | "system" | "error_banner";
   /**
    * Assistant body markdown, possibly carrying inline
    * `<sup data-source-id="src_xxx" />` citation markers. User and system
    * roles use plain text; sup markers only appear on assistant messages.
+   * Unused for `error_banner` (locked copy at the render site).
    */
   content: string;
   sources: ChatSource[];
@@ -30,6 +44,17 @@ interface MessageBubbleProps {
    * message at a time.
    */
   isStreaming?: boolean;
+  /**
+   * Callback fired when the user clicks the retry button inside an
+   * errored ToolTraceCard's expanded panel (Session 19, spec §2.9). The
+   * parent (MessageList) computes a closure that knows which user
+   * message to re-fire and which assistant message to discard, so this
+   * bubble doesn't need to walk the messages array itself. Omitted when
+   * no retry is available (e.g. on user / system messages, or assistant
+   * messages with no errored tool calls). Threaded down to ToolTraceCard
+   * as its `onRetry` prop.
+   */
+  onToolErrorRetry?: () => void;
 }
 
 type RenderBlock =
@@ -109,7 +134,19 @@ function lastTextBlockIndex(blocks: RenderBlock[]): number {
   return -1;
 }
 
-export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  isStreaming,
+  onToolErrorRetry,
+}: MessageBubbleProps) {
+  // error_banner messages are rendered by MessageList directly via
+  // <ChatErrorMessage>; this branch is defensive — if one ever reaches
+  // MessageBubble, render nothing rather than falling through into the
+  // assistant rendering and producing a blank bubble.
+  if (message.role === "error_banner") {
+    return null;
+  }
+
   if (message.role === "system") {
     return (
       <li
@@ -148,6 +185,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
                   key={`tcg-${b.toolCalls[0].id}-${b.toolCalls.length}`}
                   toolCalls={b.toolCalls}
                   messageIsHydrated={isHydrated}
+                  onRetry={onToolErrorRetry}
                 />
               );
             }

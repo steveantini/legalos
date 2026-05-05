@@ -2,17 +2,54 @@
 
 import { useEffect, useRef } from "react";
 
-import { ChatEmptyState } from "./chat-empty-state";
+import {
+  ChatEmptyState,
+  type EmptyStateAttachment,
+} from "./chat-empty-state";
+import { ChatErrorMessage } from "./chat-error-message";
 import { MessageBubble, type ChatMessage } from "./message-bubble";
 import { TypingIndicator } from "./typing-indicator";
 
 interface MessageListProps {
   agentName: string;
   agentDescription: string | null;
+  /**
+   * Agent metadata + attachments forwarded to ChatEmptyState. Only used
+   * when messages.length === 0; once a conversation has any turns,
+   * these props sit unused. Kept on the MessageList API rather than
+   * conditionally passing-through from ChatInterface so the empty-state
+   * caller never has to reason about prop nullability.
+   */
+  agentModel: string;
+  webSearchEnabled: boolean;
+  agentUpdatedAt: string;
+  agentAttachments: EmptyStateAttachment[];
   messages: ChatMessage[];
   isStreaming: boolean;
   /** True when streaming has started but no assistant token has arrived yet. */
   isWaitingForFirstToken: boolean;
+  /**
+   * Locked copy for the stream-interrupted banner-message variant
+   * (Session 19, spec §2.9). Threaded as props rather than imported
+   * from a shared constants module so the parent (ChatInterface)
+   * remains the single source of truth for error copy.
+   */
+  streamErrorLead: string;
+  streamErrorBody: string;
+  /**
+   * Click handler for an inline stream-interrupted banner-message.
+   * Receives the banner-message id; ChatInterface walks the messages
+   * array to find the partial assistant turn + user message before
+   * re-firing.
+   */
+  onStreamErrorRetry: (bannerId: string) => void;
+  /**
+   * Click handler for an errored ToolTraceCard's retry button.
+   * Receives the assistant message id that contains the errored
+   * trace; ChatInterface walks the array to find the user before it
+   * before re-firing.
+   */
+  onToolErrorRetry: (assistantId: string) => void;
 }
 
 /**
@@ -66,9 +103,17 @@ interface MessageListProps {
 export function MessageList({
   agentName,
   agentDescription,
+  agentModel,
+  webSearchEnabled,
+  agentUpdatedAt,
+  agentAttachments,
   messages,
   isStreaming,
   isWaitingForFirstToken,
+  streamErrorLead,
+  streamErrorBody,
+  onStreamErrorRetry,
+  onToolErrorRetry,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -100,6 +145,10 @@ export function MessageList({
         <ChatEmptyState
           agentName={agentName}
           agentDescription={agentDescription}
+          agentModel={agentModel}
+          webSearchEnabled={webSearchEnabled}
+          agentUpdatedAt={agentUpdatedAt}
+          attachments={agentAttachments}
         />
       </div>
     );
@@ -125,8 +174,45 @@ export function MessageList({
             isLast &&
             m.role === "assistant" &&
             !isWaitingForFirstToken;
+
+          // Synthetic banner-message: render the shared
+          // <ChatErrorMessage> directly inside an <li>. mx-auto +
+          // max-w-3xl matches the conversation column the rest of the
+          // surface uses (user cards, prose, composer). Each
+          // banner-message owns its own retry callback, closed over its
+          // id so ChatInterface can locate the partial turn to discard.
+          if (m.role === "error_banner") {
+            return (
+              <li key={m.id}>
+                <div className="mx-auto max-w-3xl">
+                  <ChatErrorMessage
+                    lead={streamErrorLead}
+                    body={streamErrorBody}
+                    onRetry={() => onStreamErrorRetry(m.id)}
+                  />
+                </div>
+              </li>
+            );
+          }
+
+          // Tool-error retry: only assistant messages that carry at
+          // least one errored tool call get an onRetry handler passed
+          // down to their ToolTraceCard(s). Other messages pass
+          // undefined so the trace-card branch hides the button.
+          const hasToolError =
+            m.role === "assistant" &&
+            m.toolCalls.some((c) => c.status === "error");
+          const toolRetry = hasToolError
+            ? () => onToolErrorRetry(m.id)
+            : undefined;
+
           return (
-            <MessageBubble key={m.id} message={m} isStreaming={showCaret} />
+            <MessageBubble
+              key={m.id}
+              message={m}
+              isStreaming={showCaret}
+              onToolErrorRetry={toolRetry}
+            />
           );
         })}
         {isWaitingForFirstToken ? (
