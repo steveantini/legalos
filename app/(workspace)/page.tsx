@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { DepartmentGrid } from "@/components/workspace/department-grid";
 import { WorkspaceHero } from "@/components/workspace/workspace-hero";
+import { WorkspaceModules } from "@/components/workspace/workspace-modules";
 import { siteConfig } from "@/config/site";
 import {
   getAccessibleDepartments,
@@ -10,52 +11,54 @@ import {
   getCurrentUserProfile,
   requireAuthUser,
 } from "@/lib/auth/access";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+/**
+ * Phase 2 demo placeholder for future RBAC. Departments whose slug
+ * appears here render in `<DepartmentCard>`'s locked variant — visible
+ * in the grid as non-clickable, muted cards with a "Request access"
+ * mailto. The constant goes away when real per-user department-role
+ * gating arrives via `user_department_roles` and the rendered grid is
+ * filtered server-side based on `getAccessibleDepartments(userId)`
+ * actually returning fewer rows for non-admin users. Until then this
+ * is the demo surface for the open-signup posture documented in
+ * D-035 — every authenticated user sees all 8 departments today, so
+ * we use the locked treatment to communicate "this department exists
+ * but isn't yours" without breaking the grid layout.
+ */
+const LOCKED_DEPARTMENT_SLUGS = ["product", "compliance"] as const;
 
 /**
  * Aperture Workspace landing — content only. The chrome (rail + top bar
  * + footer + outer grid shell) lives in `app/(workspace)/layout.tsx` so
  * it persists across navigation as more workspace routes land.
  *
- * Three reads compose this page; `requireAuthUser`,
- * `getCurrentUserProfile`, and `getAccessibleDepartments` are all
- * wrapped in React's `cache()` (see `lib/auth/access.ts`), so the
- * layout's earlier calls to the same helpers + this page's calls
- * resolve to a single Supabase round-trip per helper, per request.
+ * Hero variant decision (Session 21 — simplified):
+ *
+ *   - `welcomed_at IS NULL`     → variant="welcome". Page also writes
+ *     `welcomed_at = now()` so the next request falls through to the
+ *     returning variant.
+ *   - `welcomed_at IS NOT NULL` → variant="returning". Same lead /
+ *     subline shape as welcome but drops the "Welcome to" prefix.
+ *
+ * The subline is identical default copy for both variants ("Your
+ * team's agents, knowledge, matters, and resources, all in one
+ * place."), but is overridden in the empty-departments branch by
+ * the Session 20 mailto-request-access CTA — applies equally to both
+ * variants since "no department access" is independent of welcome
+ * state.
+ *
+ * Reads composed by this page: `requireAuthUser`, `getCurrentUserProfile`,
+ * `getAccessibleDepartments` (all wrapped in React's `cache()` per
+ * `lib/auth/access.ts` — the layout's earlier calls and this page's
+ * calls dedup to a single round-trip per helper, per request).
  * `getAgentCountsByDepartment` is page-only (the chrome doesn't need
  * counts) and not memoized today since there's only one caller.
- *
- * Per the phantom-data scope rules: hero stats are hidden in the
- * `<WorkspaceHero>` component, and the bolded-phrase mechanic stays
- * in the hero parser but is a no-op for plain greetings. The empty-
- * departments branch (defensive — every seeded user has all 8) shows
- * a contact-admin subline instead of the dynamic counts.
  */
 
 export const metadata: Metadata = {
   title: "Workspace",
 };
-
-function getGreetingPrefix(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
-function getFirstName(profile: {
-  full_name: string | null;
-  email: string;
-}): string {
-  const trimmed = profile.full_name?.trim();
-  if (trimmed) {
-    const first = trimmed.split(/\s+/)[0];
-    if (first) return first;
-  }
-  const local = profile.email.split("@")[0] ?? "";
-  return local
-    ? local.charAt(0).toUpperCase() + local.slice(1)
-    : profile.email;
-}
 
 export default async function WorkspacePage() {
   const authUser = await requireAuthUser();
@@ -63,9 +66,8 @@ export default async function WorkspacePage() {
 
   if (!profile) {
     // Layout already redirects on null profile, but TypeScript needs
-    // the narrowing here for the firstName derivation below. The
-    // `cache()` wrap means this is a no-op fetch repeating the layout's
-    // result.
+    // narrowing. The cache() wrap means this is a no-op fetch repeating
+    // the layout's result.
     redirect("/login");
   }
 
@@ -74,29 +76,46 @@ export default async function WorkspacePage() {
     getAgentCountsByDepartment(),
   ]);
 
-  const firstName = getFirstName(profile);
-  // Wrap the first name in **...** so WorkspaceHero's emphasis parser
-  // renders it as slate-blue + weight-500 per the Aperture spec's
-  // bold-highlighted-phrase pattern. The page-level decision (vs.
-  // hardcoding inside the hero) keeps the parser content-driven —
-  // future copy can highlight any phrase, not just the username.
-  const greeting = `${getGreetingPrefix()}, **${firstName}**.`;
-  const totalAgents = Object.values(agentCounts).reduce((s, n) => s + n, 0);
+  const isFirstLogin = profile.welcomed_at == null;
+  const variant: "welcome" | "returning" = isFirstLogin
+    ? "welcome"
+    : "returning";
+
+  // First-login path: write welcomed_at before render returns. We DON'T
+  // use a fire-and-forget here because Next.js Server Components run
+  // in a request-bounded context — backgrounded promises after the
+  // response stream finishes can be terminated by the platform. An
+  // awaited UPDATE ensures the mutation lands before the request ends,
+  // at the cost of one Supabase round-trip on the first authenticated
+  // load (one-time per account lifetime). Failures are logged and
+  // swallowed: the user sees the welcome again on next request, which
+  // is preferable to a render error on first visit.
+  if (isFirstLogin) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      await supabase
+        .from("users")
+        .update({ welcomed_at: new Date().toISOString() })
+        .eq("id", authUser.id);
+    } catch (err) {
+      console.error("welcomed_at update failed", err);
+    }
+  }
+
   const deptCount = departments.length;
 
-  // Empty-departments branch (stranger auto-provisioned by ensure_user_-
-  // provisioned with no department roles, or a real org member who's
-  // had their roles revoked). Two-line subline: a sentence acknowledging
-  // the state, plus a mailto CTA pointing at siteConfig.adminEmail so
-  // the user has an explicit affordance to request access — closing the
-  // gap surfaced in Session 20 Step B recon. Populated case is unchanged.
+  // Empty-departments branch — overrides both variants' default
+  // subline with a focused mailto CTA pointing at siteConfig.adminEmail.
+  // Stranger auto-provisioned via ensure_user_provisioned with no
+  // department roles, OR a real org member who's had their roles
+  // revoked. Same treatment regardless of welcome state.
   const requestAccessHref =
     `mailto:${siteConfig.adminEmail}` +
     `?subject=${encodeURIComponent("Request access to legalOS")}` +
     `&body=${encodeURIComponent(
       "Hi, I'd like to request access to a department in legalOS.",
     )}`;
-  const subline =
+  const sublineOverride =
     deptCount === 0 ? (
       <>
         You don&apos;t have access to any departments yet.
@@ -108,15 +127,24 @@ export default async function WorkspacePage() {
           Request access from your admin.
         </a>
       </>
-    ) : (
-      `${totalAgents} ${totalAgents === 1 ? "agent is" : "agents are"} working across ${deptCount} ${deptCount === 1 ? "department" : "departments"}. Pick a department to pivot in.`
-    );
+    ) : undefined;
 
   return (
     <>
-      <WorkspaceHero greeting={greeting} subline={subline} />
+      <WorkspaceHero variant={variant} subline={sublineOverride} />
       {deptCount > 0 ? (
-        <DepartmentGrid departments={departments} agentCounts={agentCounts} />
+        <>
+          <DepartmentGrid
+            departments={departments}
+            agentCounts={agentCounts}
+            lockedSlugs={LOCKED_DEPARTMENT_SLUGS}
+          />
+          {/* Secondary modules — only rendered for users with department
+              access. The empty-departments branch keeps its focused
+              request-access state; adding "More in legalOS" below it
+              would compete with the mailto CTA for attention. */}
+          <WorkspaceModules />
+        </>
       ) : null}
     </>
   );

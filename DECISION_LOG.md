@@ -785,32 +785,27 @@ Status: Accepted
 
 ---
 
-## D-035 — Open signup posture deferred (Session 20)
+## D-035 — Open signup posture deferred to post-Phase-2
 
 Date: 2026-05-05
 Status: Accepted (with sunset)
 
-**Context:** Session 20 Step B audited the post-auth flow for a stranger — a person the operator has never met who completes magic-link auth at `/login`. The audit found that `proxy.ts:51` calls `ensure_user_provisioned()` (migration `0002_user_provisioning.sql`) on every authenticated request, which auto-inserts a `public.users` row linked to the single-tenant org as `role='user'` with zero `user_department_roles`. There is no invitation gate, no allowlist, no "pending approval" state. Magic-link auth is open to any email address (Supabase Auth defaults). The schema enforces `public.users.organization_id NOT NULL`, so the data model has no representation for "authenticated but not a member" — provisioning makes membership unconditional. Session 20 Step C closed two RLS leaks (D-031-adjacent metadata exposure on `users` and `departments`) but left the open-provisioning posture untouched.
+**Context:** Session 20 Step B recon identified that `ensure_user_provisioned` (RPC called by `proxy.ts` on every authenticated request) auto-provisions any authenticated email into the single-tenant org as `role='user'` with zero department roles. There is no invitation gate, no email allowlist, no pending-approval state. Combined with Supabase magic-link auth defaults (no domain restriction), the practical posture is: anyone who knows the production URL and has any email account can become an inert org member.
 
-**Decision:** Accept the open-provisioning posture for Phase 2 with two stipulations:
+**Decision:** Defer the invitation gate. Accept the open signup posture for the remainder of Phase 2.
 
-- **Threat model is small.** Through Phase 2 the production URL is shared only with a small set of trusted feedback users. Anyone who completes auth becomes an inert `role='user'` row with zero department roles — they can't read any agent, send any chat, or access admin. The post-Step-C RLS posture means they also can't enumerate the member or department lists via the anon key.
-- **An invitation gate is required before broader rollout.** Before the production URL is publicized to a wider audience (Phase 3 onward, public demo, marketing), one of these must land:
-  - Allowlist by email domain on `organizations` (e.g., a `allowed_email_domains text[]` column; `ensure_user_provisioned` only inserts if `auth.email`'s domain matches).
-  - Invitation table (`auth_invitations`) — operator pre-creates rows; provisioning only fires for invited emails.
-  - Manual approval — `ensure_user_provisioned` inserts with `is_active=false`, the workspace landing branches into a "Pending approval" page, an admin UI flips the flag.
-
-**Reasoning:** Building an invitation gate now would consume a session at a phase where (a) the URL isn't publicized, (b) the only authenticated users so far are the operator and named feedback contacts, and (c) the post-Step-C surface — empty rail Departments group, mailto request-access CTA, all routes 404 except `/`, `/coming-soon/*` — is gracefully inert for a stranger. The cost of one stranger landing on the soft fence is approximately zero. The cost of building the gate is one session of design + migration + UI work. Defer until the threat model changes.
+**Reasoning:** For the small group of trusted feedback users in Phase 2, strangers becoming inert `role='user'` rows with no department access is harmless — they see the empty-state landing, can't navigate into anything (everything 404s or 403s), and the metadata leaks were closed by migration 0015. The cost of a proper invitation gate (`auth_invitations` table, admin UI to send invitations, pending-approval state, gating `ensure_user_provisioned` on invitation existence) is real engineering work that doesn't earn its place against the actual threat model right now.
 
 **Alternatives considered:**
 
-- *Build the invitation gate now.* Rejected — premature for the current threat model; would cost a session ahead of when it's needed. Re-cost it when the URL is about to be publicized.
-- *Disable magic-link auth for non-allowlisted emails via Supabase Auth dashboard rules.* Rejected as the only mechanism — Supabase's allowlist rules are blunt (whole-domain; no per-email granularity for strangers-at-a-known-domain). Domain-allowlist as one signal can be combined with an invitation table when the gate lands; not sufficient alone.
-- *Tighten `ensure_user_provisioned` to require some flag on `auth.users` raw_user_meta_data.* Rejected — uses Supabase Auth as a gating layer the operator can't easily set per-user from the app side. Cleaner to own the gate in `public` schema.
+- *`auth_invitations` table + admin invite UI.* Strongest, but full-session scope.
+- *`is_active=false` default + admin-flip workflow.* Medium scope, requires a "pending approval" branch in the workspace landing.
+- *`allowed_email_domains` column + domain-match check in `ensure_user_provisioned`.* Lightest scope, but breaks for legitimate users with non-matching emails (gmail accounts of trusted reviewers).
 
 **Consequences:**
 
-- A stranger who completes magic-link auth lands on `/`, sees the empty workspace landing with the request-access mailto CTA pointing at `siteConfig.adminEmail` (Session 20, Step C, Piece 3). They have no path forward inside the app. Their `public.users` row sits inert.
-- Inert rows accumulate in `public.users` — a stranger who tries auth then leaves leaves a row behind. No active cleanup; if the table ever grows large enough to matter, a cron-driven cleanup of `is_active=true && zero user_department_roles && created_at older than X` is straightforward to add.
-- The Step C RLS tightening (migration 0015) is the load-bearing safety net here — strangers cannot enumerate other members, departments, or agents. If those policies regress (a future migration loosens them, or a PostgREST upgrade changes function semantics), the open-provisioning posture becomes much riskier. Treat any future change to `users_read_*` or `departments_read_*` as triggering a fresh audit.
-- This entry sunsets when (a) the production URL is publicized to any wider audience, OR (b) any of the three gate options listed above lands, whichever is first.
+- Production URL must be treated as semi-private through Phase 2 — sharing widely creates inert account growth in `public.users` (cosmetic, not exploitable).
+- Before Phase 3 broader rollout (or before the landing-page session if external users are expected), an invitation gate is required.
+- The empty workspace landing's "Request access from your admin" mailto (added in Session 20) is the user-facing surface for now.
+
+**Sunset condition:** This entry expires when EITHER (a) the production URL is publicized to non-trusted users (e.g., a public landing page goes live with a sign-up flow), OR (b) an invitation gate is implemented. Whichever comes first.

@@ -55,7 +55,9 @@ export const getCurrentUserProfile = cache(async () => {
 
   const { data } = await supabase
     .from("users")
-    .select("id, email, full_name, role, organization_id, is_active")
+    .select(
+      "id, email, full_name, role, organization_id, is_active, welcomed_at",
+    )
     .eq("id", authUser.id)
     .maybeSingle();
 
@@ -401,22 +403,40 @@ export interface LaunchpadAgent {
 }
 
 /**
- * Two-bucket department agent loader for the Aperture launchpad: system
- * Templates (`is_template = true`) and the user's own agents
- * (`created_by = userId`, `is_template = false`, `deleted_at IS NULL`).
+ * Two-bucket department agent loader for the Aperture launchpad:
  *
- * Two queries instead of one because the predicates are different shapes
- * and Postgres uses different indexes (`agents_is_template_idx` vs the
- * partial `agents_active_idx` from migration 0006). Cleaner and faster
- * than partitioning a flat result in JS.
+ *   - departmentAgents — canonical native agents owned by the department
+ *     itself (`is_template = false AND created_by IS NULL`). Pattern B
+ *     from Session 21 — system-seeded, click-to-chat-directly.
+ *   - myAgents        — user-owned native agents (`is_template = false
+ *     AND created_by = userId`). Click routes to the chat surface.
+ *
+ * Templates were retired in Session 21 — the launchpad's Templates
+ * section was dropped in favor of a "+ New Agent" button in the page
+ * header. The Blank Agent rows were archived (is_active=false) by
+ * migration 0017 alongside that change. If template-based forking
+ * returns in a future session, restore the third bucket here +
+ * matching section + matching `is_template = true` page query.
+ *
+ * Two queries instead of one because the predicates are different
+ * shapes and Postgres uses different indexes (`agents_is_template_idx`
+ * vs the partial `agents_active_idx` from migration 0006). Cleaner and
+ * faster than partitioning a flat result in JS.
+ *
+ * The `departmentAgents` and `myAgents` predicates both filter on
+ * `is_template = false` but disjoin via `created_by IS NULL` vs
+ * `created_by = userId` — so a user's fork of an agent that happens to
+ * have a NULL created_by would not collide; in practice all forks
+ * carry `created_by = userId` (the create action populates it), so the
+ * two buckets are cleanly disjoint.
  *
  * Both queries are RLS-scoped — `agents_read_accessible` requires
  * `has_department_access(department_id)` for SELECT, so an unauthorized
  * user gets an empty result without an error.
  *
- * Templates are sorted by `sort_order` (preserves curated ordering, with
- * the Blank Agent at sort_order = 0 leading); user agents are sorted by
- * `created_at desc` so the most recently created appears first.
+ * Sort orders:
+ *   - departmentAgents: `sort_order asc` (curated order from the seed)
+ *   - myAgents:         `created_at desc` (most recently created first)
  *
  * Not wrapped in `cache()` — only one caller per request (the launchpad
  * page itself). If a future surface (e.g., a launchpad-loading skeleton
@@ -425,10 +445,13 @@ export interface LaunchpadAgent {
 export async function getAgentsForDepartmentLaunchpad(
   departmentId: string,
   userId: string,
-): Promise<{ templates: LaunchpadAgent[]; myAgents: LaunchpadAgent[] }> {
+): Promise<{
+  departmentAgents: LaunchpadAgent[];
+  myAgents: LaunchpadAgent[];
+}> {
   const supabase = await createSupabaseServerClient();
 
-  const [templatesResult, myAgentsResult] = await Promise.all([
+  const [departmentAgentsResult, myAgentsResult] = await Promise.all([
     supabase
       .from("agents")
       .select(
@@ -436,9 +459,11 @@ export async function getAgentsForDepartmentLaunchpad(
       )
       .eq("department_id", departmentId)
       .eq("is_active", true)
-      .eq("is_template", true)
+      .eq("is_template", false)
+      .is("created_by", null)
       .is("deleted_at", null)
-      .order("sort_order", { ascending: true }),
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
     supabase
       .from("agents")
       .select(
@@ -453,7 +478,7 @@ export async function getAgentsForDepartmentLaunchpad(
   ]);
 
   return {
-    templates: (templatesResult.data ?? []) as LaunchpadAgent[],
+    departmentAgents: (departmentAgentsResult.data ?? []) as LaunchpadAgent[],
     myAgents: (myAgentsResult.data ?? []) as LaunchpadAgent[],
   };
 }

@@ -13,11 +13,26 @@ type ProfileShape = {
   role: "super_admin" | "org_admin" | "user";
 };
 
-const RESOURCE_LINKS: ReadonlyArray<{ slug: string; label: string }> = [
-  { slug: "knowledge", label: "Knowledge" },
-  { slug: "matters", label: "Matters / Deals" },
-  { slug: "inbox", label: "Inbox" },
-  { slug: "resources", label: "Resources" },
+/**
+ * Captioned resource groups, each with one placeholder leaf that links
+ * to its `/coming-soon/<area>` page. Mirrors the DEPARTMENTS group's
+ * "caption + leaves" pattern so the rail reads as a consistent stack
+ * of captioned groups rather than a singletons-and-bare-list mix.
+ *
+ * Inbox was dropped from this list — no route, no rail link. The
+ * breadcrumb's RESOURCE_AREA_LABELS and the coming-soon component's
+ * AREA_COPY both retain their inbox entries as harmless lookups in
+ * case anyone hand-types `/coming-soon/inbox`; nothing in the rail
+ * points there anymore.
+ */
+const RESOURCE_GROUPS: ReadonlyArray<{
+  caption: string;
+  leafLabel: string;
+  slug: string;
+}> = [
+  { caption: "Knowledge", leafLabel: "Vault", slug: "knowledge" },
+  { caption: "Matters", leafLabel: "Dashboard", slug: "matters" },
+  { caption: "Resources", leafLabel: "Reference", slug: "resources" },
 ];
 
 const ROLE_LABEL: Record<ProfileShape["role"], string> = {
@@ -119,20 +134,25 @@ export function WorkspaceRail({
         </div>
       ) : null}
 
-      {/* Group 3 — Resource links (no group label per spec) */}
-      <div className="flex flex-col gap-px">
-        {RESOURCE_LINKS.map(({ slug, label }) => (
+      {/* Groups 3..N — Resource groups. Each renders a mono-caps caption
+          + one placeholder leaf linking to its coming-soon page. The
+          parent <nav>'s gap-[22px] gives the same inter-group rhythm
+          the DEPARTMENTS group uses, and gap-px inside each group
+          tightens the caption-to-leaf relationship. Always render —
+          captions are static, no empty-state guard needed. */}
+      {RESOURCE_GROUPS.map(({ caption, leafLabel, slug }) => (
+        <div key={slug} className="flex flex-col gap-px">
+          <p className={captionLabel}>{caption}</p>
           <WorkspaceNavLink
-            key={slug}
             href={`/coming-soon/${slug}`}
             match="exact"
             className={linkBase}
             activeClassName={`${linkBase} ${linkActive}`}
           >
-            {label}
+            {leafLabel}
           </WorkspaceNavLink>
-        ))}
-      </div>
+        </div>
+      ))}
 
       <WorkspaceProfileBlock
         initials={initials}

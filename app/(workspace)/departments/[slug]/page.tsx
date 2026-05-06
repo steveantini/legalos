@@ -1,9 +1,11 @@
+import { PlusIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AgentGrid } from "@/components/workspace/agent-grid";
 import { DepartmentHeader } from "@/components/workspace/department-header";
+import { buttonVariants } from "@/components/ui/button";
 import {
   getAgentsForDepartmentLaunchpad,
   getDepartmentIfAccessible,
@@ -15,9 +17,26 @@ import {
  * (workspace rail + top bar + footer) from `app/(workspace)/layout.tsx`,
  * lifted there in Session 10a.
  *
- * Two sections per the Session 8f-A IA: system Templates and the user's
- * own My Agents. Categories within a department remain flat per the
- * architecture doc.
+ * Two sections (Session 21):
+ *
+ *   - Department Agents — canonical native agents owned by the
+ *     department itself (`is_template = false AND created_by IS NULL`).
+ *     Click routes directly to `/agents/<id>` (chat surface). Hidden
+ *     entirely when empty — these are system-seeded; absence means the
+ *     department has no canonical agents yet, and an empty heading
+ *     would read as a layout wart.
+ *   - My Agents — user-owned native agents (`is_template = false AND
+ *     created_by = userId`). Always-rendered header; empty state shows
+ *     the create-new-agent inline prompt.
+ *
+ * The page header carries a "+ New Agent" button (top-right) — the
+ * canonical entry into `/agents/new?department=<slug>` from this
+ * surface, replacing the prior Templates section that gave users a
+ * gallery of fork-source rows. The Templates section + Blank Agent
+ * rows were retired in Session 21; if template-based forking returns,
+ * a third section + helper-query bucket land alongside it.
+ *
+ * Categories within a department remain flat per the architecture doc.
  *
  * Auth: `requireAuthUser` (cached via 10a) gates and provides the user
  * id; `getDepartmentIfAccessible(slug)` returns null on either
@@ -40,9 +59,6 @@ export async function generateMetadata({
 const sectionHeading =
   "font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground";
 
-const ctaLink =
-  "text-[13px] font-medium text-primary transition-colors hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-
 export default async function DepartmentLaunchpadPage({
   params,
 }: {
@@ -56,7 +72,7 @@ export default async function DepartmentLaunchpadPage({
     notFound();
   }
 
-  const { templates, myAgents } = await getAgentsForDepartmentLaunchpad(
+  const { departmentAgents, myAgents } = await getAgentsForDepartmentLaunchpad(
     department.id,
     user.id,
   );
@@ -68,33 +84,35 @@ export default async function DepartmentLaunchpadPage({
       <DepartmentHeader
         name={department.name}
         description={department.description}
+        action={
+          <Link
+            href={newAgentHref}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <PlusIcon /> New Agent
+          </Link>
+        }
       />
 
-      <section className="flex flex-col gap-[14px]">
-        <header className="flex items-baseline justify-between border-b border-hairline pb-[10px]">
-          <h2 className={sectionHeading}>Templates</h2>
-        </header>
-        {templates.length > 0 ? (
+      {/* Department Agents — canonical departmental agents, click-to-chat
+          directly. Rendered only when at least one canonical agent is
+          seeded for the department; an empty section header here would
+          read as scaffolding for content that doesn't exist. */}
+      {departmentAgents.length > 0 ? (
+        <section className="flex flex-col gap-[14px]">
+          <header className="flex items-baseline justify-between border-b border-hairline pb-[10px]">
+            <h2 className={sectionHeading}>Department Agents</h2>
+          </header>
           <AgentGrid
-            agents={templates}
+            agents={departmentAgents}
             departmentSlug={department.slug}
-            isTemplate
           />
-        ) : (
-          <p className="text-[13px] text-muted-foreground">
-            No templates available for this department yet.
-          </p>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-[14px]">
-        <header className="flex items-baseline justify-between border-b border-hairline pb-[10px]">
+        <header className="border-b border-hairline pb-[10px]">
           <h2 className={sectionHeading}>My Agents</h2>
-          {myAgents.length > 0 ? (
-            <Link href={newAgentHref} className={ctaLink}>
-              Create new agent →
-            </Link>
-          ) : null}
         </header>
         {myAgents.length > 0 ? (
           <AgentGrid
@@ -105,12 +123,9 @@ export default async function DepartmentLaunchpadPage({
         ) : (
           <div className="rounded-[14px] bg-muted p-8 text-center">
             <p className="text-[13px] leading-[1.5] text-muted-foreground">
-              You haven&apos;t created any agents yet. Pick a template above to
-              fork, or start from scratch.
+              You haven&apos;t created any agents yet. Use the New Agent
+              button above to start one.
             </p>
-            <Link href={newAgentHref} className={`mt-4 inline-block ${ctaLink}`}>
-              Create new agent →
-            </Link>
           </div>
         )}
       </section>

@@ -1,27 +1,40 @@
 -- ============================================================================
 -- 0004_blank_agents.sql — Blank Agent template seeded into every department
+--                          (archived as of Session 21)
 -- ============================================================================
 --
 -- Creates a "Blank Agent" template row in each of the eight starting
--- departments (Commercial, Public Sector, M&A, Privacy, Product, Compliance,
--- Operations, General Tools). The Blank Agent is a system template
--- (is_template = true, created_by = null) that the agent CRUD UI presents
--- alongside curated templates as a "start from scratch" option.
+-- departments (Commercial, Public Sector, M&A, Privacy, Product,
+-- Compliance, Operations, General Tools). Pre-Session-21 these were
+-- active rows (`is_active = true`) surfaced in the department
+-- launchpad's Templates section as the "start from scratch" option.
+--
+-- Session 21 dropped the Templates section in favor of a "+ New Agent"
+-- button in the page header (routes to `/agents/new?department=<slug>`).
+-- The Blank Agent rows lost their UI surface; migration 0017 archived
+-- the existing prod rows (`is_active = false`) and this seed file was
+-- updated in the same commit so a fresh dev re-seed reproduces the
+-- archived shape rather than rolling it back to the pre-Session-21
+-- active state. The rows are kept (not deleted) to preserve foreign-key
+-- targets in any user-fork lineage that came through the old Templates
+-- → fork flow.
 --
 -- Each department gets its own row because the agents table's unique
 -- constraint is (organization_id, slug); to allow a Blank Agent on every
 -- department page without clashing slugs, the slug is suffixed with the
 -- department slug (blank-agent-commercial, blank-agent-ma, etc). Display
--- name stays "Blank Agent" — the slug suffix is not surfaced to users.
+-- name stays "Blank Agent".
 --
 -- The 'agents_native_requires_prompt' check constraint in 0001 requires
--- system_prompt and model to be non-null on native agents, so the Blank
--- Agent ships with a minimal default system prompt that produces
--- sensible behavior even if the user never edits it. The prompt
--- intentionally does NOT reference the "edit-this-prompt" UX so it does
--- not leak the configuration architecture to the model itself.
+-- system_prompt and model to be non-null on native agents, so the row
+-- still ships with a minimal default system prompt. (The constraint
+-- doesn't condition on `is_active`, so even archived rows must satisfy
+-- it.) The prompt intentionally does NOT reference the "edit-this-prompt"
+-- UX so it does not leak the configuration architecture to the model.
 --
--- Idempotent: ON CONFLICT (organization_id, slug) DO UPDATE.
+-- Idempotent: ON CONFLICT (organization_id, slug) DO UPDATE — the SET
+-- clause asserts `is_active = false` so re-seeding never re-activates
+-- the rows.
 --
 -- Prereqs:
 --   - supabase/seed/0001_org_and_departments.sql has been run
@@ -71,8 +84,8 @@ begin
       v_blank_prompt,
       'anthropic/claude-sonnet-4-6',
       0,
-      true,
-      true,
+      false,            -- is_active = false (archived per Session 21 / migration 0017)
+      true,             -- is_template = true (kept for forensic / lineage purposes)
       '[]'::jsonb,
       'markdown'
     )
