@@ -1,25 +1,28 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Keep the pdf-parse → pdfjs-dist → @napi-rs/canvas chain out of the
-  // server bundle. Two distinct bundling failures, one fix:
+  // PDF extraction is now `unpdf` (lib/extract/pdf.ts). It ships a
+  // serverless-tuned PDF.js build with no native dependencies and no
+  // dynamic requires, so no externalize is needed.
   //
-  //   1. pdf-parse delegates to pdfjs-dist which dynamically imports a
-  //      sibling pdf.worker.mjs at runtime; Turbopack bundles the main
-  //      pdf.mjs but not the worker, so every PDF parse fails with
-  //      "Setting up fake worker failed: Cannot find module
-  //      ...pdf.worker.mjs".
-  //   2. pdfjs-dist transitively requires @napi-rs/canvas, a native
-  //      module whose platform-specific .node binding cannot be bundled.
-  //      On Vercel's Linux x64 functions this surfaced as
-  //      "Cannot load \"@napi-rs/canvas-...\"" at function init,
-  //      returning 500 on POST /workspace/agents/new before any action
-  //      body could run (Session 22 hotfix).
+  // Historical context: prior to Session 22, `pdf-parse` was used. It
+  // pulled in `pdfjs-dist` which lazy-required `@napi-rs/canvas` via
+  // `createRequire(import.meta.url)`. Two failures stacked:
   //
-  // Externalizing all three lets Node's native module resolver find them
-  // in node_modules at runtime where their platform bindings and worker
-  // files live.
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"],
+  //   1. Turbopack bundled `pdfjs-dist`'s main entry but not its sibling
+  //      `pdf.worker.mjs`, so PDF parses failed with "Setting up fake
+  //      worker failed: Cannot find module …pdf.worker.mjs".
+  //   2. `@napi-rs/canvas` is a platform-specific native module whose
+  //      `.node` binding cannot be bundled. On Vercel's Linux x64
+  //      functions every POST /workspace/agents/new returned 500 with
+  //      "Cannot load \"@napi-rs/canvas-…\"" before the action body
+  //      could run.
+  //
+  // `serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"]`
+  // was tried as a workaround. It externalized the bundling but Vercel's
+  // static file tracer can't follow `createRequire`-built requires, so
+  // `@napi-rs/canvas` never made it into the function output's
+  // node_modules. Switching to `unpdf` removed the entire chain.
   experimental: {
     serverActions: {
       // Permanent agent attachments are uploaded via server actions (Session

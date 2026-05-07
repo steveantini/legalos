@@ -1,12 +1,12 @@
 import "server-only";
 
-import { PDFParse } from "pdf-parse";
+import { extractText, getDocumentProxy } from "unpdf";
 
 /**
- * Extract text from a PDF buffer using pdf-parse v2's PDFParse class.
- * pdf-parse v2 changed from a default-export function to a class API
- * with a getText() method on a per-document instance; this wrapper
- * shields callers from that detail.
+ * Extract text from a PDF buffer using `unpdf`, which ships a serverless-
+ * tuned PDF.js build with no native deps and no dynamic requires.
+ * Replaces `pdf-parse` (Session 22) — see `next.config.ts` for the
+ * failure mode that motivated the swap.
  *
  * Both thrown errors (malformed PDFs, encrypted documents the library
  * cannot open) and empty returns (image-only scanned PDFs with no
@@ -16,11 +16,7 @@ import { PDFParse } from "pdf-parse";
  * per architecture §3.
  */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const result = await parser.getText();
-    return result.text ?? "";
-  } finally {
-    await parser.destroy();
-  }
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const { text } = await extractText(pdf, { mergePages: true });
+  return text ?? "";
 }

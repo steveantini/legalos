@@ -35,7 +35,7 @@ export type ExtractionResult =
  * with a readable note appended so the model has explicit context that
  * more existed.
  *
- * Errors from the underlying libraries — pdf-parse on malformed PDFs,
+ * Errors from the underlying libraries — unpdf on malformed PDFs,
  * mammoth on corrupt DOCX, xlsx on unsupported sheet types — bubble up as
  * { ok: false, reason }. The caller surfaces this through the standard
  * "Couldn't extract text" UX path; the storage object itself stays at
