@@ -1,14 +1,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Keep pdf-parse out of the server bundle. pdf-parse delegates to
-  // pdfjs-dist which dynamically imports a sibling pdf.worker.mjs at
-  // runtime; Turbopack bundles the main pdf.mjs but not the worker, so
-  // every PDF parse fails with "Setting up fake worker failed: Cannot
-  // find module ...pdf.worker.mjs". Externalizing pdf-parse lets Node's
-  // native module resolver find the worker file in node_modules where
-  // pdf-parse expects it.
-  serverExternalPackages: ["pdf-parse"],
+  // Keep the pdf-parse → pdfjs-dist → @napi-rs/canvas chain out of the
+  // server bundle. Two distinct bundling failures, one fix:
+  //
+  //   1. pdf-parse delegates to pdfjs-dist which dynamically imports a
+  //      sibling pdf.worker.mjs at runtime; Turbopack bundles the main
+  //      pdf.mjs but not the worker, so every PDF parse fails with
+  //      "Setting up fake worker failed: Cannot find module
+  //      ...pdf.worker.mjs".
+  //   2. pdfjs-dist transitively requires @napi-rs/canvas, a native
+  //      module whose platform-specific .node binding cannot be bundled.
+  //      On Vercel's Linux x64 functions this surfaced as
+  //      "Cannot load \"@napi-rs/canvas-...\"" at function init,
+  //      returning 500 on POST /workspace/agents/new before any action
+  //      body could run (Session 22 hotfix).
+  //
+  // Externalizing all three lets Node's native module resolver find them
+  // in node_modules at runtime where their platform bindings and worker
+  // files live.
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"],
   experimental: {
     serverActions: {
       // Permanent agent attachments are uploaded via server actions (Session
