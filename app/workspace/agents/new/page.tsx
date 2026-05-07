@@ -42,7 +42,7 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
     await searchParams;
 
   if (!departmentSlug) {
-    redirect("/");
+    redirect("/workspace");
   }
 
   const department = await getDepartmentIfAccessible(departmentSlug);

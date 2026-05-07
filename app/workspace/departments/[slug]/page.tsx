@@ -77,7 +77,7 @@ export default async function DepartmentLaunchpadPage({
     user.id,
   );
 
-  const newAgentHref = `/agents/new?department=${department.slug}`;
+  const newAgentHref = `/workspace/agents/new?department=${department.slug}`;
 
   return (
     <>

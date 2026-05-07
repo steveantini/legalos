@@ -46,7 +46,7 @@ export function ComingSoon({ area }: { area?: string }) {
       </p>
 
       <Link
-        href="/"
+        href="/workspace"
         className="mt-10 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         ← Back to workspace

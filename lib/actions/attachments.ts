@@ -285,7 +285,7 @@ export async function addAttachmentAction(
     return { ok: false, error: "Could not attach file. Try again." };
   }
 
-  revalidatePath(`/agents/${agentId}/edit`);
+  revalidatePath(`/workspace/agents/${agentId}/edit`);
   return { ok: true, attachmentId: inserted.id, metadata: meta };
 }
 
@@ -389,6 +389,6 @@ export async function removeAttachmentAction(
       console.error("storage remove failed (non-fatal)", err);
     });
 
-  revalidatePath(`/agents/${row.agent_id}/edit`);
+  revalidatePath(`/workspace/agents/${row.agent_id}/edit`);
   return { ok: true };
 }

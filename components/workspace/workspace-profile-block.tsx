@@ -18,7 +18,7 @@ import { signOut } from "@/lib/actions/auth";
  * keyboard-clickable and opens an account menu above the rail.
  *
  * Menu items:
- *  - "Admin" — conditional on `isAdmin`. Routes to `/admin`. Renders as
+ *  - "Admin" — conditional on `isAdmin`. Routes to `/workspace/admin`. Renders as
  *    a `<Link>` via the `render` prop pattern (matches AgentCard's edit
  *    link in 11).
  *  - "Sign out" — calls `signOut` server action via `onSelect`. The
@@ -66,7 +66,7 @@ export function WorkspaceProfileBlock({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top">
         {isAdmin ? (
-          <DropdownMenuItem render={<Link href="/admin" />}>
+          <DropdownMenuItem render={<Link href="/workspace/admin" />}>
             Admin
           </DropdownMenuItem>
         ) : null}

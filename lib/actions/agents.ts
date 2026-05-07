@@ -295,7 +295,7 @@ export async function createAgentAction(
     }
   }
 
-  redirect(`/departments/${department.slug}`);
+  redirect(`/workspace/departments/${department.slug}`);
 }
 
 /**
@@ -390,7 +390,7 @@ export async function updateAgentAction(
     return { ok: false, formError: "Could not save changes. Try again." };
   }
 
-  redirect(`/agents/${input.agent_id}`);
+  redirect(`/workspace/agents/${input.agent_id}`);
 }
 
 const agentIdSchema = z.object({
@@ -410,7 +410,7 @@ const agentIdSchema = z.object({
  * the same pass — partial widening would let a dept_admin change the
  * composer model but not save edits via the form, which is inconsistent.
  *
- * `revalidatePath('/agents/<id>')` after each write so the agent header's
+ * `revalidatePath('/workspace/agents/<id>')` after each write so the agent header's
  * model chip reflects the new state without a full reload (chips are
  * server-rendered from the agent record per session 15).
  */
@@ -468,7 +468,7 @@ export async function updateAgentModelAction(
     return { ok: false, error: "Could not update model. Try again." };
   }
 
-  revalidatePath(`/agents/${agent.id}`);
+  revalidatePath(`/workspace/agents/${agent.id}`);
   return { ok: true };
 }
 
@@ -523,8 +523,8 @@ export async function softDeleteAgentAction(
 
   const departmentSlug =
     (agent.departments as unknown as { slug: string } | null)?.slug ?? "";
-  revalidatePath(`/departments/${departmentSlug}`);
-  revalidatePath("/agents/trash");
+  revalidatePath(`/workspace/departments/${departmentSlug}`);
+  revalidatePath("/workspace/agents/trash");
 
   return {
     ok: true,
@@ -595,8 +595,8 @@ export async function restoreAgentAction(
 
   const departmentSlug =
     (agent.departments as unknown as { slug: string } | null)?.slug ?? "";
-  revalidatePath(`/departments/${departmentSlug}`);
-  revalidatePath("/agents/trash");
+  revalidatePath(`/workspace/departments/${departmentSlug}`);
+  revalidatePath("/workspace/agents/trash");
 
   return { ok: true, agentId: agent.id, departmentSlug };
 }

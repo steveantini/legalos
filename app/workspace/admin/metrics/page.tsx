@@ -6,7 +6,7 @@ export default function AdminMetricsPage() {
   return (
     <>
       <Link
-        href="/admin"
+        href="/workspace/admin"
         className="text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         ← Admin

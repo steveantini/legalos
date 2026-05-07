@@ -56,9 +56,9 @@ export function WorkspaceNavLink({
       ? pathname === href
       : pathname === href || pathname.startsWith(href + "/");
 
-  if (!isActive && agentsLookup && href.startsWith("/departments/")) {
-    const linkSlug = href.slice("/departments/".length);
-    const agentMatch = pathname.match(/^\/agents\/([^/]+)/);
+  if (!isActive && agentsLookup && href.startsWith("/workspace/departments/")) {
+    const linkSlug = href.slice("/workspace/departments/".length);
+    const agentMatch = pathname.match(/^\/workspace\/agents\/([^/]+)/);
     if (agentMatch) {
       const agent = agentsLookup.find((a) => a.id === agentMatch[1]);
       if (agent && agent.department_slug === linkSlug) {

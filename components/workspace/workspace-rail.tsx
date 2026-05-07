@@ -99,7 +99,7 @@ export function WorkspaceRail({
       {/* Group 1 — Workspace */}
       <div className="flex flex-col gap-px">
         <WorkspaceNavLink
-          href="/"
+          href="/workspace"
           match="exact"
           className={linkBase}
           activeClassName={`${linkBase} ${linkActive}`}
@@ -122,7 +122,7 @@ export function WorkspaceRail({
           {departments.map((d) => (
             <WorkspaceNavLink
               key={d.id}
-              href={`/departments/${d.slug}`}
+              href={`/workspace/departments/${d.slug}`}
               match="prefix"
               className={linkBase}
               activeClassName={`${linkBase} ${linkActive}`}
@@ -144,7 +144,7 @@ export function WorkspaceRail({
         <div key={slug} className="flex flex-col gap-px">
           <p className={captionLabel}>{caption}</p>
           <WorkspaceNavLink
-            href={`/coming-soon/${slug}`}
+            href={`/workspace/coming-soon/${slug}`}
             match="exact"
             className={linkBase}
             activeClassName={`${linkBase} ${linkActive}`}

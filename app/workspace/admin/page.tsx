@@ -5,13 +5,13 @@ const ADMIN_CARDS = [
     title: "Adoption Metrics",
     description:
       "KPI cards, top users, clicks per agent, and per-user / per-agent drill-downs. Toggle between sample data and your localStorage events.",
-    href: "/admin/metrics",
+    href: "/workspace/admin/metrics",
   },
   {
     title: "Productivity Calculator",
     description:
       "Estimate hours saved, cost recovered, and ROI from agent adoption.",
-    href: "/admin/calculator",
+    href: "/workspace/admin/calculator",
   },
 ];
 

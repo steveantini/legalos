@@ -130,8 +130,8 @@ export function AgentForm({
 
   const cancelHref =
     mode === "edit"
-      ? `/agents/${agentId}`
-      : `/departments/${departmentSlug}`;
+      ? `/workspace/agents/${agentId}`
+      : `/workspace/departments/${departmentSlug}`;
   const submitLabelIdle = mode === "edit" ? "Save changes" : "Save agent";
   const submitLabelPending = mode === "edit" ? "Saving…" : "Saving…";
 

@@ -16,9 +16,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const nextParam = searchParams.get("next") ?? "/";
+  const nextParam = searchParams.get("next") ?? "/workspace";
   const next =
-    nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
+    nextParam.startsWith("/") && !nextParam.startsWith("//")
+      ? nextParam
+      : "/workspace";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=invalid-link`);

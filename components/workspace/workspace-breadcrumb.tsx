@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 
@@ -60,11 +61,11 @@ type RouteEntry = {
 
 const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
-    match: "/",
+    match: "/workspace",
     segments: () => ["workspace", "departments"],
   },
   {
-    match: /^\/departments\/([^/]+)/,
+    match: /^\/workspace\/departments\/([^/]+)/,
     segments: ({ captures, departments }) => {
       const slug = captures[0] ?? "";
       const dept = departments.find((d) => d.slug === slug);
@@ -72,7 +73,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     },
   },
   {
-    match: "/agents/new",
+    match: "/workspace/agents/new",
     segments: ({ departments, searchParams }) => {
       const deptSlug = searchParams.get("department");
       const forkFrom = searchParams.get("fork_from");
@@ -90,23 +91,23 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     },
   },
   {
-    match: "/agents/trash",
+    match: "/workspace/agents/trash",
     segments: () => ["workspace", "trash"],
   },
   {
-    match: "/admin",
+    match: "/workspace/admin",
     segments: () => ["workspace", "admin"],
   },
   {
-    match: "/admin/calculator",
+    match: "/workspace/admin/calculator",
     segments: () => ["workspace", "admin", "Calculator"],
   },
   {
-    match: "/admin/metrics",
+    match: "/workspace/admin/metrics",
     segments: () => ["workspace", "admin", "Metrics"],
   },
   {
-    match: /^\/agents\/([^/]+)\/edit/,
+    match: /^\/workspace\/agents\/([^/]+)\/edit/,
     segments: ({ captures, agents }) => {
       const agentId = captures[0] ?? "";
       const agent = agents.find((a) => a.id === agentId);
@@ -125,7 +126,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     },
   },
   {
-    match: /^\/agents\/([^/]+)/,
+    match: /^\/workspace\/agents\/([^/]+)/,
     segments: ({ captures, agents }) => {
       const agentId = captures[0] ?? "";
       const agent = agents.find((a) => a.id === agentId);
@@ -136,7 +137,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     },
   },
   {
-    match: /^\/coming-soon\/([^/]+)/,
+    match: /^\/workspace\/coming-soon\/([^/]+)/,
     segments: ({ captures }) => {
       const area = captures[0] ?? "";
       const label = RESOURCE_AREA_LABELS[area] ?? area;
@@ -175,10 +176,23 @@ export function WorkspaceBreadcrumb({
     <div className="text-[13px] text-caption">
       {segments.map((seg, i) => {
         const isLast = i === segments.length - 1;
+        // The leading "workspace" segment is the only segment that maps to
+        // a real route (`/workspace` — the workspace landing). Render it as
+        // a Link so the breadcrumb is navigable. Other non-leaf segments
+        // ("departments", "admin", "trash", etc.) are scoping labels with
+        // no dedicated route and stay plain spans.
+        const renderAsLink = i === 0 && seg === "workspace" && !isLast;
         return (
           <span key={i}>
             {isLast ? (
               <strong className="font-medium text-foreground">{seg}</strong>
+            ) : renderAsLink ? (
+              <Link
+                href="/workspace"
+                className="hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                {seg}
+              </Link>
             ) : (
               <span>{seg}</span>
             )}

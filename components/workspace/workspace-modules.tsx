@@ -74,7 +74,7 @@ export function WorkspaceModules() {
         {MODULES.map((m) => (
           <li key={m.slug}>
             <Link
-              href={`/coming-soon/${m.slug}`}
+              href={`/workspace/coming-soon/${m.slug}`}
               className="group flex items-center gap-3 rounded-[10px] px-3 py-[10px] transition-colors duration-[180ms] ease-out hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <ArrowRightIcon

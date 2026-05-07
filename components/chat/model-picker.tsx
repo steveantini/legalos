@@ -24,8 +24,8 @@ interface ModelPickerProps {
  * Per-agent persistence — each selection calls `updateAgentModelAction`
  * which updates the agent's `model` column owner-only via RLS. The
  * agent header's model chip (server-rendered from the same record)
- * refreshes via `revalidatePath('/agents/<id>')` after each successful
- * change.
+ * refreshes via `revalidatePath('/workspace/agents/<id>')` after each
+ * successful change.
  *
  * Three-model dropdown by design (D-030 surprise (3): the composer
  * surfaces the common-case picks; the niche `claude-opus-4-6` entry

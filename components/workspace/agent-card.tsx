@@ -134,7 +134,7 @@ export function AgentCard({
   if (isTemplate) {
     return (
       <Link
-        href={`/agents/new?department=${departmentSlug}&fork_from=${agent.id}`}
+        href={`/workspace/agents/new?department=${departmentSlug}&fork_from=${agent.id}`}
         onPointerDown={handlePointerDown}
         aria-label={`Fork ${agent.name}`}
         className={cardClassName}
@@ -148,7 +148,7 @@ export function AgentCard({
   if (!isMyAgent) {
     return (
       <Link
-        href={`/agents/${agent.id}`}
+        href={`/workspace/agents/${agent.id}`}
         onPointerDown={handlePointerDown}
         aria-label={`Open ${agent.name}`}
         className={cardClassName}
@@ -212,7 +212,7 @@ function MyAgentCard({ agent, onPointerDownLink, body }: MyAgentCardProps) {
       <div className={`relative ${cardClassName}`}>
         <div className="pointer-events-none">{body}</div>
         <Link
-          href={`/agents/${agent.id}`}
+          href={`/workspace/agents/${agent.id}`}
           aria-label={`Open ${agent.name}`}
           className={stretchedLinkClassName}
           onPointerDown={onPointerDownLink}
@@ -227,7 +227,7 @@ function MyAgentCard({ agent, onPointerDownLink, body }: MyAgentCardProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                render={<Link href={`/agents/${agent.id}/edit`} />}
+                render={<Link href={`/workspace/agents/${agent.id}/edit`} />}
               >
                 Edit
               </DropdownMenuItem>

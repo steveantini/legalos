@@ -142,7 +142,7 @@ export function AgentHeader({
         </div>
         {isOwner ? (
           <Link
-            href={`/agents/${agent.id}/edit`}
+            href={`/workspace/agents/${agent.id}/edit`}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             Edit

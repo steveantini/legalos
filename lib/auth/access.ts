@@ -77,9 +77,10 @@ export interface AccessibleDepartment {
 
 /**
  * Returns the departments the current user has at least one role in,
- * ordered by `sort_order` ascending. Used by the picker page at `/` and
- * the department tab bar on `/departments/[slug]` so both surfaces show
- * the same accessible-departments list.
+ * ordered by `sort_order` ascending. Used by the picker page at
+ * `/workspace` and the department tab bar on
+ * `/workspace/departments/[slug]` so both surfaces show the same
+ * accessible-departments list.
  *
  * The query joins `user_department_roles` with `departments` via an
  * INNER PostgREST join — same predicate `has_department_access` checks
@@ -333,8 +334,8 @@ export async function getDepartmentIfAccessible(slug: string) {
  * department. Used by the workspace layout to conditionally render
  * the Admin item in the rail's profile dropdown, and by
  * `requireAdminUser()` to gate admin routes — both paths run on
- * `/admin` requests, which the `cache()` wrap dedupes to a single
- * pair of Supabase reads per request.
+ * `/workspace/admin` requests, which the `cache()` wrap dedupes to a
+ * single pair of Supabase reads per request.
  *
  * Two DB reads (org role, then dept_admin existence) — acceptable at
  * Phase 1 scale. Collapse into a single query in a later phase if

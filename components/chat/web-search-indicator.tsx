@@ -28,7 +28,7 @@ interface WebSearchIndicatorProps {
 export function WebSearchIndicator({ agentId }: WebSearchIndicatorProps) {
   return (
     <Link
-      href={`/agents/${agentId}/edit#web-search`}
+      href={`/workspace/agents/${agentId}/edit#web-search`}
       aria-label="Web search is on for this agent. Click to edit."
       className="inline-flex items-center gap-2 rounded-[7px] border border-primary/20 bg-chat-cite-bg px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-primary transition-[background-color,color,border-color] duration-[180ms] ease hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
