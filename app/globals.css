@@ -72,23 +72,23 @@
   /* Aperture palette — light mode (Session 9c). See docs/design/aperture/README.md
      for hex sources and D-027/D-028 for the rationale. Hex values to the right
      of each declaration are the originals; OKLCH is the canonical form. */
-  --background: oklch(0.9591 0.0074 80.7209);             /* paper        #f4f1ec */
+  --background: oklch(0.9791 0.0074 80.7209);             /* paper        #fbf8f3 */
   --foreground: oklch(0.2106 0.0050 67.5509);             /* ink          #1a1816 */
-  --card: oklch(0.976 0.0082 91.48);                      /* warm off-white  #f9f7f1 */
+  --card: oklch(0.9920 0.0046 80.7209);                   /* warm off-white  #fdfaf4 */
   --card-foreground: oklch(0.2106 0.0050 67.5509);        /* ink */
-  --popover: oklch(0.976 0.0082 91.48);                   /* warm off-white  #f9f7f1 */
+  --popover: oklch(0.9920 0.0046 80.7209);                /* warm off-white  #fdfaf4 */
   --popover-foreground: oklch(0.2106 0.0050 67.5509);     /* ink */
   --primary: oklch(0.4512 0.0766 258.9642);               /* accent       #3b5680 */
-  --primary-foreground: oklch(0.9591 0.0074 80.7209);     /* paper */
-  --secondary: oklch(0.9385 0.0132 82.4017);              /* stone        #efeae1 */
+  --primary-foreground: oklch(0.9791 0.0074 80.7209);     /* paper #fbf8f3 */
+  --secondary: oklch(0.9585 0.0132 82.4017);              /* stone        #f6f1e8 */
   --secondary-foreground: oklch(0.2827 0.0084 75.2446);   /* ink-2        #2c2925 */
-  --muted: oklch(0.9823 0.0069 88.6418);                  /* paper-2      #fbf9f4 */
+  --muted: oklch(0.9923 0.0069 88.6418);                  /* paper-2      #fefcf7 */
   --muted-foreground: oklch(0.5038 0.0198 75.9505);       /* mute         #6b6358 */
-  --accent: oklch(0.9385 0.0132 82.4017);                 /* stone — shadcn hover surface */
+  --accent: oklch(0.9585 0.0132 82.4017);                 /* stone — shadcn hover surface */
   --accent-foreground: oklch(0.2106 0.0050 67.5509);      /* ink */
   --destructive: oklch(0.577 0.245 27.325);               /* unchanged — Aperture has no destructive palette */
-  --border: oklch(0.9261 0.0144 84.5843);                 /* card-border  #ebe6dc */
-  --input: oklch(0.9261 0.0144 84.5843);                  /* card-border */
+  --border: oklch(0.9461 0.0144 84.5843);                 /* card-border  #f2ede3 */
+  --input: oklch(0.9461 0.0144 84.5843);                  /* card-border */
   --ring: oklch(0.4512 0.0766 258.9642);                  /* accent */
 
   /* Charts unchanged in 9c. Flagged for a future "chart palette retune
@@ -102,21 +102,21 @@
   --radius: 0.625rem;
 
   /* Sidebar — Aperture rail mapping (rail bg = stone, active = ink, hover = paper-2). */
-  --sidebar: oklch(0.9385 0.0132 82.4017);                       /* stone */
+  --sidebar: oklch(0.9585 0.0132 82.4017);                       /* stone */
   --sidebar-foreground: oklch(0.2827 0.0084 75.2446);            /* ink-2 */
   --sidebar-primary: oklch(0.2106 0.0050 67.5509);               /* ink — active nav bg */
-  --sidebar-primary-foreground: oklch(0.9591 0.0074 80.7209);    /* paper */
-  --sidebar-accent: oklch(0.9823 0.0069 88.6418);                /* paper-2 — hover wash */
+  --sidebar-primary-foreground: oklch(0.9791 0.0074 80.7209);    /* paper #fbf8f3 */
+  --sidebar-accent: oklch(0.9923 0.0069 88.6418);                /* paper-2 — hover wash */
   --sidebar-accent-foreground: oklch(0.2106 0.0050 67.5509);     /* ink */
-  --sidebar-border: oklch(0.9137 0.0198 87.5179);                /* stone-2 — rail right border */
+  --sidebar-border: oklch(0.9337 0.0198 87.5179);                /* stone-2 — rail right border */
   --sidebar-ring: oklch(0.4512 0.0766 258.9642);                 /* accent */
 
   /* Aperture-specific tokens — no shadcn analog. Generates utility classes
      bg-paper-2, border-hairline, text-caption, etc. via @theme inline above. */
-  --paper-2: oklch(0.9823 0.0069 88.6418);                /* #fbf9f4 — hover row tint (alias of --muted) */
-  --hairline: oklch(0.9137 0.0198 87.5179);               /* stone-2     #e8e2d4 — top-bar / footer hairlines */
-  --hairline-strong: oklch(0.8990 0.0174 84.5888);        /* stone-3     #e3ddd1 — card outer chrome */
-  --card-divider: oklch(0.9407 0.0169 88.0008);           /* card-divider #f0ebdf — card foot top-border */
+  --paper-2: oklch(0.9923 0.0069 88.6418);                /* #fefcf7 — hover row tint (alias of --muted) */
+  --hairline: oklch(0.9337 0.0198 87.5179);               /* stone-2     #efe9db — top-bar / footer hairlines */
+  --hairline-strong: oklch(0.9190 0.0174 84.5888);        /* stone-3     #eae4d8 — card outer chrome */
+  --card-divider: oklch(0.9607 0.0169 88.0008);           /* card-divider #f7f2e6 — card foot top-border */
   --ink-2: oklch(0.2827 0.0084 75.2446);                  /* ink-2       #2c2925 — nav link text */
   --caption: oklch(0.6074 0.0221 77.2148);                /* mute-2      #8a8174 — caption / mono text */
   --accent-hover: oklch(0.5141 0.0884 261.1831);          /* accent-hover #4a679a */
@@ -129,11 +129,11 @@
      chat-prose-fg, chat-code-bg, chat-code-fg, chat-cite-bg) — they're
      consumed by the chat composer / message bubbles / citations renovation
      in sessions 16–18. */
-  --border-strong: oklch(0.8655 0.0164 82.7910);          /* #d8d2c7 — composer + archived header border */
+  --border-strong: oklch(0.8855 0.0164 82.7910);          /* #dfd8cd — composer + archived header border */
   --warn-fg: oklch(0.4568 0.1098 22.4083);                /* #8a3a3a — error icon, archive banner */
   --warn-fg-deep: oklch(0.3905 0.0915 22.2302);           /* #6e2e2e — error message body */
   --warn-bg: oklch(0.9610 0.0111 45.7216);                /* #f9f0ec — error banner fill */
-  --chat-user-bubble-bg: oklch(0.9385 0.0132 82.4017);    /* #efeae1 — user message body (alias of stone) */
+  --chat-user-bubble-bg: oklch(0.9585 0.0132 82.4017);    /* #f6f1e8 — user message body (alias of stone) */
   --chat-prose-fg: oklch(0.2106 0.0050 67.5509);          /* #1a1816 — assistant prose text (alias of ink) */
   --chat-code-bg: oklch(0.2106 0.0050 67.5509);           /* #1a1816 — inverted code surface */
   --chat-code-fg: oklch(0.9314 0.0140 88.6868);           /* #ece8de — inverted code text */
