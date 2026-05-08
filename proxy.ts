@@ -4,7 +4,9 @@ import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
 
 /**
  * Paths accessible without an auth session. Everything else is gated.
- * `/auth` covers the magic-link callback at /auth/callback.
+ * `/auth` covers the magic-link callback at /auth/callback. `/` is the
+ * marketing landing (Session 22 Step B) and is public so anonymous
+ * visitors see the landing instead of being bounced to /login.
  */
 const PUBLIC_PATHS = ["/login", "/auth"];
 
@@ -38,7 +40,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // `/` is matched exactly so the prefix-style PUBLIC_PATHS check below
+  // doesn't accidentally allowlist every path that starts with `/`.
+  const isPublicPath =
+    pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

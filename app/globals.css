@@ -265,3 +265,111 @@
     animation: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Session 22 — Landing keyframes
+   ---------------------------------------------------------------------------
+   Choreography for the marketing landing at /. All durations and delays
+   are applied via the call-site (inline `style={{ animationDelay: … }}`
+   or class-baked default). Reduced-motion guard at the bottom collapses
+   every landing animation to its end-state so users with motion
+   sensitivity get the same final layout without the staged reveal. */
+
+@keyframes landing-stage-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes landing-el-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes landing-el-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes landing-dot-in {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+@keyframes landing-line-up {
+  from { transform: translateY(110%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes landing-ring-pulse {
+  0%   { transform: scale(0.18); opacity: 0; }
+  12%  { opacity: 0.55; }
+  70%  { opacity: 0.05; }
+  100% { transform: scale(1.05); opacity: 0; }
+}
+
+@keyframes landing-line-unmask {
+  from { clip-path: inset(0); }
+  to   { clip-path: none; }
+}
+
+@utility landing-stage-in {
+  animation: landing-stage-in 1100ms ease-out 80ms both;
+}
+
+@utility landing-el-in {
+  animation: landing-el-in 1200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@utility landing-el-up {
+  animation: landing-el-up 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@utility landing-dot-in {
+  animation: landing-dot-in 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 1180ms both;
+}
+
+@utility landing-line-up {
+  animation: landing-line-up 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@utility landing-ring-pulse {
+  animation: landing-ring-pulse 4.2s cubic-bezier(0.2, 0.6, 0.2, 1) infinite both;
+}
+
+@utility landing-ring-pulse-once {
+  animation: landing-ring-pulse 4s cubic-bezier(0.2, 0.6, 0.2, 1) 1 both;
+}
+
+@utility landing-ring-pulse-opening {
+  animation: landing-ring-pulse 4.2s cubic-bezier(0.2, 0.6, 0.2, 1) 4 both;
+}
+
+/* Bonus utility — pairs with `landing-line-up`. The outer line wrapper
+   uses `clip-path: inset(0)` (equivalent to overflow:hidden but
+   animatable) to mask the typewriter slide; this delayed animation
+   releases the clip after the last line settles so descenders aren't
+   permanently clipped. Fires at 3060ms (last line ends at 2960ms +
+   100ms buffer). */
+@utility landing-line-mask {
+  animation: landing-line-unmask 1ms linear 3060ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-stage-in,
+  .landing-el-in,
+  .landing-el-up,
+  .landing-dot-in,
+  .landing-line-up,
+  .landing-line-mask {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+  .landing-ring-pulse,
+  .landing-ring-pulse-once,
+  .landing-ring-pulse-opening {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
