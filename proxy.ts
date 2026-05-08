@@ -52,6 +52,23 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Authed users hitting /login go straight to /workspace — they don't
+  // need to see the form again. /auth/callback stays reachable so an
+  // already-authed user clicking an old magic link still hits the
+  // exchange handler and is redirected to their `?next=` (or workspace).
+  if (user && pathname === "/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/workspace";
+    url.search = "";
+    const response = NextResponse.redirect(url);
+    // Carry the refreshed session cookies from getSupabaseResponse() so
+    // the redirect doesn't drop them (per the file's CRITICAL note).
+    for (const cookie of getSupabaseResponse().cookies.getAll()) {
+      response.cookies.set(cookie);
+    }
+    return response;
+  }
+
   if (user) {
     const { error } = await supabase.rpc("ensure_user_provisioned");
     if (error) {

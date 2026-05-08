@@ -1,4 +1,37 @@
-import { signInWithMagicLink } from "./actions";
+import { cookies } from "next/headers";
+
+import { LoginConfirmation } from "@/components/login/login-confirmation";
+import { LoginForm } from "@/components/login/login-form";
+import { LoginTopbar } from "@/components/login/login-topbar";
+
+// Mirrors the constant in `./actions.ts`. "use server" files can only
+// export async functions, so the cookie name cannot cross the file
+// boundary as a shared constant. Keep these two literals in sync.
+const PENDING_EMAIL_COOKIE = "legalos_pending_email";
+
+/**
+ * Login surface (Session 23 — Step B).
+ *
+ * Server component that drives a two-state UI:
+ *   - Form state (default, or when ?error=...): renders <LoginForm/>
+ *   - Confirmation state (?message=check-inbox): renders <LoginConfirmation/>
+ *
+ * The two states are mutually exclusive — the previous version
+ * appended a status message below the form, which read as a half-
+ * empty stack. The new behavior swaps the form OUT entirely when
+ * the confirmation lands.
+ *
+ * Email echo on the confirmation reads from the `legalos_pending_email`
+ * httpOnly cookie set by the server action. The cookie is path-
+ * scoped to /login, sameSite=lax, and 10-minute TTL. If missing or
+ * expired the confirmation degrades gracefully to a "to your email"
+ * variant.
+ *
+ * `dynamic = "force-dynamic"` mirrors the landing page so the
+ * cookie + querystring read is fresh per request rather than cached
+ * at build time.
+ */
+export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{ message?: string; error?: string }>;
 
@@ -8,63 +41,26 @@ export default async function LoginPage({
   searchParams: SearchParams;
 }) {
   const { message, error } = await searchParams;
+  const showConfirmation = message === "check-inbox";
+
+  let pendingEmail: string | null = null;
+  if (showConfirmation) {
+    const cookieStore = await cookies();
+    pendingEmail = cookieStore.get(PENDING_EMAIL_COOKIE)?.value ?? null;
+  }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Enter your email for a sign-in link.
-      </p>
-
-      <form action={signInWithMagicLink} className="mt-6 flex flex-col gap-3">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@example.com"
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-
-        <button
-          type="submit"
-          className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          Send sign-in link
-        </button>
-      </form>
-
-      {message === "check-inbox" ? (
-        <p
-          role="status"
-          className="mt-4 rounded-md bg-muted p-3 text-sm text-muted-foreground"
-        >
-          Check your inbox for a sign-in link. If it doesn&apos;t arrive in a
-          minute, check spam or request another.
-        </p>
-      ) : null}
-
-      {error === "invalid-email" ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          Please enter a valid email address.
-        </p>
-      ) : null}
-
-      {error === "invalid-link" ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          That sign-in link is invalid or expired. Request a new one.
-        </p>
-      ) : null}
-    </main>
+    <div className="landing-stage-in grid min-h-screen grid-rows-[auto_1fr] bg-background">
+      <LoginTopbar />
+      <main className="flex items-center px-6 min-[720px]:px-10">
+        <div className="flex w-full max-w-[28rem] flex-col py-12">
+          {showConfirmation ? (
+            <LoginConfirmation email={pendingEmail} />
+          ) : (
+            <LoginForm error={error} />
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
