@@ -809,3 +809,75 @@ Status: Accepted (with sunset)
 - The empty workspace landing's "Request access from your admin" mailto (added in Session 20) is the user-facing surface for now.
 
 **Sunset condition:** This entry expires when EITHER (a) the production URL is publicized to non-trusted users (e.g., a public landing page goes live with a sign-up flow), OR (b) an invitation gate is implemented. Whichever comes first.
+
+---
+
+## D-036 — Workspace relocation to /workspace prefix and marketing landing at /
+
+Date: 2026-05-07
+Status: Accepted
+
+**Context:** The existing app structure had every authenticated route living at the root, with no provision for a public marketing surface. The roadmap (`PROJECT_OUTLINE.md`, Phase 2 work) called for a public landing page that doubles as the auth entry point, routing visitors to `/workspace` where the auth gate lives.
+
+**Decision:** Move the entire authenticated surface to `/workspace/*` via a route-group rename (`app/(workspace)` → `app/workspace`). Replace the temporary one-line redirect at `app/page.tsx` with a real marketing landing. The CTA always routes to `/workspace`; the existing `proxy.ts` middleware gates the auth check from there. `proxy.ts` updated to allowlist `"/"` as a public path.
+
+**Reasoning:** Path-based separation (Linear/Vercel pattern, `/` marketing + `/workspace` app) was preferred over state-based rendering (GitHub pattern, single `/` serving different content by auth state) because shareable URLs stay deterministic, SEO behavior is unambiguous, and the mental model scales as the app grows. Subdomain split (Stripe pattern, `marketing.legalos` + `app.legalos`) was the better long-term answer but requires a custom domain that's deferred until product naming is locked. Path-based is the right call at the current `vercel.app` stage. The migration cost was paid once via mechanical find-and-replace across `Link` `href`, `redirect()`, `revalidatePath()`, pathname matchers, breadcrumb route table literals and regex anchors, and `WorkspaceNavLink` prefix checks. Auth callback's default fallback shifted from `/` to `/workspace` so a magic-link click without an explicit `?next=` lands on the workspace, not on marketing.
+
+**Alternatives considered:**
+
+- *GitHub-style state-based root.* Rejected — confusion compounds as the app grows; SEO and shareable-URL semantics get muddier with each surface.
+- *Subdomain split (`marketing.*` + `app.*`).* Correct long-term answer; deferred until a custom domain replaces the current `vercel.app` URL.
+- *Workspace at root, marketing under `/landing` or `/home`.* Rejected — marketing should be the canonical public URL.
+
+**Consequences:**
+
+- Every internal path reference under `app/`, `components/`, and `lib/` now lives under `/workspace`.
+- The breadcrumb's leading `workspace` segment is now a `Link` to `/workspace` itself.
+- `proxy.ts` allowlists `"/"` as public; everything else outside `/login` and `/auth/callback` continues to require auth.
+- `?next=` preservation in the proxy is still deferred (called out at `proxy.ts:24`). When implemented, it becomes a small follow-up.
+- The `vercel.app` site URL no longer redirects from `/` to a workspace landing; it serves the marketing surface.
+
+---
+
+## D-037 — Light-mode palette retune: warm-tan family lifted proportional to sRGB headroom
+
+Date: 2026-05-07
+Status: Accepted
+
+**Context:** The Aperture palette as originally specified produced a noticeably warm-grey page surface that read as heavier than intended once the marketing landing went up alongside the workspace. The user requested a lighter overall surface treatment across all pages, with proportional shifts to the related warm-tan tokens to preserve family coherence.
+
+**Decision:** Lift every warm-tan family token in light mode by an OKLCH lightness delta proportional to its sRGB headroom. Tokens with starting L below 0.97 bumped by +0.02. Tokens with starting L at or above 0.97 bumped by +0.01 (capped to avoid sRGB clipping at L=1.0). Hue and chroma preserved across all tokens. Foreground tokens (`ink`, `ink-2`, `mute`, `caption`) and accent tokens (`primary`, `accent-hover`, `primary-hover`) untouched — only the surface family shifted.
+
+**Reasoning:** A flat +0.02 across the family produced clipping on `--muted`, `--paper-2`, and `--sidebar-accent` (all at starting L 0.9823, which clamps to white at L=1.0023). Clipping collapses three distinct hover/wash tokens into indistinguishable pure white, which would have eroded the warm cast at the brightest end of the family. Proportional deltas preserve the relative spread between tokens while still achieving the overall lift. Cards and form-field surfaces additionally received a follow-up lift from L 0.986 to L 0.992 to restore the card-vs-background tonal step from 0.007 to 0.013, after the initial pass left cards reading too close to the page bg. `--primary-foreground` and `--sidebar-primary-foreground` (the paper-on-primary tokens for cream text on slate-blue surfaces) lifted to track the new `--background` L value, preserving their semantic pairing.
+
+**Alternatives considered:**
+
+- *Flat +0.02 across all tokens.* Rejected — three tokens clipped at the sRGB ceiling.
+- *Smaller flat delta (+0.01) across all tokens.* Rejected — mid-range tokens (`border`, `hairline`, `secondary`) had headroom and benefitted from the larger bump; capping them at +0.01 under-delivered on the requested lift.
+- *Re-author the entire palette.* Rejected — the Aperture family identity (warm cast, low chroma, OKLCH-coordinated) is intentional and earned.
+
+**Consequences:**
+
+- `docs/design/aperture/README.md` hex references no longer match production CSS. The README is annotated with a header banner pointing to `app/globals.css` as canonical.
+- Inline hex comments in `app/globals.css` updated to reflect the new computed values per token.
+- All consumer surfaces (workspace, agent pages, edit forms, chat, landing, login) inherit the lighter palette automatically — no per-component overrides.
+- The palette shift is a one-time change. Future palette retunes should follow the same proportional-headroom methodology and supersede this entry rather than amending.
+
+---
+
+## D-038 — D-035 status: marketing landing public but no signup shipped, threat model unchanged
+
+Date: 2026-05-07
+Status: Annotates D-035
+
+**Context:** D-035 (open signup posture deferred to post-Phase-2) listed two sunset triggers: (a) the production URL is publicized to non-trusted users via a public landing with a sign-up flow, OR (b) an invitation gate is implemented. Session 22 Step B made `/` publicly accessible by allowlisting `"/"` in `proxy.ts`'s `PUBLIC_PATHS`, but the landing's only CTA routes to `/workspace` which remains auth-gated. No signup flow exists.
+
+**Decision:** D-035 is not yet sunset. Trigger (a) is half-met (public landing exists), trigger (b) is unmet (no invitation gate). The "Request access" link on the landing is a `mailto`, not a sign-up form, which preserves the original threat model — visitors must email before being added.
+
+**Reasoning:** Documenting the current state explicitly so future sessions reading D-035 don't assume the trigger fired silently. When the invitation gate eventually ships, a fresh D-entry will sunset D-035 with the explicit transition.
+
+**Consequences:**
+
+- D-035's deferral remains active.
+- The landing's `mailto` Request access link is the de facto invitation gate at the current stage.
+- Free-tier Supabase email rate limit (2/hour) remains the operational constraint that's preventing wider URL sharing.

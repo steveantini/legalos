@@ -1,5 +1,7 @@
 # Handoff: Atrium · Aperture — Workspace landing
 
+> **Note:** These are the original Aperture handoff values from the design phase. Production CSS in `app/globals.css` has since shifted lighter (Session 22 palette retune — see DECISION_LOG D-037). Use `app/globals.css` as the canonical source for current values; this document remains the historical reference.
+
 ## Overview
 Aperture is the **Workspace** landing page of an internal legal-ops product (working name "Atrium"). It greets the user, surfaces top-level workspace stats, and presents a grid of **department cards** as the primary navigation into deeper work. The layout is a fixed left navigation rail + a main content column with hero, stats, and a 3-column card grid.
 

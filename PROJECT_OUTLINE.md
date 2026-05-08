@@ -296,5 +296,5 @@ These are adjacent to the legal department's stack but out of scope for a launch
 ## Current status
 
 **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
-**Shipped:** Sessions 8a (runtime foundations) and 8b (chat UI) validated end-to-end against the Test Smoke Agent. Session 8c landed `docs/AGENT_ARCHITECTURE.md` and D-025 expanding Phase 2 scope.
-**Next milestone:** Phase 2 work item 1 — `lib/anthropic/` → `lib/llm/anthropic/` move, vendor-prefixed model ids, single-case dispatcher.
+**Shipped:** Sessions 8a–22. Recent work: routing migration to `/workspace` prefix (D-036), `unpdf` swap for serverless-safe PDF extraction, marketing landing at `/` with two-phase glyph choreography, palette retune proportional to sRGB headroom (D-037), Vercel Analytics + Speed Insights wired.
+**Next milestone:** Login / auth UX polish (Session 23). Subsequent: invitation gate (sunsets D-035), custom SMTP via Resend (production-prerequisite for wider URL sharing).
