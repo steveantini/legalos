@@ -296,5 +296,5 @@ These are adjacent to the legal department's stack but out of scope for a launch
 ## Current status
 
 **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
-**Shipped:** Sessions 8a–22. Recent work: routing migration to `/workspace` prefix (D-036), `unpdf` swap for serverless-safe PDF extraction, marketing landing at `/` with two-phase glyph choreography, palette retune proportional to sRGB headroom (D-037), Vercel Analytics + Speed Insights wired.
-**Next milestone:** Login / auth UX polish (Session 23). Subsequent: invitation gate (sunsets D-035), custom SMTP via Resend (production-prerequisite for wider URL sharing).
+**Shipped:** Sessions 8a–23. Recent work: routing migration to `/workspace` prefix (D-036), `unpdf` swap for serverless-safe PDF extraction, marketing landing at `/` with two-phase glyph choreography, palette retune proportional to sRGB headroom (D-037), Vercel Analytics + Speed Insights wired, login surface state machine + visual polish + authed-user bounce (D-039).
+**Next milestone:** Custom SMTP via Resend (Session 24 — removes the Supabase free-tier 2/hour rate limit; prerequisite before invitation gate). Subsequent: invitation gate (sunsets D-035), `?next=` preservation in the proxy.

@@ -881,3 +881,35 @@ Status: Annotates D-035
 - D-035's deferral remains active.
 - The landing's `mailto` Request access link is the de facto invitation gate at the current stage.
 - Free-tier Supabase email rate limit (2/hour) remains the operational constraint that's preventing wider URL sharing.
+
+---
+
+## D-039 — Login surface state machine, visual polish, and authed-user bounce
+
+Date: 2026-05-09
+Status: Accepted
+
+**Context:** The Phase 1 login surface was a bare HTML form (`text-2xl` heading, raw `<input>` and `<button>` with utility classes, vertically and horizontally centered) that did not match the marketing landing’s quality bar. Two functional issues compounded the visual gap. First: on submit, the page redirected to `/login?message=check-inbox` and re-rendered with the form still visible PLUS a status box appended below it — to a user, this read as a re-prompt, not as confirmation. Second: authenticated users hitting `/login` saw the form and could submit again, with no bounce to `/workspace`. Session 23 addressed all three in one commit.
+
+**Decision:** Replace the bare form with a polished surface that mirrors the marketing landing’s typography, x-axis anchor, masked-reveal motion vocabulary, and primary CTA treatment. Drive a two-state UI off the existing `?message=check-inbox` querystring: form state OR confirmation state, never both. The confirmation replaces the form rather than annotating it. Echo the submitted email in the confirmation via an httpOnly cookie (`legalos_pending_email`, path-scoped to `/login`, 10-minute TTL), set in the server action regardless of `signInWithOtp` outcome to preserve the no-leak posture. Provide explicit Resend and Use-different-email actions. Add an authed-user bounce in `proxy.ts`: authenticated users hitting `/login` get redirected to `/workspace`, with refreshed Supabase session cookies copied across the redirect per the file’s existing CRITICAL note. `/auth/callback` remains reachable for authed users so old magic-link clicks still resolve.
+
+**Reasoning:** The pattern shipped (dedicated page, full state transition on submit, email echo, explicit resend and change-email actions) matches what Linear, Vercel, Notion, Cursor, Stripe, and Raycast all use for magic-link flows. Modal auth was rejected — easier to dismiss accidentally, less serious tone, accessibility footguns. Persistent-form-with-status-box was rejected as the bug it was, not a design choice — users read it as a re-prompt. Email echo via httpOnly cookie was preferred over URL-querystring carry (would expose email in browser history and Vercel logs) and over client-state carry (form-action redirects break client state). Cookie path-scoped to `/login` so it never travels to `/workspace` or any other surface. Cookie set on both success and `signInWithOtp` failure to avoid signaling delivery failure via cookie absence — preserves the principle codified in the original `actions.ts` comment. The authed-user bounce was lifted in alongside the polish because it is a five-line `proxy.ts` change adjacent to the work; shipping login polish without it would leave an obvious rough edge. The visual polish was batched into one prompt per the Session 22 lesson on serial visual edits.
+
+**Alternatives considered:**
+
+- *Modal sign-in instead of dedicated page.* Rejected — modal auth is dated, has accessibility footguns, and is easier to dismiss accidentally.
+- *Keep form visible with status box (prior behavior, just visually polished).* Rejected — the bug is the bug; visual polish does not fix the re-prompt reading.
+- *Carry the email via URL querystring.* Rejected — exposes email in browser history, Vercel logs, and referrer headers.
+- *Client-side state for the form-to-confirmation transition.* Rejected — server-action redirects break client state; the cookie plus server-component pattern is simpler and more durable.
+- *Defer the authed-user bounce to a later session.* Rejected — adjacent to the work, five lines, ships clean now.
+- *Static `LandingGlyph` echo on the right side at desktop widths.* Rejected — empty negative space is the more confident move on a functional surface; the landing already establishes glyph identity.
+
+**Consequences:**
+
+- The login surface now reads as part of the same product as the marketing landing — same wordmark, same x-axis anchor, same masked-reveal entrance, same primary CTA.
+- Post-submit reads as confirmation, not as a re-prompt. The form is fully replaced.
+- `legalos_pending_email` cookie is the only piece of cross-request state introduced by the login surface. Path-scoped, httpOnly, 10-minute TTL.
+- Authenticated users navigating to `/login` are redirected to `/workspace` instantly; old magic-link clicks via `/auth/callback` continue to work.
+- `"use server"` files cannot export non-async-function constants, so the cookie name is duplicated as a literal in `actions.ts` and `app/(public)/login/page.tsx` with sync-warning comments. Acceptable — the literal is short and the two locations are adjacent.
+- No layout file under `app/(public)/login/` — there is no other surface in that group, so a layout wrapper would be ceremony.
+- The Supabase free-tier email rate limit (2/hour) remains the binding constraint on testing. Custom SMTP via Resend is the next session’s prerequisite work.
