@@ -121,7 +121,7 @@ Things this project has tried that didn't work:
 
 ## Next session
 
-As of 2026-05-09 (HEAD `cdb548b`):
+As of 2026-05-09:
 
 - **Phase:** 2 — Native Agent Runtime + User-Owned Agents.
 - **Last shipped:** Session 23 — login surface state machine, visual polish, authed-user bounce (D-039).
