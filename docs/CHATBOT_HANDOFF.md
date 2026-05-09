@@ -2,6 +2,8 @@
 
 **Purpose.** This file bootstraps a fresh Claude Chat instance (Opus 4.7) into being a useful prompt-author for the legalOS project. Read it once at the start of a new chat session, then read the files it points at for current state. This file IS your memory across chats — when prior chats reset, this is what carries forward.
 
+**What is legalOS.** Multi-department legal operations platform — a single entry point for in-house legal teams to invoke external agents (Gemini Gems, watsonX Orchestrate) and native AI agents (powered by the Anthropic API). Single-tenant deployment per customer, with a multi-tenant-ready schema for future SaaS. Phase 2 native-agent runtime is the current focus. Product spec lives in `PROJECT_OUTLINE.md`; this file is workflow only.
+
 ---
 
 ## Roles in this workflow
@@ -26,17 +28,26 @@ Always have Claude Code read these files at the start of a session before you dr
 - **`CHANGELOG.md`** `[Unreleased]` section — recent ships. Format is dense single-line bullets under `### Added` / `### Changed` / `### Removed`, newest-first.
 - **`docs/AGENT_ARCHITECTURE.md`** — Phase 2 native-agent runtime spec. Read when drafting agent-runtime-adjacent work.
 
+**If this handoff and a source file disagree, the source file wins.** Flag the discrepancy in chat so the operator can update this handoff. The handoff will lag — file paths move, conventions evolve, "Next session" pointers go stale. Trust source.
+
 ---
 
 ## Session structure
 
-A typical session ships as a three-step arc, each step a separate prompt the operator pastes:
+Not every session produces every artifact. Common patterns:
+
+- **Full session.** Step A research → Step B implementation → Step C all three artifacts (D-entry + CHANGELOG bullet(s) + PROJECT_OUTLINE update).
+- **Small fix.** CHANGELOG bullet only. No D-entry, no PROJECT_OUTLINE change. Common for one-line fixes or migrations that don't change architecture.
+- **Documentation-only.** Skip Steps A/B entirely. Backfill missed entries, document a decision after the fact, update conventions.
+- **Exploratory.** Step A only — research a topic, gather raw material, no commit yet.
+
+The standard three-step arc, when it applies:
 
 1. **Step A — Research.** Ask Claude Code to read specific files and report back current state verbatim. Don't ask it to summarize — ask for verbatim excerpts so you can match formatting precedents exactly. Example: "Print the last three D-entries in DECISION_LOG.md verbatim so I can match the format conventions for D-040."
 2. **Step B — Implementation.** Step-by-step instructions for the code change: which files to edit, what behavior to add, what to verify (build pass, smoke test, RLS regression check). Claude Code writes the actual code; you describe the change in product/architectural terms.
-3. **Step C — Documentation.** Three verbatim content blocks: (a) D-entry to append to `DECISION_LOG.md`, (b) bullet(s) to insert in `CHANGELOG.md` `[Unreleased] ### Added`, (c) replacement text for the `## Current status` block in `PROJECT_OUTLINE.md`. Claude Code inserts them, runs the build, prints the diff. The operator reviews, then commits.
+3. **Step C — Documentation.** Verbatim content blocks for the appropriate files: D-entry to append to `DECISION_LOG.md`, bullet(s) to insert in `CHANGELOG.md` `[Unreleased] ### Added`, replacement text for the `## Current status` block in `PROJECT_OUTLINE.md`. Claude Code inserts them, runs the build, prints the diff. The operator reviews, then commits.
 
-The operator usually commits the code change between Step B and Step C. The documentation lands in a separate commit. Sometimes a session is documentation-only and skips Steps A/B.
+The operator usually commits the code change between Step B and Step C. Documentation lands in a separate commit.
 
 ---
 
@@ -65,17 +76,32 @@ Before drafting prompts that touch certain task types, point Claude Code at the 
 
 ---
 
-## CHANGELOG bullet-split rule (load-bearing)
+## CHANGELOG bullet-split: thread independence, not size
 
-When documenting a session in `CHANGELOG.md`, **split the work into 2–4 thread-scoped bullets**, not one long single-line bullet covering the whole session. Each bullet targets ~2.5KB max.
+When documenting a session in `CHANGELOG.md`, split into multiple bullets only when the work has **logically independent threads**. Do not split based on size.
 
-**Why:** long single-line bullets above ~5KB consistently arrive corrupted with character drops mid-word during long-form generation. This is a generation artifact, not a transport bug — base64 encoding does not fix it because the corruption happens before encoding. Multi-bullet precedent already exists: Session 22 ships as 22a + 22b, Session 8f ships as 8f-A + 8f-B.
+Long single bullets are normal in this changelog and shipped without issue. Examples:
 
-**How to apply:**
-- A session with > 2 distinct threads or total prose > ~3KB gets split.
-- Each bullet stands on its own — own caption, own files-touched list, own smoke status. Cross-references between sub-bullets are fine ("see migration in bullet above").
-- Order: newest-first within `### Added`. Multi-part bullets from the same session stay adjacent.
-- Single-bullet sessions are still appropriate when work is genuinely small (one logical thread, ~1.5KB total). Session 19's signed-URL endpoint bullet is the canonical example.
+- Session 18 ships as one bullet at 14.9KB (tool traces + citations + conversation reload — interlocking three-step arc).
+- Session 22a ships as one bullet at 7.9KB (routing migration + marketing landing — one cohesive ship across many touches).
+- Session 21 ships as one bullet at 9.9KB (rail + locked cards + Commercial agents + welcome hero — five threads all rotating around one workspace-landing redesign).
+
+Multi-bullet sessions exist when the work has genuinely independent threads:
+
+- Session 22 → 22a (routing/landing) + 22b (palette retune) — two unrelated topics in one commit window.
+- Session 8f → 8f-A (create + fork + IA refactor) + 8f-B (edit + soft delete + undo) — separable phases of the same product surface.
+
+**Decision rule:** would a reader of one bullet need the other to make sense of what shipped? If yes, keep it as one bullet. If no, split.
+
+## Long-form generation corruption (separate problem)
+
+Long single-line outputs (~5KB+) you generate sometimes drop characters mid-token during transmission to the operator's terminal. This is a chatbot generation artifact, NOT a changelog format issue. Workarounds that have actually worked in this project:
+
+- **Base64-encode the bullet before paste.** Produce a single-quoted heredoc whose decoded content is the markdown bullet. The operator decodes via `base64 -d < /tmp/x.b64 > /tmp/x.md` (stdin redirect — works on both BSD and GNU). Session 23 used this successfully.
+- **Apply obvious char-drops inline at edit time.** When Claude Code reports specific corruptions ("confirmatreplaces", "is_te false"), reconstruct the obvious fixes — they're usually unambiguous. Don't loop through another full generation.
+- **Draft locally in Claude Code.** For backfills or smaller content, the operator can have Claude Code draft the bullet directly from gathered git history; you're not in the loop. Use this when corruption keeps recurring.
+
+Do NOT respond to corruption by adding more verification scaffolding (SHA256 hashes, corruption-check greps, sentinel markers). Each layer is more text that can itself be corrupted, and you cannot compute SHA256 in your head.
 
 ---
 
@@ -84,11 +110,12 @@ When documenting a session in `CHANGELOG.md`, **split the work into 2–4 thread
 Things this project has tried that didn't work:
 
 - **Don't write code.** Describe the change in product/architectural terms; Claude Code writes the implementation.
+- **Don't draft Step C documentation before Step B implementation lands and is verified.** D-entries and CHANGELOG bullets describing behavior the operator hasn't confirmed shipped clean become rework when implementation diverges from spec. Wait for Claude Code's verification (build pass, smoke check, operator approval) before drafting documentation prose. The exception is backfill of already-shipped sessions, where you're documenting after the fact from git history.
 - **Don't fabricate SHA256 hashes.** You cannot compute them in your head. If you produce a verification script with `EXPECTED_HASH=...`, the value is hallucinated and will always mismatch. Skip cryptographic verification scaffolding entirely.
-- **Don't generate elaborate shell-script wrappers for simple paste tasks.** When the operation is "insert this text into this file," a plain markdown content block is enough. Heredocs, sentinel markers, corruption-check greps, base64 encoding, SHA256 verification — none of these fix the underlying issue (long-form generation drops characters), and they add surface area for new bugs (BSD vs GNU `base64` syntax incompatibility, unmatched quotes scrambling output).
+- **Don't generate elaborate shell-script wrappers for simple paste tasks.** When the operation is "insert this text into this file," a plain markdown content block is enough. Heredocs, sentinel markers, corruption-check greps, base64 encoding, SHA256 verification — none of these fix the underlying issue (long-form generation drops characters), and they add surface area for new bugs (BSD vs GNU `base64` syntax incompatibility, unmatched quotes scrambling output). Base64 is the only one of these that's earned its place, and only when corruption is actively occurring.
 - **Don't paraphrase project state from memory.** Always read the source files. Phase status, D-numbering, file paths, and routing all change between sessions.
-- **Don't write 7KB single-line bullets.** See the bullet-split rule above. Corruption from long-form generation is real and will cost iterations.
-- **Don't over-engineer in response to past failures.** When a transmission produces corrupted output, the right response is "split into smaller chunks," not "add more verification layers." Each verification layer is more text that can itself be corrupted.
+- **Don't reflexively split sessions into multiple CHANGELOG bullets to dodge corruption.** See the bullet-split section above. Split for logical thread independence; handle corruption separately.
+- **Don't over-engineer in response to past failures.** When a transmission produces corrupted output, the right response is "split your generation into smaller chunks across multiple chat messages and let the operator concatenate," not "add more verification layers." Each verification layer is more text that can itself be corrupted.
 
 ---
 
@@ -96,10 +123,10 @@ Things this project has tried that didn't work:
 
 As of 2026-05-09 (HEAD `f32b830`):
 
-- **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
+- **Phase:** 2 — Native Agent Runtime + User-Owned Agents.
 - **Last shipped:** Session 23 — login surface state machine, visual polish, authed-user bounce (D-039).
-- **Next milestone:** **Session 24 — custom SMTP via Resend.** Removes the Supabase free-tier 2/hour rate limit, which is the binding constraint on production smoke-testing of email-send paths. Prerequisite for the invitation gate that will eventually sunset D-035.
-- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036).
+- **Next milestone:** **Session 24 — custom SMTP via Resend.** Removes the Supabase free-tier 2/hour rate limit, which is the binding constraint on production smoke-testing of email-send paths. Prerequisite for the invitation gate that will eventually sunset D-035 (open-signup posture deferral — magic-link auth currently auto-provisions any email as an inert `role='user'` row with zero department roles).
+- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036 — the workspace relocation to `/workspace` prefix that introduced the marketing landing at `/`).
 
 Confirm by reading `PROJECT_OUTLINE.md` `## Current status` block before drafting Session 24 prompts.
 
