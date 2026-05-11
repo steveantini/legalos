@@ -1,8 +1,25 @@
+"use client";
+
 import { LockIcon } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { siteConfig } from "@/config/site";
 import type { AccessibleDepartment } from "@/lib/auth/access";
+
+import { DepartmentDescriptionEditor } from "./department-description-editor";
+
+/**
+ * Card chrome classes split into base + hover so the hover treatment
+ * (lift, slate-blue border, shadow grow per Session 17a) can be dropped
+ * while the editor is in edit mode. Mid-edit the card is functionally
+ * locked to its current state — a hover lift would falsely advertise
+ * "this is clickable" when navigation is disabled.
+ */
+const CARD_BASE_CLASS =
+  "group relative flex min-h-[192px] flex-col gap-4 rounded-[14px] border border-card-border bg-card p-[22px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)] transition-[transform,box-shadow,border-color] duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+const CARD_HOVER_CLASS =
+  "hover:-translate-y-[2px] hover:border-primary/35 hover:shadow-[0_1px_0_rgba(26,24,22,0.03),0_4px_8px_rgba(26,24,22,0.06),0_22px_38px_-12px_rgba(26,24,22,0.12),0_8px_24px_-8px_rgba(59,86,128,0.12)]";
 
 /**
  * One department card in the Aperture Workspace grid.
@@ -38,29 +55,38 @@ export function DepartmentCard({
   department,
   agentCount,
   isLocked = false,
+  canEdit = false,
 }: {
   department: AccessibleDepartment;
   agentCount: number;
   isLocked?: boolean;
+  canEdit?: boolean;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+
   if (isLocked) {
     return <LockedDepartmentCard department={department} />;
   }
 
   const agentLabel = agentCount === 1 ? "1 agent" : `${agentCount} agents`;
+  const showEditor = canEdit;
 
-  return (
-    <Link
-      href={`/workspace/departments/${department.slug}`}
-      aria-label={`Open ${department.name} workspace`}
-      className="group relative flex min-h-[192px] flex-col gap-4 rounded-[14px] border border-card-border bg-card p-[22px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)] transition-[transform,box-shadow,border-color] duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] hover:-translate-y-[2px] hover:border-primary/35 hover:shadow-[0_1px_0_rgba(26,24,22,0.03),0_4px_8px_rgba(26,24,22,0.06),0_22px_38px_-12px_rgba(26,24,22,0.12),0_8px_24px_-8px_rgba(59,86,128,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-    >
+  const content = (
+    <>
       <h3 className="text-[19px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
         {department.name}
       </h3>
-      <p className="flex-1 text-[13px] leading-[1.45] text-muted-foreground">
-        {department.description ?? ""}
-      </p>
+      {showEditor ? (
+        <DepartmentDescriptionEditor
+          departmentId={department.id}
+          initialDescription={department.description}
+          onEditingChange={setIsEditing}
+        />
+      ) : (
+        <p className="flex-1 text-[13px] leading-[1.45] text-muted-foreground">
+          {department.description ?? ""}
+        </p>
+      )}
       <div className="flex items-center justify-between border-t border-card-divider pt-3 font-mono text-[11px] tabular-nums text-caption">
         <span>{agentLabel}</span>
         <span
@@ -70,6 +96,22 @@ export function DepartmentCard({
           →
         </span>
       </div>
+    </>
+  );
+
+  if (isEditing) {
+    return (
+      <div className={`${CARD_BASE_CLASS} cursor-default`}>{content}</div>
+    );
+  }
+
+  return (
+    <Link
+      href={`/workspace/departments/${department.slug}`}
+      aria-label={`Open ${department.name} workspace`}
+      className={`${CARD_BASE_CLASS} ${CARD_HOVER_CLASS}`}
+    >
+      {content}
     </Link>
   );
 }

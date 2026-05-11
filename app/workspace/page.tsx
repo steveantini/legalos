@@ -9,6 +9,7 @@ import {
   getAccessibleDepartments,
   getAgentCountsByDepartment,
   getCurrentUserProfile,
+  isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -71,9 +72,10 @@ export default async function WorkspacePage() {
     redirect("/login");
   }
 
-  const [departments, agentCounts] = await Promise.all([
+  const [departments, agentCounts, isOrgAdmin] = await Promise.all([
     getAccessibleDepartments(authUser.id),
     getAgentCountsByDepartment(),
+    isCurrentUserOrgAdmin(),
   ]);
 
   const isFirstLogin = profile.welcomed_at == null;
@@ -138,6 +140,7 @@ export default async function WorkspacePage() {
             departments={departments}
             agentCounts={agentCounts}
             lockedSlugs={LOCKED_DEPARTMENT_SLUGS}
+            canEdit={isOrgAdmin}
           />
           {/* Secondary modules — only rendered for users with department
               access. The empty-departments branch keeps its focused

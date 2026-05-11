@@ -373,6 +373,35 @@ export const isCurrentUserAdmin = cache(async (): Promise<boolean> => {
 });
 
 /**
+ * Returns true only for org-level admins (super_admin or org_admin).
+ *
+ * Mirrors the RLS write policy on `public.departments`
+ * (`departments_org_admin_write`, migration 0001) — dept_admin is
+ * intentionally excluded since their authority is scoped to a single
+ * department, not the cross-department structure.
+ *
+ * Use this instead of `isCurrentUserAdmin()` when gating actions that
+ * the underlying RLS policy restricts to org-level admins. Mismatching
+ * the app-layer check against the DB-layer check produces affordances
+ * that surface for users whose writes get rejected.
+ */
+export const isCurrentUserOrgAdmin = cache(async (): Promise<boolean> => {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return profile?.role === "super_admin" || profile?.role === "org_admin";
+});
+
+/**
  * Gate for admin routes. Redirects unauthenticated users to /login via
  * `requireAuthUser()`; for authenticated-but-not-admin users, calls
  * `notFound()` rather than redirecting — the 404 avoids leaking the

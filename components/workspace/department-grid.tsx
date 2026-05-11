@@ -27,10 +27,12 @@ export function DepartmentGrid({
   departments,
   agentCounts,
   lockedSlugs = [],
+  canEdit = false,
 }: {
   departments: AccessibleDepartment[];
   agentCounts: Record<string, number>;
   lockedSlugs?: readonly string[];
+  canEdit?: boolean;
 }) {
   // Sum from agentCounts in-component rather than threading a new
   // totalAgents prop from the page — single caller, single read,
@@ -57,6 +59,7 @@ export function DepartmentGrid({
             department={d}
             agentCount={agentCounts[d.id] ?? 0}
             isLocked={lockedSlugs.includes(d.slug)}
+            canEdit={canEdit}
           />
         ))}
       </div>
