@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
+import { safeNextPath } from "@/lib/url/safe-next";
 
 /**
  * Paths accessible without an auth session. Everything else is gated.
@@ -20,9 +21,10 @@ const PUBLIC_PATHS = ["/login", "/auth"];
  * 1. Verifies a Supabase session via `getUser()` — server-validated per
  *    supabase.md gotcha #7 (`getSession()` reads stale local state and
  *    must not be used here).
- * 2. Unauthenticated requests to non-public paths redirect to /login.
- *    No `?next=` param in this session by design — return-to-destination
- *    is deferred until there's a real need for it.
+ * 2. Unauthenticated requests to non-public paths redirect to /login,
+ *    preserving the requested path as `?next=<path>` so the user lands
+ *    back where they were going after sign-in. The value is validated
+ *    via safeNextPath (same-origin relative only) before being appended.
  * 3. Authenticated requests call `ensure_user_provisioned()` so the user
  *    has a `public.users` row. The RPC is idempotent and best effort;
  *    failures are logged but never block the request.
@@ -46,10 +48,21 @@ export async function proxy(request: NextRequest) {
     pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   if (!user && !isPublicPath) {
+    const requestedPath = request.nextUrl.pathname + request.nextUrl.search;
+    const next = safeNextPath(requestedPath);
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
-    return NextResponse.redirect(url);
+    if (next !== "/workspace") {
+      url.searchParams.set("next", next);
+    }
+    const response = NextResponse.redirect(url);
+    // Carry the refreshed session cookies from getSupabaseResponse() so
+    // the redirect doesn't drop them (per the file's CRITICAL note).
+    for (const cookie of getSupabaseResponse().cookies.getAll()) {
+      response.cookies.set(cookie);
+    }
+    return response;
   }
 
   // Authed users hitting /login go straight to /workspace — they don't

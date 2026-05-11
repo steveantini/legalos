@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { LoginConfirmation } from "@/components/login/login-confirmation";
 import { LoginForm } from "@/components/login/login-form";
 import { LoginTopbar } from "@/components/login/login-topbar";
+import { safeNextPath } from "@/lib/url/safe-next";
 
 // Mirrors the constant in `./actions.ts`. "use server" files can only
 // export async functions, so the cookie name cannot cross the file
@@ -33,15 +34,20 @@ const PENDING_EMAIL_COOKIE = "legalos_pending_email";
  */
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ message?: string; error?: string }>;
+type SearchParams = Promise<{
+  message?: string;
+  error?: string;
+  next?: string;
+}>;
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  const { message, error } = await searchParams;
+  const { message, error, next } = await searchParams;
   const showConfirmation = message === "check-inbox";
+  const validatedNext = safeNextPath(next);
 
   let pendingEmail: string | null = null;
   if (showConfirmation) {
@@ -55,9 +61,9 @@ export default async function LoginPage({
       <main className="flex items-center px-6 min-[720px]:px-10">
         <div className="flex w-full max-w-[28rem] flex-col py-12">
           {showConfirmation ? (
-            <LoginConfirmation email={pendingEmail} />
+            <LoginConfirmation email={pendingEmail} next={validatedNext} />
           ) : (
-            <LoginForm error={error} />
+            <LoginForm error={error} next={validatedNext} />
           )}
         </div>
       </main>

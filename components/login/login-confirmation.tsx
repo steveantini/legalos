@@ -40,9 +40,10 @@ function ResendButton() {
 
 interface LoginConfirmationProps {
   email: string | null;
+  next?: string;
 }
 
-export function LoginConfirmation({ email }: LoginConfirmationProps) {
+export function LoginConfirmation({ email, next }: LoginConfirmationProps) {
   return (
     <>
       <h1 className="text-[36px] font-normal leading-[1.04] tracking-[-0.03em] text-foreground min-[720px]:text-[48px]">
@@ -80,11 +81,16 @@ export function LoginConfirmation({ email }: LoginConfirmationProps) {
         style={{ animationDelay: "1500ms" }}
       >
         <form action={resendMagicLink}>
+          <input type="hidden" name="next" value={next ?? "/workspace"} />
           <ResendButton />
         </form>
         <span aria-hidden>·</span>
         <Link
-          href="/login"
+          href={
+            next && next !== "/workspace"
+              ? `/login?next=${encodeURIComponent(next)}`
+              : "/login"
+          }
           className="text-muted-foreground transition-colors duration-[180ms] hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Use a different email

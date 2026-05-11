@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/url/safe-next";
 
 /**
  * httpOnly cookie carrying the email the user just submitted, so the
@@ -23,6 +24,7 @@ const PENDING_EMAIL_MAX_AGE_SECONDS = 600;
 
 const magicLinkSchema = z.object({
   email: z.string().email().max(254),
+  next: z.string().optional(),
 });
 
 /**
@@ -48,13 +50,22 @@ function resolveSiteUrl(): string {
  * logged without PII and never bubble up. Both success and failure
  * fall through to the same "check inbox" redirect on the call site,
  * so the response never leaks whether the email exists.
+ *
+ * `next` is appended as a querystring on the callback URL when it
+ * differs from the default `/workspace` — keeps the email URL clean
+ * in the common case.
  */
-async function sendMagicLink(email: string) {
+async function sendMagicLink(email: string, next: string) {
+  const callbackBase = `${resolveSiteUrl()}/auth/callback`;
+  const callbackUrl =
+    next === "/workspace"
+      ? callbackBase
+      : `${callbackBase}?next=${encodeURIComponent(next)}`;
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${resolveSiteUrl()}/auth/callback`,
+      emailRedirectTo: callbackUrl,
     },
   });
   if (error) {
@@ -87,16 +98,23 @@ async function setPendingEmailCookie(email: string) {
 export async function signInWithMagicLink(formData: FormData) {
   const parsed = magicLinkSchema.safeParse({
     email: formData.get("email"),
+    next: formData.get("next"),
   });
 
   if (!parsed.success) {
     redirect("/login?error=invalid-email");
   }
 
-  await sendMagicLink(parsed.data.email);
+  const next = safeNextPath(parsed.data.next);
+
+  await sendMagicLink(parsed.data.email, next);
   await setPendingEmailCookie(parsed.data.email);
 
-  redirect("/login?message=check-inbox");
+  const confirmationPath =
+    next === "/workspace"
+      ? "/login?message=check-inbox"
+      : `/login?message=check-inbox&next=${encodeURIComponent(next)}`;
+  redirect(confirmationPath);
 }
 
 /**
@@ -110,7 +128,7 @@ export async function signInWithMagicLink(formData: FormData) {
  * get logged out of the confirmation state by the original 10-minute
  * window expiring.
  */
-export async function resendMagicLink() {
+export async function resendMagicLink(formData: FormData) {
   const cookieStore = await cookies();
   const pendingEmail = cookieStore.get(PENDING_EMAIL_COOKIE)?.value;
 
@@ -118,14 +136,23 @@ export async function resendMagicLink() {
     redirect("/login");
   }
 
-  const parsed = magicLinkSchema.safeParse({ email: pendingEmail });
+  const parsed = magicLinkSchema.safeParse({
+    email: pendingEmail,
+    next: formData.get("next"),
+  });
 
   if (!parsed.success) {
     redirect("/login");
   }
 
-  await sendMagicLink(parsed.data.email);
+  const next = safeNextPath(parsed.data.next);
+
+  await sendMagicLink(parsed.data.email, next);
   await setPendingEmailCookie(parsed.data.email);
 
-  redirect("/login?message=check-inbox");
+  const confirmationPath =
+    next === "/workspace"
+      ? "/login?message=check-inbox"
+      : `/login?message=check-inbox&next=${encodeURIComponent(next)}`;
+  redirect(confirmationPath);
 }

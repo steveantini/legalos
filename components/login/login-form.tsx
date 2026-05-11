@@ -39,9 +39,10 @@ function SubmitButton() {
 
 interface LoginFormProps {
   error?: string;
+  next?: string;
 }
 
-export function LoginForm({ error }: LoginFormProps) {
+export function LoginForm({ error, next }: LoginFormProps) {
   const errorCopy =
     error === "invalid-email"
       ? "That doesn’t look like a valid email. Try again."
@@ -86,6 +87,7 @@ export function LoginForm({ error }: LoginFormProps) {
         ) : null}
 
         <form action={signInWithMagicLink} className="flex flex-col">
+          <input type="hidden" name="next" value={next ?? "/workspace"} />
           <label htmlFor="email" className="sr-only">
             Email
           </label>

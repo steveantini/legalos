@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/url/safe-next";
 
 /**
  * Magic-link / OAuth callback.
@@ -10,17 +11,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * session (which @supabase/ssr writes into httpOnly cookies) and then
  * redirect to the intended next URL.
  *
- * `next` is validated to be a same-origin relative path to prevent
- * open-redirect attacks via a hostile magic-link URL.
+ * `next` is validated via safeNextPath to be a same-origin relative path,
+ * preventing open-redirect attacks via a hostile magic-link URL.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const nextParam = searchParams.get("next") ?? "/workspace";
-  const next =
-    nextParam.startsWith("/") && !nextParam.startsWith("//")
-      ? nextParam
-      : "/workspace";
+  const next = safeNextPath(searchParams.get("next"));
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=invalid-link`);
