@@ -1098,3 +1098,53 @@ Geometric measurement via browser console `getBoundingClientRect` confirmed alig
 - Single-centerline alignment is now correctly delivered for content of any length. The `w-full max-w-3xl` pattern is the canonical wrapper shape for chat-surface elements; future additions should match.
 - User bubbles use `flex … justify-end` as the new pattern. Assistant prose stays left-anchored full-column. The visual rhythm is now legibly back-and-forth.
 - Chat-surface containment is deferred to Session 28 as a focused effort.
+
+## D-044 — Chat-surface containment via top-boundary strengthening, composer-as-anchor, and empty-state elimination
+
+Date: 2026-05-11
+Status: Accepted
+
+**Context:** Session 27 closed the centerline math (D-043 — added `w-full` to three wrappers, right-anchored user bubbles, verified header content + message wrappers + composer all at x=288 via browser `getBoundingClientRect`). Operator smoke then surfaced that geometric alignment alone didn’t resolve the deeper concern: the chat surface still didn’t *read* as a contained chat column. D-043 deferred this to Session 28 as its own focused effort.
+
+Step A research established an architectural fact about the cutting-edge convention. Every modern AI chat surface — Claude.ai, ChatGPT, Cursor, GitHub Copilot Chat — uses what the research labels “contained without containing”: visual anchoring via a persistent composer card at the bottom + strong page padding + per-turn rhythm. None wraps the conversation column in a card with bg / border / shadow. legalOS already had the page padding and the composer card; what was missing was a deliberate top boundary and a stronger anchor signal at the composer. The agent header’s bottom hairline used `--border` (#f2ede3) — a barely-visible 0.013 lightness delta against the page background — and the composer had no upward-directional shadow signaling that scrollable content disappears beneath it.
+
+A second product issue surfaced in the same smoke. The pre-first-message identity panel from Session 19 (`<ChatEmptyState>`, spec §2.8) duplicated the agent header’s name and description and added a facts row (Model / Web search / Last updated) that the agent header was already capable of showing. The empty state read as unpolished and reflected an older AI-product convention — the substantial welcome screen, the IBM Watson era — rather than the cutting-edge AI-native convention of trusting the user to know what they want and getting out of the way.
+
+**Decision:**
+
+*Top boundary strengthening (Decision A).* Two changes in `agent-header.tsx`: (1) bottom-border token upgraded from `border-border` to `border-hairline-strong` — same 1px width, stronger tone (#eae4d8 vs. #f2ede3, the documented “card outer chrome” tone in Aperture’s surface ramp); (2) breathing room below the header increased from `mb-4` (16px) to `mb-7` (28px) so the chat surface starts with a deliberate gap above the first message rather than rolling immediately into content. The combination reads as a deliberate threshold without resorting to a heavy border.
+
+*Composer-as-anchor (Decision B).* Two changes in `message-input.tsx`: (1) the composer card’s shadow stack gains an upward-pointing layer at the top of the existing stack — `0_-8px_24px_-12px_rgba(0,0,0,0.08)` prepended to both the default and focus-within shadow strings, signaling that scrollable content disappears beneath this card; (2) outer wrapper’s bottom padding reduced from `pb-4` (16px) to `pb-2` (8px) so the composer sits closer to the chat surface’s bottom edge. The composer reads as a literal anchor at the surface’s base rather than a card floating in vertical space.
+
+*Empty-state elimination.* The `<ChatEmptyState>` panel and its `chat-empty-state.tsx` file are deleted entirely. `MessageList`’s early-return branch that swapped in the panel when `messages.length === 0 && !isStreaming` is removed; MessageList now always renders the standard message-list path. `ChatInterface` no longer derives `isEmpty` or passes empty-state props. The model + web-search chips on `AgentHeader` (previously hidden when `emptyState` was true to avoid duplicating the panel’s facts row) now render unconditionally as part of the agent header’s meta-chip row. Net visual: when a user opens a fresh agent they see the agent header at top (name + description + Department Agent chip + model chip + web-search chip) and the composer at bottom, with empty space between. ChatGPT pattern.
+
+*Double-`<main>` accessibility cleanup.* The workspace layout’s outer `<main>` (in `app/workspace/layout.tsx`) is demoted to `<div>` — it was structural chrome wrapping the rail-plus-content grid, not the page’s main content. The chat page already has its own `<main>` (semantically correct). The workspace landing page and the department-detail page, which previously returned fragments and relied on the layout’s `<main>`, gain their own `<main>` wrappers with `flex flex-col gap-9` to preserve the prior spacing behavior. Each page now has exactly one `<main>` landmark, satisfying the one-per-page accessibility contract.
+
+**Reasoning:** The “contained without containing” pattern is the cutting-edge convention across every modern AI chat product. Wrapping the conversation in a contained card would have diverged from the convention rather than matching it. The investment was in the *boundaries* (top hairline, bottom composer anchor) and in *signaling depth* (the composer’s upward shadow), not in adding a container.
+
+The Aperture surface ramp already contained the right token for the stronger hairline — `--hairline-strong`, documented in Session 22b’s palette retune as “card outer chrome.” The change is a one-token swap, not a token introduction; the design system was prepared for this.
+
+The breathing-room change (`mb-4` → `mb-7`) follows the cutting-edge convention of “deliberate space as boundary” over “visible line as boundary.” Borders alone feel heavyset; the combination of stronger 1px hairline plus deliberate space reads as a higher-fidelity threshold than either piece alone.
+
+Eliminating the empty-state panel honors the AI-native principle that users come to a chat agent already knowing what they want to do. The panel was orientation infrastructure that the agent header already provides redundantly. ChatGPT, Claude.ai, and Cursor all converged on the same pattern — empty middle, composer at bottom — because the underlying observation is consistent: welcome screens are an older paradigm from the era of “this is a complex system, here’s what you can do.”
+
+The double-`<main>` fix was identified during Step A research and bundled because it’s accessibility-adjacent to the containment work (both concern the chat surface’s structural shape) and trivially small. Pages that previously relied on the layout’s `<main>` had their `<main>` wrappers added with `flex flex-col gap-9` so the previously inherited gap spacing is preserved — visual rendering unchanged.
+
+**Alternatives considered:**
+
+- *Wrap the conversation column in a contained card with bg-card / border / shadow.* Rejected — diverges from the cutting-edge convention (Claude.ai / ChatGPT / Cursor use no wrapping container); would have signaled “old-style enterprise chatbot panel” rather than modern AI surface.
+- *Strengthen the top boundary with a thicker border (2px) instead of stronger token + breathing room.* Rejected — borders alone feel heavyset; stronger 1px hairline plus deliberate space reads as a higher-fidelity threshold.
+- *Composer gradient-fade approach (Step B planning option B3, Claude.ai’s pattern).* Rejected for scope — directional shadow + tighter spacing (B1 + B2) is the more conservative cutting-edge convention (matches ChatGPT); the gradient-fade option can land as a polish session later if the directional-shadow treatment proves insufficient.
+- *Reduce empty visual frame via width changes (Step B planning option C — reduce workspace padding or widen the chat column).* Rejected for this session — touches D-030’s architectural commitment (4xl wrapper + 3xl content). If A + B and empty-state elimination don’t fully resolve the perception, C is a focused follow-up session of its own.
+- *Keep the empty state but make it complementary to the agent header (Step B planning option 3 — restructure both).* Rejected — adds UI surface area to solve a problem the cutting-edge convention solves by removing surface area. Less is more here.
+- *Invert: keep the empty state but hide the header during empty state (Step B planning option 2).* Rejected — orphans the agent’s identity at the moment when orientation matters most, and produces a UI-shape change between empty state and active conversation that’s distracting.
+- *Defer the double-`<main>` accessibility fix to a separate session.* Rejected — trivially small, structurally adjacent to the layout work in this session, free to do.
+
+**Consequences:**
+
+- The chat surface now reads as a coherent product surface. Top boundary signals “the chat starts here,” composer signals “this is the surface’s anchor,” empty middle signals “start typing.” Operator confirmed in browser smoke.
+- The empty-state panel and its component file are gone. Any future need to show orientation content on a fresh agent (suggested prompts, recent activity, file gallery) would need to be a fresh design decision, not a reactivation of the old empty state.
+- `agentUpdatedAt` is no longer plumbed through `ChatInterface` — it was only used by the deleted panel’s “Last updated” fact column. The page’s `agent_attachments` query still returns full rows but only `.length` is consumed downstream; a future cleanup could downgrade the query to a count-only fetch.
+- The double-`<main>` violation is resolved. Each page now has exactly one `<main>` landmark. Pages that previously returned fragments (workspace landing, department detail) wrap in `<main>` with `flex flex-col gap-9` to preserve their visual spacing.
+- D-030’s architectural commitments (4xl wrapper + 3xl content + `scrollbar-stable` + `-mr-[15px]` three-piece machinery) remain intact. Session 28 worked within them.
+- The model and web-search chips on `AgentHeader` now render unconditionally. The earlier `emptyState` prop logic that hid them was infrastructure for avoiding duplication with the now-deleted empty-state panel; with the panel gone, the conditional has no purpose.

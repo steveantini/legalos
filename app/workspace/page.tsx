@@ -132,7 +132,7 @@ export default async function WorkspacePage() {
     ) : undefined;
 
   return (
-    <>
+    <main className="flex flex-col gap-9">
       <WorkspaceHero variant={variant} subline={sublineOverride} />
       {deptCount > 0 ? (
         <>
@@ -149,6 +149,6 @@ export default async function WorkspacePage() {
           <WorkspaceModules />
         </>
       ) : null}
-    </>
+    </main>
   );
 }

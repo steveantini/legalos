@@ -71,9 +71,7 @@ export default async function AgentChatPage({
   const isTemplate = agent.is_template;
   const canManageTemplates = isTemplate ? await isCurrentUserOrgAdmin() : false;
 
-  // Load full attachment rows. ChatInterface forwards `attachments` to
-  // ChatEmptyState's file list (Session 19, spec §2.8) and synthesizes
-  // `attachmentCount = attachments.length` for AgentHeader's chip.
+  // Count agent attachments for AgentHeader's "N attached" chip.
   // RLS via agent_attachments_user_owns (migration 0007) scopes to the
   // user's own rows; the page-level guard already established `isOwner`,
   // so this query returns either the owner's attachments or empty.
@@ -108,11 +106,12 @@ export default async function AgentChatPage({
     }
   }
 
-  // AgentHeader is rendered inside ChatInterface as of Session 19 (Fix 3)
-  // so the empty-state header variant can read `messages.length === 0`
-  // live. The page's job shrinks to data load + access checks; the
-  // chat surface owns its own internal layout (header + messages +
-  // composer) end-to-end.
+  // AgentHeader is rendered inside ChatInterface (mounted there rather
+  // than at the page level because ChatInterface owns the header's
+  // live-conversation context — e.g. the Customize button needs the
+  // active conversationId). The page's job shrinks to data load + access
+  // checks; the chat surface owns its own internal layout (header +
+  // messages + composer) end-to-end.
   return (
     <main className="scrollbar-stable mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden">
       <ChatInterface
@@ -125,8 +124,7 @@ export default async function AgentChatPage({
         isOwner={isOwner}
         isTemplate={isTemplate}
         canManageTemplates={canManageTemplates}
-        agentUpdatedAt={agent.updated_at}
-        agentAttachments={attachments}
+        agentAttachmentCount={attachments.length}
         initialMessages={initialMessages}
         initialConversationId={initialConversationId}
       />

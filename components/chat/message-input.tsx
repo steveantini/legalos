@@ -130,8 +130,8 @@ export function MessageInput({
   const showStop = disabled && onStop;
 
   return (
-    <div className="mx-auto w-full max-w-3xl pt-3 pb-4">
-      <div className="rounded-[14px] border border-border-strong bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10)] transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-primary/45 focus-within:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10),0_0_0_3px_oklch(0.4512_0.0766_258.9642_/_0.08)]">
+    <div className="mx-auto w-full max-w-3xl pt-3 pb-2">
+      <div className="rounded-[14px] border border-border-strong bg-card shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10)] transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-primary/45 focus-within:shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10),0_0_0_3px_oklch(0.4512_0.0766_258.9642_/_0.08)]">
         <div className="px-3 pt-3">
           <label htmlFor="message-input" className="sr-only">
             Message

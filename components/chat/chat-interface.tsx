@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import { AgentHeader } from "./agent-header";
-import type { EmptyStateAttachment } from "./chat-empty-state";
 import { ChatErrorMessage } from "./chat-error-message";
 import { MessageInput } from "./message-input";
 import { MessageList } from "./message-list";
@@ -52,10 +51,9 @@ interface ChatInterfaceProps {
   isDeleted?: boolean;
   /**
    * Owner-of-agent flag used by AgentHeader to gate the Edit link.
-   * Session 19 moved AgentHeader into ChatInterface (so it can read
-   * `messages.length === 0` for the empty-state header variant), so
-   * this prop is now plumbed alongside the other header props rather
-   * than landing on AgentHeader directly from the page.
+   * Plumbed through ChatInterface rather than landing on AgentHeader
+   * directly from the page because AgentHeader is mounted inside
+   * ChatInterface.
    */
   isOwner: boolean;
   /**
@@ -71,18 +69,8 @@ interface ChatInterfaceProps {
    * Customize choice in AgentHeader's top-right slot.
    */
   canManageTemplates?: boolean;
-  /**
-   * `agents.updated_at` ISO timestamp. Surfaced by ChatEmptyState's
-   * facts row (Session 19, spec §2.8) as "Last updated".
-   */
-  agentUpdatedAt: string;
-  /**
-   * Full attachment row set for the active agent (id + filename + size).
-   * Empty array when the agent has no attachments. Consumed by
-   * ChatEmptyState's file list and prop-drilled through MessageList.
-   * AgentHeader's "N attached" chip uses agentAttachments.length.
-   */
-  agentAttachments: EmptyStateAttachment[];
+  /** Attachment count for AgentHeader's "N attached" chip. */
+  agentAttachmentCount: number;
   /**
    * Hydrated message list when `?c=<conversation_id>` is in the URL.
    * Empty array on first visit. Carries assistant-side sources +
@@ -127,8 +115,7 @@ export function ChatInterface({
   isOwner,
   isTemplate = false,
   canManageTemplates = false,
-  agentUpdatedAt,
-  agentAttachments,
+  agentAttachmentCount,
   initialMessages = [],
   initialConversationId = null,
 }: ChatInterfaceProps) {
@@ -575,13 +562,6 @@ export function ChatInterface({
     }
   }
 
-  // AgentHeader's `emptyState` variant flips when the conversation has
-  // zero messages (Session 19, Fix 3). The §2.8 identity panel below
-  // carries Model + Web search facts at full weight; duplicating them
-  // in the header reads as redundant noise. Once any message lands
-  // (user OR assistant), the panel disappears and the header reverts
-  // to its full §2.1 form so those facts stay accessible.
-  const isEmpty = messages.length === 0;
   // Synthesize the agent shape AgentHeader expects from the props this
   // surface already plumbs. Constructing locally keeps ChatInterface's
   // public API small (one prop per piece of agent metadata) rather
@@ -598,21 +578,14 @@ export function ChatInterface({
     <div className="flex min-h-0 flex-1 flex-col">
       <AgentHeader
         agent={headerAgent}
-        attachmentCount={agentAttachments.length}
+        attachmentCount={agentAttachmentCount}
         isOwner={isOwner}
         isTemplate={isTemplate}
         canManageTemplates={canManageTemplates}
         conversationId={conversationId}
         isDeleted={isDeleted ?? false}
-        emptyState={isEmpty}
       />
       <MessageList
-        agentName={agentName}
-        agentDescription={agentDescription}
-        agentModel={agentModel}
-        webSearchEnabled={webSearchEnabled}
-        agentUpdatedAt={agentUpdatedAt}
-        agentAttachments={agentAttachments}
         messages={messages}
         isStreaming={isStreaming}
         isWaitingForFirstToken={waitingForFirstToken}

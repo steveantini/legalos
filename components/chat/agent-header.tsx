@@ -31,11 +31,6 @@ import { CustomizeTemplateButton } from "./customize-template-button";
  * true, regardless of viewer. Slate-blue mono-caps chip ("· Department
  * Agent") matching the existing web-search chip vocabulary.
  *
- * Empty-state variant (Session 19) — when `emptyState` is true, model
- * and web-search chips drop (§2.8 panel below carries them at full
- * weight). Template chip and attachment count remain — they describe
- * the agent's identity, not runtime facts.
- *
  * Soft-deleted state — wraps in a card with the warn palette banner.
  * No top-right action.
  *
@@ -70,12 +65,6 @@ interface AgentHeaderProps {
    */
   conversationId?: string | null;
   isDeleted: boolean;
-  /**
-   * True when the conversation has zero messages (the §2.8 identity
-   * panel is rendered below). Hides the model + web-search chips to
-   * avoid duplicating those facts with the panel's facts row.
-   */
-  emptyState?: boolean;
 }
 
 function isWebSearchOn(toolsEnabled: unknown): boolean {
@@ -93,7 +82,6 @@ export function AgentHeader({
   canManageTemplates = false,
   conversationId = null,
   isDeleted,
-  emptyState = false,
 }: AgentHeaderProps) {
   if (isDeleted) {
     return (
@@ -151,7 +139,7 @@ export function AgentHeader({
   }
 
   return (
-    <header className="mb-4 border-b border-border pb-4">
+    <header className="mb-7 border-b border-hairline-strong pb-4">
       <div className="mx-auto flex w-full max-w-3xl items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-[28px] font-normal leading-[1.05] tracking-[-0.025em] text-foreground">
@@ -172,12 +160,12 @@ export function AgentHeader({
                 Department Agent
               </span>
             ) : null}
-            {model && !emptyState ? (
+            {model ? (
               <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-caption">
                 {model}
               </span>
             ) : null}
-            {webSearchOn && !emptyState ? (
+            {webSearchOn ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-chat-cite-bg px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
                 <span
                   aria-hidden

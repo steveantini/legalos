@@ -87,7 +87,7 @@ export default async function DepartmentLaunchpadPage({
     : `/workspace/agents/new?department=${department.slug}`;
 
   return (
-    <>
+    <main className="flex flex-col gap-9">
       <DepartmentHeader
         name={department.name}
         description={department.description}
@@ -137,6 +137,6 @@ export default async function DepartmentLaunchpadPage({
           </div>
         )}
       </section>
-    </>
+    </main>
   );
 }

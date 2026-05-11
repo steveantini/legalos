@@ -67,12 +67,12 @@ export default async function WorkspaceLayout({
         agents={agents}
         isAdmin={isAdmin}
       />
-      <main className="grid min-h-0 grid-rows-[56px_1fr]">
+      <div className="grid min-h-0 grid-rows-[56px_1fr]">
         <WorkspaceTopBar departments={departments} agents={agents} />
         <div className="flex min-h-0 flex-col gap-9 overflow-auto px-14 pb-8 pt-14">
           {children}
         </div>
-      </main>
+      </div>
       <Toaster />
     </div>
   );

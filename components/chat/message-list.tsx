@@ -2,28 +2,11 @@
 
 import { useEffect, useRef } from "react";
 
-import {
-  ChatEmptyState,
-  type EmptyStateAttachment,
-} from "./chat-empty-state";
 import { ChatErrorMessage } from "./chat-error-message";
 import { MessageBubble, type ChatMessage } from "./message-bubble";
 import { TypingIndicator } from "./typing-indicator";
 
 interface MessageListProps {
-  agentName: string;
-  agentDescription: string | null;
-  /**
-   * Agent metadata + attachments forwarded to ChatEmptyState. Only used
-   * when messages.length === 0; once a conversation has any turns,
-   * these props sit unused. Kept on the MessageList API rather than
-   * conditionally passing-through from ChatInterface so the empty-state
-   * caller never has to reason about prop nullability.
-   */
-  agentModel: string;
-  webSearchEnabled: boolean;
-  agentUpdatedAt: string;
-  agentAttachments: EmptyStateAttachment[];
   messages: ChatMessage[];
   isStreaming: boolean;
   /** True when streaming has started but no assistant token has arrived yet. */
@@ -53,8 +36,8 @@ interface MessageListProps {
 }
 
 /**
- * Renders the empty state (no messages yet) OR the message bubbles plus a
- * typing indicator while waiting for the first token.
+ * Renders the message bubbles plus a typing indicator while waiting for
+ * the first token.
  *
  * Auto-scroll behavior: pin the scroll container to the bottom on new
  * content unless the user has manually scrolled up. Threshold is ~80px from
@@ -66,7 +49,7 @@ interface MessageListProps {
  * assistant content without interrupting earlier reading; aria-busy reflects
  * isStreaming so assistive tech can convey "in progress".
  *
- * Centerline alignment (three-piece dependency, both branches below):
+ * Centerline alignment (three-piece dependency):
  *
  *   1. Page main has `scrollbar-stable` + `overflow-hidden`. Reserves a
  *      ~15px gutter on its right edge — empty space that's never used
@@ -101,12 +84,6 @@ interface MessageListProps {
  * for marginal correctness gain — explicitly not pursued.
  */
 export function MessageList({
-  agentName,
-  agentDescription,
-  agentModel,
-  webSearchEnabled,
-  agentUpdatedAt,
-  agentAttachments,
   messages,
   isStreaming,
   isWaitingForFirstToken,
@@ -134,25 +111,6 @@ export function MessageList({
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages, isWaitingForFirstToken]);
-
-  if (messages.length === 0 && !isStreaming) {
-    return (
-      <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="scrollbar-stable -mr-[15px] min-h-0 flex-1 overflow-y-auto"
-      >
-        <ChatEmptyState
-          agentName={agentName}
-          agentDescription={agentDescription}
-          agentModel={agentModel}
-          webSearchEnabled={webSearchEnabled}
-          agentUpdatedAt={agentUpdatedAt}
-          attachments={agentAttachments}
-        />
-      </div>
-    );
-  }
 
   return (
     <div
