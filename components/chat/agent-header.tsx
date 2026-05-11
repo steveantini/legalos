@@ -5,46 +5,44 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { modelLabel } from "@/lib/llm/model-label";
 
+import { CustomizeTemplateButton } from "./customize-template-button";
+
 /**
  * Rich agent header for the chat surface, per Aperture chat spec §2.1.
  * Replaces the legacy thin-strip `<header>` that lived inline in the
- * chat page (small h1 + Edit link). Three variants:
+ * chat page (small h1 + Edit link). Variants:
  *
  * Active state (default) — name (Inter Tight 28 / 400 / -0.025em / 1.05)
  * + description (14 / 1.55 / muted-fg, max 60ch) + meta chips row
- * (model / web search / attachment count) + Edit link top-right.
+ * (Department Agent / model / web search / attachment count) + a
+ * top-right action chosen by viewer × role.
  *
- * Empty-state variant (Session 19) — when `emptyState` is true, the
- * header drops the model and web-search chips because the §2.8
- * identity panel below carries those facts at full weight as part of
- * the empty-state hierarchy. Same three facts twice in the same
- * viewport reads as redundant noise. Once any message lands
- * (messages.length flips > 0), the header reverts to its full §2.1
- * form because §2.8 is no longer rendered. The transition is plain
- * conditional render — no animations on the chip elements, so the
- * model + web-search chips appear instantly when the first user
- * message lands rather than animating in mid-conversation.
- * Description, attachment count, name, and Edit link remain in both
- * variants; only model + web-search are conditional.
+ * Top-right action (Session 27 — three-way branch):
+ *   - `isTemplate && canManageTemplates` → Edit link (admin path —
+ *     the edit page admits org-admins on templates).
+ *   - `isTemplate && !canManageTemplates` → "Customize" button (calls
+ *     `forkAgentFromConversationAction` to create a personal copy
+ *     including the current conversation's messages).
+ *   - `isOwner && !isTemplate` → Edit link (user owns the agent, can
+ *     edit personal copy).
+ *   - otherwise → no top-right action.
  *
- * Soft-deleted state — wraps in a card (`bg-card-divider`,
- * `border-border-strong`, `rounded-[10px]`). Replaces the meta-chips
- * row with an `archived · transcript retained for record · no new
- * turns accepted` banner in `text-warn-fg`. No Edit link.
+ * Template chip — renders in the meta chips row when `isTemplate` is
+ * true, regardless of viewer. Slate-blue mono-caps chip ("· Department
+ * Agent") matching the existing web-search chip vocabulary.
  *
- * Centerline alignment: the header content sits at `max-w-3xl mx-auto`
- * to share the conversation column's width with user cards, assistant
- * prose, the composer, and the error/soft-delete banners. The active
- * state's `<header>` stays at the full chat-surface width (max-w-4xl
- * frame from the page main) so its `border-b` reads as a chat-surface
- * separator between agent context and conversation, with a 64px
- * overhang on each side past the 3xl content. The soft-deleted card
- * narrows to 3xl alongside the conversation column.
+ * Empty-state variant (Session 19) — when `emptyState` is true, model
+ * and web-search chips drop (§2.8 panel below carries them at full
+ * weight). Template chip and attachment count remain — they describe
+ * the agent's identity, not runtime facts.
  *
- * Client component as of Session 19 — moved out of the page's server
- * tree into ChatInterface so the `emptyState` prop can flip live as
- * messages arrive. No interactivity is added beyond what was here
- * before; "use client" is for prop-flow wiring, not for new behavior.
+ * Soft-deleted state — wraps in a card with the warn palette banner.
+ * No top-right action.
+ *
+ * Centerline alignment: header content sits at `max-w-3xl mx-auto` to
+ * share the conversation column's width. Active `<header>` stays at the
+ * full chat-surface width (max-w-4xl) so the border-b reads as a
+ * separator between agent context and conversation.
  */
 
 interface AgentHeaderProps {
@@ -56,13 +54,26 @@ interface AgentHeaderProps {
     tools_enabled: unknown;
   };
   attachmentCount: number;
+  /** Owner-of-user-agent flag (created_by === user.id). */
   isOwner: boolean;
+  /** True when this is a Pattern B canonical template (Session 27). */
+  isTemplate?: boolean;
+  /**
+   * True for super_admin / org_admin viewers. Only meaningful with
+   * `isTemplate` — chooses Edit vs. Customize in the top-right slot.
+   */
+  canManageTemplates?: boolean;
+  /**
+   * Live conversation id from ChatInterface state. Passed to the
+   * Customize button so the customize flow can copy the active
+   * conversation's messages into the new agent. Null until first turn.
+   */
+  conversationId?: string | null;
   isDeleted: boolean;
   /**
    * True when the conversation has zero messages (the §2.8 identity
    * panel is rendered below). Hides the model + web-search chips to
-   * avoid duplicating those facts with the panel's facts row. Default
-   * false — populated conversations show the full meta chip set.
+   * avoid duplicating those facts with the panel's facts row.
    */
   emptyState?: boolean;
 }
@@ -78,6 +89,9 @@ export function AgentHeader({
   agent,
   attachmentCount,
   isOwner,
+  isTemplate = false,
+  canManageTemplates = false,
+  conversationId = null,
   isDeleted,
   emptyState = false,
 }: AgentHeaderProps) {
@@ -106,9 +120,39 @@ export function AgentHeader({
   const model = modelLabel(agent.model);
   const webSearchOn = isWebSearchOn(agent.tools_enabled);
 
+  // Top-right action: three-way branch keyed on isTemplate × canManage.
+  // Owner-of-user-agent (existing Session 19 path) is the fallback.
+  let topRightAction: React.ReactNode = null;
+  if (isTemplate && canManageTemplates) {
+    topRightAction = (
+      <Link
+        href={`/workspace/agents/${agent.id}/edit`}
+        className={buttonVariants({ variant: "ghost", size: "sm" })}
+      >
+        Edit
+      </Link>
+    );
+  } else if (isTemplate && !canManageTemplates) {
+    topRightAction = (
+      <CustomizeTemplateButton
+        agentId={agent.id}
+        conversationId={conversationId}
+      />
+    );
+  } else if (isOwner) {
+    topRightAction = (
+      <Link
+        href={`/workspace/agents/${agent.id}/edit`}
+        className={buttonVariants({ variant: "ghost", size: "sm" })}
+      >
+        Edit
+      </Link>
+    );
+  }
+
   return (
     <header className="mb-4 border-b border-border pb-4">
-      <div className="mx-auto flex max-w-3xl items-start justify-between gap-4">
+      <div className="mx-auto flex w-full max-w-3xl items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-[28px] font-normal leading-[1.05] tracking-[-0.025em] text-foreground">
             {agent.name}
@@ -119,6 +163,15 @@ export function AgentHeader({
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-3">
+            {isTemplate ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-chat-cite-bg px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
+                <span
+                  aria-hidden
+                  className="h-[5px] w-[5px] rounded-full bg-primary"
+                />
+                Department Agent
+              </span>
+            ) : null}
             {model && !emptyState ? (
               <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-caption">
                 {model}
@@ -140,14 +193,7 @@ export function AgentHeader({
             ) : null}
           </div>
         </div>
-        {isOwner ? (
-          <Link
-            href={`/workspace/agents/${agent.id}/edit`}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            Edit
-          </Link>
-        ) : null}
+        {topRightAction}
       </div>
     </header>
   );

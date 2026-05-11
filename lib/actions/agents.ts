@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { isCurrentUserOrgAdmin } from "@/lib/auth/access";
 import { MODEL_PRICING } from "@/lib/llm/pricing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -359,15 +360,23 @@ export async function updateAgentAction(
 
   // Defense in depth — RLS would also reject a non-owner update, but the
   // application gate gives a clearer error and avoids the round-trip.
+  // Two permitted paths post-Session-27 (D-041 mirror-RLS principle):
+  // owner-of-user-agent OR org-admin-of-template. The underlying RLS
+  // (`agents_user_updates_own` for the first, `agents_admin_write` for
+  // the second) admits both; the app layer matches that.
   const { data: agent } = await supabase
     .from("agents")
     .select("id, created_by, is_template, type")
     .eq("id", input.agent_id)
     .maybeSingle();
+  const isOrgAdmin = agent ? await isCurrentUserOrgAdmin() : false;
+  const isOwnerOfUserAgent =
+    !!agent && agent.created_by === user.id && agent.is_template === false;
+  const isAdminOfTemplate =
+    !!agent && agent.is_template === true && isOrgAdmin;
   if (
     !agent ||
-    agent.created_by !== user.id ||
-    agent.is_template === true ||
+    (!isOwnerOfUserAgent && !isAdminOfTemplate) ||
     agent.type !== "native"
   ) {
     return { ok: false, formError: "You don't have permission to edit this agent." };
@@ -500,10 +509,15 @@ export async function softDeleteAgentAction(
     .select("id, name, created_by, is_template, type, deleted_at, departments(slug)")
     .eq("id", parsed.data.agent_id)
     .maybeSingle();
+  // Owner-of-user-agent OR org-admin-of-template (Session 27).
+  const isOrgAdmin = agent ? await isCurrentUserOrgAdmin() : false;
+  const isOwnerOfUserAgent =
+    !!agent && agent.created_by === user.id && agent.is_template === false;
+  const isAdminOfTemplate =
+    !!agent && agent.is_template === true && isOrgAdmin;
   if (
     !agent ||
-    agent.created_by !== user.id ||
-    agent.is_template === true ||
+    (!isOwnerOfUserAgent && !isAdminOfTemplate) ||
     agent.type !== "native"
   ) {
     return { ok: false, error: "You don't have permission to delete this agent." };
@@ -564,10 +578,17 @@ export async function restoreAgentAction(
     .select("id, created_by, is_template, type, deleted_at, departments(slug)")
     .eq("id", parsed.data.agent_id)
     .maybeSingle();
+  // Owner-of-user-agent OR org-admin-of-template (Session 27). The
+  // 30-day window check below applies uniformly — admins do not get
+  // extended restore for templates.
+  const isOrgAdmin = agent ? await isCurrentUserOrgAdmin() : false;
+  const isOwnerOfUserAgent =
+    !!agent && agent.created_by === user.id && agent.is_template === false;
+  const isAdminOfTemplate =
+    !!agent && agent.is_template === true && isOrgAdmin;
   if (
     !agent ||
-    agent.created_by !== user.id ||
-    agent.is_template === true ||
+    (!isOwnerOfUserAgent && !isAdminOfTemplate) ||
     agent.type !== "native"
   ) {
     return { ok: false, error: "You don't have permission to restore this agent." };
@@ -599,4 +620,385 @@ export async function restoreAgentAction(
   revalidatePath("/workspace/agents/trash");
 
   return { ok: true, agentId: agent.id, departmentSlug };
+}
+
+/**
+ * Zod schema for the create-template-agent form. Same shape as
+ * `createAgentSchema` minus the fork-source field (templates aren't
+ * forks of anything) and minus the pending-attachments path
+ * (template-create from the launchpad doesn't carry attachments at v1;
+ * admins can add them via the edit form post-creation).
+ */
+const createTemplateAgentSchema = z.object({
+  agent_id: z.string().uuid(),
+  department_slug: z.string().min(1),
+  name: z.string().trim().min(1, "Name is required.").max(120, "Name is too long."),
+  description: z.string().trim().max(500, "Description is too long.").optional(),
+  system_prompt: z
+    .string()
+    .trim()
+    .min(1, "System prompt is required.")
+    .max(20000, "System prompt is too long."),
+  model: z.enum(SUPPORTED_MODELS, { message: "Unsupported model." }),
+  tool_web_search: z
+    .string()
+    .optional()
+    .transform((v) => v === "on"),
+});
+
+/**
+ * Create a Pattern B canonical template agent (Session 27, D-041 mirror-
+ * RLS principle). Org-admin only — `isCurrentUserOrgAdmin()` gates the
+ * app layer; the underlying RLS `agents_admin_write` policy gates the
+ * DB layer.
+ *
+ * Templates differ from user-owned agents in two fields: `is_template`
+ * is true, and `created_by` is null (canonical agents have no human
+ * owner — they belong to the org). All other fields mirror the form
+ * inputs identically to `createAgentAction`.
+ */
+export async function createTemplateAgentAction(
+  _prev: AgentFormResult,
+  formData: FormData,
+): Promise<AgentFormResult> {
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, formError: "You must be signed in to create a template." };
+  }
+
+  const isOrgAdmin = await isCurrentUserOrgAdmin();
+  if (!isOrgAdmin) {
+    return { ok: false, formError: "You don't have permission to create department templates." };
+  }
+
+  const parsed = createTemplateAgentSchema.safeParse({
+    agent_id: formData.get("agent_id"),
+    department_slug: formData.get("department_slug"),
+    name: formData.get("name"),
+    description: formData.get("description") || undefined,
+    system_prompt: formData.get("system_prompt"),
+    model: formData.get("model"),
+    tool_web_search: formData.get("tool_web_search") || undefined,
+  });
+  if (!parsed.success) {
+    const fieldErrors: NonNullable<
+      Extract<AgentFormResult, { ok: false }>["fieldErrors"]
+    > = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof NonNullable<
+        Extract<AgentFormResult, { ok: false }>["fieldErrors"]
+      >;
+      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+    }
+    return { ok: false, fieldErrors };
+  }
+
+  const input = parsed.data;
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile) {
+    return { ok: false, formError: "Could not load your profile. Try signing in again." };
+  }
+
+  const { data: department } = await supabase
+    .from("departments")
+    .select("id, slug")
+    .eq("slug", input.department_slug)
+    .maybeSingle();
+  if (!department) {
+    return { ok: false, formError: "That department is not available." };
+  }
+
+  const toolsEnabled: string[] = input.tool_web_search ? ["web_search"] : [];
+
+  const { error: insertError } = await supabase
+    .from("agents")
+    .insert({
+      id: input.agent_id,
+      organization_id: profile.organization_id,
+      department_id: department.id,
+      slug: generateSlug(input.name),
+      name: input.name,
+      description: input.description ?? null,
+      type: "native" as const,
+      system_prompt: input.system_prompt,
+      model: input.model,
+      sort_order: 0,
+      is_active: true,
+      is_template: true,
+      forked_from_agent_id: null,
+      tools_enabled: toolsEnabled,
+      default_output_format: "markdown" as const,
+      created_by: null,
+    })
+    .select("id")
+    .single();
+  if (insertError) {
+    console.error("createTemplateAgentAction insert failed", {
+      code: insertError.code,
+    });
+    return { ok: false, formError: "Could not create template. Try again." };
+  }
+
+  redirect(`/workspace/departments/${department.slug}`);
+}
+
+const forkFromConversationSchema = z.object({
+  source_agent_id: z.string().uuid(),
+  source_conversation_id: z.string().uuid().nullable(),
+});
+
+export type ForkFromConversationResult =
+  | {
+      ok: true;
+      newAgentId: string;
+      newConversationId: string | null;
+      departmentSlug: string;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Customize-this-template flow (Session 27, D-041 + Step A.2 Q3).
+ * Creates a personal copy of a template and optionally copies a
+ * conversation's messages into a fresh conversation under the new
+ * agent.
+ *
+ * Steps:
+ *   1. Validate inputs + auth.
+ *   2. Load + validate source template (is_template, native, not deleted,
+ *      caller has department access).
+ *   3. INSERT the new agent (user-owned, is_template=false, forked_from
+ *      points back at the source for provenance).
+ *   4. If `source_conversation_id` is provided:
+ *        a. Verify it belongs to the caller (RLS would also reject).
+ *        b. INSERT a new conversation. system_prompt_snapshot /
+ *           model_snapshot re-snapshot from the new agent (NOT preserved
+ *           from source) per Step A.2 decision — the personal copy is a
+ *           fresh start.
+ *        c. SELECT source messages ordered by created_at.
+ *        d. Bulk INSERT into messages, preserving source created_at
+ *           for timeline coherence.
+ *
+ * Failure handling: best-effort rollback. If conversation or message
+ * copy fails after agent insert, soft-delete the orphaned agent (set
+ * deleted_at) — users have no DELETE policy on agents, so hard delete
+ * via the user client isn't available. Soft-delete keeps the row out
+ * of the launchpad and the user's trash can hard-delete it via the
+ * existing 30-day window. Surface a soft error.
+ */
+export async function forkAgentFromConversationAction(
+  formData: FormData,
+): Promise<ForkFromConversationResult> {
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "You must be signed in." };
+  }
+
+  const parsed = forkFromConversationSchema.safeParse({
+    source_agent_id: formData.get("source_agent_id"),
+    source_conversation_id: formData.get("source_conversation_id") || null,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid request." };
+  }
+  const { source_agent_id, source_conversation_id } = parsed.data;
+
+  // ---- Source template lookup + validation
+  const { data: source } = await supabase
+    .from("agents")
+    .select(
+      "id, organization_id, department_id, name, description, system_prompt, model, tools_enabled, type, is_template, is_active, deleted_at, departments(slug)",
+    )
+    .eq("id", source_agent_id)
+    .maybeSingle();
+  if (
+    !source ||
+    source.type !== "native" ||
+    source.is_template !== true ||
+    source.is_active !== true ||
+    source.deleted_at !== null ||
+    !source.system_prompt ||
+    !source.model
+  ) {
+    return { ok: false, error: "That template is not available to customize." };
+  }
+
+  // ---- Department access (defense in depth — chat surface already
+  // gates this on page load, but verify on action too).
+  const { data: hasAccess } = await supabase.rpc("has_department_access", {
+    dept_id: source.department_id,
+  });
+  if (!hasAccess) {
+    return { ok: false, error: "You don't have access to this department." };
+  }
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile) {
+    return { ok: false, error: "Could not load your profile. Try signing in again." };
+  }
+
+  const sourceTools = Array.isArray(source.tools_enabled)
+    ? (source.tools_enabled as unknown as string[])
+    : [];
+
+  // ---- INSERT the new agent (user-owned copy of the template)
+  const { data: newAgent, error: agentErr } = await supabase
+    .from("agents")
+    .insert({
+      organization_id: profile.organization_id,
+      department_id: source.department_id,
+      slug: generateSlug(`${source.name} my copy`),
+      name: `${source.name} (My Copy)`,
+      description: source.description,
+      type: "native" as const,
+      system_prompt: source.system_prompt,
+      model: source.model,
+      sort_order: 0,
+      is_active: true,
+      is_template: false,
+      forked_from_agent_id: source.id,
+      tools_enabled: sourceTools,
+      default_output_format: "markdown" as const,
+      created_by: user.id,
+    })
+    .select("id, system_prompt, model")
+    .single();
+  if (agentErr || !newAgent) {
+    console.error("forkAgentFromConversationAction agent insert failed", {
+      code: agentErr?.code,
+    });
+    return { ok: false, error: "Could not create your copy. Try again." };
+  }
+
+  const departmentSlug =
+    (source.departments as unknown as { slug: string } | null)?.slug ?? "";
+
+  // ---- If no source conversation, we're done — fresh fork.
+  if (!source_conversation_id) {
+    revalidatePath(`/workspace/departments/${departmentSlug}`);
+    return {
+      ok: true,
+      newAgentId: newAgent.id,
+      newConversationId: null,
+      departmentSlug,
+    };
+  }
+
+  // ---- Best-effort soft-delete rollback for any failure beyond this
+  // point. Users have no DELETE policy on agents (migration 0010 is
+  // UPDATE-only), so we soft-delete to keep the orphan out of the
+  // launchpad. The 30-day trash window catches it for restoration or
+  // eventual cron hard-delete.
+  async function softDeleteOrphan(): Promise<void> {
+    const { error } = await supabase
+      .from("agents")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", newAgent!.id);
+    if (error) {
+      console.error("orphan soft-delete failed", { code: error.code });
+    }
+  }
+
+  // ---- Verify source conversation ownership
+  const { data: sourceConv } = await supabase
+    .from("conversations")
+    .select("id, user_id, agent_id, title")
+    .eq("id", source_conversation_id)
+    .maybeSingle();
+  if (
+    !sourceConv ||
+    sourceConv.user_id !== user.id ||
+    sourceConv.agent_id !== source.id
+  ) {
+    await softDeleteOrphan();
+    return {
+      ok: false,
+      error: "Could not access the source conversation. Try again from the chat surface.",
+    };
+  }
+
+  // ---- INSERT new conversation. Re-snapshot from the new agent
+  // (per Step A.2 decision — personal copy is a fresh start, the
+  // template snapshot is not preserved).
+  const { data: newConv, error: convErr } = await supabase
+    .from("conversations")
+    .insert({
+      organization_id: profile.organization_id,
+      user_id: user.id,
+      agent_id: newAgent.id,
+      system_prompt_snapshot: newAgent.system_prompt,
+      model_snapshot: newAgent.model,
+      title: sourceConv.title,
+    })
+    .select("id")
+    .single();
+  if (convErr || !newConv) {
+    console.error("forkAgentFromConversationAction conversation insert failed", {
+      code: convErr?.code,
+    });
+    await softDeleteOrphan();
+    return {
+      ok: false,
+      error: "We made your copy, but couldn't bring your conversation. Try again.",
+    };
+  }
+
+  // ---- Copy messages. Bulk insert as one statement. Preserves source
+  // created_at so the conversation's timeline reflects when the turns
+  // actually happened.
+  const { data: sourceMessages } = await supabase
+    .from("messages")
+    .select("role, content, tokens_in, tokens_out, sources, tool_calls, created_at")
+    .eq("conversation_id", source_conversation_id)
+    .order("created_at", { ascending: true });
+
+  if (sourceMessages && sourceMessages.length > 0) {
+    const messagePayload = sourceMessages.map((m) => ({
+      conversation_id: newConv.id,
+      role: m.role,
+      content: m.content,
+      tokens_in: m.tokens_in,
+      tokens_out: m.tokens_out,
+      sources: m.sources,
+      tool_calls: m.tool_calls,
+      created_at: m.created_at,
+    }));
+    const { error: msgErr } = await supabase
+      .from("messages")
+      .insert(messagePayload);
+    if (msgErr) {
+      console.error("forkAgentFromConversationAction message copy failed", {
+        code: msgErr.code,
+      });
+      await softDeleteOrphan();
+      return {
+        ok: false,
+        error: "We made your copy, but couldn't copy your conversation history. Try again.",
+      };
+    }
+  }
+
+  revalidatePath(`/workspace/departments/${departmentSlug}`);
+  return {
+    ok: true,
+    newAgentId: newAgent.id,
+    newConversationId: newConv.id,
+    departmentSlug,
+  };
 }

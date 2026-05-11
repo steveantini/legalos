@@ -59,6 +59,19 @@ interface ChatInterfaceProps {
    */
   isOwner: boolean;
   /**
+   * True when the agent is a Pattern B canonical template (Session 27).
+   * AgentHeader uses this to render the "Department Agent" chip in the
+   * meta row and to branch the top-right action slot between Edit
+   * (admin) and Customize (non-admin).
+   */
+  isTemplate?: boolean;
+  /**
+   * True when the current user is super_admin / org_admin. Only
+   * meaningful in combination with `isTemplate`. Drives the Edit-vs-
+   * Customize choice in AgentHeader's top-right slot.
+   */
+  canManageTemplates?: boolean;
+  /**
    * `agents.updated_at` ISO timestamp. Surfaced by ChatEmptyState's
    * facts row (Session 19, spec §2.8) as "Last updated".
    */
@@ -112,6 +125,8 @@ export function ChatInterface({
   webSearchEnabled,
   isDeleted,
   isOwner,
+  isTemplate = false,
+  canManageTemplates = false,
   agentUpdatedAt,
   agentAttachments,
   initialMessages = [],
@@ -585,6 +600,9 @@ export function ChatInterface({
         agent={headerAgent}
         attachmentCount={agentAttachments.length}
         isOwner={isOwner}
+        isTemplate={isTemplate}
+        canManageTemplates={canManageTemplates}
+        conversationId={conversationId}
         isDeleted={isDeleted ?? false}
         emptyState={isEmpty}
       />

@@ -161,8 +161,10 @@ export function MessageBubble({
   if (message.role === "user") {
     return (
       <li role="article">
-        <div className="mx-auto max-w-3xl rounded-[10px] border border-border bg-chat-user-bubble-bg px-4 py-3 text-[14.5px] leading-[1.55] text-foreground whitespace-pre-wrap break-words">
-          {message.content}
+        <div className="mx-auto flex w-full max-w-3xl justify-end">
+          <div className="max-w-full rounded-[10px] border border-border bg-chat-user-bubble-bg px-4 py-3 text-[14.5px] leading-[1.55] text-foreground whitespace-pre-wrap break-words">
+            {message.content}
+          </div>
         </div>
       </li>
     );
@@ -176,7 +178,7 @@ export function MessageBubble({
 
   return (
     <li role="article" className="group/message">
-      <div className="mx-auto flex max-w-3xl items-start gap-2">
+      <div className="mx-auto flex w-full max-w-3xl items-start gap-2">
         <div className="min-w-0 flex-1">
           {blocks.map((b, i) => {
             if (b.kind === "tool_trace_group") {

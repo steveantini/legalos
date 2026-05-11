@@ -430,35 +430,46 @@ export interface LaunchpadAgent {
   external_url: string | null;
   category: string | null;
   sort_order: number;
+  /**
+   * True when this row is a system template (Pattern B canonical agent
+   * activated by migration 0019). The launchpad's Department Agents
+   * bucket surfaces these as chat-first cards with admin-only Edit /
+   * Delete affordances. False for user-owned agents in the My Agents
+   * bucket.
+   */
+  is_template: boolean;
 }
 
 /**
  * Two-bucket department agent loader for the Aperture launchpad:
  *
- *   - departmentAgents — canonical native agents owned by the department
- *     itself (`is_template = false AND created_by IS NULL`). Pattern B
- *     from Session 21 — system-seeded, click-to-chat-directly.
+ *   - departmentAgents — canonical native agents keyed on
+ *     `is_template = true` (Session 27 — migration 0019 activated
+ *     templates). Surfaced as chat-first cards with admin-only
+ *     Edit / Delete affordances. Click routes directly to
+ *     `/agents/<id>` (chat surface) for all users; the fork-on-click
+ *     pattern is retired in favor of a "Customize this" affordance
+ *     on the chat surface itself.
  *   - myAgents        — user-owned native agents (`is_template = false
  *     AND created_by = userId`). Click routes to the chat surface.
  *
- * Templates were retired in Session 21 — the launchpad's Templates
- * section was dropped in favor of a "+ New Agent" button in the page
- * header. The Blank Agent rows were archived (is_active=false) by
- * migration 0017 alongside that change. If template-based forking
- * returns in a future session, restore the third bucket here +
- * matching section + matching `is_template = true` page query.
+ * Pre-Session-27 the departmentAgents bucket keyed on
+ * `is_template = false AND created_by IS NULL` (Session 21's Pattern B
+ * shape before templates were activated). Migration 0019 promoted
+ * canonical rows to is_template = true; the predicate flips to match.
+ * Canonical rows still carry created_by IS NULL by convention but the
+ * type flag is the operative semantic.
  *
  * Two queries instead of one because the predicates are different
  * shapes and Postgres uses different indexes (`agents_is_template_idx`
  * vs the partial `agents_active_idx` from migration 0006). Cleaner and
  * faster than partitioning a flat result in JS.
  *
- * The `departmentAgents` and `myAgents` predicates both filter on
- * `is_template = false` but disjoin via `created_by IS NULL` vs
- * `created_by = userId` — so a user's fork of an agent that happens to
- * have a NULL created_by would not collide; in practice all forks
- * carry `created_by = userId` (the create action populates it), so the
- * two buckets are cleanly disjoint.
+ * The `departmentAgents` and `myAgents` predicates are disjoint:
+ * departmentAgents = is_template = true; myAgents = is_template = false
+ * AND created_by = userId. A user's fork is is_template = false so
+ * never appears in departmentAgents; templates are admin-managed and
+ * never appear in myAgents.
  *
  * Both queries are RLS-scoped — `agents_read_accessible` requires
  * `has_department_access(department_id)` for SELECT, so an unauthorized
@@ -485,19 +496,18 @@ export async function getAgentsForDepartmentLaunchpad(
     supabase
       .from("agents")
       .select(
-        "id, slug, name, description, type, external_url, category, sort_order",
+        "id, slug, name, description, type, external_url, category, sort_order, is_template",
       )
       .eq("department_id", departmentId)
       .eq("is_active", true)
-      .eq("is_template", false)
-      .is("created_by", null)
+      .eq("is_template", true)
       .is("deleted_at", null)
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
     supabase
       .from("agents")
       .select(
-        "id, slug, name, description, type, external_url, category, sort_order",
+        "id, slug, name, description, type, external_url, category, sort_order, is_template",
       )
       .eq("department_id", departmentId)
       .eq("is_active", true)
@@ -523,46 +533,73 @@ export interface DeletedAgent {
   name: string;
   description: string | null;
   deleted_at: string;
+  /**
+   * True when the deleted row is a system template (Pattern B). The
+   * trash page renders a "Department Agent" chip on these rows so admins
+   * can scan their own personal trash from template trash at a glance.
+   */
+  is_template: boolean;
   department: { slug: string; name: string } | null;
 }
 
 const RESTORE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * Returns the user's soft-deleted agents within the 30-day undo window,
- * ordered by deletion time descending (most recently deleted first).
+ * Returns the soft-deleted agents within the 30-day undo window that
+ * the caller can restore, ordered by deletion time descending.
  *
- * The 30-day cutoff is computed in the application layer and passed to
- * Postgres as an ISO timestamp. Slight clock skew between Next and
- * Postgres is tolerable at single-user scale; if it ever matters, lift
- * the cutoff into a SQL `now() - interval '30 days'` predicate.
+ * Visibility branches on `isOrgAdmin`:
  *
- * RLS scopes via the existing agents_read_accessible policy: a user can
- * only read agents in their org and accessible departments. The explicit
- * `created_by = userId` filter narrows further to ownership.
+ *   - Non-admin caller: their own user-owned deletions only
+ *     (`created_by = userId AND is_template = false`).
+ *   - Org-admin caller (super_admin / org_admin per
+ *     `isCurrentUserOrgAdmin()`): the union of their own user-owned
+ *     deletions AND all template deletions in the org
+ *     (`(created_by = userId AND is_template = false) OR
+ *      (is_template = true)`). Templates are surfaced so admins can
+ *     restore the canonical agents they soft-deleted via the
+ *     department launchpad's overflow menu.
+ *
+ * The 30-day cutoff is computed in the application layer. RLS scopes
+ * via the existing agents_read_accessible policy + admin_read_all
+ * policy (migration 0001): admins read all org-scoped agents
+ * regardless of created_by; non-admins read only rows they have
+ * department access to.
  */
 export async function getDeletedAgentsForUser(
   userId: string,
+  isOrgAdmin = false,
 ): Promise<DeletedAgent[]> {
   const supabase = await createSupabaseServerClient();
   const cutoff = new Date(Date.now() - RESTORE_WINDOW_MS).toISOString();
 
-  const { data } = await supabase
+  // Both branches return rows with `deleted_at NOT NULL` and within the
+  // 30-day cutoff. The admin branch unions in template-typed deletions
+  // via PostgREST's `or()` filter; the non-admin branch is just the
+  // owner-of-non-template predicate.
+  const baseQuery = supabase
     .from("agents")
     .select(
-      "id, name, description, deleted_at, departments(slug, name)",
+      "id, name, description, deleted_at, is_template, departments(slug, name)",
     )
-    .eq("created_by", userId)
-    .eq("is_template", false)
     .not("deleted_at", "is", null)
     .gt("deleted_at", cutoff)
     .order("deleted_at", { ascending: false });
+
+  const filteredQuery = isOrgAdmin
+    ? baseQuery.or(
+        `and(created_by.eq.${userId},is_template.eq.false),is_template.eq.true`,
+      )
+    : baseQuery.eq("created_by", userId).eq("is_template", false);
+
+  const { data } = await filteredQuery;
 
   return (data ?? []).map((row) => ({
     id: row.id,
     name: row.name,
     description: row.description,
     deleted_at: row.deleted_at as string,
+    is_template: row.is_template as boolean,
     department: row.departments as unknown as
       | { slug: string; name: string }
       | null,

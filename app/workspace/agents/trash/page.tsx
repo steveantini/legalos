@@ -1,21 +1,35 @@
 import { RestoreButton } from "@/components/agents/restore-button";
-import { getDeletedAgentsForUser, requireAuthUser } from "@/lib/auth/access";
+import {
+  getDeletedAgentsForUser,
+  isCurrentUserOrgAdmin,
+  requireAuthUser,
+} from "@/lib/auth/access";
 
 /**
  * Trash page — content only. Inherits chrome (rail + top bar) from
- * `app/(workspace)/layout.tsx`. Lists the user's soft-deleted agents
- * within the 30-day undo window. Each row offers a Restore button that
- * calls `restoreAgentAction` via a `<form>` (no client-side state — the
- * action runs server-side and `revalidatePath("/agents/trash")` removes
- * the row from the list on the next render).
+ * `app/(workspace)/layout.tsx`. Lists soft-deleted agents within the
+ * 30-day undo window. Each row offers a Restore button that calls
+ * `restoreAgentAction` via a `<form>` (no client-side state — the
+ * action runs server-side and `revalidatePath("/agents/trash")`
+ * removes the row from the list on the next render).
  *
- * Beyond-30-day rows are filtered out by the query and remain in the DB
- * until a future cron job hard-deletes them. Hard delete is not user-
- * callable.
+ * Visibility branches on org-admin role (Session 27):
+ *
+ *   - Non-admin viewers see their own user-owned deletions only.
+ *   - Org-admin viewers see their own user-owned deletions PLUS all
+ *     template deletions in the org (Pattern B canonicals soft-
+ *     deleted via the launchpad overflow menu). Template rows render
+ *     a "Department Agent" chip next to the name so admins can scan
+ *     personal trash from template trash at a glance.
+ *
+ * Beyond-30-day rows are filtered out by the query and remain in the
+ * DB until a future cron job hard-deletes them. Hard delete is not
+ * user-callable.
  */
 export default async function TrashPage() {
   const user = await requireAuthUser();
-  const deleted = await getDeletedAgentsForUser(user.id);
+  const isOrgAdmin = await isCurrentUserOrgAdmin();
+  const deleted = await getDeletedAgentsForUser(user.id, isOrgAdmin);
 
   return (
     <main className="mx-auto max-w-3xl">
@@ -37,7 +51,18 @@ export default async function TrashPage() {
               className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4"
             >
               <div className="min-w-0 flex-1">
-                <p className="font-medium">{agent.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">{agent.name}</p>
+                  {agent.is_template ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-chat-cite-bg px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
+                      <span
+                        aria-hidden
+                        className="h-[5px] w-[5px] rounded-full bg-primary"
+                      />
+                      Department Agent
+                    </span>
+                  ) : null}
+                </div>
                 {agent.description ? (
                   <p className="mt-1 text-sm text-muted-foreground">
                     {agent.description}

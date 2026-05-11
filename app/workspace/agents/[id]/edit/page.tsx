@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 
 import { AgentForm } from "@/components/agents/agent-form";
 import { updateAgentAction } from "@/lib/actions/agents";
-import { getAgent, requireAuthUser } from "@/lib/auth/access";
+import {
+  getAgent,
+  isCurrentUserOrgAdmin,
+  requireAuthUser,
+} from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ExistingAttachmentRow = {
@@ -34,19 +38,24 @@ export default async function EditAgentPage({ params }: PageProps) {
   const user = await requireAuthUser();
   const { id } = await params;
   const agent = await getAgent(id);
+  // canManageTemplates only matters when the agent is a template;
+  // fetched in parallel via the `cache()`-memoized helper from
+  // Session 26.
+  const canManageTemplates = agent?.is_template ? await isCurrentUserOrgAdmin() : false;
 
-  // Single notFound() outcome for any failure path so we never leak which
-  // condition tripped: missing agent (caught by the layout already, but
-  // defensive here too), RLS-hidden, owned by someone else, template,
-  // external, soft-deleted (deleted agents are restored from
-  // `/agents/trash`, not edited directly), missing prompt or model
-  // (which would mean the agent's a malformed native row), or no
-  // department on the join (defensive — `getAgent` uses inner join, so
-  // department is always present for visible agents).
+  // Two permitted paths (Session 27 widening of Session 8f-B's gate):
+  //   - Owner of a user-owned non-template agent.
+  //   - Org-admin (super_admin / org_admin) of a template.
+  // Plus the universal sanity checks: native, non-deleted, prompt and
+  // model present, department on the join. Single notFound() outcome
+  // for any failure preserves the existence-leak guarantee from D-009.
+  const isOwnerOfUserAgent =
+    !!agent && agent.created_by === user.id && agent.is_template === false;
+  const isAdminOfTemplate =
+    !!agent && agent.is_template === true && canManageTemplates;
   if (
     !agent ||
-    agent.created_by !== user.id ||
-    agent.is_template === true ||
+    (!isOwnerOfUserAgent && !isAdminOfTemplate) ||
     agent.type !== "native" ||
     agent.deleted_at !== null ||
     !agent.system_prompt ||
@@ -56,14 +65,10 @@ export default async function EditAgentPage({ params }: PageProps) {
     notFound();
   }
 
-  // Attachments live in a sibling table; `getAgent` doesn't fetch them
-  // (correct — the helper is per-row on `agents`). One inline query
-  // here. If a second consumer of attachments emerges, extract a
-  // `getAgentAttachments(id)` helper at that point. Filtering on
-  // `deleted_at IS NULL` skips removed attachments; ordering by
-  // `created_at ASC` matches the deterministic ordering used in the
-  // chat route's system-block construction so a user sees the same
-  // order both places.
+  // Attachments live in a sibling table; `getAgent` doesn't fetch them.
+  // Filtering on `deleted_at IS NULL` skips removed attachments;
+  // ordering by `created_at ASC` matches the deterministic ordering
+  // used in the chat route's system-block construction.
   const supabase = await createSupabaseServerClient();
   const { data: attachmentRows } = await supabase
     .from("agent_attachments")
@@ -98,6 +103,20 @@ export default async function EditAgentPage({ params }: PageProps) {
           original prompt and model snapshot.
         </p>
       </header>
+
+      {agent.is_template ? (
+        <div
+          role="note"
+          className="mb-6 rounded-md border border-warn-fg/30 bg-warn-bg px-4 py-3 text-[13px] leading-[1.55] text-warn-fg-deep"
+        >
+          <p className="font-medium text-warn-fg">Template</p>
+          <p className="mt-1">
+            Edits to this agent affect everyone in your organization. Existing
+            conversations keep their original system prompt; new conversations
+            will use your edits.
+          </p>
+        </div>
+      ) : null}
 
       <AgentForm
         mode="edit"

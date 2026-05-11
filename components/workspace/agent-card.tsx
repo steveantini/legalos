@@ -34,23 +34,28 @@ interface AgentCardProps {
     description: string | null;
     type: "external" | "native";
     external_url: string | null;
+    /**
+     * True when this row is a Pattern B canonical template (migration
+     * 0019, Session 27). Templates are surfaced in the Department
+     * Agents bucket of the launchpad and route to chat on click;
+     * admins get an additional overflow menu for edit/delete.
+     */
+    is_template: boolean;
   };
   departmentSlug: string;
   /**
-   * True when this card represents a system template (`is_template = true`).
-   * Native templates link to the fork form (`/agents/new?fork_from=…`)
-   * instead of the chat surface; external templates fall through to the
-   * external-link branch unchanged. The 6 Commercial templates remain
-   * `type='external'` until a future session promotes them to native, so
-   * external + isTemplate is a real, transitional state — not a bug.
+   * True when the current user can manage templates
+   * (super_admin / org_admin per `isCurrentUserOrgAdmin()`). Only
+   * meaningful when `agent.is_template` is true — non-template cards
+   * ignore this flag. Drives the admin overflow menu (Edit / Delete)
+   * on template cards.
    */
-  isTemplate?: boolean;
+  canManageTemplates?: boolean;
   /**
    * True when this card represents an agent the current user owns and
-   * can edit / delete. The Templates query and the My Agents query are
-   * separate buckets in `getAgentsForDepartmentLaunchpad`; the page
-   * passes this flag to the cards in each bucket. Menus only render
-   * when explicitly enabled.
+   * can edit / delete. The My Agents bucket passes this true; the
+   * Department Agents bucket passes it false. Menus only render when
+   * explicitly enabled.
    */
   isMyAgent?: boolean;
 }
@@ -61,21 +66,26 @@ interface AgentCardProps {
  * border, hover lift + shadow grow + border darken with the same
  * 220ms cubic-bezier(.2,.7,.2,1) timing) but the body shape is simpler:
  * just name + description, no foot or arrow circle. Agents are leaves
- * (click → chat or fork form), not navigational containers.
+ * (click → chat), not navigational containers.
  *
- * Three render branches:
+ * Four render branches:
  *
- * - `type === 'external'` → `<a target="_blank">` to `external_url`
- * - `type === 'native' && isTemplate` → `<Link>` to the fork form
- * - `type === 'native' && !isTemplate && isMyAgent` → stretched-link card
- *   with overflow menu (Edit / Delete with Undo toast). The card body is
- *   pointer-events-none; the link is absolute-positioned to fill the
- *   card; the menu trigger sits at z-20 with pointer-events-auto so its
- *   own clicks register without bubbling.
- * - `type === 'native' && !isTemplate && !isMyAgent` → plain `<Link>` to
- *   the chat surface. (Shouldn't happen in normal usage — the launchpad
- *   query buckets every native non-template into My Agents — but this
- *   keeps the component total over the agent shape.)
+ * - `type === 'external'` → `<a target="_blank">` to `external_url`.
+ * - `agent.is_template && canManageTemplates` → stretched-link card to
+ *   chat plus admin overflow menu (Edit routes to the edit form which
+ *   admits org-admins on templates; Delete confirms and soft-deletes
+ *   via the widened `softDeleteAgentAction`).
+ * - `agent.is_template && !canManageTemplates` → plain `<Link>` to chat.
+ *   No overflow menu — non-admins chat with the template but can't
+ *   manage it. The fork-on-click pattern (Session 8f-A) is retired in
+ *   Session 27; the chat surface itself carries the "Customize this"
+ *   affordance for non-admins who want a personal copy.
+ * - `agent.type === 'native' && !is_template && isMyAgent` →
+ *   stretched-link card with user overflow menu (Edit / Delete with
+ *   Undo toast).
+ * - `agent.type === 'native' && !is_template && !isMyAgent` → plain
+ *   `<Link>` to chat (defensive — shouldn't happen in normal launchpad
+ *   buckets, but covers the agent shape totally).
  *
  * Analytics fires on `onPointerDown` so cmd-click / middle-click
  * open-in-new-tab behaviors don't tear down the React tree before
@@ -91,7 +101,7 @@ const stretchedLinkClassName =
 export function AgentCard({
   agent,
   departmentSlug,
-  isTemplate,
+  canManageTemplates,
   isMyAgent,
 }: AgentCardProps) {
   function handlePointerDown() {
@@ -131,12 +141,23 @@ export function AgentCard({
     );
   }
 
-  if (isTemplate) {
+  // Template branches (Session 27)
+  if (agent.is_template) {
+    if (canManageTemplates) {
+      return (
+        <EditableAgentCard
+          agent={agent}
+          mode="admin-template"
+          onPointerDownLink={handlePointerDown}
+          body={body}
+        />
+      );
+    }
     return (
       <Link
-        href={`/workspace/agents/new?department=${departmentSlug}&fork_from=${agent.id}`}
+        href={`/workspace/agents/${agent.id}`}
         onPointerDown={handlePointerDown}
-        aria-label={`Fork ${agent.name}`}
+        aria-label={`Open ${agent.name}`}
         className={cardClassName}
       >
         {body}
@@ -144,7 +165,8 @@ export function AgentCard({
     );
   }
 
-  // Native, not a template, not isMyAgent — defensive plain link.
+  // Defensive plain link for native + non-template + non-myAgent (shouldn't
+  // happen in normal launchpad buckets but covers the agent shape totally).
   if (!isMyAgent) {
     return (
       <Link
@@ -159,23 +181,62 @@ export function AgentCard({
   }
 
   return (
-    <MyAgentCard
+    <EditableAgentCard
       agent={agent}
+      mode="my-agent"
       onPointerDownLink={handlePointerDown}
       body={body}
     />
   );
 }
 
-interface MyAgentCardProps {
+interface EditableAgentCardProps {
   agent: AgentCardProps["agent"];
+  /**
+   * Copy and stakes vary by mode:
+   *
+   *   - "my-agent": a user-owned agent. Delete dialog scopes to the
+   *     individual; toast surfaces an Undo action.
+   *   - "admin-template": a system template visible to every user in
+   *     the department. Delete dialog highlights org-wide impact;
+   *     forked copies remain unaffected. Toast still surfaces Undo —
+   *     the 30-day restore window is uniform across types.
+   */
+  mode: "my-agent" | "admin-template";
   onPointerDownLink: () => void;
   body: React.ReactNode;
 }
 
-function MyAgentCard({ agent, onPointerDownLink, body }: MyAgentCardProps) {
+function EditableAgentCard({
+  agent,
+  mode,
+  onPointerDownLink,
+  body,
+}: EditableAgentCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const isAdminMode = mode === "admin-template";
+  const dialogTitle = isAdminMode
+    ? "Delete Department Agent?"
+    : "Delete this agent?";
+  // Two-sentence pattern matching ux-writing.md's destructive
+  // confirmation rules: state the consequence + name the affected
+  // thing + give the recovery window. The admin variant adds the
+  // org-wide stakes plus the forks-survive note (per D-041 + Step A.2
+  // Thread 10 — forks are independent post-creation).
+  const dialogBody = isAdminMode ? (
+    <>
+      <strong>{agent.name}</strong> will be moved to the trash. Other users
+      will no longer see it on the department launchpad. Their forked copies
+      are unaffected. You can restore it within 30 days.
+    </>
+  ) : (
+    <>
+      <strong>{agent.name}</strong> will be moved to the trash. You can
+      restore it within 30 days.
+    </>
+  );
 
   function onConfirmDelete() {
     startTransition(async () => {
@@ -189,7 +250,11 @@ function MyAgentCard({ agent, onPointerDownLink, body }: MyAgentCardProps) {
         return;
       }
 
-      toast(`${result.agentName} deleted`, {
+      const toastMessage = isAdminMode
+        ? `${result.agentName} deleted from launchpad`
+        : `${result.agentName} deleted`;
+
+      toast(toastMessage, {
         action: {
           label: "Undo",
           onClick: async () => {
@@ -248,11 +313,8 @@ function MyAgentCard({ agent, onPointerDownLink, body }: MyAgentCardProps) {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete this agent?</DialogTitle>
-            <DialogDescription>
-              <strong>{agent.name}</strong> will be moved to the trash. You
-              can restore it within 30 days.
-            </DialogDescription>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogDescription>{dialogBody}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button

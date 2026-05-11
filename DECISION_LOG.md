@@ -989,3 +989,112 @@ Optimistic update was preferred over server-only revalidation because the model-
 - `DepartmentCard` is now a client component. Card-level transient state has a place to live; future card-level features (delete confirmation, reorder drag handle, hover-revealed metadata) can attach without further refactor.
 - `supabase/seed/0001_org_and_departments.sql` still contains the original (now inaccurate) department descriptions. A fresh local dev environment will produce the old copy. Acceptable through Phase 2; a future consolidation session — perhaps when multi-org ships, perhaps sooner — should update the seed to match whatever production copy has converged on.
 - dept_admin users see the workspace landing but cannot edit department descriptions. The visible behavior (no pencil affordance for dept_admin) matches the underlying RLS predicate. If a future decision widens dept_admin’s authority over their own department’s description, both the RLS write policy and the app-layer helper need to change in lockstep.
+
+## D-042 — Pattern B canonical templates: activation, admin lifecycle, and chat-with-template UX
+
+Date: 2026-05-13
+Status: Accepted
+
+**Context:** Templates infrastructure has existed since Session 8a (D-025 — the native-agent runtime built alongside user-owned agents) and Session 8f-A (the fork pattern, anchored by `forked_from_agent_id` FK with `ON DELETE SET NULL`). Pattern B — canonical org-curated templates that users fork — was the intent but had never been activated. Session 21 deliberately retired the launchpad’s Templates section pending product clarity on who curates and how.
+
+Session 27’s framing surfaced the real shape. In-house legal departments and law firms need a curated set of approved agents per department, with knowledge-management or org-admin lead curating; sole practitioners don’t need templates and just create user-owned agents directly. The “Department Agents” a user saw on the launchpad before Session 27 were system-seeded rows with `is_template = false` — semantically intended as canonical but flagged wrong. Three product surfaces needed coherent treatment in one session: who can manage templates, what users do when they click one, and what visual signals communicate “this is the org’s canonical version.”
+
+**Decision:** Activate Pattern B. Migration 0019 flips `is_template = true` on every `created_by IS NULL` row (15 rows in dev). Templates surface on the department launchpad as “Department Agents” — the user-facing label preserved from the prior section title for semantic continuity. Users think “the firm’s NDA review tool,” not “the NDA review template”; admin surfaces (edit-page banner, trash chip) use Template vocabulary where the technical specificity matters.
+
+Admin lifecycle on templates — edit, soft-delete, create — is gated to super_admin / org_admin only via Session 26’s `isCurrentUserOrgAdmin()`. dept_admin is intentionally excluded at the application layer; templates are org-wide artifacts, and centralized curation matches the customer model for the foreseeable cohort.
+
+The edit surface reuses `/workspace/agents/[id]/edit` with a permission tweak (gate widened from “owner only” to “owner-of-non-template OR org-admin-of-template”) and a warn-palette banner above the form: *“Edits to this agent affect everyone in your organization. Existing conversations keep their original system prompt; new conversations will use your edits.”* The second sentence is load-bearing — it surfaces the snapshot semantics in plain language without leaking the word “snapshot.”
+
+Soft-delete uses existing Session 8f-B infrastructure with 30-day undo. The shared `/workspace/agents/trash` surface widens for admins: it now lists template deletions alongside the admin’s own user-owned deletions, with a “Department Agent” chip on template rows for scannability. Non-admins continue to see only their own user-owned deletions.
+
+Click behavior on Department Agents: primary click navigates to `/workspace/agents/<template-id>` — the chat surface, not the fork form. Fork-on-click is retired. This is the substantive product-correctness change: interaction-first products separate use from customization. Forking on click conflated them; clicking now lets users converse with the firm’s canonical version without creating a personal copy until they deliberately want one.
+
+The Customize affordance is chat-surface only, post-engagement. The top-right corner of `agent-header.tsx` (where Edit lives for owned agents) renders “Customize” for non-admin users viewing a template. Clicking forks the agent AND copies the active conversation (if one exists) into a fresh conversation under the new agent. The original template’s conversation stays attached to the template, untouched. Snapshot semantics on the copied conversation: re-snapshot from the new agent (not preserve the source’s snapshot), so future template edits don’t ghost-update the user’s prompt and future edits to the user’s fork land on subsequent conversations as expected.
+
+The template signal is a persistent “Department Agent” chip in the agent header meta-chip row using Aperture’s slate-blue mono-caps vocabulary (matching the existing Web Search chip). Renders whenever `agent.is_template` is true, regardless of viewer. No first-turn banner — passive persistent context is the cutting-edge convention.
+
+Three-way top-right slot logic in `agent-header.tsx`:
+- owner-of-non-template → Edit link.
+- template + `canManageTemplates` → Edit link (admin path).
+- template + `!canManageTemplates` → Customize button.
+- soft-deleted → no top-right action.
+
+Schema decisions surfaced in Step A.2 research were confirmed by reading. Conversations remain user-scoped via existing `conversations_user_owns` RLS — multiple users chatting with the same template each get their own thread automatically, no schema work needed. `system_prompt` and `model` are snapshotted per-conversation at creation time (per migration 0004’s design intent and CLAUDE.md’s AI Integration Rules), so admin edits don’t disturb in-flight conversations. `tools_enabled` and `agent_attachments` are NOT snapshotted — flagged in Consequences as behavior to monitor.
+
+`forkAgentFromConversationAction` implementation: three-step transactional insert (new agent → new conversation → bulk message insert) with best-effort soft-delete rollback on conversation-copy failure. Users have no DELETE policy on agents (migration 0010 is UPDATE-only), so hard rollback isn’t available via the user-scoped client; soft-delete via `deleted_at = now()` hides the orphan and lets it surface in the admin’s 30-day trash window for recovery or eventual cron hard-delete.
+
+**Reasoning:** Templates as data, not code: the pattern survives multi-tenant rollout cleanly. Each org curates its own templates; the schema’s `organization_id` scoping does the work.
+
+“Department Agents” user-facing label vs. “Template” engineer-facing label: the cutting-edge convention is to never leak data-model vocabulary as user-facing copy unless users think in those terms (Notion, Linear, Figma, Cursor consistently). Legal practitioners think “the firm’s NDA review tool,” not “the NDA review template.” Admin surfaces use Template vocabulary where technical specificity matters.
+
+Chat-with-template vs. fork-on-click: ChatGPT’s GPT Store, Cursor’s community modes, Figma’s Community files — all converged on click-to-use, fork-as-deliberate-action. Forking on click pollutes My Agents with one-off copies and treats engagement as a heavyweight commitment. The user’s mental model is “use the firm’s tool”; customization is what happens when usage reveals a gap.
+
+Conversation copy on Customize: when the user clicks Customize mid-conversation, what they were doing matters. Carrying the conversation into the new copy preserves that intent. Starting the user’s copy with an empty thread treats the prior conversation as throwaway. Re-snapshotting from the new agent (rather than preserving the source’s snapshot) is the cleaner option: at fork-creation time the new agent’s prompt equals the template’s current prompt, so re-snapshotting produces identical content with cleaner downstream semantics — admin edits to the template don’t ghost-update the user’s prompt, and user edits to their fork land as expected on subsequent conversations.
+
+Persistent chip vs. one-time banner: chips are passive context users learn once and absorb forever; banners are temporary state requiring dismissal. The chip carries the load.
+
+Org-admin-only (not dept-admin) for template management is tighter than RLS allows. Session 26’s D-041 established the mirror-RLS principle — don’t surface affordances that would 403 because of an RLS gate. Session 27 inverts the framing: deliberately narrower than RLS for product-policy reasons (templates are org-wide artifacts; centralized curation matches the customer model). Worth flagging because the tightening direction is opposite D-041’s and the reasoning is product, not technical.
+
+Edit-page reuse vs. dedicated `/admin/templates` route: same underlying schema, same form fields, same validation. Building a parallel route for template editing would duplicate ~200 lines of form logic for a gate-and-banner difference. The reuse path with permission tweak + visual signal is the right scope now; if template editing diverges significantly later (draft/publish, version history, approval queue) a dedicated route earns its place at that time.
+
+**Alternatives considered:**
+
+- *Hard-coded department agent descriptions edited via deploy.* Rejected — descriptions are data, not code; D-041 established the principle for department descriptions, same logic applies to agents.
+- *AI-generated descriptions from agent contents.* Rejected — system prompts and names are stable curated copy; AI generation introduces variance for copy that’s authored once and edited rarely.
+- *Click-to-fork (pre-Session-27 behavior).* Rejected — conflates use with customization; pollutes My Agents with one-off exploratory copies; doesn’t match how legal practitioners engage with firm tools.
+- *Customize affordance on the card alongside chat affordance.* Rejected — asks the user to make a meta-decision on every hover; cutting-edge convention is fewer affordances doing more work, with customize entering at the moment of revealed need (mid-conversation).
+- *Modal-based template edit.* Rejected — same logic as D-041; modals are for multi-field forms with significant ceremony; template edit is a full form better suited to a dedicated page.
+- *dept_admin role widened to template management with corresponding RLS migration.* Rejected — increases scope without earning its place against the current product policy of centralized template curation; the dept_admin role can be revisited if a customer specifically asks for it.
+- *Dedicated `/admin/templates/[id]/edit` route.* Rejected — duplicates form logic for a gate-and-banner difference; reuse path with permission tweak is the right scope.
+- *Snapshot semantics: preserve source conversation’s snapshot on fork.* Rejected — creates a ghost-update problem when an admin later edits the template; re-snapshotting from the new agent is cleaner downstream.
+- *First-turn banner on chat-with-template surface.* Rejected — passive persistent chip is the cutting-edge convention; banners are temporary state requiring dismissal.
+
+**Consequences:**
+
+- Pattern B is now active. Templates are org-level artifacts curated by org-admins, forkable by any user, surfaced as Department Agents on the launchpad.
+- The direct-manipulation pattern (D-041) extends from short admin-editable copy to full template lifecycle. Users see admin affordances only when `canManageTemplates` resolves true; the affordance shape (overflow menu with Edit + Delete, confirmation dialog with org-stakes copy, toast Undo) mirrors the MyAgentCard pattern from Session 8f-B with permission scope widened.
+- “Customize” establishes fork-from-conversation as a first-class operation in the product. The schema supports it cleanly; the action is reusable for any future fork-with-history flows (template-of-template, conversation snapshots, etc.).
+- `isCurrentUserOrgAdmin` remains the org-level admin gate. The mirror-RLS principle from D-041 is **not** universal — Session 27 deliberately gates tighter than RLS for product-policy reasons. Future similar product-policy gates should explicitly note the divergence in their own ADR.
+- `tools_enabled` and `agent_attachments` are NOT snapshotted per-conversation — they read live from the agent row per turn. Admin edits to a template’s web-search toggle or attached files will propagate to in-flight conversations on the next turn. This is the existing schema’s behavior (not a Session 27 introduction) but becomes more user-visible now that templates are admin-mutable. Acceptable for the customer cohort through Phase 2; if a customer surfaces a need for “edits are atomic at conversation boundary” behavior, snapshot `tools_enabled` and attachments at conversation creation alongside `system_prompt` and `model`.
+- The fork-on-click code path (the `isTemplate` branch in `agent-card.tsx` routing to `/workspace/agents/new?fork_from=<id>`) is retired from card click. The new-agent page still accepts the `fork_from` URL param for explicit fork-from-template flows from the chat-surface Customize button.
+- Trash now contains template entries visible to admins. Admins use trash for both their own user-owned deletions and the org’s template deletions; the chip distinguishes them.
+- `createTemplateAgentAction` sets `created_by = NULL` on new templates (not the admin’s `user_id`). Templates are org-canonical, not personal — the NULL anchor places conceptual ownership at the organization, not at the individual admin who authored the template. Matches the pre-existing convention for seeded canonical agents.
+- The conversation-copy step in `forkAgentFromConversationAction` is the largest piece of net-new code in this session. Failure handling uses best-effort soft-delete rollback because users have no DELETE policy on agents. Future hardening (RPC for true transactional rollback, or a service-role action) is acknowledged but deferred — current behavior produces a soft-deleted orphan that the admin can find in trash, not silent corruption.
+
+## D-043 — Chat-surface centerline alignment: shrink-to-content regression fix and right-anchored user bubbles
+
+Date: 2026-05-13
+Status: Accepted
+
+**Context:** Session 17b shipped the “single-centerline alignment” promise — every chat-surface element centered at the same x-axis. Verification at the time happened with longer message content that filled the 3xl ceiling, masking a latent issue.
+
+Session 27’s smoke surfaced the regression: the agent header content, user message bubble, and assistant prose wrapper were not aligned for short content. Diagnosis traced to `mx-auto max-w-3xl` without `w-full` on three wrappers — `max-w-3xl` is a ceiling, not a width; without `w-full` the container shrinks to content width and `mx-auto` then centers a *shrunk* element, producing content-length-dependent x-coordinate variance.
+
+Subsequent operator inspection raised a second perception concern: even with the centerline math correct, the chat surface didn’t *read* as a contained chat column the way ChatGPT / Claude.ai / Cursor surfaces do. Right-anchored user bubbles are the cutting-edge convention; the prior left-anchored bubble shape contributed to the “elements floating on a page” perception even when geometrically aligned.
+
+**Decision:** Fix the shrink-to-content centerline regression by adding `w-full` to the three wrappers Session 17b missed:
+- `agent-header.tsx:155` — flex container around name / description / chips / top-right action.
+- `message-bubble.tsx` assistant variant — wrapper around prose + citations + download button.
+- `message-bubble.tsx` user variant — restructured (see below).
+
+Right-anchor user message bubbles. Replace the prior left-anchored `inline-block` bubble with `<div className="mx-auto flex w-full max-w-3xl justify-end">` outer wrapper plus a naked inner bubble (no `inline-block`, `max-w-full` retained as the per-bubble width cap). User bubbles now sit flush against the column’s right edge with shrink-to-content width capped at the column width. Matches ChatGPT, Claude.ai, Cursor, and the established messaging-app convention.
+
+Chat-surface containment — the deeper “the column doesn’t read as a contained surface” perception — is deferred to Session 28 as its own focused effort.
+
+**Reasoning:** The cutting-edge chat-surface convention right-anchors user messages. Every modern AI product (Claude.ai, ChatGPT, Cursor, GitHub Copilot Chat) and every messaging app (iMessage, WhatsApp, Slack) places user content on the right and counterparty content on the left. The pattern leverages a deeply-learned mental model: “what I said” lives on one side, “what they said” lives on the other. Left-anchored user bubbles forced the eye to derive the speaker distinction from styling alone (tinted card vs. bare prose) — which the Aperture spec already does — but right-anchoring layers on the spatial cue for free.
+
+The shrink-to-content fix is a true regression. Session 17b’s CHANGELOG explicitly promised the centerline contract that wasn’t being delivered for short content. Acknowledged as a regression rather than a new feature.
+
+Geometric measurement via browser console `getBoundingClientRect` confirmed alignment was correct after the `w-full` and right-anchor fixes — header content, user bubble outer wrapper, and composer all at the same x-coordinate. The remaining “chat surface still feels off” perception is a containment issue, not a centerline issue. Separating those problems lets each get its own clean session.
+
+**Alternatives considered:**
+
+- *Center user bubbles within the column.* Rejected — non-standard convention; breaks the user mental model from messaging-app context.
+- *Keep left-anchored user bubbles.* Rejected — fails the conversational-back-and-forth pattern users expect from chat surfaces; even with centerline math fixed, the visual asymmetry between left-anchored user content and full-width assistant prose contributed to the “off” perception.
+- *Address chat-surface containment in Session 27.* Rejected — would bloat a session already large with templates work; containment is a separate design call that warrants its own research and decision.
+
+**Consequences:**
+
+- Single-centerline alignment is now correctly delivered for content of any length. The `w-full max-w-3xl` pattern is the canonical wrapper shape for chat-surface elements; future additions should match.
+- User bubbles use `flex … justify-end` as the new pattern. Assistant prose stays left-anchored full-column. The visual rhythm is now legibly back-and-forth.
+- Chat-surface containment is deferred to Session 28 as a focused effort.

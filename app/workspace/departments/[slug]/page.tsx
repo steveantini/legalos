@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import {
   getAgentsForDepartmentLaunchpad,
   getDepartmentIfAccessible,
+  isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
 
@@ -72,12 +73,18 @@ export default async function DepartmentLaunchpadPage({
     notFound();
   }
 
-  const { departmentAgents, myAgents } = await getAgentsForDepartmentLaunchpad(
-    department.id,
-    user.id,
-  );
+  const [{ departmentAgents, myAgents }, canManageTemplates] = await Promise.all([
+    getAgentsForDepartmentLaunchpad(department.id, user.id),
+    isCurrentUserOrgAdmin(),
+  ]);
 
-  const newAgentHref = `/workspace/agents/new?department=${department.slug}`;
+  // Admins land on the template-create path (creates a Department
+  // Agent); non-admins land on the personal-create path (creates a
+  // user-owned agent). Single label keeps the launchpad chrome
+  // uniform; the form on /agents/new handles each path's UX.
+  const newAgentHref = canManageTemplates
+    ? `/workspace/agents/new?department=${department.slug}&as_template=true`
+    : `/workspace/agents/new?department=${department.slug}`;
 
   return (
     <>
@@ -106,6 +113,7 @@ export default async function DepartmentLaunchpadPage({
           <AgentGrid
             agents={departmentAgents}
             departmentSlug={department.slug}
+            canManageTemplates={canManageTemplates}
           />
         </section>
       ) : null}

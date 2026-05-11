@@ -4,6 +4,7 @@ import { ChatInterface } from "@/components/chat/chat-interface";
 import {
   getAgent,
   getConversationForChatSurface,
+  isCurrentUserOrgAdmin,
   requireAuthUser,
   type ConversationMessage,
 } from "@/lib/auth/access";
@@ -63,6 +64,12 @@ export default async function AgentChatPage({
   const webSearchEnabled =
     Array.isArray(agent.tools_enabled) &&
     (agent.tools_enabled as unknown[]).includes("web_search");
+  // Templates surface a "Department Agent" chip and an Edit-vs-Customize
+  // top-right action in AgentHeader. canManageTemplates is only fetched
+  // when the agent is a template (templates with no admin viewer get the
+  // Customize button; admin viewers get the Edit link instead).
+  const isTemplate = agent.is_template;
+  const canManageTemplates = isTemplate ? await isCurrentUserOrgAdmin() : false;
 
   // Load full attachment rows. ChatInterface forwards `attachments` to
   // ChatEmptyState's file list (Session 19, spec §2.8) and synthesizes
@@ -116,6 +123,8 @@ export default async function AgentChatPage({
         webSearchEnabled={webSearchEnabled}
         isDeleted={isDeleted}
         isOwner={isOwner}
+        isTemplate={isTemplate}
+        canManageTemplates={canManageTemplates}
         agentUpdatedAt={agent.updated_at}
         agentAttachments={attachments}
         initialMessages={initialMessages}
