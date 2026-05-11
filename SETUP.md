@@ -202,6 +202,51 @@ directly in the dashboard:
 This is the path Session 7 used for the production deploy. The dev-signup
 path above remains the recommended flow for the dev project.
 
+### 3g. Configure custom SMTP via Resend (sandbox mode)
+
+Supabase's default email provider caps at 2/hour on the free tier, which blocks smoke-testing of magic-link flows. Configuring custom SMTP via Resend lifts this cap. This subsection sets it up in **sandbox mode** — no verified custom domain — which is enough to validate the rate-limit fix end-to-end with a single recipient (your own Resend account email). Broader-cohort delivery requires a verified custom domain with SPF, DKIM, and DMARC DNS records, deferred pending the subdomain-split decision in D-036.
+
+#### Resend account setup
+
+1. Sign up at [resend.com](https://resend.com) using the email that will receive the smoke-test magic links.
+2. Click the confirmation link Resend emails you. This both activates the account and verifies that address as the only allowed sandbox recipient (see below).
+3. At [resend.com/api-keys](https://resend.com/api-keys), create a new API key with full sending permission. Save it — this is the value you'll paste as the SMTP password in Supabase.
+
+#### Sandbox mode constraint
+
+In sandbox mode the only address that can receive email is the one used to create the Resend account. Sends to any other address fail with a `403`, visible in Resend's email log at [resend.com/emails](https://resend.com/emails). The 403 is not surfaced in Supabase's UI, so when delivery seems missing, Resend's log is the source of truth. There is no "verified recipients" list to manage — the single allowed recipient is fixed at account signup, and broadening it requires the verified-custom-domain path (see the closing note in this subsection).
+
+#### Supabase custom SMTP configuration
+
+In the Supabase dashboard, go to **Authentication → SMTP Settings** (URL: `/dashboard/project/_/auth/smtp`). Enable the custom-SMTP toggle if there is one, then fill in:
+
+| Field | Value |
+|---|---|
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Username | `resend` |
+| Password | The Resend API key from the step above |
+| Sender email | `onboarding@resend.dev` |
+| Sender name | `legalOS` |
+| Encryption | SSL/TLS (port 465 is SMTPS — immediate TLS, not STARTTLS) |
+
+UI labels in Supabase's dashboard may differ slightly from the names in this table. Supabase documents the underlying API parameter names but not the UI labels, and the dashboard surface drifts; match by purpose if a label doesn't exactly correspond.
+
+#### Smoke test
+
+The point of this subsection is verifying the 2/hour rate-limit cap is gone. Without this step, the SMTP config isn't proven.
+
+1. Trigger a magic link from `/login` (production or a preview deploy) using your Resend account email.
+2. Confirm the email arrives.
+3. Inspect the email's headers — the sender domain should be `resend.com` (delivered via Resend), not Supabase's default sender.
+4. Trigger 3+ sends to the same address within one hour. All should land. This proves the 2/hour default cap is no longer in effect.
+
+Note: Supabase imposes a separate 30/hour rate limit on newly configured custom SMTP servers, adjustable at `/dashboard/project/_/auth/rate-limits`. That's plenty of headroom for solo smoke-testing, but worth knowing if you later load-test the magic-link flow.
+
+#### Looking ahead
+
+Two things remain blocked on a future custom-domain decision: (a) broader-cohort delivery — anyone other than the Resend account owner — which requires DNS authentication via SPF, DKIM, and DMARC records on a verified custom domain, and (b) per-environment credential separation, where dev, preview, and prod could share one Resend account or split into separate ones. Both unlock once the subdomain-split question from D-036 is answered.
+
 ---
 
 ## Part 4 — Deploy to Vercel
@@ -357,7 +402,7 @@ Run `npm run build` locally first to catch them. TypeScript errors fail the Verc
 Your `ANTHROPIC_API_KEY` is missing, wrong, or not set in Vercel. Check Vercel's env var settings; remember env var changes require a redeploy to take effect.
 
 **Magic link emails aren't arriving.**
-Supabase's free tier has a small email quota using their default SMTP. For real use, configure a custom SMTP provider (Resend, Postmark, SendGrid) in Supabase → **Authentication → Email**.
+Custom SMTP via Resend is configured in 3g. Most likely cause is the sandbox-mode constraint — sends to any address other than the Resend account owner's email fail with 403, visible at [resend.com/emails](https://resend.com/emails). If the recipient is correct, check that the Supabase SMTP password still matches an active key at [resend.com/api-keys](https://resend.com/api-keys), the custom-SMTP toggle at `/dashboard/project/_/auth/smtp` is still enabled with fields intact, and the Resend account isn't paused or over its 3,000/month or 100/day free-tier quota.
 
 ---
 

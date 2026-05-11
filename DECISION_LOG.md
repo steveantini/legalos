@@ -913,3 +913,38 @@ Status: Accepted
 - `"use server"` files cannot export non-async-function constants, so the cookie name is duplicated as a literal in `actions.ts` and `app/(public)/login/page.tsx` with sync-warning comments. Acceptable — the literal is short and the two locations are adjacent.
 - No layout file under `app/(public)/login/` — there is no other surface in that group, so a layout wrapper would be ceremony.
 - The Supabase free-tier email rate limit (2/hour) remains the binding constraint on testing. Custom SMTP via Resend is the next session’s prerequisite work.
+
+## D-040 — Custom SMTP via Resend (sandbox mode)
+
+Date: 2026-05-11
+Status: Accepted
+
+**Context:** Supabase Auth’s default email provider caps at 2 messages per hour on the free tier. That cap is the binding constraint on smoke-testing the magic-link flow end-to-end — a single login attempt followed by a resend exhausts the quota for the hour, making it impossible to verify the surface shipped in Session 23 (D-039) under realistic conditions. The 2/hour cap also blocks the prerequisite work for the invitation gate that sunsets D-035: any cohort larger than the operator cannot be onboarded for trusted-reviewer feedback without first lifting the email rate limit.
+
+**Decision:** Configure Supabase Auth to route magic-link emails through Resend’s SMTP server in sandbox mode. The Next.js application code is unchanged — `signInWithOtp` continues to call Supabase Auth, which now delegates the SMTP transport to Resend instead of its own default sender. Configuration lives entirely in Supabase’s hosted dashboard (Authentication → SMTP Settings) and Resend’s dashboard; no env vars, no migrations, no application changes.
+
+Sandbox mode uses the `onboarding@resend.dev` sender address with display name `legalOS`. Resend’s sandbox constraint limits delivery to a single recipient: the email address used to create the Resend account. Sends to any other recipient fail with a 403 in Resend’s email log. This is sufficient for solo operator smoke-testing of the magic-link surface and the rate-limit lift, but does not unblock broader cohort delivery.
+
+**Reasoning:** Resend was chosen over Postmark, SendGrid, and AWS SES because it’s the modern developer-focused option with the cleanest Supabase integration story, a generous free tier (3,000/month, 100/day), and a documented sandbox path that requires zero DNS work. The 3,000/month cap is well above any plausible smoke-testing or trusted-cohort volume through Phase 2. Native Resend-Supabase integration via the Supabase Integrations marketplace was rejected in favor of manual SMTP credential paste — the SMTP path is more portable across providers should Resend ever need to be swapped, and the integration’s value-add is dashboard convenience rather than a different transport mechanism.
+
+Sandbox mode (rather than verified custom domain) was chosen because the custom-domain question from D-036 is still deferred. Provisioning a domain solely to lift the 2/hour cap for solo smoke-testing would force premature naming and infrastructure decisions. Sandbox mode lifts the binding constraint immediately and defers the domain decision to its natural place: when broader-cohort delivery is actually required, i.e., when the invitation gate that sunsets D-035 is ready to ship.
+
+**Alternatives considered:**
+
+- *Stay on Supabase’s default SMTP and accept the 2/hour cap.* Rejected — cap is the binding constraint on testing Session 23’s work and blocks the invitation-gate prerequisite.
+- *Postmark, SendGrid, or AWS SES instead of Resend.* All viable. Postmark and SendGrid have longer track records; SES is cheapest at volume. Rejected on dev-experience and Supabase-integration-quality grounds; the volume argument doesn’t apply at this stage.
+- *Native Resend-Supabase integration (marketplace).* Rejected — SMTP credential paste is more portable and the integration’s value-add is convenience, not a different transport. Easier to reason about and to swap providers later.
+- *Provision a custom domain now to skip sandbox mode entirely.* Rejected — couples the SMTP decision to the deferred domain-naming decision from D-036. Sandbox mode lifts the binding constraint without taking on that coupling.
+- *Configure Supabase Auth to use Resend’s HTTP API directly via webhook.* Rejected — out of scope; Supabase’s SMTP integration is the documented, supported path.
+
+**Consequences:**
+
+- The 2/hour magic-link rate limit is lifted; the binding constraint on Session 23 testing and on invitation-gate prerequisite work is gone.
+- Magic-link emails are sent from `legalOS <onboarding@resend.dev>` via Resend’s SMTP. The “via resend.com” line in email clients makes the routing visible.
+- Sandbox mode constrains delivery to the operator’s Resend account email. Any attempt to send to a different recipient (a trusted reviewer, a teammate) silently fails from the Supabase side and shows a 403 in Resend’s email log. The invitation gate that sunsets D-035 therefore remains blocked on custom-domain provisioning, not on email infrastructure.
+- Supabase imposes a separate 30/hour rate limit on newly configured custom SMTP, adjustable at `/dashboard/project/_/auth/rate-limits`. Sufficient for smoke-testing; a future load-test session would need to lift it.
+- SMTP credentials (Resend API key as password) live in Supabase’s dashboard, not in `.env.example` or Vercel env. No env-var noise added.
+- The Resend account is tied to a single operator email. Per-environment credential separation (dev/preview/prod) and team-shared access are both deferred to the custom-domain session.
+- DNS-level sender authentication (SPF, DKIM, DMARC) is sidestepped entirely because `resend.dev` has those records configured by Resend. These become required work when a custom domain replaces the sandbox sender.
+
+**Sunset condition:** This entry is superseded when a verified custom domain replaces `onboarding@resend.dev` as the sender. At that point, broader-cohort delivery unblocks, the invitation gate’s email-delivery prerequisite is satisfied, and the per-environment credential question (one Resend account vs. split) is decided.
