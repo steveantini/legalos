@@ -1,4 +1,4 @@
-import type { AccessibleDepartment } from "@/lib/auth/access";
+import type { DepartmentWithAccess } from "@/lib/auth/access";
 
 import { DepartmentCard } from "./department-card";
 
@@ -17,21 +17,19 @@ import { DepartmentCard } from "./department-card";
  * layout feature; would be phantom UI). The count caption sits in the
  * same right-side flex slot.
  *
- * `lockedSlugs` is a Phase 2 demo placeholder for future RBAC. Cards
- * whose slug appears in this array render in their locked variant
- * (non-clickable, muted, lock icon, request-access mailto). Goes away
- * when real per-user department-role gating arrives via
- * `user_department_roles` (D-035).
+ * Each card's locked vs. accessible variant is derived from
+ * `department.hasAccess` (Session 29 — `DepartmentWithAccess` shape
+ * from `getAllDepartmentsWithAccess`). The grid renders every
+ * department in the org regardless of access; the card itself swaps
+ * to its locked variant when access is false.
  */
 export function DepartmentGrid({
   departments,
   agentCounts,
-  lockedSlugs = [],
   canEdit = false,
 }: {
-  departments: AccessibleDepartment[];
+  departments: DepartmentWithAccess[];
   agentCounts: Record<string, number>;
-  lockedSlugs?: readonly string[];
   canEdit?: boolean;
 }) {
   // Sum from agentCounts in-component rather than threading a new
@@ -58,7 +56,6 @@ export function DepartmentGrid({
             key={d.id}
             department={d}
             agentCount={agentCounts[d.id] ?? 0}
-            isLocked={lockedSlugs.includes(d.slug)}
             canEdit={canEdit}
           />
         ))}

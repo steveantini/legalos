@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { siteConfig } from "@/config/site";
-import type { AccessibleDepartment } from "@/lib/auth/access";
+import type { DepartmentWithAccess } from "@/lib/auth/access";
 
 import { DepartmentDescriptionEditor } from "./department-description-editor";
 
@@ -30,16 +30,16 @@ const CARD_HOVER_CLASS =
  * (paper bg → ink bg) per the spec's hover treatment. Foot shows
  * "{N} agents" + arrow.
  *
- * Locked variant — Phase 2 demo placeholder for future RBAC. The card
- * sits in the grid for visual completeness but is non-clickable: the
- * outer wrapper is a `<div>` (not `<Link>`), the bg recedes to the
- * page background, the heading + description tone down to muted, the
- * agent count is hidden, a Lock icon appears upper-right, and the
- * foot's arrow is replaced by a "Request access" mailto link to
- * `siteConfig.adminEmail` with a department-scoped subject + body.
- * Hover treatment is fully suppressed; only the mailto link is
- * interactive. Goes away when real per-user department-role gating
- * arrives via `user_department_roles` (D-035).
+ * Locked variant — rendered when the user has no `user_department_roles`
+ * row for the department (Session 29 — `hasAccess === false` from
+ * `getAllDepartmentsWithAccess`). The card sits in the grid for visual
+ * completeness but is non-clickable: the outer wrapper is a `<div>`
+ * (not `<Link>`), the bg recedes to the page background, the heading +
+ * description tone down to muted, the agent count is hidden, a Lock
+ * icon appears upper-right, and the foot's arrow is replaced by a
+ * "Request access" mailto link to `siteConfig.adminEmail` with a
+ * department-scoped subject + body. Hover treatment is fully
+ * suppressed; only the mailto link is interactive.
  *
  * Hover border `#d8d2c7` is between `--hairline` and `--hairline-strong`
  * — close enough to `--hairline-strong` (`#e3ddd1`) that we use that
@@ -54,17 +54,15 @@ const CARD_HOVER_CLASS =
 export function DepartmentCard({
   department,
   agentCount,
-  isLocked = false,
   canEdit = false,
 }: {
-  department: AccessibleDepartment;
+  department: DepartmentWithAccess;
   agentCount: number;
-  isLocked?: boolean;
   canEdit?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
 
-  if (isLocked) {
+  if (!department.hasAccess) {
     return <LockedDepartmentCard department={department} />;
   }
 
@@ -126,7 +124,7 @@ export function DepartmentCard({
 function LockedDepartmentCard({
   department,
 }: {
-  department: AccessibleDepartment;
+  department: DepartmentWithAccess;
 }) {
   const requestAccessHref =
     `mailto:${siteConfig.adminEmail}` +

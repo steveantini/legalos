@@ -65,7 +65,9 @@ export const getCurrentUserProfile = cache(async () => {
 });
 
 /**
- * Subset of `public.departments` columns the launchpad UI needs.
+ * Subset of `public.departments` columns the launchpad UI needs. Base
+ * shape — see `DepartmentWithAccess` below for the access-aware variant
+ * returned by `getAllDepartmentsWithAccess` (Session 29).
  */
 export interface AccessibleDepartment {
   id: string;
@@ -76,21 +78,35 @@ export interface AccessibleDepartment {
 }
 
 /**
- * Returns the departments the current user has at least one role in,
- * ordered by `sort_order` ascending. Used by the picker page at
- * `/workspace` and the department tab bar on
- * `/workspace/departments/[slug]` so both surfaces show the same
- * accessible-departments list.
+ * Access-aware variant — every department in the user's org, with a
+ * `hasAccess` flag derived from `user_department_roles`. Used by the
+ * workspace landing grid and the rail (Session 29) so both surfaces
+ * can show every department in the org while visually gating the ones
+ * the user can't enter (locked-but-visible UX, mirroring Notion /
+ * Linear / Slack convention).
  *
- * The query joins `user_department_roles` with `departments` via an
- * INNER PostgREST join — same predicate `has_department_access` checks
- * per row, applied across all departments at once. RLS still scopes
- * `departments` reads to the user's organization so cross-org leakage
- * is impossible even if `user_department_roles` were corrupted.
+ * Extends `AccessibleDepartment` so consumers that only need the base
+ * shape (workspace top bar lookup, breadcrumb dept-name resolution)
+ * can continue to type their props as `AccessibleDepartment[]` and
+ * accept a `DepartmentWithAccess[]` argument via structural assignment.
+ */
+export interface DepartmentWithAccess extends AccessibleDepartment {
+  hasAccess: boolean;
+}
+
+/**
+ * Returns the departments the current user has at least one role in,
+ * ordered by `sort_order` ascending.
+ *
+ * As of Session 29 the workspace landing and rail no longer call this
+ * helper — they use `getAllDepartmentsWithAccess` below to surface
+ * locked departments alongside accessible ones. Retained for any future
+ * caller that needs the strict "what can the user enter" set (e.g.,
+ * server-side access decisions outside RLS) and as the simpler shape
+ * for one-off scripts.
  *
  * Wrapped in React's `cache()` for per-request memoization keyed by
- * `userId` — layout + child page calling this with the same userId
- * resolve to a single PostgREST round-trip.
+ * `userId`.
  */
 export const getAccessibleDepartments = cache(
   async (userId: string): Promise<AccessibleDepartment[]> => {
@@ -111,6 +127,50 @@ export const getAccessibleDepartments = cache(
 
     departments.sort((a, b) => a.sort_order - b.sort_order);
     return departments;
+  },
+);
+
+/**
+ * Returns every department in the user's org plus a `hasAccess` flag
+ * per row. Powers the workspace landing grid and the rail (Session 29)
+ * so locked departments render in their muted variant alongside
+ * accessible ones.
+ *
+ * After migration 0020 the `departments_read_same_org` RLS policy
+ * admits every org member to read every department row; this helper
+ * does two parallel RLS-scoped reads (full dept list, caller's role
+ * rows) and joins in JS. Sort is server-side via `order by sort_order`.
+ *
+ * Wrapped in `cache()` keyed by `userId` so the layout + page calls
+ * dedupe to a single round-trip per request.
+ */
+export const getAllDepartmentsWithAccess = cache(
+  async (userId: string): Promise<DepartmentWithAccess[]> => {
+    const supabase = await createSupabaseServerClient();
+
+    const [departmentsResult, rolesResult] = await Promise.all([
+      supabase
+        .from("departments")
+        .select("id, slug, name, description, sort_order")
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("user_department_roles")
+        .select("department_id")
+        .eq("user_id", userId),
+    ]);
+
+    const accessibleIds = new Set(
+      (rolesResult.data ?? []).map((r) => r.department_id as string),
+    );
+
+    return (departmentsResult.data ?? []).map((d) => ({
+      id: d.id as string,
+      slug: d.slug as string,
+      name: d.name as string,
+      description: d.description as string | null,
+      sort_order: d.sort_order as number,
+      hasAccess: accessibleIds.has(d.id as string),
+    }));
   },
 );
 
@@ -400,6 +460,94 @@ export const isCurrentUserOrgAdmin = cache(async (): Promise<boolean> => {
 
   return profile?.role === "super_admin" || profile?.role === "org_admin";
 });
+
+/**
+ * Slim user row for the admin User access page (Session 29). The page
+ * lists every user in the caller's organization; this is the projection
+ * threaded through the client list component.
+ */
+export interface OrgUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: "super_admin" | "org_admin" | "user";
+  is_active: boolean;
+  created_at: string;
+}
+
+/**
+ * Returns every user in the caller's organization, newest first.
+ *
+ * App-layer gate: org-admin only. The underlying RLS
+ * (`users_read_self_or_dept_peer_or_admin`, migration 0015) admits
+ * org-admins to read every row in their org and non-admins to read
+ * only self + same-department peers. The mirror-RLS principle (D-041)
+ * keeps the app-layer gate tighter than RLS would alone — a non-admin
+ * caller gets an empty array, not the dept-peer-scoped subset.
+ *
+ * Returns [] rather than throwing on gate failure so the admin page
+ * can render an empty list cleanly if it's ever reached by a
+ * non-admin (the page also notFound()s at the top, so this is
+ * defense-in-depth).
+ */
+export async function getOrgUsers(): Promise<OrgUser[]> {
+  if (!(await isCurrentUserOrgAdmin())) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("users")
+    .select("id, email, full_name, role, is_active, created_at")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []) as OrgUser[];
+}
+
+/**
+ * Flat row from `user_department_roles` for the admin matrix view.
+ * The admin page fetches all rows once and buckets by user_id in JS
+ * so each row's toggle state renders from a single source.
+ */
+export interface UserDepartmentRoleRow {
+  user_id: string;
+  department_id: string;
+  role: "dept_admin" | "user";
+}
+
+/**
+ * Returns every `user_department_roles` row visible to the caller.
+ * Org-admin gated (mirror-RLS) — the RLS layer (`udr_admin_read_dept`,
+ * migration 0001) admits org-admins via `is_department_admin` to read
+ * every row in their org, but the app layer narrows to org-admin so
+ * a dept_admin caller can't accidentally render the admin user list.
+ */
+export async function getAllUserDepartmentRoles(): Promise<
+  UserDepartmentRoleRow[]
+> {
+  if (!(await isCurrentUserOrgAdmin())) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("user_department_roles")
+    .select("user_id, department_id, role");
+
+  return (data ?? []) as UserDepartmentRoleRow[];
+}
+
+/**
+ * Returns the department_ids in the caller's org's default-departments
+ * list. Org-admin gated. Used by the admin User access page to render
+ * the "Default access for new users" toggleable chip section.
+ */
+export async function getOrganizationDefaults(): Promise<string[]> {
+  if (!(await isCurrentUserOrgAdmin())) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("organization_default_departments")
+    .select("department_id");
+
+  return (data ?? []).map((r) => r.department_id as string);
+}
 
 /**
  * Gate for admin routes. Redirects unauthenticated users to /login via

@@ -2,6 +2,12 @@ import { AdminCard } from "@/components/admin/admin-card";
 
 const ADMIN_CARDS = [
   {
+    title: "User access",
+    description:
+      "Manage department access per user. Configure defaults for new users.",
+    href: "/workspace/admin/users",
+  },
+  {
     title: "Adoption Metrics",
     description:
       "KPI cards, top users, clicks per agent, and per-user / per-agent drill-downs. Toggle between sample data and your localStorage events.",

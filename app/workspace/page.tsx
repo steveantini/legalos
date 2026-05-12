@@ -6,28 +6,13 @@ import { WorkspaceHero } from "@/components/workspace/workspace-hero";
 import { WorkspaceModules } from "@/components/workspace/workspace-modules";
 import { siteConfig } from "@/config/site";
 import {
-  getAccessibleDepartments,
   getAgentCountsByDepartment,
+  getAllDepartmentsWithAccess,
   getCurrentUserProfile,
   isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-/**
- * Phase 2 demo placeholder for future RBAC. Departments whose slug
- * appears here render in `<DepartmentCard>`'s locked variant — visible
- * in the grid as non-clickable, muted cards with a "Request access"
- * mailto. The constant goes away when real per-user department-role
- * gating arrives via `user_department_roles` and the rendered grid is
- * filtered server-side based on `getAccessibleDepartments(userId)`
- * actually returning fewer rows for non-admin users. Until then this
- * is the demo surface for the open-signup posture documented in
- * D-035 — every authenticated user sees all 8 departments today, so
- * we use the locked treatment to communicate "this department exists
- * but isn't yours" without breaking the grid layout.
- */
-const LOCKED_DEPARTMENT_SLUGS = ["product", "compliance"] as const;
 
 /**
  * Aperture Workspace landing — content only. The chrome (rail + top bar
@@ -44,13 +29,18 @@ const LOCKED_DEPARTMENT_SLUGS = ["product", "compliance"] as const;
  *
  * The subline is identical default copy for both variants ("Your
  * team's agents, knowledge, matters, and resources, all in one
- * place."), but is overridden in the empty-departments branch by
- * the Session 20 mailto-request-access CTA — applies equally to both
- * variants since "no department access" is independent of welcome
- * state.
+ * place."), but is overridden in the no-access branch by the
+ * mailto-request-access CTA. The override now triggers on
+ * `accessibleCount === 0` (Session 29) rather than `deptCount === 0`
+ * since the grid surfaces every department in the org with a locked
+ * variant for the ones the user can't enter — having zero access and
+ * having zero departments configured are distinct states. A user with
+ * zero access sees both the request-access subline AND the locked
+ * grid below it (visibility-with-permissions); an org with literally
+ * zero departments configured falls through to no grid at all.
  *
  * Reads composed by this page: `requireAuthUser`, `getCurrentUserProfile`,
- * `getAccessibleDepartments` (all wrapped in React's `cache()` per
+ * `getAllDepartmentsWithAccess` (all wrapped in React's `cache()` per
  * `lib/auth/access.ts` — the layout's earlier calls and this page's
  * calls dedup to a single round-trip per helper, per request).
  * `getAgentCountsByDepartment` is page-only (the chrome doesn't need
@@ -73,7 +63,7 @@ export default async function WorkspacePage() {
   }
 
   const [departments, agentCounts, isOrgAdmin] = await Promise.all([
-    getAccessibleDepartments(authUser.id),
+    getAllDepartmentsWithAccess(authUser.id),
     getAgentCountsByDepartment(),
     isCurrentUserOrgAdmin(),
   ]);
@@ -105,12 +95,14 @@ export default async function WorkspacePage() {
   }
 
   const deptCount = departments.length;
+  const accessibleCount = departments.filter((d) => d.hasAccess).length;
 
-  // Empty-departments branch — overrides both variants' default
-  // subline with a focused mailto CTA pointing at siteConfig.adminEmail.
-  // Stranger auto-provisioned via ensure_user_provisioned with no
-  // department roles, OR a real org member who's had their roles
-  // revoked. Same treatment regardless of welcome state.
+  // No-access branch — overrides both hero variants' default subline
+  // with a focused mailto CTA pointing at siteConfig.adminEmail. Same
+  // treatment whether the user is freshly auto-provisioned via
+  // ensure_user_provisioned with no defaults, or a real org member
+  // whose grants were revoked. The grid below still renders (with
+  // every department locked) so the user can see what exists.
   const requestAccessHref =
     `mailto:${siteConfig.adminEmail}` +
     `?subject=${encodeURIComponent("Request access to legalOS")}` +
@@ -118,7 +110,7 @@ export default async function WorkspacePage() {
       "Hi, I'd like to request access to a department in legalOS.",
     )}`;
   const sublineOverride =
-    deptCount === 0 ? (
+    accessibleCount === 0 ? (
       <>
         You don&apos;t have access to any departments yet.
         <br />
@@ -139,14 +131,14 @@ export default async function WorkspacePage() {
           <DepartmentGrid
             departments={departments}
             agentCounts={agentCounts}
-            lockedSlugs={LOCKED_DEPARTMENT_SLUGS}
             canEdit={isOrgAdmin}
           />
-          {/* Secondary modules — only rendered for users with department
-              access. The empty-departments branch keeps its focused
-              request-access state; adding "More in legalOS" below it
-              would compete with the mailto CTA for attention. */}
-          <WorkspaceModules />
+          {/* Secondary modules — only rendered for users who have
+              access to at least one department. A user with zero
+              access keeps the focused request-access subline above
+              and the all-locked grid below; "More in legalOS" would
+              compete with the mailto CTA for attention. */}
+          {accessibleCount > 0 ? <WorkspaceModules /> : null}
         </>
       ) : null}
     </main>

@@ -5,7 +5,7 @@ import { WorkspaceRail } from "@/components/workspace/workspace-rail";
 import { WorkspaceTopBar } from "@/components/workspace/workspace-top-bar";
 import {
   getAccessibleAgentsForBreadcrumb,
-  getAccessibleDepartments,
+  getAllDepartmentsWithAccess,
   getCurrentUserProfile,
   isCurrentUserAdmin,
   requireAuthUser,
@@ -28,8 +28,10 @@ import {
  *
  * Data fetches: `requireAuthUser` (redirects to /login on absence),
  * `getCurrentUserProfile` (rail profile block + redirect to /login if
- * the proxy provisioning hasn't yet caught up), `getAccessibleDepartments`
- * (rail Departments group + breadcrumb dept-name lookup),
+ * the proxy provisioning hasn't yet caught up), `getAllDepartmentsWithAccess`
+ * (rail Departments group with per-row hasAccess flag + breadcrumb /
+ * top-bar dept-name lookup — DepartmentWithAccess extends
+ * AccessibleDepartment so both narrower-typed consumers accept it),
  * `getAccessibleAgentsForBreadcrumb` (breadcrumb + rail agent-aware
  * active state), `isCurrentUserAdmin` (rail profile dropdown's
  * conditional Admin item). All five are wrapped in React's `cache()`
@@ -51,7 +53,7 @@ export default async function WorkspaceLayout({
   }
 
   const [departments, agents, isAdmin] = await Promise.all([
-    getAccessibleDepartments(authUser.id),
+    getAllDepartmentsWithAccess(authUser.id),
     getAccessibleAgentsForBreadcrumb(authUser.id),
     isCurrentUserAdmin(),
   ]);

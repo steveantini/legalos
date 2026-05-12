@@ -1,7 +1,9 @@
+import { LockIcon } from "lucide-react";
+
 import { siteConfig } from "@/config/site";
 import type {
-  AccessibleDepartment,
   AgentBreadcrumbContext,
+  DepartmentWithAccess,
 } from "@/lib/auth/access";
 
 import { WorkspaceNavLink } from "./workspace-nav-link";
@@ -67,13 +69,26 @@ const linkActive =
 const captionLabel =
   "mx-2 mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-caption";
 
+const lockedLink =
+  "flex items-center justify-between rounded-lg px-3 py-[7px] text-[13.5px] font-[450] tracking-[-0.005em] text-muted-foreground transition-colors duration-150 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+function buildRequestAccessHref(departmentName: string): string {
+  return (
+    `mailto:${siteConfig.adminEmail}` +
+    `?subject=${encodeURIComponent(`Request access to ${departmentName} in legalOS`)}` +
+    `&body=${encodeURIComponent(
+      `Hi, I'd like to request access to the ${departmentName} department in legalOS.`,
+    )}`
+  );
+}
+
 export function WorkspaceRail({
   departments,
   profile,
   agents,
   isAdmin,
 }: {
-  departments: AccessibleDepartment[];
+  departments: DepartmentWithAccess[];
   profile: ProfileShape;
   agents: AgentBreadcrumbContext[];
   isAdmin: boolean;
@@ -108,29 +123,52 @@ export function WorkspaceRail({
         </WorkspaceNavLink>
       </div>
 
-      {/* Group 2 — Departments (prefix-match active state, plus
-          agent-aware: navigating to /agents/<id> keeps the agent's
-          parent department highlighted via agentsLookup). Hidden
-          entirely when the user has zero accessible departments — for
-          a stranger or a roles-revoked user, the empty caption + zero
-          links read as a layout wart. The other rail groups still
-          render so they retain Workspace + Resources + profile
-          access. */}
+      {/* Group 2 — Departments (Session 29: locked-but-visible).
+          Accessible departments render as full-weight WorkspaceNavLink
+          rows with prefix-match active state (agent-aware via
+          agentsLookup so /agents/<id> highlights the parent dept).
+          Locked departments — those the user has no
+          user_department_roles row for — render as muted rows with a
+          lock icon; clicking opens a department-scoped mailto to the
+          configured admin email. The group is hidden entirely only
+          when the org has zero departments configured (a degenerate
+          state); a user with zero ACCESSIBLE departments still sees
+          the group with all entries locked, matching the launchpad's
+          visibility-with-permissions principle. */}
       {departments.length > 0 ? (
         <div className="flex flex-col gap-px">
           <p className={captionLabel}>Departments</p>
-          {departments.map((d) => (
-            <WorkspaceNavLink
-              key={d.id}
-              href={`/workspace/departments/${d.slug}`}
-              match="prefix"
-              className={linkBase}
-              activeClassName={`${linkBase} ${linkActive}`}
-              agentsLookup={agents}
-            >
-              {d.name}
-            </WorkspaceNavLink>
-          ))}
+          {departments.map((d) => {
+            if (d.hasAccess) {
+              return (
+                <WorkspaceNavLink
+                  key={d.id}
+                  href={`/workspace/departments/${d.slug}`}
+                  match="prefix"
+                  className={linkBase}
+                  activeClassName={`${linkBase} ${linkActive}`}
+                  agentsLookup={agents}
+                >
+                  {d.name}
+                </WorkspaceNavLink>
+              );
+            }
+            return (
+              <a
+                key={d.id}
+                href={buildRequestAccessHref(d.name)}
+                aria-label={`${d.name} (locked — request access from your admin)`}
+                className={lockedLink}
+              >
+                <span>{d.name}</span>
+                <LockIcon
+                  aria-hidden
+                  strokeWidth={1.5}
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+              </a>
+            );
+          })}
         </div>
       ) : null}
 
