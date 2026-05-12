@@ -1207,3 +1207,58 @@ The chip clarity polish (icons + inline legend) deferred to mid-session because 
 - The chip-toggle pattern (slate-blue filled with `Check` vs. outlined with `Plus`, inline legend with color-dot indicators, optimistic `useTransition` + `toast.error` revert) is now the project convention for any future binary admin toggle. Future admin surfaces (feature flags, role promotion, etc.) should match.
 - D-041’s mirror-RLS-exactly principle continues to evolve in the same direction D-042 established: Session 29’s `getOrgUsers`, `getAllUserDepartmentRoles`, `getOrganizationDefaults`, and the four admin actions all gate on org-admin even though RLS would admit `dept_admin` in some cases. Org-level admin operations stay org-admin only. The pattern: app-layer gates tighter than RLS when the product policy is “this is org-level work.”
 - The mailto request-access pattern (department-scoped subject + body, pointing at `siteConfig.adminEmail`) is now duplicated across two render call sites — the locked card and the locked rail entry. Acceptable at two; if a third call site appears, extract a `buildDepartmentRequestAccessHref(name)` helper.
+
+## D-046 — Admin nav surface: dual-rail mode, grouped landing, Title Case for tool labels
+
+Date: 2026-05-12
+Status: Accepted
+
+**Context:**
+
+The admin surface in Session 23 shipped as three flat cards on `/workspace/admin`, navigated to via a single “Admin” item in the workspace rail’s profile dropdown. With more admin tools planned (invitation gate, agent admin UI, evals, cost dashboards) the flat-cards approach was about to stop scaling — both the landing and the rail entry needed structure. Two coupled questions surfaced: how should the chrome express that the user is in an administrative mode rather than the daily-driver workspace, and how should the admin tools be organized once there are more than three of them.
+
+**Decision:**
+
+Three coordinated changes ship as one commit (43f3733):
+
+1. **Dual-rail mode.** The left rail is now pathname-aware. On `/workspace/admin/*` routes it renders as `AdminRail` (a sibling component to `WorkspaceRail`) with an “Admin” top-line link and three captioned groups — Access, Insights, Value. Off admin routes it renders the existing `WorkspaceRail` unchanged. The switch happens client-side via a thin `RailSwitcher` component that takes both server-rendered rails as `ReactNode` props and picks one based on `usePathname()`. Brand mark in both rails routes to `/workspace`, serving as a universal home gesture.
+
+2. **Entry and exit via the avatar menu.** The existing `WorkspaceProfileBlock` dropdown’s “Admin” item now flips label and href contextually — “Admin” → `/workspace/admin` from workspace pages, “Back to workspace” → `/workspace` from admin pages. The menu always shows the destination, not the current location. The `isAdmin` prop gating is unchanged; non-admins still see no entry.
+
+3. **Grouped landing + source-of-truth array.** `/workspace/admin` retained as a cards-grid landing page (rather than redirecting to the first admin tool) so admins always land somewhere predictable on entry. Cards are now grouped by Access / Insights / Value with section headers matching the rail. A single `ADMIN_NAV_GROUPS` array in `lib/admin/nav.ts` is the source of truth — both the rail and the landing consume it; adding a new admin tool is a one-line append. The `← Admin` back-links on the three admin sub-pages were removed since the rail provides the same affordance globally.
+
+A follow-up tweak in the same commit normalized admin tool labels to Title Case (“User Access”, “Adoption Metrics”, “Productivity Calculator”) across rail, card titles, breadcrumb leaves, and page h1s — deviating from the UX-writing skill’s sentence-case rule. The breadcrumb was also reworked: every non-last segment that resolves to a real route now renders as a `<Link>` (via a new `STATIC_SEGMENT_HREFS` map + `resolveSegmentHref` helper); scoping segments with no route (currently just “Departments”) render as plain spans.
+
+**Reasoning:**
+
+The dual-rail pattern matches admins’ actual mental model — entering Admin is entering a different mode of the application, not navigating to a deeper page. Mirroring the rail grammar (one top-line link + N captioned groups) in admin mode keeps the visual language consistent across modes while making clear which mode the user is in. The Linear and Vercel admin surfaces both work this way.
+
+Keeping `/workspace/admin` as a cards landing rather than redirecting to the first tool earns its keep two ways: (a) admins entering the section always land on a predictable surface regardless of where they were last, and (b) the landing leaves room to grow into a glanceable dashboard with live metrics per card (deferred to README Future / Backlog). The strict-mirror landing now is intentionally a redundant second index of the same items; that’s acceptable as a staging point because both surfaces share a source-of-truth array and cannot drift.
+
+The avatar-menu trigger was chosen over a persistent top-bar switcher because admin mode is bursty — users enter, do a thing, leave. A permanent chrome affordance for a rare action wastes top-bar real estate; the contextual menu entry hides naturally for non-admins and stays out of the way for admins not currently switching. The label-flip (“Admin” ↔ “Back to workspace”) makes the menu’s contents an honest signal of intent.
+
+Title Case for admin tool labels is a scoped deviation from the UX-writing skill’s sentence-case rule. The reasoning: the Workspace rail’s department items are proper nouns (“Commercial”, “Litigation”) and naturally render Title Case. Sentence case on admin tool labels creates visual disparity between the two rails. Title Case throughout puts both rails on the same typographic footing. The deviation is scoped to admin tool names; the rest of the app continues to follow sentence case per the skill.
+
+**Alternatives considered:**
+
+- **Rejected — Flat nav with no categories.** Three items don’t need categories today and category headers for single-item groups read as scaffolding the product hasn’t grown into. Operator chose categorized nav anticipating growth and for visual consistency with the Workspace rail.
+
+- **Rejected — Admin lives at a top-level URL like `/admin`.** Would have required threading a parallel layout system; nesting under `/workspace/admin/*` reuses the existing workspace chrome’s auth gates, top bar, and route group with no duplication. The mental model (Admin is a mode of Workspace, not a separate app) matches the actual data model — admin users are users with extra capabilities, not a separate principal.
+
+- **Rejected — Persistent top-bar mode switcher (W | Admin segmented control).** More discoverable for first-time admins but wastes top-bar real estate for a rarely-used action. Discoverability can be solved later with onboarding nudges if it becomes a real problem.
+
+- **Rejected — Last-visited admin page on entry.** Routing `/admin` to wherever the user last was inside admin felt user-friendly in the abstract but makes the entry behavior unpredictable — same click, different destination depending on hidden state. Always-land-on-`/workspace/admin` is the better fit for a surface admins visit, not live in.
+
+- **Rejected — Strict sentence case across the board.** The UX-writing skill’s default rule; would have kept admin labels as “User access” / “Adoption metrics” / “Productivity calculator”. Operator chose Title Case for visual parity with department names. Skill rule still holds elsewhere.
+
+- **Rejected — Enriched dashboard cards on the landing now.** Surfacing live metrics per card (seat count, recent activity, latest computed value) is the long-term direction but bundles a separate design problem into a nav refactor. Deferred to README Future / Backlog.
+
+**Consequences:**
+
+The `ADMIN_NAV_GROUPS` source-of-truth array becomes the canonical extension point for new admin tools. Adding a tool: one entry in `lib/admin/nav.ts`, both the rail and the landing pick it up automatically; the breadcrumb needs an `STATIC_SEGMENT_HREFS` entry + a `ROUTE_TABLE` row.
+
+The `STATIC_SEGMENT_HREFS` map in `workspace-breadcrumb.tsx` now has to be kept in sync with admin route additions. Future maintenance cost is small (one entry per tool); worth flagging because it’s a second place the new-admin-tool checklist needs to touch.
+
+Title Case on admin tool labels means future admin-section additions should follow the same pattern for internal consistency. Other parts of the app continue to follow the skill’s sentence-case rule. The CLAUDE.md skill-routing should eventually note this scoped exception.
+
+Agent-name resolution in `resolveSegmentHref` matches by name string (`agents.find((a) => a.name === seg)`) and returns the first match. Collision risk if two agents share a name; tighten to id-keyed resolution if collisions surface. Accepted at current cohort scale.
