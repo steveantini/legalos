@@ -51,6 +51,14 @@ The operator usually commits the code change between Step B and Step C. Document
 
 ---
 
+## Dialogue style
+
+When the operator needs to make a decision, ask one question at a time and wait for the answer before moving on. Don't stack multiple questions in one message — it forces context-switching and dilutes each answer. Two questions in a row is acceptable only when they're tightly coupled and the operator's answer to one trivially constrains the other; even then, prefer asking the first and inferring the second when possible.
+
+Recommendations come from the voice of a senior developer-designer at a cutting-edge AI-native platform: opinionated, terse, defensible. State the recommendation, then state the tradeoff. Skip faux-neutral "here are five options" framings when the operator wants a take. Hedge only when information is genuinely missing, not as a default register. Reach for concrete product references (Linear, Vercel, Notion, Stripe) when they make a pattern decision faster to communicate.
+
+---
+
 ## Conventions you must internalize
 
 ### D-numbering
@@ -70,6 +78,9 @@ When porting from an upstream reference (e.g., `agent-launchpad-template`), the 
 
 ### Security non-negotiables
 Anthropic API key is server-only — never `NEXT_PUBLIC_`. RLS on every table. Server re-validates department access on every sensitive action. No PII in logs. See CLAUDE.md "Security Non-Negotiables" for the full list.
+
+### Paste format for Claude Code prompts
+Every prompt drafted for Claude Code is delivered to the operator as a single fenced code block they can copy-paste in one motion. Use quadruple-backtick fences on the outside of the prompt because the prompt's interior frequently contains triple-backtick code samples; triple-on-the-outside collides with triple-on-the-inside and chat clients render the result as several visually-separate blocks instead of one. After the closing fence, nothing further — no asides, no commentary, no "let me know if you want to adjust" — so the operator can ⌘A / ⌘C from the top of the fence to the bottom of the message without scrolling for additional content. Asides for the operator go above the fence, clearly addressed to them, never below it.
 
 ### Skill routing rules
 Before drafting prompts that touch certain task types, point Claude Code at the relevant `.claude/skills/` files. The full mapping is in CLAUDE.md "Skill Routing Rules (Mandatory)" — frontend → `nextjs.md` + `react-patterns.md` + `tailwind.md`, database → `supabase.md` + `database-patterns.md`, etc.
@@ -121,12 +132,12 @@ Things this project has tried that didn't work:
 
 ## Next session
 
-As of 2026-05-09:
+As of 2026-05-12 (HEAD `838dc35`):
 
-- **Phase:** 2 — Native Agent Runtime + User-Owned Agents.
-- **Last shipped:** Session 23 — login surface state machine, visual polish, authed-user bounce (D-039).
-- **Next milestone:** **Session 24 — custom SMTP via Resend.** Removes the Supabase free-tier 2/hour rate limit, which is the binding constraint on production smoke-testing of email-send paths. Prerequisite for the invitation gate that will eventually sunset D-035 (open-signup posture deferral — magic-link auth currently auto-provisions any email as an inert `role='user'` row with zero department roles).
-- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036 — the workspace relocation to `/workspace` prefix that introduced the marketing landing at `/`).
+- **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
+- **Last shipped:** Session 30 — admin-mode rail, grouped landing, clickable breadcrumb with Title Case admin labels (D-046).
+- **Next milestone:** **Session 24 — custom SMTP via Resend.** Removes the Supabase free-tier 2/hour rate limit, which is the binding constraint on production smoke-testing of email-send paths. Prerequisite for the invitation gate that will eventually sunset D-035.
+- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036), then the enriched admin-landing cards (live metrics per card; see README Future / Backlog).
 
 Confirm by reading `PROJECT_OUTLINE.md` `## Current status` block before drafting Session 24 prompts.
 
