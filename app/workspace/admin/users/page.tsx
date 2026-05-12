@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DefaultDepartmentsSection } from "@/components/admin/users/default-departments-section";
@@ -81,15 +80,8 @@ export default async function AdminUsersPage() {
 
   return (
     <>
-      <Link
-        href="/workspace/admin"
-        className="text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
-        ← Admin
-      </Link>
-
-      <header className="mt-4">
-        <h1 className="text-3xl font-semibold">User access</h1>
+      <header>
+        <h1 className="text-3xl font-semibold">User Access</h1>
         <p className="mt-2 max-w-prose text-sm text-muted-foreground">
           Configure defaults to set the departments new users receive
           automatically at first sign-in. Manage per-user access below.

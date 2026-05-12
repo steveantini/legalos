@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import {
   DropdownMenu,
@@ -18,16 +19,19 @@ import { signOut } from "@/lib/actions/auth";
  * keyboard-clickable and opens an account menu above the rail.
  *
  * Menu items:
- *  - "Admin" — conditional on `isAdmin`. Routes to `/workspace/admin`. Renders as
- *    a `<Link>` via the `render` prop pattern (matches AgentCard's edit
- *    link in 11).
- *  - "Sign out" — calls `signOut` server action via `onSelect`. The
+ *  - **Admin / Back to workspace** — conditional on `isAdmin`. Label
+ *    and href flip based on whether the current pathname is under
+ *    `/workspace/admin`: in admin mode the entry reads "Back to
+ *    workspace" and routes to `/workspace`; everywhere else it reads
+ *    "Admin" and routes to `/workspace/admin`. Renders as a `<Link>`
+ *    via the `render` prop pattern (matches AgentCard's edit link in 11).
+ *  - **Sign out** — calls `signOut` server action via `onClick`. The
  *    action's internal `redirect("/login")` propagates through.
  *
- * Sign-out and Admin both gain visibility from the workspace chrome
- * after the legacy MainNav was retired in 14. `isAdmin` derivation
- * lives upstream in `(workspace)/layout.tsx` so the data-fetch stays
- * at the layout level (consistent with departments + agents).
+ * Sign-out and the mode-aware admin entry both gain visibility from the
+ * workspace chrome after the legacy MainNav was retired in 14. `isAdmin`
+ * derivation lives upstream in `app/workspace/layout.tsx`; the mode-
+ * aware label/href is computed client-side here via `usePathname`.
  */
 export function WorkspaceProfileBlock({
   initials,
@@ -40,6 +44,11 @@ export function WorkspaceProfileBlock({
   roleLabel: string;
   isAdmin: boolean;
 }) {
+  const pathname = usePathname();
+  const isAdminMode = pathname.startsWith("/workspace/admin");
+  const adminItemLabel = isAdminMode ? "Back to workspace" : "Admin";
+  const adminItemHref = isAdminMode ? "/workspace" : "/workspace/admin";
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -66,8 +75,8 @@ export function WorkspaceProfileBlock({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top">
         {isAdmin ? (
-          <DropdownMenuItem render={<Link href="/workspace/admin" />}>
-            Admin
+          <DropdownMenuItem render={<Link href={adminItemHref} />}>
+            {adminItemLabel}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem

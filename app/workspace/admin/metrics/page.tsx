@@ -1,18 +1,9 @@
-import Link from "next/link";
-
 import { AdoptionMetrics } from "@/components/admin/metrics/adoption-metrics";
 
 export default function AdminMetricsPage() {
   return (
     <>
-      <Link
-        href="/workspace/admin"
-        className="text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
-        ← Admin
-      </Link>
-
-      <header className="mt-4">
+      <header>
         <h1 className="text-3xl font-semibold">Adoption Metrics</h1>
         <p
           id="metrics-scope-note"

@@ -23,6 +23,27 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
 };
 
 /**
+ * Maps a breadcrumb segment string to its destination href when the
+ * segment represents a real route. Segments not in this map render as
+ * plain spans (scoping labels like "Departments" — no route exists).
+ *
+ * Agent and department names are dynamic and handled inline in the
+ * renderer rather than statically here. The "Edit" entry is a
+ * placeholder — Edit is always a leaf in practice, and its href
+ * (`/workspace/agents/<id>/edit`) needs the agent id which isn't
+ * available from the segment string alone.
+ */
+const STATIC_SEGMENT_HREFS: Record<string, string> = {
+  Workspace: "/workspace",
+  Admin: "/workspace/admin",
+  Trash: "/workspace/agents/trash",
+  "User Access": "/workspace/admin/users",
+  "Adoption Metrics": "/workspace/admin/metrics",
+  "Productivity Calculator": "/workspace/admin/calculator",
+  Edit: "",
+};
+
+/**
  * Context passed to a route entry's `segments` builder.
  */
 type RouteContext = {
@@ -45,7 +66,7 @@ type RouteContext = {
  *
  * Order matters between regex/literal collisions:
  *   - `/agents/new` and `/agents/trash` literals BEFORE the generic
- *     `/^\/agents\/([^/]+)/` regex (otherwise "new" / "trash" would be
+ *     `/^\/agents\/([^/]+)/` regex (otherwise "new" / "Trash" would be
  *     interpreted as agent ids).
  *   - `/^\/agents\/([^/]+)\/edit/` BEFORE `/^\/agents\/([^/]+)/`
  *     (otherwise the edit URL would match the chat regex first).
@@ -62,14 +83,14 @@ type RouteEntry = {
 const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace",
-    segments: () => ["workspace", "departments"],
+    segments: () => ["Workspace", "Departments"],
   },
   {
     match: /^\/workspace\/departments\/([^/]+)/,
     segments: ({ captures, departments }) => {
       const slug = captures[0] ?? "";
       const dept = departments.find((d) => d.slug === slug);
-      return ["workspace", "departments", dept?.name ?? slug];
+      return ["Workspace", "Departments", dept?.name ?? slug];
     },
   },
   {
@@ -81,30 +102,34 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       if (deptSlug) {
         const dept = departments.find((d) => d.slug === deptSlug);
         if (dept) {
-          return ["workspace", "departments", dept.name, lastSegment];
+          return ["Workspace", "Departments", dept.name, lastSegment];
         }
       }
       // Defensive fallback — the page redirects to "/" on missing
       // department slug and notFound()s on unresolvable slug, so this
       // branch shouldn't render in practice.
-      return ["workspace", "departments", lastSegment];
+      return ["Workspace", "Departments", lastSegment];
     },
   },
   {
     match: "/workspace/agents/trash",
-    segments: () => ["workspace", "trash"],
+    segments: () => ["Workspace", "Trash"],
   },
   {
     match: "/workspace/admin",
-    segments: () => ["workspace", "admin"],
+    segments: () => ["Workspace", "Admin"],
+  },
+  {
+    match: "/workspace/admin/users",
+    segments: () => ["Workspace", "Admin", "User Access"],
   },
   {
     match: "/workspace/admin/calculator",
-    segments: () => ["workspace", "admin", "Calculator"],
+    segments: () => ["Workspace", "Admin", "Productivity Calculator"],
   },
   {
     match: "/workspace/admin/metrics",
-    segments: () => ["workspace", "admin", "Metrics"],
+    segments: () => ["Workspace", "Admin", "Adoption Metrics"],
   },
   {
     match: /^\/workspace\/agents\/([^/]+)\/edit/,
@@ -113,8 +138,8 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       const agent = agents.find((a) => a.id === agentId);
       if (agent) {
         return [
-          "workspace",
-          "departments",
+          "Workspace",
+          "Departments",
           agent.department_name,
           agent.name,
           "Edit",
@@ -122,7 +147,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       }
       // Defensive fallback — RLS should prevent this branch (the
       // layout's notFound() gate runs first).
-      return ["workspace", "departments", "Agent", "Edit"];
+      return ["Workspace", "Departments", "Agent", "Edit"];
     },
   },
   {
@@ -131,9 +156,9 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       const agentId = captures[0] ?? "";
       const agent = agents.find((a) => a.id === agentId);
       if (agent) {
-        return ["workspace", "departments", agent.department_name, agent.name];
+        return ["Workspace", "Departments", agent.department_name, agent.name];
       }
-      return ["workspace", "departments", "Agent"];
+      return ["Workspace", "Departments", "Agent"];
     },
   },
   {
@@ -141,7 +166,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     segments: ({ captures }) => {
       const area = captures[0] ?? "";
       const label = RESOURCE_AREA_LABELS[area] ?? area;
-      return ["workspace", label];
+      return ["Workspace", label];
     },
   },
 ];
@@ -149,12 +174,14 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
 /**
  * Client breadcrumb island for the workspace top bar. Walks the
  * `ROUTE_TABLE` and returns the first matching entry's segments;
- * falls through to `["workspace"]` for unrecognized paths (bare
+ * falls through to `["Workspace"]` for unrecognized paths (bare
  * `/coming-soon`, etc.).
  *
  * The active (last) segment renders bold ink; preceding segments
- * render muted. Pathname- and search-params-driven only — no other
- * state.
+ * render muted. Any non-last segment that resolves to a real route
+ * renders as a `<Link>`; scoping segments with no route (currently
+ * "Departments") render as plain spans. Pathname- and search-params-
+ * driven only — no other state.
  *
  * `departments` and `agents` are passed from the workspace layout,
  * which fetches both for the rail. Lookups are O(n) per render and
@@ -176,19 +203,19 @@ export function WorkspaceBreadcrumb({
     <div className="text-[13px] text-caption">
       {segments.map((seg, i) => {
         const isLast = i === segments.length - 1;
-        // The leading "workspace" segment is the only segment that maps to
-        // a real route (`/workspace` — the workspace landing). Render it as
-        // a Link so the breadcrumb is navigable. Other non-leaf segments
-        // ("departments", "admin", "trash", etc.) are scoping labels with
-        // no dedicated route and stay plain spans.
-        const renderAsLink = i === 0 && seg === "workspace" && !isLast;
+        if (isLast) {
+          return (
+            <span key={i}>
+              <strong className="font-medium text-foreground">{seg}</strong>
+            </span>
+          );
+        }
+        const href = resolveSegmentHref(seg, departments, agents);
         return (
           <span key={i}>
-            {isLast ? (
-              <strong className="font-medium text-foreground">{seg}</strong>
-            ) : renderAsLink ? (
+            {href !== null ? (
               <Link
-                href="/workspace"
+                href={href}
                 className="hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 {seg}
@@ -196,7 +223,7 @@ export function WorkspaceBreadcrumb({
             ) : (
               <span>{seg}</span>
             )}
-            {!isLast ? " / " : null}
+            {" / "}
           </span>
         );
       })}
@@ -232,5 +259,45 @@ function computeSegments(
       }
     }
   }
-  return ["workspace"];
+  return ["Workspace"];
+}
+
+/**
+ * Resolve a single breadcrumb segment string to its destination href,
+ * or null when the segment isn't routed. Static segments (Workspace,
+ * Admin, Trash, the three admin tools) come from `STATIC_SEGMENT_HREFS`;
+ * dynamic segments (department names, agent names) are resolved by
+ * looking the string up in the layout's pre-fetched lists.
+ *
+ * Department-name lookups by display name are safe — `departments.name`
+ * is unique within an org. Agent-name lookups can collide if two agents
+ * share a name; the lookup returns the first match. Accepted at this
+ * cohort scale; tighten to id-keyed resolution if collisions surface.
+ *
+ * The "Edit" entry in `STATIC_SEGMENT_HREFS` is intentionally empty —
+ * Edit is always a leaf in the routes that produce it, and a true
+ * Edit href would need the agent id which isn't available from a
+ * single segment string in isolation.
+ */
+function resolveSegmentHref(
+  seg: string,
+  departments: AccessibleDepartment[],
+  agents: AgentBreadcrumbContext[],
+): string | null {
+  if (seg in STATIC_SEGMENT_HREFS) {
+    const href = STATIC_SEGMENT_HREFS[seg];
+    return href === "" ? null : href;
+  }
+
+  const dept = departments.find((d) => d.name === seg);
+  if (dept) {
+    return `/workspace/departments/${dept.slug}`;
+  }
+
+  const agent = agents.find((a) => a.name === seg);
+  if (agent) {
+    return `/workspace/agents/${agent.id}`;
+  }
+
+  return null;
 }

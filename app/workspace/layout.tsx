@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { Toaster } from "@/components/ui/sonner";
+import { AdminRail } from "@/components/workspace/admin-rail";
+import { RailSwitcher } from "@/components/workspace/rail-switcher";
 import { WorkspaceRail } from "@/components/workspace/workspace-rail";
 import { WorkspaceTopBar } from "@/components/workspace/workspace-top-bar";
 import {
@@ -63,11 +65,16 @@ export default async function WorkspaceLayout({
       className="grid h-screen grid-cols-[232px_1fr] grid-rows-[100vh] overflow-hidden bg-background text-foreground"
       style={{ fontFeatureSettings: '"ss01", "cv11"' }}
     >
-      <WorkspaceRail
-        departments={departments}
-        profile={profile}
-        agents={agents}
-        isAdmin={isAdmin}
+      <RailSwitcher
+        workspaceRail={
+          <WorkspaceRail
+            departments={departments}
+            profile={profile}
+            agents={agents}
+            isAdmin={isAdmin}
+          />
+        }
+        adminRail={<AdminRail profile={profile} isAdmin={isAdmin} />}
       />
       <div className="grid min-h-0 grid-rows-[56px_1fr]">
         <WorkspaceTopBar departments={departments} agents={agents} />
