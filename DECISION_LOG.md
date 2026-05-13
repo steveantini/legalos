@@ -1262,3 +1262,54 @@ The `STATIC_SEGMENT_HREFS` map in `workspace-breadcrumb.tsx` now has to be kept 
 Title Case on admin tool labels means future admin-section additions should follow the same pattern for internal consistency. Other parts of the app continue to follow the skill’s sentence-case rule. The CLAUDE.md skill-routing should eventually note this scoped exception.
 
 Agent-name resolution in `resolveSegmentHref` matches by name string (`agents.find((a) => a.name === seg)`) and returns the first match. Collision risk if two agents share a name; tighten to id-keyed resolution if collisions surface. Accepted at current cohort scale.
+
+## D-047 — Workspace rail expanded to four product domains; dashboard transition attempted and reverted
+
+Date: 2026-05-13
+Status: Accepted
+
+**Context:**
+
+After Session 30 shipped the admin nav revamp, the operator turned attention to the Workspace rail and surface architecture. The pre-Session-31 rail carried three coming-soon entries (Knowledge / Matters / Resources) below the Departments group — placeholder categories that hadn’t yet been built and had no committed product shape. With more product surfaces planned (workflows for legal task orchestration, integrations for connecting CLMs and DMS via MCP, a help surface for documentation), the three placeholders no longer represented the product’s actual direction. Separately, the operator raised whether `/workspace` itself should be promoted from a department launcher to a cards-grid dashboard surfacing the product’s full set of domains.
+
+**Decision:**
+
+Session 31 ships as commit 5947326 with two coordinated outcomes:
+
+1. **Rail restructured around four product domains, each with multiple sub-leaves.** The RESOURCE_GROUPS array in `components/workspace/workspace-rail.tsx` was replaced. New shape: Knowledge (Research / Vault / Sources, all coming-soon pending Session 32’s reshape), Workflows (My Workflows + Template Library), Integrations (Connections + Marketplace), Help (Guides + What’s New). The first leaf in each non-Knowledge group routes to a real placeholder page; second leaves and all Knowledge leaves fall back to coming-soon URLs. Three new placeholder pages shipped at `/workspace/workflows`, `/workspace/integrations`, `/workspace/help` — each a real designed page describing what the surface will become, not a generic coming-soon component. Five new coming-soon area entries (knowledge-vault, knowledge-sources, workflows-templates, integrations-marketplace, help-whats-new) for the sub-leaves that don’t yet have real routes.
+
+2. **Breadcrumb renders visually lowercase via CSS text-transform.** The outer breadcrumb container received a `lowercase` class so every visible segment renders lowercase, while the underlying segment data (ROUTE_TABLE strings, STATIC_SEGMENT_HREFS keys) preserves natural case. The breadcrumb labels for the five new sub-leaves were added to RESOURCE_AREA_LABELS so they render as polished labels (“template library”, “what’s new”) rather than raw hyphenated slugs.
+
+Naming calls that landed in the same commit: rail leaf labels follow Title Case across all groups (matching the Session 30 deviation for admin tool names — single typographic convention now applies to all nav items). “All Workflows” renamed to “My Workflows” to honestly name what the list contains (workflows the user/org authored, not all workflows in the world).
+
+**Reasoning:**
+
+The four-category structure (Knowledge / Workflows / Integrations / Help) emerged from a brainstorm grounded in how mature legal AI products organize their feature surfaces. Legora ships Workflows as an orchestration layer composing native tools; legal research products treat content partnerships (EDGAR, Westlaw, regional case law) as a distinct surface from operational integrations (CLMs, DMS); every mature help surface in premium products splits structured docs from changelog/release-notes. The taxonomy reflects those patterns rather than inventing a new vocabulary.
+
+Knowledge specifically was reshaped from a single-leaf placeholder into a three-leaf architecture (Research / Vault / Sources) to encode the operator’s vision for the surface as a research domain with three sources (firm internal corpus, open web, trusted legal content partnerships) backed by an admin-configurable Sources surface for content integrations. The rail expresses that intended shape now even though the destinations are still coming-soon — the rail is a navigation contract that should reflect the product’s planned structure, not just what’s currently built. Session 32 will build out Knowledge’s real routes; the rail entries already exist for them to land into.
+
+The breadcrumb lowercase decision reversed Session 30’s “match the rail’s Title Case” choice. Session 30 optimized for visual consistency between rail and breadcrumb; the lived experience showed Title Case breadcrumbs compete with page h1s (also Title Case) for typographic attention. Lowercase breadcrumbs read as ambient chrome — the URL-bar mental model — and let h1s carry the page’s voice. Linear, Vercel, Notion, GitHub all use lowercase or sentence-case breadcrumbs for the same reason. Implementation via `text-transform: lowercase` on the outer container preserves segment data in its natural case (department names like “Commercial” stay “Commercial” in the DOM tree; only the visible rendering is lowercase) so the data model stays honest.
+
+Sub-leaf names were chosen against industry patterns: “My Workflows” + “Template Library” matches Zapier/n8n/Linear automations; “Connections” + “Marketplace” matches Stripe Apps/Vercel Integrations/Notion Integrations; “Guides” + “What’s New” matches Linear/Vercel/Stripe docs+changelog. Each pairing solves a real product job (cold-start for workflows, discovery for integrations, engagement for help).
+
+**Alternatives considered:**
+
+- **Rejected — Promoted `/workspace` to a five-category cards-grid dashboard.** Attempted mid-session. Built a `WorkspaceDashboard` component reading from `lib/workspace/dashboard.ts` (source-of-truth array mirroring the Session 30 admin pattern), with a stagger-children entrance animation. Browser pass showed the dashboard was a downgrade — five cards with Preview pills on four of five surfaces announced the product’s emptiness rather than its capabilities. The pre-Session-31 department-launcher hero was a stronger front door. Reverted by deleting the dashboard files from the working tree and restoring `app/workspace/page.tsx` and `components/workspace/workspace-modules.tsx` from git. `components/workspace/workspace-hero.tsx` was restored byte-for-byte from commit 49b8d1e (Session 21) via `git show 49b8d1e:components/workspace/workspace-hero.tsx >`. The dashboard concept moves to the roadmap for a future session when category surfaces have real content to surface.
+
+- **Rejected — Workflows / Integrations / Help under a single umbrella category (“Ecosystem”).** Operator initially proposed this. Pushed back: workflows are user-authored sequences (verb), integrations are connection points to outside systems (noun), help is product documentation. Different jobs, different lifecycles. One umbrella forces a name that’s true to all three, which is how umbrella-categorized SaaS navs end up reading vague. Split into three peer categories instead.
+
+- **Rejected — Monitors as a top-level category.** Considered surfacing regulatory monitoring as a fifth product domain peer to the others. Decided it’s a separate product (Legora ships it as a standalone product called Monitors with its own data model — subscriptions, feed items, triage state, audit trails). Added to README Future / Backlog instead.
+
+- **Rejected — Strict-mirror dashboard cards (the staging pattern that worked for admin landing in Session 30).** Same approach: cards-grid as v1, enrich into dashboard tiles with live data later. Failed for `/workspace` because the admin landing’s small surface (three cards, all real working tools) tolerates being a thin index. The workspace landing’s five-card surface where four cards are placeholders fails the test — a thin index of “coming soon” reads worse than a substantive single-purpose surface.
+
+- **Rejected — Real routes for all sub-leaves on day one.** Building placeholder pages for Vault, Sources, Template Library, Marketplace, What’s New (six pages total) would have shipped a thicker patch. Used coming-soon URLs instead so the rail navigation contract is in place while individual surfaces can land in future sessions without rail churn.
+
+**Consequences:**
+
+The rail’s `RESOURCE_GROUPS` data shape changed from a flat single-leaf-per-group array to a nested `RailGroup[]` where each group carries a `leaves: RailLeaf[]` array. Future rail additions follow this shape; adding a new sub-leaf is appending one entry to a group’s leaves array. The `RailLeaf.href` optional field is the extension point — leaves without an href fall back to coming-soon URLs automatically.
+
+The breadcrumb’s natural-case data + visual-lowercase presentation split is now the canonical pattern for the breadcrumb. Future ROUTE_TABLE additions should preserve natural case in segment strings; the lowercase rendering is automatic. Session 30’s D-046 entry that documented Title Case breadcrumbs is now superseded by this entry on the specific question of breadcrumb case — the rest of D-046 stands.
+
+The dashboard transition’s failure-and-revert pattern produced a process lesson worth carrying forward: when reverting a UI surface, restore from git literally (`git show <commit>:<file> > <file>`) rather than asking Claude Code to recreate the file from a description of what it used to look like. Interpretive recreation bakes in unintended changes from intermediate patches; literal restoration is byte-for-byte. This case: the hero file went through display-scale typography changes during the dashboard attempt; the “revert” via description recreated those typography changes around the pre-S31 copy. The literal restore from commit 49b8d1e fixed it. CHATBOT_HANDOFF.md should encode this rule.
+
+Four planned future sessions inherit from this one: Session 32 wires Knowledge’s three sub-leaves to real routes (`/workspace/knowledge` with Research as default, plus `/vault` and `/sources` children); Session 33 builds the Workflows surface (My Workflows index + Template Library); Session 34 builds the Integrations surface (Connections list + Marketplace catalog); Session 35 builds Help (Guides v1 + What’s New changelog). The workspace dashboard concept is deferred to Session 36 or later, contingent on those four sessions shipping real content for the cards to surface.
