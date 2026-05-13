@@ -135,14 +135,16 @@ Things this project has tried that didn't work:
 
 ## Next session
 
-As of 2026-05-13 (HEAD will be the in-progress Step C arc — actual hash captured at the final docs commit):
+As of 2026-05-13 (HEAD will be the final docs commit hash from this Step C arc — captured by the operator at push time):
 
 - **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
-- **Last shipped:** Session 31 — rail restructured around four product domains with multi-leaf groups, three placeholder routes, breadcrumb lowercase + sub-leaf label polish, dashboard transition attempted and reverted (D-047).
-- **Next milestone:** **Session 24 — custom SMTP via Resend.** Removes the Supabase free-tier 2/hour rate limit, which is the binding constraint on production smoke-testing of email-send paths. Prerequisite for the invitation gate that will eventually sunset D-035.
-- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036), then Session 32's Knowledge reshape (Research / Vault / Sources as real routes; cuts over the coming-soon URLs from Session 31), then Sessions 33 / 34 / 35 build out Workflows / Integrations / Help respectively. Workspace dashboard deferred to Session 36+ (see README Future / Backlog).
+- **Last shipped:** Session 31 + follow-up — rail restructured around four product domains with multi-leaf groups, three placeholder routes (now rendering the unified coming-soon template), breadcrumb lowercase, Research routing fixed, `WorkspaceModules` updated to new taxonomy (D-047, D-048).
+- **Next milestone:** Session 32 — Knowledge reshape. The rail's Knowledge category currently has three sub-leaves (Research / Vault / Sources), all pointing at coming-soon URLs. Session 32 wires them to real routes: `/workspace/knowledge` with Research as the default landing surface, `/workspace/knowledge/vault` for the firm's internal corpus, `/workspace/knowledge/sources` for admin configuration of content integrations (EDGAR, Westlaw, etc.). The three-source research model (firm corpus + open web + trusted legal content partnerships) is the architectural vision; v1 ships the surfaces and basic routing, with the chat-based research surface itself coming in a later session.
+- **Subsequent:** Sessions 33 (Workflows: My Workflows index + Template Library) / 34 (Integrations: Connections list + Marketplace catalog) / 35 (Help: Guides v1 + What's New changelog). Workspace dashboard deferred to Session 36+ — wait until category surfaces have real content (see README Future / Backlog).
 
-Confirm by reading `PROJECT_OUTLINE.md` `## Current status` block before drafting Session 24 prompts.
+Confirm by reading `PROJECT_OUTLINE.md` `## Current status` block before drafting Session 32 prompts.
+
+Note: Session 24 (custom SMTP via Resend) shipped earlier in May 2026 outside the documented session arc — the operator confirmed this verbally during the Session 31 follow-up arc. The previous Handoff pointer naming Session 24 as the next milestone is stale and has been replaced. The invitation gate that depends on Session 24's SMTP work, and the `?next=` preservation deferred from D-036, both remain as future work outside the Session 32+ Knowledge/Workflows/Integrations/Help build-out arc.
 
 ---
 
