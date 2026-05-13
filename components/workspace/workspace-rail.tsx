@@ -21,26 +21,78 @@ import {
 import { WorkspaceNavLink } from "./workspace-nav-link";
 import { WorkspaceProfileBlock } from "./workspace-profile-block";
 
-/**
- * Captioned resource groups, each with one placeholder leaf that links
- * to its `/coming-soon/<area>` page. Mirrors the DEPARTMENTS group's
- * "caption + leaves" pattern so the rail reads as a consistent stack
- * of captioned groups rather than a singletons-and-bare-list mix.
- *
- * Inbox was dropped from this list — no route, no rail link. The
- * breadcrumb's RESOURCE_AREA_LABELS and the coming-soon component's
- * AREA_COPY both retain their inbox entries as harmless lookups in
- * case anyone hand-types `/coming-soon/inbox`; nothing in the rail
- * points there anymore.
- */
-const RESOURCE_GROUPS: ReadonlyArray<{
-  caption: string;
-  leafLabel: string;
+type RailLeaf = {
+  label: string;
   slug: string;
-}> = [
-  { caption: "Knowledge", leafLabel: "Vault", slug: "knowledge" },
-  { caption: "Matters", leafLabel: "Dashboard", slug: "matters" },
-  { caption: "Resources", leafLabel: "Reference", slug: "resources" },
+  /**
+   * If present, the leaf routes to this real URL. When absent, the
+   * renderer falls back to `/workspace/coming-soon/<slug>` — used for
+   * leaves whose destination surface hasn't been built yet.
+   */
+  href?: string;
+};
+
+type RailGroup = {
+  caption: string;
+  leaves: ReadonlyArray<RailLeaf>;
+};
+
+/**
+ * Captioned resource groups under the DEPARTMENTS section in the rail.
+ * Each group has a caption and one or more leaves; each leaf either
+ * points at a real route (`href`) or falls back to
+ * `/workspace/coming-soon/<slug>` for surfaces that haven't been built
+ * yet.
+ *
+ * Session 31 introduced the four-category structure (Knowledge /
+ * Workflows / Integrations / Help); the multi-leaf shape was added in
+ * the follow-up so the rail can express each category's intended
+ * subsurface layout even before those subsurfaces ship. Knowledge has
+ * three planned leaves (Research / Vault / Sources, per the Session 32
+ * reshape) — none have real routes yet, all fall back to coming-soon.
+ * The other three categories each have two leaves; the first leaf in
+ * each is a real route (the Session 31 placeholder pages), the second
+ * falls back to coming-soon.
+ *
+ * The "My Workflows" leaf was renamed from the Session 31 follow-up's
+ * "All Workflows" — the list contains workflows the user / org has
+ * authored, not every workflow in the world, so "My" is the more
+ * honest label.
+ */
+const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
+  {
+    caption: "Knowledge",
+    leaves: [
+      { label: "Research", slug: "knowledge" },
+      { label: "Vault", slug: "knowledge-vault" },
+      { label: "Sources", slug: "knowledge-sources" },
+    ],
+  },
+  {
+    caption: "Workflows",
+    leaves: [
+      { label: "My Workflows", slug: "workflows", href: "/workspace/workflows" },
+      { label: "Template Library", slug: "workflows-templates" },
+    ],
+  },
+  {
+    caption: "Integrations",
+    leaves: [
+      {
+        label: "Connections",
+        slug: "integrations",
+        href: "/workspace/integrations",
+      },
+      { label: "Marketplace", slug: "integrations-marketplace" },
+    ],
+  },
+  {
+    caption: "Help",
+    leaves: [
+      { label: "Guides", slug: "help", href: "/workspace/help" },
+      { label: "What’s New", slug: "help-whats-new" },
+    ],
+  },
 ];
 
 const lockedLink =
@@ -150,22 +202,27 @@ export function WorkspaceRail({
       ) : null}
 
       {/* Groups 3..N — Resource groups. Each renders a mono-caps caption
-          + one placeholder leaf linking to its coming-soon page. The
-          parent <nav>'s gap-[22px] gives the same inter-group rhythm
-          the DEPARTMENTS group uses, and gap-px inside each group
-          tightens the caption-to-leaf relationship. Always render —
-          captions are static, no empty-state guard needed. */}
-      {RESOURCE_GROUPS.map(({ caption, leafLabel, slug }) => (
-        <div key={slug} className="flex flex-col gap-px">
-          <p className={`${captionLabel} mx-2 mb-2`}>{caption}</p>
-          <WorkspaceNavLink
-            href={`/workspace/coming-soon/${slug}`}
-            match="exact"
-            className={linkBase}
-            activeClassName={`${linkBase} ${linkActive}`}
-          >
-            {leafLabel}
-          </WorkspaceNavLink>
+          + one or more leaves; each leaf links to its real route when
+          `leaf.href` is set, otherwise falls back to a coming-soon page
+          for that slug. The parent <nav>'s gap-[22px] gives the same
+          inter-group rhythm the DEPARTMENTS group uses, and gap-px
+          inside each group tightens the caption-to-leaves relationship.
+          Always render — captions are static, no empty-state guard
+          needed. */}
+      {RESOURCE_GROUPS.map((group) => (
+        <div key={group.caption} className="flex flex-col gap-px">
+          <p className={`${captionLabel} mx-2 mb-2`}>{group.caption}</p>
+          {group.leaves.map((leaf) => (
+            <WorkspaceNavLink
+              key={leaf.slug}
+              href={leaf.href ?? `/workspace/coming-soon/${leaf.slug}`}
+              match="exact"
+              className={linkBase}
+              activeClassName={`${linkBase} ${linkActive}`}
+            >
+              {leaf.label}
+            </WorkspaceNavLink>
+          ))}
         </div>
       ))}
 

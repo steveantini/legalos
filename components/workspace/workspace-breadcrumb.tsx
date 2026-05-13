@@ -17,9 +17,14 @@ import type {
  */
 const RESOURCE_AREA_LABELS: Record<string, string> = {
   knowledge: "Knowledge",
+  "knowledge-vault": "Vault",
+  "knowledge-sources": "Sources",
   matters: "Matters / Deals",
   inbox: "Inbox",
   resources: "Resources",
+  "workflows-templates": "Template Library",
+  "integrations-marketplace": "Marketplace",
+  "help-whats-new": "What’s New",
 };
 
 /**
@@ -35,6 +40,9 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
  */
 const STATIC_SEGMENT_HREFS: Record<string, string> = {
   Workspace: "/workspace",
+  Workflows: "/workspace/workflows",
+  Integrations: "/workspace/integrations",
+  Help: "/workspace/help",
   Admin: "/workspace/admin",
   Trash: "/workspace/agents/trash",
   "User Access": "/workspace/admin/users",
@@ -92,6 +100,18 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       const dept = departments.find((d) => d.slug === slug);
       return ["Workspace", "Departments", dept?.name ?? slug];
     },
+  },
+  {
+    match: "/workspace/workflows",
+    segments: () => ["Workspace", "Workflows"],
+  },
+  {
+    match: "/workspace/integrations",
+    segments: () => ["Workspace", "Integrations"],
+  },
+  {
+    match: "/workspace/help",
+    segments: () => ["Workspace", "Help"],
   },
   {
     match: "/workspace/agents/new",
@@ -183,6 +203,17 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
  * "Departments") render as plain spans. Pathname- and search-params-
  * driven only — no other state.
  *
+ * Breadcrumb segments render visually lowercase via
+ * `text-transform: lowercase` on the outer container. Segment data
+ * preserves the natural case of each item (department names like
+ * "Commercial", admin tool names like "User Access") so the underlying
+ * data model stays honest; the lowercase is a presentation choice
+ * only. The display follows the URL-bar mental model (breadcrumbs as
+ * the human-readable version of the current path) and intentionally
+ * diverges from the rail's Title Case so the breadcrumb recedes into
+ * chrome rather than competing with the page h1 for typographic
+ * attention.
+ *
  * `departments` and `agents` are passed from the workspace layout,
  * which fetches both for the rail. Lookups are O(n) per render and
  * fine for n ≤ a few hundred.
@@ -200,7 +231,7 @@ export function WorkspaceBreadcrumb({
   const segments = computeSegments(pathname, searchParams, departments, agents);
 
   return (
-    <div className="text-[13px] text-caption">
+    <div className="text-[13px] text-caption lowercase">
       {segments.map((seg, i) => {
         const isLast = i === segments.length - 1;
         if (isLast) {
