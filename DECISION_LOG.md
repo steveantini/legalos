@@ -1360,3 +1360,67 @@ The Research routing fix closes a small but real broken-window issue. Every othe
 Adding a new placeholder sub-leaf now takes two entries (one in `AREA_COPY`, one in `RESOURCE_AREA_LABELS`) plus a rail leaf with the slug — no new component, no JSX duplication. Adding a new category-level URL that needs to render a placeholder takes one new page file that imports `ComingSoonContent` and passes the appropriate label and description; the route is then ready to receive real content via in-place page-body replacement when the real surface ships.
 
 The three top-level placeholder routes (`/workspace/workflows`, `/workspace/integrations`, `/workspace/help`) now describe the first-leaf surface, which means when real content ships, the page-body content will already match the URL’s intent — the cutover is replacing placeholder JSX with real JSX, not also renaming the page’s mental model.
+
+## D-049 — Demo access via per-session isolated workspaces with synthetic emails
+
+Date: 2026-05-13
+Status: Accepted (deferred implementation)
+
+**Context:**
+
+The operator wants to distribute view/interaction access to a “small select few” trusted people without collecting their real email addresses — primarily because the platform’s privacy posture (terms of service, GDPR-compliant data flows, consent mechanisms) isn’t yet production-ready, and exposing real user emails to a system that hasn’t completed privacy review feels premature. The need is real today (demo distribution would unblock product feedback and informal user testing), but the implementation effort is real too, and operator wants this logged and scoped now even though the build is deferred. See `docs/DEMO_ACCESS_SCOPING.md` for the build plan.
+
+**Decision:**
+
+Demo access ships as **per-session isolated demo workspaces** distributed via single-use invitation tokens. The technical pattern:
+
+1. Operator generates a high-entropy invitation token via an admin UI; hands the URL (`legalos.com/demo/invite/<token>`) to the demo user via trusted channels (Signal, text, in-person). No email round-trip.
+2. Demo user clicks the URL. The route uses Supabase’s admin API (`supabase.auth.admin.createUser`) to create a fresh user with a synthetic email (`demo-<uuid>@legalos-internal.invalid`, where `.invalid` is the RFC 2606 reserved unroutable TLD). The user is real to Supabase and works with all existing RLS, role, and access infrastructure.
+3. A new organization with `is_demo: true` is provisioned for the demo user; seed data (4-5 realistic departments, 8-10 agents across departments, 3-5 sample conversations per agent) is duplicated into the new org via a `seedDemoOrg(orgId)` function.
+4. Server-issued session cookie via `admin.generateLink` consumed server-side. Demo user lands on `/workspace` with their own isolated copy of the seed.
+5. A daily cleanup job (Vercel cron) deletes demo users + their data 7 days after creation; expired/consumed invitation tokens cleaned up on the same schedule.
+
+Each demo user has their own isolated org and data. Actions taken in one demo session don’t affect another demo user. The operator’s real org is fully separate.
+
+**Reasoning:**
+
+The constraint shaping this decision was the operator’s stated requirement of “no real email collected” combined with the goal of “give them a real feel for the product.” Several auth patterns were considered (see Alternatives); per-session isolated workspaces is the only pattern that satisfies both constraints without compromising either.
+
+Per-session isolation (rather than shared demo accounts) was chosen because demo users will likely overlap in time, and seeing each other’s edits would feel weird (“who added that agent?”). It also means demo users can experiment freely — break things, delete things, create things — without affecting other demo users or accumulating cruft for the operator to clean up manually.
+
+The 7-day TTL was chosen as the balance between “demo users have enough time to socialize the product with colleagues” (vs. session-bounded TTL where they can’t return tomorrow) and “data accumulation doesn’t get out of hand” (vs. 30-day TTL where demo orgs pile up). 7 days lets a demo user explore on day 1, share with one colleague on day 3, and revisit on day 7 without expiration pressure.
+
+The realistic-fidelity seed data (vs. minimal) was chosen because demos sell the product. A workspace with 2 departments and 3 agents tells the visitor “this is a thin tech demo”; a workspace with a realistic legal team’s structure tells them “this is a real product I could use tomorrow.” The maintenance cost is real but bounded — the seed lives in one file (`lib/demo/seed.ts`) and is updated when new agent types ship, which is a few times per year.
+
+The synthetic email domain (`@legalos-internal.invalid`) was chosen because `.invalid` is reserved by RFC 2606 specifically for cases like this — guaranteed unroutable, no possible collision with real users, semantically signals “this is not a real address.” Alternative approaches (UUIDs as emails, NULL emails) would either look like garbage in admin views or break Supabase Auth’s email-required schema assumption.
+
+The deferred implementation is deliberate — the feature is real and worth building, but it’s not blocking any current work, and the operator wants the privacy posture properly thought through before activating the demo path. The scoping doc + this decision entry are the artifacts that make the future build session efficient.
+
+**Alternatives considered:**
+
+- **Rejected — Shared demo accounts.** One or a small pool of pre-provisioned accounts (Demo-Alice, Demo-Bob, Demo-Charlie) that demo users sign in as. Simpler to set up, but demo users see each other’s actions and accumulated edits, which is a worse demo experience. Also means manually re-seeding the shared accounts whenever they drift from the desired state.
+
+- **Rejected — Static demo screens at `/demo`.** A parallel set of hard-coded pages with sample content, no auth, no database. Lowest engineering effort and zero security surface, but it’s a marketing artifact rather than the real product. Demo users can’t experience interactivity (chat with agents, see real navigation, etc.). Drift becomes a constant tax as the real product evolves and the demo screens don’t.
+
+- **Rejected — Real read-only role enforced via RLS.** Add a `viewer` role and update every server action and RLS policy to reject writes. Most realistic demo experience (real data, real auth, real state), but enormous engineering surface (touches every write path), and the UX becomes weird (visible forms that don’t submit, clickable buttons that do nothing).
+
+- **Rejected — Adopt a third-party auth service (Stytch, Clerk, Auth0) with built-in guest/passwordless modes.** Overkill for the use case. Adds a vendor dependency and an architectural change to solve a problem that fits cleanly inside existing Supabase patterns.
+
+- **Rejected — Just use real emails with a “this is alpha” disclaimer.** The operator’s privacy posture isn’t ready, and collecting real emails creates a real data inventory that future privacy work would need to address. Easier to never collect than to delete later.
+
+**Consequences:**
+
+The implementation is architecturally additive — no changes to existing auth, RLS, role model, or any current code paths. The new code lives entirely in:
+
+- New routes (`/demo/invite/[token]`, `/workspace/admin/demo-invitations`)
+- New tables (`demo_invitations`, `is_demo` column on `organizations`)
+- New seed data module (`lib/demo/seed.ts`)
+- New cleanup cron job (`/api/cron/cleanup-demo`)
+
+This means iteration speed on the rest of the product is unaffected while the feature is deferred, and the feature can be built without restructuring anything existing when it’s prioritized.
+
+Demo users see live UI changes as the operator ships them — same routes, same components, same code paths as real users. The only data difference is `organization_id` scoping, which RLS already enforces. The seed data needs manual updates as new agent types ship (small recurring tax).
+
+The same admin-API-creates-user pattern used here is a prototype for the future invitation gate that will sunset D-035 (the temporary public-signup window). When that gate ships, the demo path’s user-creation flow becomes a reference for the real invitation flow — single-use tokens, server-side user creation, no email round-trip. Likely a 1-session refactor at that point rather than a from-scratch build.
+
+The security guardrails (token entropy, single-use, rate limiting, synthetic email domain lock) are critical — the demo route is effectively a “create authenticated user” endpoint, and any weakness lets adversarial users spin up unlimited accounts. The scoping doc captures the specific implementation requirements; the build session should treat the security section as non-negotiable.
