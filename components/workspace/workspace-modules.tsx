@@ -2,39 +2,46 @@ import { ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
 
 /**
- * Static list of secondary product modules (Knowledge / Matters /
- * Resources). All three currently route to `/coming-soon/<slug>`;
- * the rows exist to signal the product's broader IA without faking
- * shippable content. When a section gets real shippable surface,
- * its row swaps `/coming-soon/<slug>` for the real path.
- *
- * Inbox is intentionally absent — dropped from the rail and from
- * this module list as part of the same restructure.
+ * Static list of secondary product modules (Knowledge / Workflows /
+ * Integrations / Help), mirroring the Session 31 rail taxonomy. Each
+ * entry carries an explicit `href` because the four categories route
+ * to a mix of coming-soon URLs (Knowledge's first leaf is "Research"
+ * at `/workspace/coming-soon/knowledge-research`) and real top-level
+ * placeholder routes (Workflows / Integrations / Help — which render
+ * the centered coming-soon template inline per D-048). When a category
+ * gets real shippable surface, its row's `href` swaps to the canonical
+ * destination without changing the row's shape.
  */
 const MODULES: ReadonlyArray<{
-  slug: string;
+  href: string;
   label: string;
   description: string;
 }> = [
   {
-    slug: "knowledge",
+    href: "/workspace/coming-soon/knowledge-research",
     label: "Knowledge",
-    description: "Department documents and AI-powered research",
+    description:
+      "Research grounded in firm corpus, web, and trusted legal sources",
   },
   {
-    slug: "matters",
-    label: "Matters",
-    description: "Active matters and pipeline dashboard",
+    href: "/workspace/workflows",
+    label: "Workflows",
+    description: "Multi-step agentic sequences you can author and reuse",
   },
   {
-    slug: "resources",
-    label: "Resources",
-    description: "Org charts, onboarding, training, and reference material",
+    href: "/workspace/integrations",
+    label: "Integrations",
+    description: "Connect operational systems via MCP",
+  },
+  {
+    href: "/workspace/help",
+    label: "Help",
+    description: "Guides, walkthroughs, and product references",
   },
 ];
 
 /**
- * Secondary "More in legalOS" section on the workspace landing — three
+ * Secondary "More in legalOS" section on the workspace landing — four
  * compact list rows below the DepartmentGrid card grid. The shift from
  * cards (above) to list rows (here) IS the visual hierarchy: cards
  * carry primary work surface (Departments → agents → chat), rows
@@ -72,9 +79,9 @@ export function WorkspaceModules() {
       </header>
       <ul className="mt-[14px] flex flex-col">
         {MODULES.map((m) => (
-          <li key={m.slug}>
+          <li key={m.href}>
             <Link
-              href={`/workspace/coming-soon/${m.slug}`}
+              href={m.href}
               className="group flex items-center gap-3 rounded-[10px] px-3 py-[10px] transition-colors duration-[180ms] ease-out hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <ArrowRightIcon
