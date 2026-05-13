@@ -82,6 +82,9 @@ Anthropic API key is server-only — never `NEXT_PUBLIC_`. RLS on every table. S
 ### Paste format for Claude Code prompts
 Every prompt drafted for Claude Code is delivered to the operator as a single fenced code block they can copy-paste in one motion. Use quadruple-backtick fences on the outside of the prompt because the prompt's interior frequently contains triple-backtick code samples; triple-on-the-outside collides with triple-on-the-inside and chat clients render the result as several visually-separate blocks instead of one. After the closing fence, nothing further — no asides, no commentary, no "let me know if you want to adjust" — so the operator can ⌘A / ⌘C from the top of the fence to the bottom of the message without scrolling for additional content. Asides for the operator go above the fence, clearly addressed to them, never below it.
 
+### Reverts via literal git restore
+When reverting a UI surface that's been modified across multiple patches in a session, restore the file byte-for-byte from git rather than asking Claude Code to recreate it from a description of the prior state. Interpretive recreation bakes in unintended changes from intermediate patches — the file ends up structurally similar to the prior state but with new typography, weights, or scales accidentally preserved from the patch being reverted. The literal restore command is `git show <pre-change-commit>:<path> > <path>`. Run `git log --oneline -- <path>` first to locate the last commit that touched the file before the change being reverted. After restoration, verify byte-identity via `git diff HEAD -- <path>` (empty diff = success). Session 31's hero revert is the canonical case — Claude Chat initially described the pre-S31 hero for Claude Code to recreate, which baked in display-scale typography that the operator (correctly) called "looks nothing like the old look." The literal restore from commit 49b8d1e fixed it on the second attempt.
+
 ### Skill routing rules
 Before drafting prompts that touch certain task types, point Claude Code at the relevant `.claude/skills/` files. The full mapping is in CLAUDE.md "Skill Routing Rules (Mandatory)" — frontend → `nextjs.md` + `react-patterns.md` + `tailwind.md`, database → `supabase.md` + `database-patterns.md`, etc.
 
@@ -132,12 +135,12 @@ Things this project has tried that didn't work:
 
 ## Next session
 
-As of 2026-05-12 (HEAD `838dc35`):
+As of 2026-05-13 (HEAD will be the in-progress Step C arc — actual hash captured at the final docs commit):
 
 - **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
-- **Last shipped:** Session 30 — admin-mode rail, grouped landing, clickable breadcrumb with Title Case admin labels (D-046).
+- **Last shipped:** Session 31 — rail restructured around four product domains with multi-leaf groups, three placeholder routes, breadcrumb lowercase + sub-leaf label polish, dashboard transition attempted and reverted (D-047).
 - **Next milestone:** **Session 24 — custom SMTP via Resend.** Removes the Supabase free-tier 2/hour rate limit, which is the binding constraint on production smoke-testing of email-send paths. Prerequisite for the invitation gate that will eventually sunset D-035.
-- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036), then the enriched admin-landing cards (live metrics per card; see README Future / Backlog).
+- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036), then Session 32's Knowledge reshape (Research / Vault / Sources as real routes; cuts over the coming-soon URLs from Session 31), then Sessions 33 / 34 / 35 build out Workflows / Integrations / Help respectively. Workspace dashboard deferred to Session 36+ (see README Future / Backlog).
 
 Confirm by reading `PROJECT_OUTLINE.md` `## Current status` block before drafting Session 24 prompts.
 
