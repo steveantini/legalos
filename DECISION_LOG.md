@@ -1313,3 +1313,50 @@ The breadcrumb’s natural-case data + visual-lowercase presentation split is no
 The dashboard transition’s failure-and-revert pattern produced a process lesson worth carrying forward: when reverting a UI surface, restore from git literally (`git show <commit>:<file> > <file>`) rather than asking Claude Code to recreate the file from a description of what it used to look like. Interpretive recreation bakes in unintended changes from intermediate patches; literal restoration is byte-for-byte. This case: the hero file went through display-scale typography changes during the dashboard attempt; the “revert” via description recreated those typography changes around the pre-S31 copy. The literal restore from commit 49b8d1e fixed it. CHATBOT_HANDOFF.md should encode this rule.
 
 Four planned future sessions inherit from this one: Session 32 wires Knowledge’s three sub-leaves to real routes (`/workspace/knowledge` with Research as default, plus `/vault` and `/sources` children); Session 33 builds the Workflows surface (My Workflows index + Template Library); Session 34 builds the Integrations surface (Connections list + Marketplace catalog); Session 35 builds Help (Guides v1 + What’s New changelog). The workspace dashboard concept is deferred to Session 36 or later, contingent on those four sessions shipping real content for the cards to surface.
+
+## D-048 — Sub-leaf coming-soon template unified; Research routing fixed
+
+Date: 2026-05-13
+Status: Accepted
+
+**Context:**
+
+Session 31 shipped three top-level category surfaces (Workflows / Integrations / Help) as real routes from day one — `/workspace/workflows`, `/workspace/integrations`, `/workspace/help` — with custom placeholder page bodies (left-aligned h1 + subtitle + descriptive prose + an “In development — Session NN ships X” footer). The other sub-leaf surfaces under those categories (and under Knowledge) routed through the dynamic `/workspace/coming-soon/<area>` page, which rendered a different visual template — centered, mono-caps label, “Coming soon.” display headline, descriptive prose, “← Back to workspace” link. Two placeholder patterns doing the same job. Operator review surfaced the inconsistency on visual smoke; the centered template was preferred. Separately, the Research leaf under Knowledge routed to `/workspace/coming-soon/knowledge`, which rendered Knowledge-category content rather than Research-specific content — a leftover from Session 31’s scope decision to defer Knowledge’s reshape to Session 32.
+
+**Decision:**
+
+Single commit (3c1d9b0) unified the placeholder template across all nine sub-leaf surfaces and fixed Research routing:
+
+1. **Extracted `ComingSoonContent` as a reusable component.** The centered visual template that the dynamic coming-soon route had been rendering inline was extracted into an exported component in `components/coming-soon/coming-soon.tsx`. Props: `{ label?: string; description: string }`. The original `ComingSoon({ area })` dispatcher now delegates to `ComingSoonContent` after looking up the area in `AREA_COPY`. The `copy` → `description` prop name change happens at the delegation boundary, leaving the `AREA_COPY` entry shape unchanged.
+
+2. **Migrated three real-route placeholder pages to render `ComingSoonContent` inline.** `/workspace/workflows`, `/workspace/integrations`, `/workspace/help` page bodies replaced. Each now renders the centered template with its leaf-specific label (My Workflows / Connections / Guides — the first leaf under each category) and a description scoped to that leaf rather than the category as a whole. Page metadata titles updated to match the rail leaf labels.
+
+3. **Fixed Research routing and content.** The rail’s Knowledge → Research leaf had `slug: "knowledge"`, falling back to `/workspace/coming-soon/knowledge`, which renders the Knowledge-category copy. Changed the slug to `knowledge-research` so Research routes to `/workspace/coming-soon/knowledge-research`. Added new entries to `AREA_COPY` (`knowledge-research` → Research-specific description covering the three-source research vision: internal corpus, open web, trusted legal content partnerships) and `RESOURCE_AREA_LABELS` (`knowledge-research` → “Research”) so the breadcrumb on the new URL renders as “workspace / research” rather than “workspace / knowledge-research”.
+
+URL stability for the three top-level routes was preserved deliberately — when Sessions 33/34/35 ship real content for Workflows, Integrations, and Help, the URLs (`/workspace/workflows`, `/workspace/integrations`, `/workspace/help`) cut over to real content without URL churn. The placeholder template renders inline at those URLs in the meantime.
+
+**Reasoning:**
+
+Two placeholder templates were drifting independently. Each new sub-leaf added in Session 31 (Vault / Sources / Template Library / Marketplace / What’s New) followed the centered coming-soon pattern, while the Session 31 top-level category page (Workflows / Integrations / Help) followed the left-aligned custom-page pattern. The patterns diverged because Session 31 made two scope decisions in the same commit — real routes for top-level categories (URL stability), coming-soon URLs for sub-leaves (lighter weight) — without unifying their visual treatment. Operator visual review correctly read this as inconsistency; the unified centered template is the right v1.
+
+The centered template is also more honest about what these pages are. A left-aligned page with h1 + descriptive prose + roadmap footer reads as a real product page that happens to be empty. A centered “Coming soon” page reads as a deliberate placeholder. The latter sets the right expectation for the user — these aren’t half-built surfaces, they’re surfaces where the URL exists but the content lives in the future.
+
+Mapping the top-level URLs to their first-leaf content (My Workflows under `/workspace/workflows`, Connections under `/workspace/integrations`, Guides under `/workspace/help`) follows from the rail’s structure: each category has a caption (mono-caps WORKFLOWS / INTEGRATIONS / HELP) but the leaves below it carry the actual destinations. The first leaf under each category is the natural landing surface for that category’s URL. When the real surfaces ship, `/workspace/workflows` becomes the “My Workflows” index page; this commit just renders the right placeholder content at that URL now.
+
+The Research routing fix closes a small but real broken-window issue. Every other leaf in the rail (eight total after this commit) routes to a leaf-specific coming-soon page with leaf-specific content. Research alone was routing to category-level content because its slug shared with the Knowledge-category fallback. The fix gives Research its own slug, content, and breadcrumb label — consistent with the pattern across all other leaves.
+
+**Alternatives considered:**
+
+- **Rejected — Consolidate all coming-soon URLs through the dynamic `/coming-soon/<slug>` route.** Would unify routing as well as visual treatment, but would force the three top-level URLs (`/workspace/workflows` etc.) to change to `/workspace/coming-soon/<slug>` form. When real content ships in Sessions 33–35, the URLs would have to change back to the canonical form — URL churn that breaks any bookmarks, deep links, or muscle memory built up against the temporary URLs. The chosen approach renders the same visual template at the canonical URLs with no URL change ever.
+
+- **Rejected — Keep two placeholder patterns and pick which one fits each surface case-by-case.** Pragmatically defensible (different patterns for different surface lifecycle stages), but produces exactly the visual inconsistency the operator flagged. The unified template is a smaller and clearer pattern.
+
+- **Rejected — Add a real `/workspace/coming-soon/knowledge-research` route file.** Considered briefly. Unnecessary: the dynamic `/workspace/coming-soon/[area]/page.tsx` route handles any area key registered in `AREA_COPY`. Adding the matching entries to `AREA_COPY` and `RESOURCE_AREA_LABELS` is sufficient; no new route file needed.
+
+**Consequences:**
+
+`ComingSoonContent` is now the canonical placeholder component for any future sub-leaf or category-level surface that ships in a planning state before its real content lands. Future placeholder pages reuse it directly. The `ComingSoon` dispatcher remains for slug-driven content lookups; the two compose cleanly.
+
+Adding a new placeholder sub-leaf now takes two entries (one in `AREA_COPY`, one in `RESOURCE_AREA_LABELS`) plus a rail leaf with the slug — no new component, no JSX duplication. Adding a new category-level URL that needs to render a placeholder takes one new page file that imports `ComingSoonContent` and passes the appropriate label and description; the route is then ready to receive real content via in-place page-body replacement when the real surface ships.
+
+The three top-level placeholder routes (`/workspace/workflows`, `/workspace/integrations`, `/workspace/help`) now describe the first-leaf surface, which means when real content ships, the page-body content will already match the URL’s intent — the cutover is replacing placeholder JSX with real JSX, not also renaming the page’s mental model.
