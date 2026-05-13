@@ -296,7 +296,7 @@ These are adjacent to the legal department's stack but out of scope for a launch
 ## Current status
 
 - **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
-- **Shipped sessions:** 8a–30 (single feat commit covering 30a/30b/30c).
-- **Last shipped:** Session 30 — admin-mode rail, grouped landing + source-of-truth nav array, clickable breadcrumb with Title Case admin labels (commit 43f3733, D-046).
+- **Shipped sessions:** 8a–31 (single feat commit covering 31a/31b/31c/31d).
+- **Last shipped:** Session 31 — rail restructured around four product domains with multi-leaf groups (Knowledge: Research / Vault / Sources; Workflows: My Workflows / Template Library; Integrations: Connections / Marketplace; Help: Guides / What's New), three new placeholder routes (`/workspace/workflows`, `/workspace/integrations`, `/workspace/help`), breadcrumb rendered visually lowercase via text-transform with polished sub-leaf labels, dashboard transition attempted and reverted (commit 5947326, D-047).
 - **Next milestone:** **Session 24 — custom SMTP via Resend.** Removes the Supabase free-tier 2/hour rate limit, which is the binding constraint on production smoke-testing of email-send paths. Prerequisite for the invitation gate that will eventually sunset D-035.
-- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036), then the enriched admin-landing cards (live metrics per card; see README Future / Backlog).
+- **Subsequent:** invitation gate (sunsets D-035), then `?next=` preservation in `proxy.ts:24` (deferred follow-up from D-036), then Session 32's Knowledge reshape (Research / Vault / Sources as real routes; cuts over the coming-soon URLs introduced in Session 31), then Sessions 33 / 34 / 35 build out Workflows / Integrations / Help respectively. Workspace dashboard deferred to Session 36+ (see README Future / Backlog).
