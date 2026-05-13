@@ -17,6 +17,7 @@ import type {
  */
 const RESOURCE_AREA_LABELS: Record<string, string> = {
   knowledge: "Knowledge",
+  "knowledge-research": "Research",
   "knowledge-vault": "Vault",
   "knowledge-sources": "Sources",
   matters: "Matters / Deals",

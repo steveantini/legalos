@@ -10,6 +10,10 @@ const AREA_COPY: Record<string, AreaCopy> = {
     label: "Knowledge",
     copy: "A searchable home for your team's playbooks, precedent, and reference materials. Currently in development.",
   },
+  "knowledge-research": {
+    label: "Research",
+    copy: "Ask a legal question; get a citation-backed answer drawing from three sources — your firm's internal corpus, the open web, and trusted legal content partnerships. The same research capability your department agents call as a tool. Arrives with the Knowledge reshape.",
+  },
   "knowledge-vault": {
     label: "Vault",
     copy: "Your firm's internal documents, precedents, and memos — the curated corpus your assistant and agents draw from when answering questions. Arrives with the Knowledge reshape.",
@@ -46,14 +50,37 @@ const AREA_COPY: Record<string, AreaCopy> = {
 
 const GENERIC_COPY = "We're building this part of the app. Check back soon.";
 
-export function ComingSoon({ area }: { area?: string }) {
-  const recognized = area ? AREA_COPY[area] : undefined;
-
+/**
+ * Centered "Coming soon" template used by every sub-leaf placeholder
+ * surface. Renders a mono-caps area label (optional), the "Coming
+ * soon." h1, a descriptive paragraph, and a back-to-workspace link.
+ *
+ * Two consumers:
+ *   - `<ComingSoon area>` (below) — looks up `AREA_COPY` by slug and
+ *     delegates here. Powers the dynamic `/workspace/coming-soon/[area]`
+ *     route.
+ *   - Real-route pages (`/workspace/workflows`, `/workspace/integrations`,
+ *     `/workspace/help`, future siblings) — import `ComingSoonContent`
+ *     directly and pass their own `label` + `description`. URL stays
+ *     stable across the real → coming-soon → real rebuild cycle; only
+ *     the body swaps in.
+ *
+ * `label` is optional: when absent (the unrecognized-slug fallback in
+ * `ComingSoon`), the mono-caps header is omitted and only the h1 +
+ * description + back link render.
+ */
+export function ComingSoonContent({
+  label,
+  description,
+}: {
+  label?: string;
+  description: string;
+}) {
   return (
     <main className="mx-auto flex min-h-0 max-w-2xl flex-1 flex-col items-center justify-center text-center">
-      {recognized ? (
+      {label ? (
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-caption">
-          {recognized.label}
+          {label}
         </p>
       ) : null}
 
@@ -62,7 +89,7 @@ export function ComingSoon({ area }: { area?: string }) {
       </h1>
 
       <p className="mt-6 max-w-prose text-base leading-relaxed text-muted-foreground">
-        {recognized ? recognized.copy : GENERIC_COPY}
+        {description}
       </p>
 
       <Link
@@ -72,5 +99,16 @@ export function ComingSoon({ area }: { area?: string }) {
         ← Back to workspace
       </Link>
     </main>
+  );
+}
+
+export function ComingSoon({ area }: { area?: string }) {
+  const recognized = area ? AREA_COPY[area] : undefined;
+
+  return (
+    <ComingSoonContent
+      label={recognized?.label}
+      description={recognized ? recognized.copy : GENERIC_COPY}
+    />
   );
 }

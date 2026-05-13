@@ -63,7 +63,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   {
     caption: "Knowledge",
     leaves: [
-      { label: "Research", slug: "knowledge" },
+      { label: "Research", slug: "knowledge-research" },
       { label: "Vault", slug: "knowledge-vault" },
       { label: "Sources", slug: "knowledge-sources" },
     ],
