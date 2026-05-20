@@ -3,6 +3,7 @@
 import { useFormStatus } from "react-dom";
 
 import { signInWithMagicLink } from "@/app/(public)/login/actions";
+import { ACCESS_REJECTION_MESSAGE } from "@/lib/auth/allowlist";
 
 /**
  * Login form state (Session 23).
@@ -48,7 +49,9 @@ export function LoginForm({ error, next }: LoginFormProps) {
       ? "That doesn’t look like a valid email. Try again."
       : error === "invalid-link"
         ? "This sign-in link has expired or is invalid. Enter your email to get a new one."
-        : null;
+        : error === "access-denied"
+          ? ACCESS_REJECTION_MESSAGE
+          : null;
 
   return (
     <>

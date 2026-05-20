@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { isEmailAllowed } from "@/lib/auth/allowlist";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/lib/url/safe-next";
 
@@ -105,6 +106,10 @@ export async function signInWithMagicLink(formData: FormData) {
     redirect("/login?error=invalid-email");
   }
 
+  if (!isEmailAllowed(parsed.data.email)) {
+    redirect("/login?error=access-denied");
+  }
+
   const next = safeNextPath(parsed.data.next);
 
   await sendMagicLink(parsed.data.email, next);
@@ -143,6 +148,10 @@ export async function resendMagicLink(formData: FormData) {
 
   if (!parsed.success) {
     redirect("/login");
+  }
+
+  if (!isEmailAllowed(parsed.data.email)) {
+    redirect("/login?error=access-denied");
   }
 
   const next = safeNextPath(parsed.data.next);
