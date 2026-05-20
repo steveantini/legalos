@@ -4,10 +4,10 @@ import { LockIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { siteConfig } from "@/config/site";
 import type { DepartmentWithAccess } from "@/lib/auth/access";
 
 import { DepartmentDescriptionEditor } from "./department-description-editor";
+import { LockedDepartmentDialog } from "./locked-department-dialog";
 
 /**
  * Card chrome classes split into base + hover so the hover treatment
@@ -33,13 +33,13 @@ const CARD_HOVER_CLASS =
  * Locked variant — rendered when the user has no `user_department_roles`
  * row for the department (Session 29 — `hasAccess === false` from
  * `getAllDepartmentsWithAccess`). The card sits in the grid for visual
- * completeness but is non-clickable: the outer wrapper is a `<div>`
- * (not `<Link>`), the bg recedes to the page background, the heading +
- * description tone down to muted, the agent count is hidden, a Lock
- * icon appears upper-right, and the foot's arrow is replaced by a
- * "Request access" mailto link to `siteConfig.adminEmail` with a
- * department-scoped subject + body. Hover treatment is fully
- * suppressed; only the mailto link is interactive.
+ * completeness; clicking it opens an in-product information dialog
+ * (`LockedDepartmentDialog`) explaining the restriction. The bg
+ * recedes to the page background, the heading + description tone down
+ * to muted, the agent count is hidden, and a Lock icon appears
+ * upper-right. The whole card is the click target — no separate
+ * "Request access" footer (the prior mailto pattern leaked the
+ * operator's email and caused an app switch on macOS).
  *
  * Hover border `#d8d2c7` is between `--hairline` and `--hairline-strong`
  * — close enough to `--hairline-strong` (`#e3ddd1`) that we use that
@@ -115,51 +115,51 @@ export function DepartmentCard({
 }
 
 /**
- * Non-clickable locked variant. The whole card is a static `<div>`;
- * only the foot's "Request access" mailto is interactive. cursor:
- * not-allowed on the root broadcasts the locked state when the user
- * hovers the body; the `<a>` overrides to cursor: pointer over its
- * own bounds.
+ * Locked variant. The whole card is a button that opens a centered
+ * `LockedDepartmentDialog` explaining the restriction. No mailto, no
+ * app switch, no "Request access" footer. The Lock icon in the upper
+ * right is the only visual cue that this surface differs from the
+ * active variant; on hover the card subtly lifts and the border darkens
+ * to signal interactivity, but the lift is shallower than the active
+ * card so the affordance reads as "informational" rather than
+ * "navigate in".
  */
 function LockedDepartmentCard({
   department,
 }: {
   department: DepartmentWithAccess;
 }) {
-  const requestAccessHref =
-    `mailto:${siteConfig.adminEmail}` +
-    `?subject=${encodeURIComponent(`Request access to ${department.name} in legalOS`)}` +
-    `&body=${encodeURIComponent(
-      `Hi, I'd like to request access to the ${department.name} department in legalOS.`,
-    )}`;
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
-    <div
-      aria-disabled="true"
-      aria-label={`${department.name} (locked — request access from your admin)`}
-      className="relative flex min-h-[192px] cursor-not-allowed flex-col gap-4 rounded-[14px] border border-card-border bg-background p-[22px]"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[19px] font-normal leading-[1.15] tracking-[-0.018em] text-muted-foreground">
-          {department.name}
-        </h3>
-        <LockIcon
-          aria-label="Locked"
-          strokeWidth={1.5}
-          className="size-3.5 shrink-0 text-muted-foreground"
-        />
-      </div>
-      <p className="flex-1 text-[13px] leading-[1.45] text-muted-foreground/60">
-        {department.description ?? ""}
-      </p>
-      <div className="flex items-center justify-end border-t border-card-divider pt-3 font-mono text-[11px] tabular-nums text-caption">
-        <a
-          href={requestAccessHref}
-          className="cursor-pointer transition-colors duration-[180ms] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          Request access
-        </a>
-      </div>
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setDialogOpen(true)}
+        aria-haspopup="dialog"
+        aria-label={`${department.name} (locked — open access information)`}
+        className="group relative flex min-h-[192px] cursor-pointer flex-col gap-4 rounded-[14px] border border-card-border bg-background p-[22px] text-left transition-[transform,box-shadow,border-color] duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] hover:-translate-y-[1px] hover:border-hairline-strong hover:shadow-[0_1px_0_rgba(26,24,22,0.02),0_8px_18px_-10px_rgba(26,24,22,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-[19px] font-normal leading-[1.15] tracking-[-0.018em] text-muted-foreground">
+            {department.name}
+          </h3>
+          <LockIcon
+            aria-label="Locked"
+            strokeWidth={1.5}
+            className="size-3.5 shrink-0 text-muted-foreground"
+          />
+        </div>
+        <p className="flex-1 text-[13px] leading-[1.45] text-muted-foreground/60">
+          {department.description ?? ""}
+        </p>
+      </button>
+
+      <LockedDepartmentDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        departmentName={department.name}
+      />
+    </>
   );
 }

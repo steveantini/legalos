@@ -1,4 +1,3 @@
-import { LockIcon } from "lucide-react";
 import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
@@ -18,6 +17,7 @@ import {
   linkBase,
 } from "@/lib/workspace/rail-styles";
 
+import { LockedDepartmentRailRow } from "./locked-department-rail-row";
 import { WorkspaceNavLink } from "./workspace-nav-link";
 import { WorkspaceProfileBlock } from "./workspace-profile-block";
 
@@ -114,17 +114,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
 ];
 
 const lockedLink =
-  "flex items-center justify-between rounded-lg px-3 py-[7px] text-[13.5px] font-[450] tracking-[-0.005em] text-muted-foreground transition-colors duration-150 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-
-function buildRequestAccessHref(departmentName: string): string {
-  return (
-    `mailto:${siteConfig.adminEmail}` +
-    `?subject=${encodeURIComponent(`Request access to ${departmentName} in legalOS`)}` +
-    `&body=${encodeURIComponent(
-      `Hi, I'd like to request access to the ${departmentName} department in legalOS.`,
-    )}`
-  );
-}
+  "flex w-full items-center justify-between rounded-lg px-3 py-[7px] text-left text-[13.5px] font-[450] tracking-[-0.005em] text-muted-foreground transition-colors duration-150 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function WorkspaceRail({
   departments,
@@ -201,19 +191,11 @@ export function WorkspaceRail({
               );
             }
             return (
-              <a
+              <LockedDepartmentRailRow
                 key={d.id}
-                href={buildRequestAccessHref(d.name)}
-                aria-label={`${d.name} (locked — request access from your admin)`}
+                departmentName={d.name}
                 className={lockedLink}
-              >
-                <span>{d.name}</span>
-                <LockIcon
-                  aria-hidden
-                  strokeWidth={1.5}
-                  className="size-3.5 shrink-0 text-muted-foreground"
-                />
-              </a>
+              />
             );
           })}
         </div>
