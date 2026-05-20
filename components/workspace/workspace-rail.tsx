@@ -25,11 +25,20 @@ type RailLeaf = {
   label: string;
   slug: string;
   /**
-   * If present, the leaf routes to this real URL. When absent, the
-   * renderer falls back to `/workspace/coming-soon/<slug>` — used for
-   * leaves whose destination surface hasn't been built yet.
+   * If present, the leaf routes to this URL. When absent, the renderer
+   * falls back to `/workspace/coming-soon/<slug>` — used for leaves
+   * whose destination surface hasn't been built yet.
    */
   href?: string;
+  /**
+   * When true, the leaf renders as a plain anchor with `target="_blank"`
+   * and `rel="noopener noreferrer"`, opening in a new tab — used for
+   * leaves that bridge from the in-product workspace chrome to the
+   * marketing surface (e.g., "About legalOS" pointing at `/`). Defaults
+   * to false; in-product leaves use the standard `<WorkspaceNavLink>`
+   * with active-state matching.
+   */
+  external?: boolean;
 };
 
 type RailGroup = {
@@ -58,6 +67,14 @@ type RailGroup = {
  * "All Workflows" — the list contains workflows the user / org has
  * authored, not every workflow in the world, so "My" is the more
  * honest label.
+ *
+ * Leaves can also route externally via the `external: true` flag, which
+ * renders the leaf as a plain anchor with `target="_blank"` opening in
+ * a new tab — used to bridge from the in-product workspace chrome to
+ * the marketing surface (the "About legalOS" leaf in the Help group
+ * points at `/`, the landing page). External leaves don't participate
+ * in active-state matching — they are never "the current page" from
+ * the rail's perspective.
  */
 const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   {
@@ -91,6 +108,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     leaves: [
       { label: "Guides", slug: "help", href: "/workspace/help" },
       { label: "What’s New", slug: "help-whats-new" },
+      { label: "About legalOS", slug: "help-about", href: "/", external: true },
     ],
   },
 ];
@@ -212,17 +230,33 @@ export function WorkspaceRail({
       {RESOURCE_GROUPS.map((group) => (
         <div key={group.caption} className="flex flex-col gap-px">
           <p className={`${captionLabel} mx-2 mb-2`}>{group.caption}</p>
-          {group.leaves.map((leaf) => (
-            <WorkspaceNavLink
-              key={leaf.slug}
-              href={leaf.href ?? `/workspace/coming-soon/${leaf.slug}`}
-              match="exact"
-              className={linkBase}
-              activeClassName={`${linkBase} ${linkActive}`}
-            >
-              {leaf.label}
-            </WorkspaceNavLink>
-          ))}
+          {group.leaves.map((leaf) => {
+            const href = leaf.href ?? `/workspace/coming-soon/${leaf.slug}`;
+            if (leaf.external) {
+              return (
+                <a
+                  key={leaf.slug}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkBase}
+                >
+                  {leaf.label}
+                </a>
+              );
+            }
+            return (
+              <WorkspaceNavLink
+                key={leaf.slug}
+                href={href}
+                match="exact"
+                className={linkBase}
+                activeClassName={`${linkBase} ${linkActive}`}
+              >
+                {leaf.label}
+              </WorkspaceNavLink>
+            );
+          })}
         </div>
       ))}
 
