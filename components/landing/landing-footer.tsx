@@ -15,22 +15,22 @@ import Link from "next/link";
 
 const PRODUCT_LINKS = [
   { label: "Workspace", href: "/workspace" },
-  { label: "Integrations", href: "/coming-soon" },
-  { label: "Pricing", href: "/coming-soon" },
+  { label: "Integrations", href: "/integrations" },
+  { label: "Pricing", href: "/pricing" },
 ] as const;
 
 const RESOURCE_LINKS = [
-  { label: "Documentation", href: "/coming-soon" },
-  { label: "Blog", href: "/coming-soon" },
-  { label: "FAQ", href: "/coming-soon" },
+  { label: "Documentation", href: "/documentation" },
+  { label: "Blog", href: "/blog" },
+  { label: "FAQ", href: "/faq" },
 ] as const;
 
 const COMPANY_LINKS = [
-  { label: "About", href: "/coming-soon" },
-  { label: "Our Mission", href: "/coming-soon" },
-  { label: "Legal", href: "/coming-soon" },
-  { label: "Security", href: "/coming-soon" },
-  { label: "Contact", href: "mailto:steveantini@gmail.com" },
+  { label: "About", href: "/about" },
+  { label: "Our Mission", href: "/mission" },
+  { label: "Legal", href: "/legal" },
+  { label: "Security", href: "/security" },
+  { label: "Contact", href: "/contact" },
 ] as const;
 
 function FooterLink({
