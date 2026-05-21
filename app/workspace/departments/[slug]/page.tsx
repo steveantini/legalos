@@ -73,10 +73,17 @@ export default async function DepartmentLaunchpadPage({
     notFound();
   }
 
-  const [{ departmentAgents, myAgents }, canManageTemplates] = await Promise.all([
+  const [
+    { departmentAgents, externalAgents: _externalAgents, myAgents },
+    canManageTemplates,
+  ] = await Promise.all([
     getAgentsForDepartmentLaunchpad(department.id, user.id),
     isCurrentUserOrgAdmin(),
   ]);
+  // `externalAgents` is intentionally pulled into scope (prefixed `_`
+  // to satisfy unused-vars) so the destructuring is shape-complete and
+  // the follow-up rendering patch only adds usage, not destructuring.
+  void _externalAgents;
 
   // Admins see two side-by-side buttons so creating a department-wide
   // template vs a personal agent is an explicit choice, not an auto-

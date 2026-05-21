@@ -586,88 +586,135 @@ export interface LaunchpadAgent {
    * bucket.
    */
   is_template: boolean;
+  /**
+   * Provenance for externally-sourced agents (migration 0023). NULL for
+   * legalOS-native agents (Canonical + Personal). Non-NULL values follow
+   * the `"<source-id>:<plugin>/<skill>"` pattern — see
+   * `lib/agents/source.ts` for the parser and display-label helpers.
+   * Routing into the externalAgents bucket on the launchpad is driven by
+   * this field being non-NULL, independent of `is_template`.
+   */
+  source_origin: string | null;
 }
 
 /**
- * Two-bucket department agent loader for the Aperture launchpad:
+ * Three-bucket department agent loader for the Aperture launchpad:
  *
- *   - departmentAgents — canonical native agents keyed on
- *     `is_template = true` (Session 27 — migration 0019 activated
- *     templates). Surfaced as chat-first cards with admin-only
- *     Edit / Delete affordances. Click routes directly to
- *     `/agents/<id>` (chat surface) for all users; the fork-on-click
- *     pattern is retired in favor of a "Customize this" affordance
- *     on the chat surface itself.
- *   - myAgents        — user-owned native agents (`is_template = false
- *     AND created_by = userId`). Click routes to the chat surface.
+ *   - departmentAgents — native Canonical templates (`is_template = true
+ *     AND source_origin IS NULL`). Session 27 / migration 0019 promoted
+ *     these to is_template = true. Chat-first cards with admin-only
+ *     Edit / Delete affordances; click routes directly to `/agents/<id>`.
+ *   - externalAgents   — agents imported from an external source
+ *     (`source_origin IS NOT NULL`), regardless of `is_template`.
+ *     Migration 0023 added the source_origin column; the field is
+ *     currently always NULL for legalOS-native agents and non-NULL for
+ *     sync-pipeline-created rows (Claude for Legal first; future sources
+ *     extend the prefix vocabulary). UI rendering for this bucket lands
+ *     in a follow-up patch — until then the field flows through but the
+ *     bucket is empty.
+ *   - myAgents         — user-owned native agents (`is_template = false
+ *     AND source_origin IS NULL AND created_by = userId`). Click routes
+ *     to the chat surface.
  *
- * Pre-Session-27 the departmentAgents bucket keyed on
- * `is_template = false AND created_by IS NULL` (Session 21's Pattern B
- * shape before templates were activated). Migration 0019 promoted
- * canonical rows to is_template = true; the predicate flips to match.
- * Canonical rows still carry created_by IS NULL by convention but the
- * type flag is the operative semantic.
+ * Single query + JS bucketing rather than three parallel queries: the
+ * row volume per department is small (low tens at v1; couple hundred
+ * at most after C4L import), and a single round-trip is simpler than
+ * coordinating three indexes for the disjoint predicates.
  *
- * Two queries instead of one because the predicates are different
- * shapes and Postgres uses different indexes (`agents_is_template_idx`
- * vs the partial `agents_active_idx` from migration 0006). Cleaner and
- * faster than partitioning a flat result in JS.
+ * The SQL `.or(...)` predicate restricts the result set to rows that
+ * fall into one of the three buckets — without it, RLS would return
+ * other users' personal agents in this department (since
+ * `agents_read_accessible` only gates on `has_department_access`, not
+ * on `created_by`), and JS would have to filter them out.
  *
- * The `departmentAgents` and `myAgents` predicates are disjoint:
- * departmentAgents = is_template = true; myAgents = is_template = false
- * AND created_by = userId. A user's fork is is_template = false so
- * never appears in departmentAgents; templates are admin-managed and
- * never appear in myAgents.
+ * `userId` is a server-validated UUID from `supabase.auth.getUser()`;
+ * passing it into the `.or()` string is safe — never user-supplied.
  *
- * Both queries are RLS-scoped — `agents_read_accessible` requires
- * `has_department_access(department_id)` for SELECT, so an unauthorized
- * user gets an empty result without an error.
+ * Bucketing precedence is `source_origin` first, then `is_template`,
+ * then `created_by`. A hypothetical row with both `source_origin` set
+ * and `is_template = true` (e.g., a future C4L template) lands in
+ * externalAgents, not departmentAgents — externally-sourced agents
+ * always render with source attribution, regardless of template status.
  *
  * Sort orders:
- *   - departmentAgents: `sort_order asc` (curated order from the seed)
+ *   - departmentAgents: `sort_order asc, name asc` (curated)
+ *   - externalAgents:   `sort_order asc, name asc` (curated; sync
+ *                       pipeline will set sort_order from upstream)
  *   - myAgents:         `created_at desc` (most recently created first)
  *
- * Not wrapped in `cache()` — only one caller per request (the launchpad
- * page itself). If a future surface (e.g., a launchpad-loading skeleton
- * that fetches the same data) emerges, wrap it then.
+ * Not wrapped in `cache()` — only one caller per request.
  */
 export async function getAgentsForDepartmentLaunchpad(
   departmentId: string,
   userId: string,
 ): Promise<{
   departmentAgents: LaunchpadAgent[];
+  externalAgents: LaunchpadAgent[];
   myAgents: LaunchpadAgent[];
 }> {
   const supabase = await createSupabaseServerClient();
 
-  const [departmentAgentsResult, myAgentsResult] = await Promise.all([
-    supabase
-      .from("agents")
-      .select(
-        "id, slug, name, description, type, external_url, category, sort_order, is_template",
-      )
-      .eq("department_id", departmentId)
-      .eq("is_active", true)
-      .eq("is_template", true)
-      .is("deleted_at", null)
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
-    supabase
-      .from("agents")
-      .select(
-        "id, slug, name, description, type, external_url, category, sort_order, is_template",
-      )
-      .eq("department_id", departmentId)
-      .eq("is_active", true)
-      .eq("is_template", false)
-      .eq("created_by", userId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false }),
-  ]);
+  const { data } = await supabase
+    .from("agents")
+    .select(
+      "id, slug, name, description, type, external_url, category, sort_order, is_template, source_origin, created_by, created_at",
+    )
+    .eq("department_id", departmentId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .or(
+      `is_template.eq.true,source_origin.not.is.null,created_by.eq.${userId}`,
+    );
+
+  type Row = LaunchpadAgent & {
+    created_by: string | null;
+    created_at: string;
+  };
+  const rows = (data ?? []) as Row[];
+
+  const departmentAgents: Row[] = [];
+  const externalAgents: Row[] = [];
+  const myAgents: Row[] = [];
+
+  for (const row of rows) {
+    if (row.source_origin !== null) {
+      externalAgents.push(row);
+    } else if (row.is_template) {
+      departmentAgents.push(row);
+    } else if (row.created_by === userId) {
+      myAgents.push(row);
+    }
+    // Else: defensive skip. RLS shouldn't return rows that match no
+    // bucket (the `.or()` predicate already excludes other users'
+    // personal agents), but this branch keeps the bucketing total.
+  }
+
+  const bySortOrderThenName = (a: Row, b: Row) =>
+    a.sort_order - b.sort_order || a.name.localeCompare(b.name);
+  const byCreatedAtDesc = (a: Row, b: Row) =>
+    b.created_at.localeCompare(a.created_at);
+
+  departmentAgents.sort(bySortOrderThenName);
+  externalAgents.sort(bySortOrderThenName);
+  myAgents.sort(byCreatedAtDesc);
+
+  const toLaunchpadAgent = (row: Row): LaunchpadAgent => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description,
+    type: row.type,
+    external_url: row.external_url,
+    category: row.category,
+    sort_order: row.sort_order,
+    is_template: row.is_template,
+    source_origin: row.source_origin,
+  });
 
   return {
-    departmentAgents: (departmentAgentsResult.data ?? []) as LaunchpadAgent[],
-    myAgents: (myAgentsResult.data ?? []) as LaunchpadAgent[],
+    departmentAgents: departmentAgents.map(toLaunchpadAgent),
+    externalAgents: externalAgents.map(toLaunchpadAgent),
+    myAgents: myAgents.map(toLaunchpadAgent),
   };
 }
 
