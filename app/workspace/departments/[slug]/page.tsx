@@ -18,17 +18,22 @@ import {
  * (workspace rail + top bar + footer) from `app/(workspace)/layout.tsx`,
  * lifted there in Session 10a.
  *
- * Two sections (Session 21):
+ * Three sections (Session 21 + migration 0023 multi-source extension):
  *
  *   - Department Agents — canonical native agents owned by the
- *     department itself (`is_template = false AND created_by IS NULL`).
+ *     department itself (`is_template = true AND source_origin IS NULL`).
  *     Click routes directly to `/agents/<id>` (chat surface). Hidden
  *     entirely when empty — these are system-seeded; absence means the
  *     department has no canonical agents yet, and an empty heading
  *     would read as a layout wart.
+ *   - Claude for Legal — externally-sourced agents from Anthropic's
+ *     open-source legal suite (`source_origin IS NOT NULL`, prefix
+ *     `claude-for-legal:`). Always-rendered header; empty state stays
+ *     deliberately visible until the C4L import lands so the surface
+ *     advertises what's coming.
  *   - My Agents — user-owned native agents (`is_template = false AND
- *     created_by = userId`). Always-rendered header; empty state shows
- *     the create-new-agent inline prompt.
+ *     source_origin IS NULL AND created_by = userId`). Always-rendered
+ *     header; empty state shows the create-new-agent inline prompt.
  *
  * The page header carries a "+ New Agent" button (top-right) — the
  * canonical entry into `/agents/new?department=<slug>` from this
@@ -74,16 +79,12 @@ export default async function DepartmentLaunchpadPage({
   }
 
   const [
-    { departmentAgents, externalAgents: _externalAgents, myAgents },
+    { departmentAgents, externalAgents, myAgents },
     canManageTemplates,
   ] = await Promise.all([
     getAgentsForDepartmentLaunchpad(department.id, user.id),
     isCurrentUserOrgAdmin(),
   ]);
-  // `externalAgents` is intentionally pulled into scope (prefixed `_`
-  // to satisfy unused-vars) so the destructuring is shape-complete and
-  // the follow-up rendering patch only adds usage, not destructuring.
-  void _externalAgents;
 
   // Admins see two side-by-side buttons so creating a department-wide
   // template vs a personal agent is an explicit choice, not an auto-
@@ -143,6 +144,30 @@ export default async function DepartmentLaunchpadPage({
           />
         </section>
       ) : null}
+
+      {/* Claude for Legal — externally-sourced agents from Anthropic's
+          open-source legal suite. Always-rendered header (unlike
+          Department Agents, which hides when empty) — the empty state
+          advertises that curated content is coming, which is the point
+          of the section pre-import. */}
+      <section className="flex flex-col gap-[14px]">
+        <header className="border-b border-hairline pb-[10px]">
+          <h2 className={sectionHeading}>Claude for Legal</h2>
+        </header>
+        {externalAgents.length > 0 ? (
+          <AgentGrid
+            agents={externalAgents}
+            departmentSlug={department.slug}
+          />
+        ) : (
+          <div className="rounded-[14px] bg-muted p-8 text-center">
+            <p className="text-[13px] leading-[1.5] text-muted-foreground">
+              Curated agents from Anthropic&apos;s open-source legal suite,
+              coming to this department.
+            </p>
+          </div>
+        )}
+      </section>
 
       <section className="flex flex-col gap-[14px]">
         <header className="border-b border-hairline pb-[10px]">
