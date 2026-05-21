@@ -78,27 +78,46 @@ export default async function DepartmentLaunchpadPage({
     isCurrentUserOrgAdmin(),
   ]);
 
-  // Admins land on the template-create path (creates a Department
-  // Agent); non-admins land on the personal-create path (creates a
-  // user-owned agent). Single label keeps the launchpad chrome
-  // uniform; the form on /agents/new handles each path's UX.
-  const newAgentHref = canManageTemplates
-    ? `/workspace/agents/new?department=${department.slug}&as_template=true`
-    : `/workspace/agents/new?department=${department.slug}`;
+  // Admins see two side-by-side buttons so creating a department-wide
+  // template vs a personal agent is an explicit choice, not an auto-
+  // route based on role. Non-admins see a single "+ New agent" button
+  // that targets the personal-create path. Both actions hit the same
+  // /workspace/agents/new surface; `as_template=true` selects the
+  // template form (createTemplateAgentAction) and absence selects the
+  // personal form (createAgentAction).
+  const newDepartmentAgentHref = `/workspace/agents/new?department=${department.slug}&as_template=true`;
+  const newPersonalAgentHref = `/workspace/agents/new?department=${department.slug}`;
+
+  const newAgentAction = canManageTemplates ? (
+    <div className="flex flex-wrap gap-2">
+      <Link
+        href={newDepartmentAgentHref}
+        className={buttonVariants({ variant: "outline", size: "sm" })}
+      >
+        <PlusIcon /> New department agent
+      </Link>
+      <Link
+        href={newPersonalAgentHref}
+        className={buttonVariants({ variant: "outline", size: "sm" })}
+      >
+        <PlusIcon /> New personal agent
+      </Link>
+    </div>
+  ) : (
+    <Link
+      href={newPersonalAgentHref}
+      className={buttonVariants({ variant: "outline", size: "sm" })}
+    >
+      <PlusIcon /> New agent
+    </Link>
+  );
 
   return (
     <main className="flex flex-col gap-9">
       <DepartmentHeader
         name={department.name}
         description={department.description}
-        action={
-          <Link
-            href={newAgentHref}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <PlusIcon /> New Agent
-          </Link>
-        }
+        action={newAgentAction}
       />
 
       {/* Department Agents — canonical departmental agents, click-to-chat
