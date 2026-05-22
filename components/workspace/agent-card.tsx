@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreVerticalIcon } from "lucide-react";
+import { InfoIcon, MoreVerticalIcon } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -58,6 +58,15 @@ interface AgentCardProps {
    * explicitly enabled.
    */
   isMyAgent?: boolean;
+  /**
+   * Click handler for the Info icon (Canonical + C4L cards only). When
+   * provided, the card renders an Info button in the top-right corner;
+   * click opens the read-only details panel for this agent. The handler
+   * is owned by the launchpad client wrapper which manages which agent's
+   * panel is open. Omit on cards where the affordance should not appear
+   * (personal agents, external agents).
+   */
+  onOpenDetails?: () => void;
 }
 
 /**
@@ -103,6 +112,7 @@ export function AgentCard({
   departmentSlug,
   canManageTemplates,
   isMyAgent,
+  onOpenDetails,
 }: AgentCardProps) {
   function handlePointerDown() {
     logAgentClick({
@@ -141,7 +151,7 @@ export function AgentCard({
     );
   }
 
-  // Template branches (Session 27)
+  // Template branches (Session 27 + read-only details panel)
   if (agent.is_template) {
     if (canManageTemplates) {
       return (
@@ -150,18 +160,28 @@ export function AgentCard({
           mode="admin-template"
           onPointerDownLink={handlePointerDown}
           body={body}
+          onOpenDetails={onOpenDetails}
         />
       );
     }
+    // Non-admin viewing a Canonical or C4L card. Stretched-link pattern
+    // so the absolute-positioned Info button can intercept its own click
+    // without nesting a <button> inside a <Link> (invalid HTML, fragile
+    // interaction). The Info button is rendered above the link via z
+    // index; the link still covers the rest of the card.
     return (
-      <Link
-        href={`/workspace/agents/${agent.id}`}
-        onPointerDown={handlePointerDown}
-        aria-label={`Open ${agent.name}`}
-        className={cardClassName}
-      >
-        {body}
-      </Link>
+      <div className={`relative ${cardClassName}`}>
+        <div className="pointer-events-none">{body}</div>
+        <Link
+          href={`/workspace/agents/${agent.id}`}
+          aria-label={`Open ${agent.name}`}
+          className={stretchedLinkClassName}
+          onPointerDown={handlePointerDown}
+        />
+        {onOpenDetails ? (
+          <InfoIconButton agentName={agent.name} onClick={onOpenDetails} />
+        ) : null}
+      </div>
     );
   }
 
@@ -190,6 +210,44 @@ export function AgentCard({
   );
 }
 
+/**
+ * Small Info-icon button overlaid on Canonical / C4L cards. Calls
+ * `onClick` (which opens the details panel for this agent) while
+ * preventing the surrounding card's stretched link from following. Quiet
+ * at rest (40% opacity); brightens on hover. Generous hit target (28px
+ * square) around the 14px glyph so the affordance is easy to tap on
+ * touch devices, where there is no hover state.
+ *
+ * Position varies by context: on cards without an admin overflow menu
+ * (non-admin viewers, or admins on personal agents) the icon sits at
+ * `right-3 top-3`; on admin-template cards it shifts left to
+ * `right-11 top-3` so the kebab menu and the Info icon don't overlap.
+ */
+function InfoIconButton({
+  agentName,
+  onClick,
+  withMenuOffset = false,
+}: {
+  agentName: string;
+  onClick: () => void;
+  withMenuOffset?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+      aria-label={`View details for ${agentName}`}
+      className={`absolute ${withMenuOffset ? "right-11" : "right-3"} top-3 z-20 grid h-7 w-7 place-items-center rounded-md opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+    >
+      <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+    </button>
+  );
+}
+
 interface EditableAgentCardProps {
   agent: AgentCardProps["agent"];
   /**
@@ -205,6 +263,13 @@ interface EditableAgentCardProps {
   mode: "my-agent" | "admin-template";
   onPointerDownLink: () => void;
   body: React.ReactNode;
+  /**
+   * Optional details-panel handler. Surfaces an Info icon left of the
+   * overflow menu on admin-template cards (Canonical + C4L). Omitted
+   * for my-agent cards — owners already see everything in the edit
+   * form, so a peek surface would be redundant.
+   */
+  onOpenDetails?: () => void;
 }
 
 function EditableAgentCard({
@@ -212,6 +277,7 @@ function EditableAgentCard({
   mode,
   onPointerDownLink,
   body,
+  onOpenDetails,
 }: EditableAgentCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -282,6 +348,13 @@ function EditableAgentCard({
           className={stretchedLinkClassName}
           onPointerDown={onPointerDownLink}
         />
+        {onOpenDetails ? (
+          <InfoIconButton
+            agentName={agent.name}
+            onClick={onOpenDetails}
+            withMenuOffset
+          />
+        ) : null}
         <div className="pointer-events-auto absolute right-2 top-2 z-20">
           <DropdownMenu>
             <DropdownMenuTrigger

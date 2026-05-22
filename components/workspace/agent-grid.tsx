@@ -17,11 +17,19 @@ export function AgentGrid({
   departmentSlug,
   canManageTemplates,
   isMyAgent,
+  onOpenDetails,
 }: {
   agents: LaunchpadAgent[];
   departmentSlug: string;
   canManageTemplates?: boolean;
   isMyAgent?: boolean;
+  /**
+   * Optional handler that opens the read-only details panel for the
+   * given agent. Forwarded to `<AgentCard>` for every agent in the grid;
+   * the card then decides whether to render the Info-icon affordance
+   * based on its own render branch (Canonical + C4L only).
+   */
+  onOpenDetails?: (agent: LaunchpadAgent) => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-[14px]">
@@ -32,6 +40,9 @@ export function AgentGrid({
           departmentSlug={departmentSlug}
           canManageTemplates={canManageTemplates}
           isMyAgent={isMyAgent}
+          onOpenDetails={
+            onOpenDetails ? () => onOpenDetails(agent) : undefined
+          }
         />
       ))}
     </div>

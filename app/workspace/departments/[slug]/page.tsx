@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { AgentGrid } from "@/components/workspace/agent-grid";
+import type { AgentAttachmentRow } from "@/components/workspace/agent-details-panel";
 import { DepartmentHeader } from "@/components/workspace/department-header";
+import { DepartmentLaunchpadContent } from "@/components/workspace/department-launchpad-content";
 import { buttonVariants } from "@/components/ui/button";
 import {
   getAgentsForDepartmentLaunchpad,
@@ -12,6 +13,7 @@ import {
   isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
  * Aperture department launchpad — content only. Inherits chrome
@@ -23,26 +25,21 @@ import {
  *   - Department Agents — canonical native agents owned by the
  *     department itself (`is_template = true AND source_origin IS NULL`).
  *     Click routes directly to `/agents/<id>` (chat surface). Hidden
- *     entirely when empty — these are system-seeded; absence means the
- *     department has no canonical agents yet, and an empty heading
- *     would read as a layout wart.
+ *     entirely when empty.
  *   - Claude for Legal — externally-sourced agents from Anthropic's
  *     open-source legal suite (`source_origin IS NOT NULL`, prefix
  *     `claude-for-legal:`). Always-rendered header; empty state stays
- *     deliberately visible until the C4L import lands so the surface
- *     advertises what's coming.
+ *     deliberately visible until the C4L import lands.
  *   - My Agents — user-owned native agents (`is_template = false AND
  *     source_origin IS NULL AND created_by = userId`). Always-rendered
  *     header; empty state shows the create-new-agent inline prompt.
  *
- * The page header carries a "+ New Agent" button (top-right) — the
- * canonical entry into `/agents/new?department=<slug>` from this
- * surface, replacing the prior Templates section that gave users a
- * gallery of fork-source rows. The Templates section + Blank Agent
- * rows were retired in Session 21; if template-based forking returns,
- * a third section + helper-query bucket land alongside it.
- *
- * Categories within a department remain flat per the architecture doc.
+ * The three sections plus the read-only details panel live in
+ * `<DepartmentLaunchpadContent>` (client) so the panel can own its
+ * open-state. The page itself stays server-rendered for auth +
+ * data-fetching; it also runs a parallel query for attachments across
+ * every visible agent so the panel's References section renders without
+ * a second round-trip on open.
  *
  * Auth: `requireAuthUser` (cached via 10a) gates and provides the user
  * id; `getDepartmentIfAccessible(slug)` returns null on either
@@ -61,9 +58,6 @@ export async function generateMetadata({
     title: department?.name ?? "Department",
   };
 }
-
-const sectionHeading =
-  "font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground";
 
 export default async function DepartmentLaunchpadPage({
   params,
@@ -86,13 +80,39 @@ export default async function DepartmentLaunchpadPage({
     isCurrentUserOrgAdmin(),
   ]);
 
+  // Parallel attachments query for every visible agent in the three
+  // buckets. RLS scopes via `agent_attachments` policies; the `in()`
+  // filter keeps the result set small. Indexed by agent_id in JS so the
+  // client wrapper can hand each panel just its own attachment slice.
+  const visibleAgentIds = [
+    ...departmentAgents.map((a) => a.id),
+    ...externalAgents.map((a) => a.id),
+    ...myAgents.map((a) => a.id),
+  ];
+
+  const attachmentsByAgentId: Record<string, AgentAttachmentRow[]> = {};
+  if (visibleAgentIds.length > 0) {
+    const supabase = await createSupabaseServerClient();
+    const { data: attachmentRows } = await supabase
+      .from("agent_attachments")
+      .select("agent_id, original_filename")
+      .in("agent_id", visibleAgentIds)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+    for (const row of (attachmentRows ?? []) as Array<{
+      agent_id: string;
+      original_filename: string;
+    }>) {
+      const list = attachmentsByAgentId[row.agent_id] ?? [];
+      list.push({ originalFilename: row.original_filename });
+      attachmentsByAgentId[row.agent_id] = list;
+    }
+  }
+
   // Admins see two side-by-side buttons so creating a department-wide
   // template vs a personal agent is an explicit choice, not an auto-
   // route based on role. Non-admins see a single "+ New agent" button
-  // that targets the personal-create path. Both actions hit the same
-  // /workspace/agents/new surface; `as_template=true` selects the
-  // template form (createTemplateAgentAction) and absence selects the
-  // personal form (createAgentAction).
+  // that targets the personal-create path.
   const newDepartmentAgentHref = `/workspace/agents/new?department=${department.slug}&as_template=true`;
   const newPersonalAgentHref = `/workspace/agents/new?department=${department.slug}`;
 
@@ -128,74 +148,14 @@ export default async function DepartmentLaunchpadPage({
         action={newAgentAction}
       />
 
-      {/* Department Agents — canonical departmental agents, click-to-chat
-          directly. Rendered only when at least one canonical agent is
-          seeded for the department; an empty section header here would
-          read as scaffolding for content that doesn't exist. */}
-      {departmentAgents.length > 0 ? (
-        <section className="flex flex-col gap-[14px]">
-          <header className="flex items-baseline justify-between border-b border-hairline pb-[10px]">
-            <h2 className={sectionHeading}>Department Agents</h2>
-          </header>
-          <AgentGrid
-            agents={departmentAgents}
-            departmentSlug={department.slug}
-            canManageTemplates={canManageTemplates}
-          />
-        </section>
-      ) : null}
-
-      {/* Claude for Legal — externally-sourced agents from Anthropic's
-          open-source legal suite. Always-rendered header (unlike
-          Department Agents, which hides when empty) — the empty state
-          advertises that curated content is coming, which is the point
-          of the section pre-import.
-
-          `canManageTemplates` is forwarded so admin viewers get the same
-          overflow-menu affordances on C4L cards (Edit / Delete) as on
-          canonical templates. The edit form recognizes the C4L source
-          and gates the locked fields. The delete flow shares
-          `softDeleteAgentAction`, which already admits any
-          is_template=true row to admin soft-deletion. */}
-      <section className="flex flex-col gap-[14px]">
-        <header className="border-b border-hairline pb-[10px]">
-          <h2 className={sectionHeading}>Claude for Legal</h2>
-        </header>
-        {externalAgents.length > 0 ? (
-          <AgentGrid
-            agents={externalAgents}
-            departmentSlug={department.slug}
-            canManageTemplates={canManageTemplates}
-          />
-        ) : (
-          <div className="rounded-[14px] bg-muted p-8 text-center">
-            <p className="text-[13px] leading-[1.5] text-muted-foreground">
-              Curated agents from Anthropic&apos;s open-source legal suite,
-              coming to this department.
-            </p>
-          </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-[14px]">
-        <header className="border-b border-hairline pb-[10px]">
-          <h2 className={sectionHeading}>My Agents</h2>
-        </header>
-        {myAgents.length > 0 ? (
-          <AgentGrid
-            agents={myAgents}
-            departmentSlug={department.slug}
-            isMyAgent
-          />
-        ) : (
-          <div className="rounded-[14px] bg-muted p-8 text-center">
-            <p className="text-[13px] leading-[1.5] text-muted-foreground">
-              You haven&apos;t created any agents yet. Use the New Agent
-              button above to start one.
-            </p>
-          </div>
-        )}
-      </section>
+      <DepartmentLaunchpadContent
+        departmentAgents={departmentAgents}
+        externalAgents={externalAgents}
+        myAgents={myAgents}
+        departmentSlug={department.slug}
+        canManageTemplates={canManageTemplates}
+        attachmentsByAgentId={attachmentsByAgentId}
+      />
     </main>
   );
 }

@@ -603,6 +603,19 @@ export interface LaunchpadAgent {
    * this field being non-NULL, independent of `is_template`.
    */
   source_origin: string | null;
+  /**
+   * Settings columns the read-only details panel surfaces for Canonical
+   * and C4L agents. Always selected because including them in the existing
+   * round-trip is cheaper than a second fetch on panel open. `system_prompt`
+   * is the heaviest of the new fields (multi-KB on C4L imports) but still
+   * acceptable at v1 row counts (~20 agents per department).
+   */
+  model: string | null;
+  default_output_format: string | null;
+  tools_enabled: unknown;
+  system_prompt: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -665,7 +678,7 @@ export async function getAgentsForDepartmentLaunchpad(
   const { data } = await supabase
     .from("agents")
     .select(
-      "id, slug, name, description, type, external_url, category, sort_order, is_template, source_origin, created_by, created_at",
+      "id, slug, name, description, type, external_url, category, sort_order, is_template, source_origin, model, default_output_format, tools_enabled, system_prompt, created_by, created_at, updated_at",
     )
     .eq("department_id", departmentId)
     .eq("is_active", true)
@@ -676,7 +689,6 @@ export async function getAgentsForDepartmentLaunchpad(
 
   type Row = LaunchpadAgent & {
     created_by: string | null;
-    created_at: string;
   };
   const rows = (data ?? []) as Row[];
 
@@ -717,6 +729,12 @@ export async function getAgentsForDepartmentLaunchpad(
     sort_order: row.sort_order,
     is_template: row.is_template,
     source_origin: row.source_origin,
+    model: row.model,
+    default_output_format: row.default_output_format,
+    tools_enabled: row.tools_enabled,
+    system_prompt: row.system_prompt,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   });
 
   return {
