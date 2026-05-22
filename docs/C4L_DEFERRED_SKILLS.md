@@ -79,6 +79,33 @@ This doc exists so the eventual Workflows session and any configuration-surface 
 **Why filtered:** Same management pattern as commercial-legal and privacy-legal matter-workspace skills (already filtered in 0026). Create/list/switch/close client matters — not a chat-with-an-agent shape.
 **Where it should land:** Admin management surface — unify with sibling matter-workspace skills.
 
+## Filtered from `corporate-legal` (filtered 2026-05-22, migration 0030)
+
+### cold-start-interview — belongs in admin configuration
+
+**Source:** `claude-for-legal:corporate-legal/cold-start-interview`
+**Why filtered:** Same onboarding pattern as the other plugins. Modular interview that identifies which corporate practice areas apply (M&A, Board & Secretary, Public Company, Entity Management) and asks targeted questions per active module.
+**Where it should land:** Admin configuration surface — unify with sibling cold-start-interview skills from other plugins.
+
+### customize — belongs in admin configuration
+
+**Source:** `claude-for-legal:corporate-legal/customize`
+**Why filtered:** Same reconfiguration pattern as the other plugins.
+**Where it should land:** Admin configuration surface — unify with sibling customize skills.
+
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:corporate-legal/matter-workspace`
+**Why filtered:** Same management pattern as the other plugins (already filtered in 0026).
+**Where it should land:** Admin workspace management surface — unify with sibling matter-workspace skills.
+
+### ai-tool-handoff — belongs in Workflows (skill-to-skill delegation flavor)
+
+**Source:** `claude-for-legal:corporate-legal/ai-tool-handoff`
+**Why filtered:** Not a user-facing chat-with-an-agent. Invoked BY another skill (`diligence-issue-extraction`) to delegate high-volume clause extraction to external bulk-review tools (Luminance, Kira, etc.) and QA their output. This is a *skill-to-skill delegation helper* — structurally a router, but different from commercial-legal's `review` (which was a top-level user-facing router). Both flavors of router belong in Workflows.
+**Where it should land:** Workflows surface. A "diligence with bulk-review tool" workflow would compose `diligence-issue-extraction` → `ai-tool-handoff` → review the tool's output. The handoff is a workflow node that delegates to and QAs an external system.
+**Action when Workflows is built:** consider whether this needs to be its own workflow node or a sub-step of a higher-level "deal diligence" workflow.
+
 ## Note on C4L `agents/` directories (across all plugins)
 
 Each C4L plugin contains both a `skills/` directory and an `agents/` directory at its top level (e.g., `../claude-for-legal/<plugin>/skills/`, `../claude-for-legal/<plugin>/agents/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/`.
@@ -95,11 +122,15 @@ Plugins with `agents/` content observed (silently skipped by the import script):
 - product-legal/agents/ (verify count when needed)
 - Future plugins likely similar.
 
-## Pattern note (revised after privacy-legal import)
+## Pattern note (revised after corporate-legal import)
 
 This filtering should be re-applied when any new C4L plugin is imported. The following skills are C4L conventions that appear across multiple plugins and should be filtered from the department-agent tier by default:
 
-1. **Router skills** (e.g., `review` in commercial-legal) — multi-step orchestration; belongs in Workflows.
+1. **Router skills** — two flavors, both belong in Workflows:
+   - **User-facing routers** (e.g., `review` in commercial-legal) — the user types a request, the router identifies the type and delegates to a specialist skill.
+   - **Skill-to-skill delegation helpers** (e.g., `ai-tool-handoff` in corporate-legal) — invoked BY another skill to delegate sub-tasks to external tools, then QA the result.
+
+   Both produce multi-step orchestration; both belong in the Workflows surface as composable workflow nodes.
 2. **Onboarding skills** (`cold-start-interview`) — first-run playbook learning; belongs in admin configuration surface.
 3. **Reconfiguration skills** (`customize`) — adjust an existing profile without re-running onboarding; belongs in admin configuration surface.
 4. **Matter management skills** (`matter-workspace`) — create/list/switch/close matter workspaces; not a chat-with-an-agent shape. Belongs in admin/workspace management surface.
@@ -107,3 +138,19 @@ This filtering should be re-applied when any new C4L plugin is imported. The fol
 Future plugin imports should pre-filter these four types by default, with the option to override per-plugin if a specific skill diverges from the convention.
 
 The sync pipeline (Shape B, future) should use this doc as input — skills listed here are intentionally not in the agent surface and should not be re-imported.
+
+## Tracker-shape skills (imported as agents for v1; candidates for future tracker UI)
+
+Some C4L skills present as agents (chat-with-an-agent UX) but functionally operate on a YAML state file with multi-mode commands. They work conversationally for v1, but long-term they're candidates for dedicated tracker UI surfaces — think Linear-style task boards or compliance dashboards.
+
+Skills in this category (currently imported as agents, not filtered):
+
+- `claude-for-legal:corporate-legal/closing-checklist` — closing checklist tracker (modes: init, update, status)
+- `claude-for-legal:corporate-legal/entity-compliance` — entity compliance tracker (modes: init, report, update, sweep, audit, export)
+- `claude-for-legal:corporate-legal/integration-management` — post-closing M&A integration tracker (modes: init, contracts, report, update, export)
+
+**Why kept as agents for v1:** The user-facing surface IS conversational — "what's left to close?" or "what's due this month?" The internal YAML-state-machine implementation doesn't change the user experience.
+
+**Why flagged for future migration:** Trackers benefit enormously from dedicated UI — visible state, at-a-glance status, click-to-update affordances, calendar integration. When legalOS builds tracker UIs (likely in a future surface alongside Workflows), these skills become natural candidates for migration. The migration would not retire the skill; it would expose its data via a UI rendering instead of (or alongside) the chat interface.
+
+**Action when tracker UI surface is built:** evaluate which of these skills migrate to native UIs, which stay as agents, and which run in both modes. The decision per skill will depend on how much value the dedicated UI adds over the conversational interface.
