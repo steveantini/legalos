@@ -35,27 +35,27 @@ begin
   -- Canonical state after migrations 0013 (GRRA merged into Public
   -- Sector + General Tools added), 0028 (M&A renamed to Corporate),
   -- 0029 (Corporate description broadened), 0031 (Employment added),
-  -- and 0033 (reorder to four-group taxonomy). The seed is the
-  -- corrected documentation of "what a fresh DB looks like once
-  -- 0001..N are applied in order." If you add a new department in a
-  -- later migration, update this list in the same commit.
+  -- 0033 (reorder to four-group taxonomy), and 0034 (Regulatory
+  -- added at the reserved slot). The seed is the corrected
+  -- documentation of "what a fresh DB looks like once 0001..N are
+  -- applied in order." If you add a new department in a later
+  -- migration, update this list in the same commit.
   --
   -- Sort_order grouping:
   --   1–2  deal & transactional       Commercial, Corporate
-  --   3–6  regulatory & compliance    Regulatory (follow-up), Public
-  --                                   Sector, Compliance, Privacy
+  --   3–6  regulatory & compliance    Regulatory, Public Sector,
+  --                                   Compliance, Privacy
   --   7–8  specialized practice       Product, Employment
   --   9–10 operational & utility      Operations, General Tools
   --                                   (always-last per commit 7eb776b)
-  --
-  -- Position 3 is currently vacant; the Regulatory department lands
-  -- there in a follow-up commit.
   insert into public.departments (organization_id, slug, name, description, sort_order)
   values
     (v_org_id, 'commercial', 'Commercial',
       'Revenue (sell-side) agreements, procurement (buy-side) agreements, Non-Disclosure Agreements, Artificial Intelligence Addenda.', 1),
     (v_org_id, 'corporate', 'Corporate',
       'Mergers, financing, governance, securities, and entity management.', 2),
+    (v_org_id, 'regulatory', 'Regulatory',
+      'Sector-specific regulatory advice — financial services, healthcare, telecommunications, energy, consumer protection, and enforcement defense.', 3),
     (v_org_id, 'public-sector', 'Public Sector',
       'Government relations, regulatory affairs, public-sector contracts, and policy advocacy.', 4),
     (v_org_id, 'compliance', 'Compliance',
