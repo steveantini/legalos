@@ -107,6 +107,20 @@ interface AgentFormProps {
    * passes createAgentAction or updateAgentAction depending on mode.
    */
   action: AgentFormAction;
+  /**
+   * The agent's `source_origin` column when in edit mode (null for
+   * create mode, native canonical templates, and personal agents).
+   * When non-null in edit mode the form enters C4L-edit treatment:
+   * name, description, system prompt, and web-search toggle render as
+   * read-only with a "Managed by Claude for Legal" hint; model,
+   * attachments, and export format stay editable. A banner at the top
+   * sets expectations before the user scrolls into a locked field.
+   *
+   * The visual lock is paired with server-side enforcement in
+   * `updateAgentAction` — a determined caller cannot mutate locked
+   * fields by stripping the readOnly attribute in devtools.
+   */
+  sourceOrigin?: string | null;
 }
 
 const initialState: AgentFormResult = { ok: true };
@@ -119,6 +133,7 @@ export function AgentForm({
   agentId,
   existingAttachments,
   action,
+  sourceOrigin,
 }: AgentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
@@ -127,6 +142,14 @@ export function AgentForm({
       Extract<AgentFormResult, { ok: false }>["fieldErrors"]
     >,
   ) => (state.ok === false ? state.fieldErrors?.[field] : undefined);
+
+  // C4L-edit treatment: name, description, system prompt, and web-search
+  // are read-only and surface a "managed upstream" hint; model,
+  // attachments, and export format remain editable. Only meaningful in
+  // edit mode — create flows never carry a source_origin.
+  const isC4LEdit = mode === "edit" && !!sourceOrigin;
+  const lockedHint = "Managed by Claude for Legal.";
+  const lockedFieldClass = isC4LEdit ? "bg-muted/40 text-muted-foreground" : "bg-card";
 
   const cancelHref =
     mode === "edit"
@@ -160,6 +183,17 @@ export function AgentForm({
         </div>
       ) : null}
 
+      {isC4LEdit ? (
+        <div
+          role="note"
+          className="rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground"
+        >
+          This agent is curated by Claude for Legal. You can adjust its
+          model, attached references, and export format. Other fields are
+          managed upstream.
+        </div>
+      ) : null}
+
       {state.ok === false && state.formError ? (
         <div
           role="alert"
@@ -176,9 +210,11 @@ export function AgentForm({
           name="name"
           maxLength={120}
           defaultValue={defaults.name}
+          readOnly={isC4LEdit}
+          aria-readonly={isC4LEdit || undefined}
           aria-invalid={Boolean(fieldError("name"))}
           aria-describedby={fieldError("name") ? "agent-name-error" : undefined}
-          className="bg-card"
+          className={lockedFieldClass}
         />
         {fieldError("name") ? (
           <p id="agent-name-error" className="text-sm text-destructive">
@@ -186,7 +222,7 @@ export function AgentForm({
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Shown on the launchpad card and the chat header.
+            {isC4LEdit ? lockedHint : "Shown on the launchpad card and the chat header."}
           </p>
         )}
       </div>
@@ -198,11 +234,13 @@ export function AgentForm({
           name="description"
           maxLength={500}
           defaultValue={defaults.description}
+          readOnly={isC4LEdit}
+          aria-readonly={isC4LEdit || undefined}
           aria-invalid={Boolean(fieldError("description"))}
           aria-describedby={
             fieldError("description") ? "agent-description-error" : undefined
           }
-          className="bg-card"
+          className={lockedFieldClass}
         />
         {fieldError("description") ? (
           <p
@@ -213,7 +251,9 @@ export function AgentForm({
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            One short sentence so you remember what this agent does. Optional.
+            {isC4LEdit
+              ? lockedHint
+              : "One short sentence so you remember what this agent does. Optional."}
           </p>
         )}
       </div>
@@ -251,15 +291,36 @@ export function AgentForm({
             Web search
           </Label>
           <p className="text-sm text-muted-foreground">
-            Allows the agent to search the web for current information. Each
-            search costs $0.01 in addition to the model&rsquo;s token charges.
+            {isC4LEdit
+              ? lockedHint
+              : "Allows the agent to search the web for current information. Each search costs $0.01 in addition to the model’s token charges."}
           </p>
         </div>
-        <Switch
-          id="tool-web-search"
-          name="tool_web_search"
-          defaultChecked={defaults.toolsEnabled.includes("web_search")}
-        />
+        {isC4LEdit ? (
+          <>
+            {/* Visual lock: the Switch renders disabled (no `name`, no
+                submit) while a hidden input named tool_web_search carries
+                the current value through the form submission. The server
+                action compares submitted vs. DB and rejects mismatches. */}
+            <Switch
+              id="tool-web-search"
+              disabled
+              defaultChecked={defaults.toolsEnabled.includes("web_search")}
+              aria-readonly
+            />
+            <input
+              type="hidden"
+              name="tool_web_search"
+              value={defaults.toolsEnabled.includes("web_search") ? "on" : ""}
+            />
+          </>
+        ) : (
+          <Switch
+            id="tool-web-search"
+            name="tool_web_search"
+            defaultChecked={defaults.toolsEnabled.includes("web_search")}
+          />
+        )}
       </div>
 
       <div className="space-y-2">
@@ -270,13 +331,15 @@ export function AgentForm({
           rows={10}
           maxLength={20000}
           defaultValue={defaults.systemPrompt}
+          readOnly={isC4LEdit}
+          aria-readonly={isC4LEdit || undefined}
           aria-invalid={Boolean(fieldError("system_prompt"))}
           aria-describedby={
             fieldError("system_prompt")
               ? "agent-system-prompt-error"
               : "agent-system-prompt-helper"
           }
-          className="min-h-[220px] bg-card font-mono text-sm"
+          className={`min-h-[220px] font-mono text-sm ${lockedFieldClass}`}
         />
         {fieldError("system_prompt") ? (
           <p
@@ -290,8 +353,9 @@ export function AgentForm({
             id="agent-system-prompt-helper"
             className="text-sm text-muted-foreground"
           >
-            Instructions sent to the model on every turn. Be specific about role,
-            tone, and what to avoid.
+            {isC4LEdit
+              ? lockedHint
+              : "Instructions sent to the model on every turn. Be specific about role, tone, and what to avoid."}
           </p>
         )}
       </div>

@@ -134,6 +134,7 @@ export default async function EditAgentPage({ params }: PageProps) {
         departmentSlug={agent.department.slug}
         forkedFromAgent={null}
         action={updateAgentAction}
+        sourceOrigin={agent.source_origin}
       />
     </main>
   );

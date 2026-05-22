@@ -149,7 +149,14 @@ export default async function DepartmentLaunchpadPage({
           open-source legal suite. Always-rendered header (unlike
           Department Agents, which hides when empty) — the empty state
           advertises that curated content is coming, which is the point
-          of the section pre-import. */}
+          of the section pre-import.
+
+          `canManageTemplates` is forwarded so admin viewers get the same
+          overflow-menu affordances on C4L cards (Edit / Delete) as on
+          canonical templates. The edit form recognizes the C4L source
+          and gates the locked fields. The delete flow shares
+          `softDeleteAgentAction`, which already admits any
+          is_template=true row to admin soft-deletion. */}
       <section className="flex flex-col gap-[14px]">
         <header className="border-b border-hairline pb-[10px]">
           <h2 className={sectionHeading}>Claude for Legal</h2>
@@ -158,6 +165,7 @@ export default async function DepartmentLaunchpadPage({
           <AgentGrid
             agents={externalAgents}
             departmentSlug={department.slug}
+            canManageTemplates={canManageTemplates}
           />
         ) : (
           <div className="rounded-[14px] bg-muted p-8 text-center">

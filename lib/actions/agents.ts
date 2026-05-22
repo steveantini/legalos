@@ -364,9 +364,15 @@ export async function updateAgentAction(
   // owner-of-user-agent OR org-admin-of-template. The underlying RLS
   // (`agents_user_updates_own` for the first, `agents_admin_write` for
   // the second) admits both; the app layer matches that.
+  //
+  // The select also pulls the locked-field columns and source_origin so
+  // the C4L hybrid-edit guard below can compare submitted values to
+  // upstream-managed state without a second round-trip.
   const { data: agent } = await supabase
     .from("agents")
-    .select("id, created_by, is_template, type")
+    .select(
+      "id, created_by, is_template, type, name, description, system_prompt, tools_enabled, source_origin",
+    )
     .eq("id", input.agent_id)
     .maybeSingle();
   const isOrgAdmin = agent ? await isCurrentUserOrgAdmin() : false;
@@ -380,6 +386,35 @@ export async function updateAgentAction(
     agent.type !== "native"
   ) {
     return { ok: false, formError: "You don't have permission to edit this agent." };
+  }
+
+  // C4L hybrid-edit guard: name, description, system_prompt, and
+  // tool_web_search are managed upstream and cannot be mutated even by
+  // org admins. The UI renders these fields read-only with hint text;
+  // this check rejects any value that arrives different from the DB
+  // (the only way that happens is a determined client bypassing the UI).
+  // Model, attachments, and default_output_format remain editable —
+  // they're the admin's adjust-to-your-org levers.
+  if (agent.source_origin !== null) {
+    const dbDescription = (agent.description ?? "") as string;
+    const submittedDescription = input.description ?? "";
+    const dbToolsEnabled = Array.isArray(agent.tools_enabled)
+      ? (agent.tools_enabled as unknown as string[])
+      : [];
+    const dbWebSearch = dbToolsEnabled.includes("web_search");
+    const lockedChanges: string[] = [];
+    if (input.name !== agent.name) lockedChanges.push("name");
+    if (submittedDescription !== dbDescription) lockedChanges.push("description");
+    if (input.system_prompt !== agent.system_prompt) {
+      lockedChanges.push("system prompt");
+    }
+    if (input.tool_web_search !== dbWebSearch) lockedChanges.push("web search");
+    if (lockedChanges.length > 0) {
+      return {
+        ok: false,
+        formError: `These fields are managed by Claude for Legal and can't be changed: ${lockedChanges.join(", ")}. Refresh and try again.`,
+      };
+    }
   }
 
   const toolsEnabled: string[] = input.tool_web_search ? ["web_search"] : [];

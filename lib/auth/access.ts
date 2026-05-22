@@ -232,6 +232,13 @@ export type AccessibleAgent = {
    * current on every UPDATE.
    */
   updated_at: string;
+  /**
+   * Provenance for externally-sourced agents (migration 0023). NULL for
+   * legalOS-native agents; non-NULL drives the edit form into C4L-lock
+   * mode and is checked server-side to reject mutations on
+   * upstream-managed fields.
+   */
+  source_origin: string | null;
   department: { slug: string; name: string } | null;
 };
 
@@ -256,7 +263,7 @@ export const getAgent = cache(
     const { data } = await supabase
       .from("agents")
       .select(
-        "id, name, description, type, is_active, is_template, system_prompt, model, tools_enabled, created_by, deleted_at, updated_at, departments!inner(slug, name)",
+        "id, name, description, type, is_active, is_template, system_prompt, model, tools_enabled, created_by, deleted_at, updated_at, source_origin, departments!inner(slug, name)",
       )
       .eq("id", id)
       .maybeSingle();
@@ -280,6 +287,7 @@ export const getAgent = cache(
       created_by: data.created_by,
       deleted_at: data.deleted_at,
       updated_at: data.updated_at,
+      source_origin: data.source_origin,
       department: dept,
     };
   },
