@@ -140,6 +140,34 @@ This doc exists so the eventual Workflows session and any configuration-surface 
 **Where it should land:** Same as `internal-investigation` — skill library surface.
 **Action when skill library surface is built:** same as above.
 
+## Filtered from `regulatory-legal` (filtered 2026-05-22, migration 0035)
+
+### cold-start-interview — belongs in admin configuration
+
+**Source:** `claude-for-legal:regulatory-legal/cold-start-interview`
+**Why filtered:** Same canonical onboarding pattern as the other plugins. Builds the regulator watchlist, indexes the policy library, and learns the firm's materiality threshold so the monitor surfaces signal instead of noise.
+**Where it should land:** Admin configuration surface — unify with sibling cold-start-interview skills.
+
+### customize — belongs in admin configuration
+
+**Source:** `claude-for-legal:regulatory-legal/customize`
+**Why filtered:** Same canonical reconfiguration pattern.
+**Where it should land:** Admin configuration surface — unify with sibling customize skills.
+
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:regulatory-legal/matter-workspace`
+**Why filtered:** Same canonical management pattern as the other plugins.
+**Where it should land:** Admin workspace management surface — unify with sibling matter-workspace skills.
+
+### gap-surfacer — reference/framework skill (pattern #5; defer to skill library)
+
+**Source:** `claude-for-legal:regulatory-legal/gap-surfacer`
+**Why filtered:** Explicitly marked `user-invocable: false` in its frontmatter. Not a chat-with-an-agent — it's shared library code loaded BY `gaps` and `comments` skills as a common gap-and-comment tracker framework (state tracking, owner routing, Slack notifications). Same pattern as employment-legal's `internal-investigation` and `international-expansion`.
+**Where it should land:** Skill library surface (same destination as other pattern #5 skills). When the skill library lands, gap-surfacer becomes the framework that `gaps` and `comments` import at composition time rather than at user-invocation time.
+
+A side-channel observation: regulatory-legal is the first plugin we've audited where a reference/framework skill (`gap-surfacer`) is loaded by tracker-shape skills (`gaps`, `comments`). The trackers benefit from the shared framework for common operations like gap routing and notification. This is a useful pattern — see the clarifying note in the Tracker-shape skills section below.
+
 ## Note on C4L `agents/` directories (across all plugins)
 
 Each C4L plugin contains both a `skills/` directory and an `agents/` directory at its top level (e.g., `../claude-for-legal/<plugin>/skills/`, `../claude-for-legal/<plugin>/agents/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/`.
@@ -188,11 +216,15 @@ Some C4L skills present as agents (chat-with-an-agent UX) but functionally opera
 
 Tracker-shape skills come in two structural forms across the C4L plugins audited so far. Both forms benefit from dedicated tracker UI long-term.
 
-**Structural form 1 — single multi-mode skill** (corporate-legal pattern). One skill operates a YAML state file via multi-mode commands (init, update, report, etc.):
+**Structural form 1 — single multi-mode skill** (corporate-legal pattern). One skill operates a YAML state file via multi-mode commands (init, update, report, etc.).
+
+A form 1 tracker may load a separate reference/framework skill (pattern #5) for shared infrastructure across multiple trackers — e.g., regulatory-legal's `gaps` and `comments` trackers both load the `gap-surfacer` framework for common state tracking, owner routing, and notification logic. The trackers stay form 1 (single multi-mode skill each); the shared framework is a separate concern handled via pattern #5.
 
 - `claude-for-legal:corporate-legal/closing-checklist` — closing checklist tracker (modes: init, update, status)
 - `claude-for-legal:corporate-legal/entity-compliance` — entity compliance deadlines tracker (modes: init, report, update, sweep, audit, export)
 - `claude-for-legal:corporate-legal/integration-management` — post-closing M&A integration tracker (modes: init, contracts, report, update, export)
+- `claude-for-legal:regulatory-legal/gaps` — open regulatory-policy gaps tracker (modes: read, close, risk-accept); loads gap-surfacer framework
+- `claude-for-legal:regulatory-legal/comments` — NPRM comment-period tracker (modes: read, decide); loads gap-surfacer framework
 
 **Structural form 2 — tracker pairs** (employment-legal pattern). Two skills work together on a shared YAML state file — typically one for read/check, one for write/update:
 
