@@ -154,7 +154,7 @@ export function AgentDetailsPanel({
     ? getDisplayLabelFromOrigin(agent.source_origin)
     : agent.is_template
       ? "Department Canonical"
-      : null;
+      : "Personal";
   const sourcePath = parsedSource
     ? `${parsedSource.plugin}/${parsedSource.skill}`
     : null;
@@ -315,7 +315,13 @@ export function AgentDetailsPanel({
             />
             <KVRow
               label="Created by"
-              value={parsedSource ? sourceLabel ?? "System" : "System"}
+              value={
+                parsedSource
+                  ? sourceLabel ?? "System"
+                  : agent.is_template
+                    ? "System"
+                    : "You"
+              }
             />
           </PanelSection>
         </div>

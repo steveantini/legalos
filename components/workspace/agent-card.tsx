@@ -123,9 +123,19 @@ export function AgentCard({
     });
   }
 
-  const body = (
+  // Title reserves right-padding for the absolute-positioned affordances
+  // in the top-right corner so long names don't collide with the icons:
+  //   - "" — no icon, no kebab (external + defensive plain link)
+  //   - "pr-8" — info icon only at right-3 (non-admin Canonical/C4L)
+  //   - "pr-16" — info icon at right-11 + kebab at right-2 (admin
+  //              templates, owner-mode personal agents)
+  // Description text below the icon's vertical band doesn't need
+  // padding — the icon is anchored to the top-right corner only.
+  const renderBody = (titlePadding: string) => (
     <>
-      <h3 className="text-[19px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
+      <h3
+        className={`text-[19px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground ${titlePadding}`}
+      >
         {agent.name}
       </h3>
       {agent.description ? (
@@ -146,7 +156,7 @@ export function AgentCard({
         aria-label={`Open ${agent.name} (external)`}
         className={cardClassName}
       >
-        {body}
+        {renderBody("")}
       </a>
     );
   }
@@ -159,7 +169,7 @@ export function AgentCard({
           agent={agent}
           mode="admin-template"
           onPointerDownLink={handlePointerDown}
-          body={body}
+          body={renderBody("pr-16")}
           onOpenDetails={onOpenDetails}
         />
       );
@@ -171,7 +181,7 @@ export function AgentCard({
     // index; the link still covers the rest of the card.
     return (
       <div className={`relative ${cardClassName}`}>
-        <div className="pointer-events-none">{body}</div>
+        <div className="pointer-events-none">{renderBody("pr-8")}</div>
         <Link
           href={`/workspace/agents/${agent.id}`}
           aria-label={`Open ${agent.name}`}
@@ -195,17 +205,22 @@ export function AgentCard({
         aria-label={`Open ${agent.name}`}
         className={cardClassName}
       >
-        {body}
+        {renderBody("")}
       </Link>
     );
   }
 
+  // Personal agent (owner view). Same overflow-menu pattern as
+  // admin-template cards: kebab on the right for Edit/Delete, info
+  // icon to its left when onOpenDetails is wired. Title needs the
+  // same pr-16 reserve as admin-template to clear both icons.
   return (
     <EditableAgentCard
       agent={agent}
       mode="my-agent"
       onPointerDownLink={handlePointerDown}
-      body={body}
+      body={renderBody("pr-16")}
+      onOpenDetails={onOpenDetails}
     />
   );
 }

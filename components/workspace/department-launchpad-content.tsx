@@ -16,12 +16,12 @@ interface DepartmentLaunchpadContentProps {
 
 /**
  * Client wrapper for the department launchpad's three agent sections.
- * Owns the read-only details-panel state: a single
- * `detailsAgent` slot tracks which Canonical or C4L card the user
- * peeked at most recently. Personal agents do not open the panel —
- * `<AgentCard>` only renders the Info icon when `onOpenDetails` is
- * provided AND the card's own render branch admits it (Canonical or
- * C4L only; see `agent-card.tsx`).
+ * Owns the read-only details-panel state: a single `detailsAgent` slot
+ * tracks which card the user peeked at most recently. All three card
+ * tiers (Canonical, Claude for Legal, Personal) open the panel —
+ * `<AgentCard>` renders the Info icon whenever `onOpenDetails` is
+ * provided to its branch. External agents are the only kind that
+ * don't get the affordance (they link out, no settings to peek at).
  *
  * Extracted from the department page so the page itself can stay a
  * server component handling auth + data fetching. The grids it renders
@@ -89,6 +89,7 @@ export function DepartmentLaunchpadContent({
             agents={myAgents}
             departmentSlug={departmentSlug}
             isMyAgent
+            onOpenDetails={setDetailsAgent}
           />
         ) : (
           <div className="rounded-[14px] bg-muted p-8 text-center">
