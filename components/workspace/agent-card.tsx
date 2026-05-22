@@ -179,8 +179,11 @@ export function AgentCard({
     // without nesting a <button> inside a <Link> (invalid HTML, fragile
     // interaction). The Info button is rendered above the link via z
     // index; the link still covers the rest of the card.
+    //
+    // `group` on the outer container drives the card-level hover-reveal
+    // for the Info button (see `InfoIconButton` below).
     return (
-      <div className={`relative ${cardClassName}`}>
+      <div className={`group relative ${cardClassName}`}>
         <div className="pointer-events-none">{renderBody("pr-8")}</div>
         <Link
           href={`/workspace/agents/${agent.id}`}
@@ -251,6 +254,13 @@ function InfoIconButton({
   withMenuOffset?: boolean;
 }) {
   const positionClass = withMenuOffset ? "right-9 top-2" : "right-3 top-3";
+  // Hover-reveal: `opacity-40` at rest; `group-hover:opacity-100` lifts
+  // the icon to full when the parent card is hovered (paired with the
+  // kebab so the cluster reads as a single control). `hover:opacity-100`
+  // also handles direct hover for cases where group-hover doesn't fire
+  // (e.g., touch). `focus-visible:opacity-100` keeps the icon visible
+  // for keyboard users when it has focus, even if the card isn't being
+  // hovered.
   return (
     <button
       type="button"
@@ -260,7 +270,7 @@ function InfoIconButton({
         onClick();
       }}
       aria-label={`View details for ${agentName}`}
-      className={`absolute ${positionClass} z-20 grid h-7 w-7 place-items-center rounded-md opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+      className={`absolute ${positionClass} z-20 grid h-7 w-7 place-items-center rounded-md opacity-40 transition-opacity group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
     >
       <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
     </button>
@@ -359,7 +369,7 @@ function EditableAgentCard({
 
   return (
     <>
-      <div className={`relative ${cardClassName}`}>
+      <div className={`group relative ${cardClassName}`}>
         <div className="pointer-events-none">{body}</div>
         <Link
           href={`/workspace/agents/${agent.id}`}
@@ -374,7 +384,12 @@ function EditableAgentCard({
             withMenuOffset
           />
         ) : null}
-        <div className="pointer-events-auto absolute right-2 top-2 z-20">
+        {/* Kebab wrapper mirrors the InfoIconButton's hover-reveal so the
+            two controls share a single visibility model. `focus-within:
+            opacity-100` (vs. focus-visible on the button itself)
+            captures keyboard focus on the trigger button inside this
+            wrapper. */}
+        <div className="pointer-events-auto absolute right-2 top-2 z-20 opacity-40 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon-sm" />}
