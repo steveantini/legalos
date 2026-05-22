@@ -27,8 +27,47 @@ This doc exists so the eventual Workflows session and any configuration-surface 
 **Where it should land:** Same as `cold-start-interview` — admin configuration surface.
 **Action when configuration surface is built:** same as above.
 
-## Pattern note
+## Filtered from `commercial-legal` — additional (filtered 2026-05-22, migration 0026)
 
-This filtering should be re-applied when any new C4L plugin is imported. The same three skill types (router, cold-start-interview, customize) appear across multiple C4L plugins — they're a C4L convention, not commercial-specific. Future plugin imports should pre-filter these by default, with the option to override per-plugin.
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:commercial-legal/matter-workspace`
+**Why filtered (retroactively):** The original commercial-legal import (commit 27da5e2) included `matter-workspace` because it wasn't recognized as a configuration-pattern skill at that time. Re-evaluation during the privacy-legal import surfaced that `matter-workspace` is a management tool (create/list/switch/close client matters) rather than a chat-with-an-agent. Soft-deleted retroactively so the pattern is consistent across all C4L imports going forward.
+**Where it should land:** Admin workspace management surface (no current home; would be a new surface, likely co-located with cold-start-interview and customize as the "admin configuration" cluster).
+**Action when admin configuration surface is built:** consider whether to expose this skill as-is, or whether legalOS's eventual matter-management UX makes it redundant.
+
+## Filtered from `privacy-legal` (filtered 2026-05-22, migration 0026)
+
+### cold-start-interview — belongs in admin configuration
+
+**Source:** `claude-for-legal:privacy-legal/cold-start-interview`
+**Why filtered:** Same shape as the commercial-legal version. Onboarding skill, one-shot setup, not a chat-with-an-agent.
+**Where it should land:** Admin configuration surface.
+**Action when configuration surface is built:** consider whether to expose this skill alongside the commercial-legal version, or unify them into a single cross-plugin onboarding flow.
+
+### customize — belongs in admin configuration
+
+**Source:** `claude-for-legal:privacy-legal/customize`
+**Why filtered:** Same shape as the commercial-legal version. Reconfiguration skill.
+**Where it should land:** Admin configuration surface.
+**Action when configuration surface is built:** same as commercial-legal.
+
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:privacy-legal/matter-workspace`
+**Why filtered:** Same shape as commercial-legal's matter-workspace. Management tool for client matters, not a chat-with-an-agent.
+**Where it should land:** Same as commercial-legal's matter-workspace — admin workspace management surface.
+**Action when admin configuration surface is built:** unify with commercial-legal version into a single matter-workspace management UI.
+
+## Pattern note (revised after privacy-legal import)
+
+This filtering should be re-applied when any new C4L plugin is imported. The following skills are C4L conventions that appear across multiple plugins and should be filtered from the department-agent tier by default:
+
+1. **Router skills** (e.g., `review` in commercial-legal) — multi-step orchestration; belongs in Workflows.
+2. **Onboarding skills** (`cold-start-interview`) — first-run playbook learning; belongs in admin configuration surface.
+3. **Reconfiguration skills** (`customize`) — adjust an existing profile without re-running onboarding; belongs in admin configuration surface.
+4. **Matter management skills** (`matter-workspace`) — create/list/switch/close matter workspaces; not a chat-with-an-agent shape. Belongs in admin/workspace management surface.
+
+Future plugin imports should pre-filter these four types by default, with the option to override per-plugin if a specific skill diverges from the convention.
 
 The sync pipeline (Shape B, future) should use this doc as input — skills listed here are intentionally not in the agent surface and should not be re-imported.
