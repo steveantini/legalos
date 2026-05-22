@@ -4,7 +4,9 @@ import { useState } from "react";
 
 import { AgentDetailsPanel } from "@/components/workspace/agent-details-panel";
 import { AgentGrid } from "@/components/workspace/agent-grid";
+import { CollapsibleSection } from "@/components/workspace/collapsible-section";
 import type { LaunchpadAgent } from "@/lib/auth/access";
+import type { CollapsedSectionsValue } from "@/lib/preferences/keys";
 
 interface DepartmentLaunchpadContentProps {
   departmentAgents: LaunchpadAgent[];
@@ -12,6 +14,14 @@ interface DepartmentLaunchpadContentProps {
   myAgents: LaunchpadAgent[];
   departmentSlug: string;
   canManageTemplates: boolean;
+  /**
+   * Per-department, per-user collapsed state for the three sections.
+   * Server-prefetched by the page so the first paint reflects the
+   * persisted state (no flash of expanded → collapsed on load).
+   * Missing fields default to expanded (the value the user hasn't
+   * actively chosen to collapse stays open).
+   */
+  initialCollapsedState: CollapsedSectionsValue;
 }
 
 /**
@@ -22,6 +32,10 @@ interface DepartmentLaunchpadContentProps {
  * `<AgentCard>` renders the Info icon whenever `onOpenDetails` is
  * provided to its branch. External agents are the only kind that
  * don't get the affordance (they link out, no settings to peek at).
+ *
+ * Each section is collapsible. Click the header to toggle; state
+ * persists per department per user via the `user_preferences` table
+ * (see `<CollapsibleSection>`). Default is expanded.
  *
  * Extracted from the department page so the page itself can stay a
  * server component handling auth + data fetching. The grids it renders
@@ -35,34 +49,51 @@ export function DepartmentLaunchpadContent({
   myAgents,
   departmentSlug,
   canManageTemplates,
+  initialCollapsedState,
 }: DepartmentLaunchpadContentProps) {
   const [detailsAgent, setDetailsAgent] = useState<LaunchpadAgent | null>(
     null,
   );
 
-  const sectionHeading =
-    "font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground";
+  const countMeta = (n: number) =>
+    n > 0 ? (
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        {n}
+      </span>
+    ) : null;
 
   return (
     <>
-      {departmentAgents.length > 0 ? (
-        <section className="flex flex-col gap-[14px]">
-          <header className="flex items-baseline justify-between border-b border-hairline pb-[10px]">
-            <h2 className={sectionHeading}>Department Agents</h2>
-          </header>
-          <AgentGrid
-            agents={departmentAgents}
-            departmentSlug={departmentSlug}
-            canManageTemplates={canManageTemplates}
-            onOpenDetails={setDetailsAgent}
-          />
-        </section>
-      ) : null}
+      {/* Department Agents — canonical departmental agents, click-to-chat
+          directly. Hidden entirely when empty (no header for a bucket
+          that doesn't exist). */}
+      <CollapsibleSection
+        title="Department Agents"
+        sectionKey="departmentAgents"
+        departmentSlug={departmentSlug}
+        defaultCollapsed={initialCollapsedState.departmentAgents ?? false}
+        visible={departmentAgents.length > 0}
+        meta={countMeta(departmentAgents.length)}
+      >
+        <AgentGrid
+          agents={departmentAgents}
+          departmentSlug={departmentSlug}
+          canManageTemplates={canManageTemplates}
+          onOpenDetails={setDetailsAgent}
+        />
+      </CollapsibleSection>
 
-      <section className="flex flex-col gap-[14px]">
-        <header className="border-b border-hairline pb-[10px]">
-          <h2 className={sectionHeading}>Claude for Legal</h2>
-        </header>
+      {/* Claude for Legal — externally-sourced agents. Always rendered;
+          empty state advertises that curated content is coming.
+          `canManageTemplates` is forwarded so admin viewers get the
+          overflow-menu affordances on C4L cards. */}
+      <CollapsibleSection
+        title="Claude for Legal"
+        sectionKey="externalAgents"
+        departmentSlug={departmentSlug}
+        defaultCollapsed={initialCollapsedState.externalAgents ?? false}
+        meta={countMeta(externalAgents.length)}
+      >
         {externalAgents.length > 0 ? (
           <AgentGrid
             agents={externalAgents}
@@ -78,12 +109,17 @@ export function DepartmentLaunchpadContent({
             </p>
           </div>
         )}
-      </section>
+      </CollapsibleSection>
 
-      <section className="flex flex-col gap-[14px]">
-        <header className="border-b border-hairline pb-[10px]">
-          <h2 className={sectionHeading}>My Agents</h2>
-        </header>
+      {/* My Agents — user-owned personal agents. Always rendered with an
+          empty state when the user hasn't created anything yet. */}
+      <CollapsibleSection
+        title="My Agents"
+        sectionKey="myAgents"
+        departmentSlug={departmentSlug}
+        defaultCollapsed={initialCollapsedState.myAgents ?? false}
+        meta={countMeta(myAgents.length)}
+      >
         {myAgents.length > 0 ? (
           <AgentGrid
             agents={myAgents}
@@ -99,7 +135,7 @@ export function DepartmentLaunchpadContent({
             </p>
           </div>
         )}
-      </section>
+      </CollapsibleSection>
 
       <AgentDetailsPanel
         agent={detailsAgent}

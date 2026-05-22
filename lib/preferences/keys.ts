@@ -40,12 +40,17 @@ export function deptCollapsedSectionsKey(departmentSlug: string): string {
  * Shape stored under `deptCollapsedSectionsKey(...)`. Each section flag
  * is independent so the user can collapse one section without
  * touching the others' state.
+ *
+ * Declared as a type alias (not an interface) so the implicit index
+ * signature lets it satisfy the `PreferenceValue` generic constraint
+ * on the user-preferences server actions. Interfaces don't get that
+ * signature implicitly even when their fields are uniform.
  */
-export interface CollapsedSectionsValue {
+export type CollapsedSectionsValue = {
   departmentAgents?: boolean;
   externalAgents?: boolean;
   myAgents?: boolean;
-}
+};
 
 // Future keys will live alongside the above. Sketches (not in use yet):
 //

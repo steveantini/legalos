@@ -6,12 +6,17 @@ import { notFound } from "next/navigation";
 import { DepartmentHeader } from "@/components/workspace/department-header";
 import { DepartmentLaunchpadContent } from "@/components/workspace/department-launchpad-content";
 import { buttonVariants } from "@/components/ui/button";
+import { getUserPreferenceAction } from "@/lib/actions/user-preferences";
 import {
   getAgentsForDepartmentLaunchpad,
   getDepartmentIfAccessible,
   isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
+import {
+  type CollapsedSectionsValue,
+  deptCollapsedSectionsKey,
+} from "@/lib/preferences/keys";
 
 /**
  * Aperture department launchpad — content only. Inherits chrome
@@ -75,10 +80,26 @@ export default async function DepartmentLaunchpadPage({
   const [
     { departmentAgents, externalAgents, myAgents },
     canManageTemplates,
+    collapsedPrefResult,
   ] = await Promise.all([
     getAgentsForDepartmentLaunchpad(department.id, user.id),
     isCurrentUserOrgAdmin(),
+    getUserPreferenceAction<CollapsedSectionsValue>(
+      deptCollapsedSectionsKey(department.slug),
+    ),
   ]);
+
+  // Default to empty object (all sections expanded) when:
+  //   - The preference doesn't exist for this user (first visit)
+  //   - The fetch failed (errors don't block the page; fall back to defaults)
+  //   - The stored value isn't an object (malformed; treat as missing)
+  const initialCollapsedState: CollapsedSectionsValue =
+    collapsedPrefResult.ok &&
+    collapsedPrefResult.value &&
+    typeof collapsedPrefResult.value === "object" &&
+    !Array.isArray(collapsedPrefResult.value)
+      ? (collapsedPrefResult.value as CollapsedSectionsValue)
+      : {};
 
   // Admins see two side-by-side buttons so creating a department-wide
   // template vs a personal agent is an explicit choice, not an auto-
@@ -125,6 +146,7 @@ export default async function DepartmentLaunchpadPage({
         myAgents={myAgents}
         departmentSlug={department.slug}
         canManageTemplates={canManageTemplates}
+        initialCollapsedState={initialCollapsedState}
       />
     </main>
   );
