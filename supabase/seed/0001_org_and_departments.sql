@@ -31,24 +31,32 @@ begin
   end if;
 
   -- 2. The eight starting departments.
+  --
+  -- Canonical state after migrations 0013 (GRRA merged into Public
+  -- Sector + General Tools added), 0028 (M&A renamed to Corporate),
+  -- and 0029 (Corporate description broadened). The seed had drifted
+  -- from live DB across all three; this list is the corrected
+  -- documentation of "what a fresh DB looks like once 0001..N are
+  -- applied in order." If you add a new department in a later
+  -- migration, update this list in the same commit.
   insert into public.departments (organization_id, slug, name, description, sort_order)
   values
     (v_org_id, 'commercial', 'Commercial',
-      'Contract review, vendor agreements, commercial operations.', 1),
+      'Revenue (sell-side) agreements, procurement (buy-side) agreements, Non-Disclosure Agreements, Artificial Intelligence Addenda.', 1),
     (v_org_id, 'public-sector', 'Public Sector',
-      'Government contracts and public-sector matters.', 2),
-    (v_org_id, 'grra', 'Government Relations & Regulatory Affairs',
-      'Lobbying, regulatory monitoring, policy advocacy.', 3),
+      'Government relations, regulatory affairs, public-sector contracts, and policy advocacy.', 2),
     (v_org_id, 'corporate', 'Corporate',
-      'Mergers, financing, governance, securities, and entity management.', 4),
+      'Mergers, financing, governance, securities, and entity management.', 3),
     (v_org_id, 'privacy', 'Privacy',
-      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 5),
+      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 4),
     (v_org_id, 'product', 'Product',
-      'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 6),
+      'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 5),
     (v_org_id, 'compliance', 'Compliance',
-      'Compliance program management, regulatory monitoring, and audit support.', 7),
+      'Compliance program management, regulatory monitoring, and audit support.', 6),
     (v_org_id, 'operations', 'Operations',
-      'Internal operations, vendor management, procurement, and corporate transactions.', 8)
+      'Internal operations, vendor management, procurement, and corporate transactions.', 7),
+    (v_org_id, 'general-tools', 'General Tools',
+      'general purpose agentic tools', 8)
   on conflict (organization_id, slug) do update set
     name = excluded.name,
     description = excluded.description,
