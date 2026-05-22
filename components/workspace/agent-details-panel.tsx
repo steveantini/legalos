@@ -81,8 +81,17 @@ export function AgentDetailsPanel({
   // "adjusting state during render" pattern instead of an effect (per
   // react-hooks/set-state-in-effect). The setStates here schedule a
   // single re-render and skip committing the intermediate state.
-  if (agent?.id !== prevAgentId) {
-    setPrevAgentId(agent?.id ?? null);
+  //
+  // `currentAgentId` coerces `agent?.id` to `string | null` before the
+  // comparison so it matches the type of `prevAgentId` (also
+  // `string | null`). Without the coercion, the LHS is `undefined`
+  // when agent is null and the RHS is `null` — `undefined !== null`
+  // is `true`, the block re-fires every render, and the closed-panel
+  // state loops infinitely (React error #301). See the panel's commit
+  // history for the bug context.
+  const currentAgentId = agent?.id ?? null;
+  if (currentAgentId !== prevAgentId) {
+    setPrevAgentId(currentAgentId);
     setCopied(false);
     setDetails(null);
     setError(null);
