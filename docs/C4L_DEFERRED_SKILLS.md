@@ -106,6 +106,40 @@ This doc exists so the eventual Workflows session and any configuration-surface 
 **Where it should land:** Workflows surface. A "diligence with bulk-review tool" workflow would compose `diligence-issue-extraction` → `ai-tool-handoff` → review the tool's output. The handoff is a workflow node that delegates to and QAs an external system.
 **Action when Workflows is built:** consider whether this needs to be its own workflow node or a sub-step of a higher-level "deal diligence" workflow.
 
+## Filtered from `employment-legal` (filtered 2026-05-22, migration 0032)
+
+### cold-start-interview — belongs in admin configuration
+
+**Source:** `claude-for-legal:employment-legal/cold-start-interview`
+**Why filtered:** Same onboarding pattern as the other plugins. Learns the firm's jurisdictional footprint and escalation rules from handbook and termination memos.
+**Where it should land:** Admin configuration surface — unify with sibling cold-start-interview skills.
+
+### customize — belongs in admin configuration
+
+**Source:** `claude-for-legal:employment-legal/customize`
+**Why filtered:** Same reconfiguration pattern as the other plugins.
+**Where it should land:** Admin configuration surface — unify with sibling customize skills.
+
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:employment-legal/matter-workspace`
+**Why filtered:** Same management pattern as the other plugins.
+**Where it should land:** Admin workspace management surface — unify with sibling matter-workspace skills.
+
+### internal-investigation — reference/framework skill (new pattern; defer to skill library)
+
+**Source:** `claude-for-legal:employment-legal/internal-investigation`
+**Why filtered:** Explicitly marked `user-invocable: false` in its frontmatter. Not a chat-with-an-agent — it's shared library code loaded BY other skills (`investigation-open`, `investigation-add`, `investigation-query`, `investigation-memo`, `investigation-summary`) as shared framework context. Different from a router: routers actively dispatch input at runtime; reference/framework skills are shared context loaded into other skills, never invoked themselves.
+**Where it should land:** Skill library surface (no current home — likely a future component of the Workflows tier where workflow nodes can include shared framework modules).
+**Action when skill library surface is built:** consider exposing this as a workflow building block; the five investigation-* agents would import it at composition time rather than at user-invocation time.
+
+### international-expansion — reference/framework skill (new pattern; defer to skill library)
+
+**Source:** `claude-for-legal:employment-legal/international-expansion`
+**Why filtered:** Same pattern as `internal-investigation` — `user-invocable: false`, shared framework loaded BY `expansion-kickoff` and `expansion-update`.
+**Where it should land:** Same as `internal-investigation` — skill library surface.
+**Action when skill library surface is built:** same as above.
+
 ## Note on C4L `agents/` directories (across all plugins)
 
 Each C4L plugin contains both a `skills/` directory and an `agents/` directory at its top level (e.g., `../claude-for-legal/<plugin>/skills/`, `../claude-for-legal/<plugin>/agents/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/`.
@@ -122,7 +156,15 @@ Plugins with `agents/` content observed (silently skipped by the import script):
 - product-legal/agents/ (verify count when needed)
 - Future plugins likely similar.
 
-## Pattern note (revised after corporate-legal import)
+## Note on C4L `data/` directories (observed in employment-legal)
+
+The `employment-legal` plugin contains a `data/` directory at its top level (alongside `skills/`, `agents/`, `hooks/`, etc.). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/` — `data/` content is silently skipped. The `data/` directory likely contains static reference data the plugin's skills load at runtime (jurisdictional rule tables, escalation policies, etc.). Out of scope for Option A (SKILL.md → agent row import); relevant for the future sync pipeline (Shape B) and any eventual workflow-or-skill-library surface that would need to make this data accessible.
+
+Other plugins audited so far (commercial-legal, privacy-legal, product-legal, corporate-legal) did NOT have `data/` directories. employment-legal is the first.
+
+Sync pipeline note: when Shape B is built, the import logic should explicitly skip `data/` (and `hooks/` and other non-skill directories) rather than relying on the current "only read from skills/" implementation detail.
+
+## Pattern note (revised after employment-legal import)
 
 This filtering should be re-applied when any new C4L plugin is imported. The following skills are C4L conventions that appear across multiple plugins and should be filtered from the department-agent tier by default:
 
@@ -134,8 +176,9 @@ This filtering should be re-applied when any new C4L plugin is imported. The fol
 2. **Onboarding skills** (`cold-start-interview`) — first-run playbook learning; belongs in admin configuration surface.
 3. **Reconfiguration skills** (`customize`) — adjust an existing profile without re-running onboarding; belongs in admin configuration surface.
 4. **Matter management skills** (`matter-workspace`) — create/list/switch/close matter workspaces; not a chat-with-an-agent shape. Belongs in admin/workspace management surface.
+5. **Reference/framework skills** — explicitly marked `user-invocable: false` in their frontmatter, loaded BY other skills as shared context, never invoked directly. Different from routers (routers actively dispatch input; reference/framework skills are shared library code). Examples: `internal-investigation` and `international-expansion` in employment-legal. They belong neither in the agent tier nor in Workflows as standalone nodes. Closest match is a future "skill library" surface — until that exists, defer.
 
-Future plugin imports should pre-filter these four types by default, with the option to override per-plugin if a specific skill diverges from the convention.
+Future plugin imports should pre-filter these five types by default, with the option to override per-plugin if a specific skill diverges from the convention.
 
 The sync pipeline (Shape B, future) should use this doc as input — skills listed here are intentionally not in the agent surface and should not be re-imported.
 
@@ -143,11 +186,22 @@ The sync pipeline (Shape B, future) should use this doc as input — skills list
 
 Some C4L skills present as agents (chat-with-an-agent UX) but functionally operate on a YAML state file with multi-mode commands. They work conversationally for v1, but long-term they're candidates for dedicated tracker UI surfaces — think Linear-style task boards or compliance dashboards.
 
-Skills in this category (currently imported as agents, not filtered):
+Tracker-shape skills come in two structural forms across the C4L plugins audited so far. Both forms benefit from dedicated tracker UI long-term.
+
+**Structural form 1 — single multi-mode skill** (corporate-legal pattern). One skill operates a YAML state file via multi-mode commands (init, update, report, etc.):
 
 - `claude-for-legal:corporate-legal/closing-checklist` — closing checklist tracker (modes: init, update, status)
-- `claude-for-legal:corporate-legal/entity-compliance` — entity compliance tracker (modes: init, report, update, sweep, audit, export)
+- `claude-for-legal:corporate-legal/entity-compliance` — entity compliance deadlines tracker (modes: init, report, update, sweep, audit, export)
 - `claude-for-legal:corporate-legal/integration-management` — post-closing M&A integration tracker (modes: init, contracts, report, update, export)
+
+**Structural form 2 — tracker pairs** (employment-legal pattern). Two skills work together on a shared YAML state file — typically one for read/check, one for write/update:
+
+- Leave pair, operating on `leave-register.yaml`:
+  - `claude-for-legal:employment-legal/leave-tracker` — read-side: check open leaves for deadline alerts and required decisions
+  - `claude-for-legal:employment-legal/log-leave` — write-side: add a new leave to the register
+- Expansion pair, operating on per-country expansion trackers:
+  - `claude-for-legal:employment-legal/expansion-kickoff` — init: open international expansion planning for a new country
+  - `claude-for-legal:employment-legal/expansion-update` — update: recalculate what's unblocked, flag overdue items
 
 **Why kept as agents for v1:** The user-facing surface IS conversational — "what's left to close?" or "what's due this month?" The internal YAML-state-machine implementation doesn't change the user experience.
 
