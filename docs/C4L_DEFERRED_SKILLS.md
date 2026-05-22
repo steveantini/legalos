@@ -59,6 +59,42 @@ This doc exists so the eventual Workflows session and any configuration-surface 
 **Where it should land:** Same as commercial-legal's matter-workspace — admin workspace management surface.
 **Action when admin configuration surface is built:** unify with commercial-legal version into a single matter-workspace management UI.
 
+## Filtered from `product-legal` (filtered 2026-05-22, migration 0027)
+
+### cold-start-interview — belongs in admin configuration
+
+**Source:** `claude-for-legal:product-legal/cold-start-interview`
+**Why filtered:** Same onboarding pattern as commercial-legal and privacy-legal. Connects to the launch tracker, reads past reviews, learns risk calibration. One-shot setup.
+**Where it should land:** Admin configuration surface — unify with sibling cold-start-interview skills from other plugins.
+
+### customize — belongs in admin configuration
+
+**Source:** `claude-for-legal:product-legal/customize`
+**Why filtered:** Same reconfiguration pattern as commercial-legal and privacy-legal. Adjusts an existing profile without re-running onboarding.
+**Where it should land:** Admin configuration surface — unify with sibling customize skills.
+
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:product-legal/matter-workspace`
+**Why filtered:** Same management pattern as commercial-legal and privacy-legal matter-workspace skills (already filtered in 0026). Create/list/switch/close client matters — not a chat-with-an-agent shape.
+**Where it should land:** Admin management surface — unify with sibling matter-workspace skills.
+
+## Note on C4L `agents/` directories (across all plugins)
+
+Each C4L plugin contains both a `skills/` directory and an `agents/` directory at its top level (e.g., `../claude-for-legal/<plugin>/skills/`, `../claude-for-legal/<plugin>/agents/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/`.
+
+The `agents/` directory carries C4L's scheduled-agent / managed-agent cookbook definitions — recurring autonomous agents like `renewal-watcher`, `deal-debrief`, `playbook-monitor`, `docket-watcher`, `reg-monitor`, `diligence-grid`, `launch-radar`. These are intentionally NOT imported via Option A (SKILL.md → agent row) because they require multi-step orchestration, scheduling, and external triggers that don't fit the chat-with-an-agent UX.
+
+These belong in a future Option B integration path using C4L's Managed Agents API (`deploy-managed-agent.sh`). The architectural framing in the operator's earlier session work: cookbook agents are Option B candidates evaluated post-MVP.
+
+The sync pipeline (Shape B, future) should NOT auto-import `agents/` content. If/when cookbook agents are wired in, they get their own ingestion path — likely a separate command or workflow surface, not the department-agent tier.
+
+Plugins with `agents/` content observed (silently skipped by the import script):
+- commercial-legal/agents/ (renewal-watcher, deal-debrief, playbook-monitor, …)
+- privacy-legal/agents/ (verify count when needed)
+- product-legal/agents/ (verify count when needed)
+- Future plugins likely similar.
+
 ## Pattern note (revised after privacy-legal import)
 
 This filtering should be re-applied when any new C4L plugin is imported. The following skills are C4L conventions that appear across multiple plugins and should be filtered from the department-agent tier by default:
