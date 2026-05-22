@@ -604,16 +604,17 @@ export interface LaunchpadAgent {
    */
   source_origin: string | null;
   /**
-   * Settings columns the read-only details panel surfaces for Canonical
-   * and C4L agents. Always selected because including them in the existing
-   * round-trip is cheaper than a second fetch on panel open. `system_prompt`
-   * is the heaviest of the new fields (multi-KB on C4L imports) but still
-   * acceptable at v1 row counts (~20 agents per department).
+   * Lightweight settings the launchpad card grid + details-panel header
+   * surface. The heavy fields (`system_prompt`, `tools_enabled`,
+   * attachments) are deliberately NOT in this shape — they're fetched
+   * lazily by `getAgentDetailsAction` when the panel opens, so each
+   * department page load doesn't carry ~150KB of authored prompt text
+   * through the RSC boundary. Adding any field here that doesn't
+   * render on every card costs every visitor that data; route it
+   * through the lazy fetch instead.
    */
   model: string | null;
   default_output_format: string | null;
-  tools_enabled: unknown;
-  system_prompt: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -678,7 +679,7 @@ export async function getAgentsForDepartmentLaunchpad(
   const { data } = await supabase
     .from("agents")
     .select(
-      "id, slug, name, description, type, external_url, category, sort_order, is_template, source_origin, model, default_output_format, tools_enabled, system_prompt, created_by, created_at, updated_at",
+      "id, slug, name, description, type, external_url, category, sort_order, is_template, source_origin, model, default_output_format, created_by, created_at, updated_at",
     )
     .eq("department_id", departmentId)
     .eq("is_active", true)
@@ -731,8 +732,6 @@ export async function getAgentsForDepartmentLaunchpad(
     source_origin: row.source_origin,
     model: row.model,
     default_output_format: row.default_output_format,
-    tools_enabled: row.tools_enabled,
-    system_prompt: row.system_prompt,
     created_at: row.created_at,
     updated_at: row.updated_at,
   });

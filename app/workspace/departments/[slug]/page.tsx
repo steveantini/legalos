@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import type { AgentAttachmentRow } from "@/components/workspace/agent-details-panel";
 import { DepartmentHeader } from "@/components/workspace/department-header";
 import { DepartmentLaunchpadContent } from "@/components/workspace/department-launchpad-content";
 import { buttonVariants } from "@/components/ui/button";
@@ -13,7 +12,6 @@ import {
   isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
  * Aperture department launchpad — content only. Inherits chrome
@@ -37,9 +35,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * The three sections plus the read-only details panel live in
  * `<DepartmentLaunchpadContent>` (client) so the panel can own its
  * open-state. The page itself stays server-rendered for auth +
- * data-fetching; it also runs a parallel query for attachments across
- * every visible agent so the panel's References section renders without
- * a second round-trip on open.
+ * data-fetching. The panel lazy-fetches `system_prompt`,
+ * `tools_enabled`, and attachments via `getAgentDetailsAction` on open,
+ * so the department-page RSC payload stays lean (a single C4L import
+ * adds ~150KB of authored prompt text per visible agent — kept out of
+ * the launchpad query for that reason).
  *
  * Auth: `requireAuthUser` (cached via 10a) gates and provides the user
  * id; `getDepartmentIfAccessible(slug)` returns null on either
@@ -79,35 +79,6 @@ export default async function DepartmentLaunchpadPage({
     getAgentsForDepartmentLaunchpad(department.id, user.id),
     isCurrentUserOrgAdmin(),
   ]);
-
-  // Parallel attachments query for every visible agent in the three
-  // buckets. RLS scopes via `agent_attachments` policies; the `in()`
-  // filter keeps the result set small. Indexed by agent_id in JS so the
-  // client wrapper can hand each panel just its own attachment slice.
-  const visibleAgentIds = [
-    ...departmentAgents.map((a) => a.id),
-    ...externalAgents.map((a) => a.id),
-    ...myAgents.map((a) => a.id),
-  ];
-
-  const attachmentsByAgentId: Record<string, AgentAttachmentRow[]> = {};
-  if (visibleAgentIds.length > 0) {
-    const supabase = await createSupabaseServerClient();
-    const { data: attachmentRows } = await supabase
-      .from("agent_attachments")
-      .select("agent_id, original_filename")
-      .in("agent_id", visibleAgentIds)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true });
-    for (const row of (attachmentRows ?? []) as Array<{
-      agent_id: string;
-      original_filename: string;
-    }>) {
-      const list = attachmentsByAgentId[row.agent_id] ?? [];
-      list.push({ originalFilename: row.original_filename });
-      attachmentsByAgentId[row.agent_id] = list;
-    }
-  }
 
   // Admins see two side-by-side buttons so creating a department-wide
   // template vs a personal agent is an explicit choice, not an auto-
@@ -154,7 +125,6 @@ export default async function DepartmentLaunchpadPage({
         myAgents={myAgents}
         departmentSlug={department.slug}
         canManageTemplates={canManageTemplates}
-        attachmentsByAgentId={attachmentsByAgentId}
       />
     </main>
   );

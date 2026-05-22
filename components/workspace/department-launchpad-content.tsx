@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import { AgentDetailsPanel } from "@/components/workspace/agent-details-panel";
-import type { AgentAttachmentRow } from "@/components/workspace/agent-details-panel";
 import { AgentGrid } from "@/components/workspace/agent-grid";
 import type { LaunchpadAgent } from "@/lib/auth/access";
 
@@ -13,13 +12,6 @@ interface DepartmentLaunchpadContentProps {
   myAgents: LaunchpadAgent[];
   departmentSlug: string;
   canManageTemplates: boolean;
-  /**
-   * agent_id → attachment rows. Eager-fetched at the page level so the
-   * details panel can render the References section without a second
-   * round-trip on open. Empty entries / missing ids → "No references
-   * attached." in the panel.
-   */
-  attachmentsByAgentId: Record<string, AgentAttachmentRow[]>;
 }
 
 /**
@@ -43,7 +35,6 @@ export function DepartmentLaunchpadContent({
   myAgents,
   departmentSlug,
   canManageTemplates,
-  attachmentsByAgentId,
 }: DepartmentLaunchpadContentProps) {
   const [detailsAgent, setDetailsAgent] = useState<LaunchpadAgent | null>(
     null,
@@ -111,9 +102,6 @@ export function DepartmentLaunchpadContent({
 
       <AgentDetailsPanel
         agent={detailsAgent}
-        attachments={
-          detailsAgent ? attachmentsByAgentId[detailsAgent.id] ?? [] : []
-        }
         onClose={() => setDetailsAgent(null)}
       />
     </>

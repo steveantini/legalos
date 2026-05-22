@@ -7,24 +7,37 @@ import {
   getDisplayLabelFromOrigin,
   parseSourceOrigin,
 } from "@/lib/agents/source";
-import type { LaunchpadAgent } from "@/lib/auth/access";
+import {
+  type AgentDetailsData,
+  getAgentDetailsAction,
+} from "@/lib/actions/agent-details";
 import { modelDisplayName } from "@/lib/llm/model-label";
 
 /**
- * Slim attachment shape consumed by the panel's References section.
- * The launchpad page does a single parallel query against
- * `agent_attachments` for every visible agent and passes the map down;
- * the panel just looks up by id.
+ * Subset of `LaunchpadAgent` the panel needs to render its header and
+ * the immediately-available sections (Configuration, Metadata).
+ * Heavier fields (system prompt, tool list, attachments) load via
+ * `getAgentDetailsAction` after the panel opens — see `details` state
+ * below.
+ *
+ * LaunchpadAgent is a structural superset of this type, so the caller
+ * can pass the full launchpad row without an explicit projection.
  */
-export interface AgentAttachmentRow {
-  originalFilename: string;
+export interface AgentDetailsPanelAgent {
+  id: string;
+  name: string;
+  description: string | null;
+  source_origin: string | null;
+  is_template: boolean;
+  model: string | null;
+  default_output_format: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AgentDetailsPanelProps {
   /** When non-null the panel renders; null hides it. */
-  agent: LaunchpadAgent | null;
-  /** Attachments for the currently-open agent. Empty array = no refs. */
-  attachments: AgentAttachmentRow[];
+  agent: AgentDetailsPanelAgent | null;
   /** Called on Escape, backdrop click, or X. */
   onClose: () => void;
 }
@@ -32,11 +45,17 @@ interface AgentDetailsPanelProps {
 /**
  * Read-only slide-over panel for Canonical and Claude-for-Legal agents.
  * Opens when a user clicks the Info icon on a Canonical or C4L card;
- * shows the agent's full settings (model, web search, export format,
+ * shows the agent's settings (model, web search, export format,
  * attached references, system prompt, metadata) without granting any
  * edit affordances. Visible to admins and non-admins alike — the panel
  * is the only way for a non-admin to inspect what's inside an agent
  * without opening a chat.
+ *
+ * Heavy fields (system prompt, tool list, attachments) are fetched
+ * lazily via `getAgentDetailsAction` when the panel opens; the
+ * launchpad's RSC payload only carries the lightweight header data
+ * (~150KB of prompt text would otherwise cross the wire on every
+ * department page load after the C4L import).
  *
  * Personal agents do NOT use this panel (owners see everything in the
  * edit form; other users shouldn't peek into someone else's scratchpad).
@@ -48,21 +67,26 @@ interface AgentDetailsPanelProps {
  */
 export function AgentDetailsPanel({
   agent,
-  attachments,
   onClose,
 }: AgentDetailsPanelProps) {
   const [copied, setCopied] = useState(false);
+  const [details, setDetails] = useState<AgentDetailsData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [prevAgentId, setPrevAgentId] = useState<string | null>(
     agent?.id ?? null,
   );
 
-  // Reset the copy-feedback state when switching between agents, using
-  // React's "adjusting state during render" pattern instead of an
-  // effect (per react-hooks/set-state-in-effect). The setStates here
-  // schedule a re-render but skip committing the intermediate state.
+  // Reset transient state when switching between agents, using React's
+  // "adjusting state during render" pattern instead of an effect (per
+  // react-hooks/set-state-in-effect). The setStates here schedule a
+  // single re-render and skip committing the intermediate state.
   if (agent?.id !== prevAgentId) {
     setPrevAgentId(agent?.id ?? null);
     setCopied(false);
+    setDetails(null);
+    setError(null);
+    setLoading(agent !== null);
   }
 
   // Escape-to-close while open. Listener is attached only when open so
@@ -87,6 +111,30 @@ export function AgentDetailsPanel({
     };
   }, [agent]);
 
+  // Lazy-fetch the heavy fields when the panel opens (or switches to a
+  // different agent). The synchronous setState above already flipped
+  // `loading` to true; this effect just fires the request and
+  // resolves it. State updates inside the .then() callback are async
+  // from the effect's perspective so they don't trip
+  // react-hooks/set-state-in-effect.
+  const agentId = agent?.id;
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    getAgentDetailsAction(agentId).then((result) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (result.ok) {
+        setDetails(result.data);
+      } else {
+        setError(result.error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
   if (!agent) return null;
 
   const parsedSource =
@@ -102,20 +150,23 @@ export function AgentDetailsPanel({
     ? `${parsedSource.plugin}/${parsedSource.skill}`
     : null;
 
-  const tools = Array.isArray(agent.tools_enabled)
-    ? (agent.tools_enabled as unknown as string[])
-    : [];
-  const webSearchEnabled = tools.includes("web_search");
-
   const exportFormat =
     agent.default_output_format === "docx"
       ? "Word document (.docx)"
       : "Markdown";
 
+  const webSearchValue = loading
+    ? "Loading…"
+    : details
+      ? details.tools_enabled.includes("web_search")
+        ? "Enabled"
+        : "Disabled"
+      : "—";
+
   const handleCopy = async () => {
-    if (!agent.system_prompt) return;
+    if (!details?.system_prompt) return;
     try {
-      await navigator.clipboard.writeText(agent.system_prompt);
+      await navigator.clipboard.writeText(details.system_prompt);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -181,17 +232,20 @@ export function AgentDetailsPanel({
               label="Model"
               value={modelDisplayName(agent.model) || "—"}
             />
-            <KVRow
-              label="Web search"
-              value={webSearchEnabled ? "Enabled" : "Disabled"}
-            />
+            <KVRow label="Web search" value={webSearchValue} />
             <KVRow label="Export format" value={exportFormat} />
           </PanelSection>
 
           <PanelSection heading="References">
-            {attachments.length > 0 ? (
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : error ? (
+              <p className="text-sm text-muted-foreground">
+                Couldn&apos;t load references.
+              </p>
+            ) : details && details.attachments.length > 0 ? (
               <ul className="space-y-1 text-sm">
-                {attachments.map((att, i) => (
+                {details.attachments.map((att, i) => (
                   <li
                     key={`${att.originalFilename}-${i}`}
                     className="rounded-sm bg-muted/40 px-2 py-1 font-mono text-xs text-foreground"
@@ -210,7 +264,7 @@ export function AgentDetailsPanel({
           <PanelSection
             heading="System prompt"
             actions={
-              agent.system_prompt ? (
+              details?.system_prompt ? (
                 <button
                   type="button"
                   onClick={handleCopy}
@@ -229,9 +283,19 @@ export function AgentDetailsPanel({
               ) : null
             }
           >
-            <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground">
-              {agent.system_prompt || "—"}
-            </pre>
+            {loading ? (
+              <div className="rounded-md bg-muted/40 p-3 font-mono text-xs text-muted-foreground">
+                Loading prompt…
+              </div>
+            ) : error ? (
+              <div className="rounded-md bg-muted/40 p-3 font-mono text-xs text-muted-foreground">
+                Couldn&apos;t load the system prompt.
+              </div>
+            ) : (
+              <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground">
+                {details?.system_prompt || "—"}
+              </pre>
+            )}
           </PanelSection>
 
           <PanelSection heading="Metadata">
