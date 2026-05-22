@@ -40,7 +40,7 @@ begin
     (v_org_id, 'grra', 'Government Relations & Regulatory Affairs',
       'Lobbying, regulatory monitoring, policy advocacy.', 3),
     (v_org_id, 'corporate', 'Corporate',
-      'Deal diligence, merger agreements, integration planning.', 4),
+      'Mergers, financing, governance, securities, and entity management.', 4),
     (v_org_id, 'privacy', 'Privacy',
       'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 5),
     (v_org_id, 'product', 'Product',
