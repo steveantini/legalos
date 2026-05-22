@@ -34,31 +34,42 @@ begin
   --
   -- Canonical state after migrations 0013 (GRRA merged into Public
   -- Sector + General Tools added), 0028 (M&A renamed to Corporate),
-  -- and 0029 (Corporate description broadened). The seed had drifted
-  -- from live DB across all three; this list is the corrected
-  -- documentation of "what a fresh DB looks like once 0001..N are
-  -- applied in order." If you add a new department in a later
-  -- migration, update this list in the same commit.
+  -- 0029 (Corporate description broadened), 0031 (Employment added),
+  -- and 0033 (reorder to four-group taxonomy). The seed is the
+  -- corrected documentation of "what a fresh DB looks like once
+  -- 0001..N are applied in order." If you add a new department in a
+  -- later migration, update this list in the same commit.
+  --
+  -- Sort_order grouping:
+  --   1–2  deal & transactional       Commercial, Corporate
+  --   3–6  regulatory & compliance    Regulatory (follow-up), Public
+  --                                   Sector, Compliance, Privacy
+  --   7–8  specialized practice       Product, Employment
+  --   9–10 operational & utility      Operations, General Tools
+  --                                   (always-last per commit 7eb776b)
+  --
+  -- Position 3 is currently vacant; the Regulatory department lands
+  -- there in a follow-up commit.
   insert into public.departments (organization_id, slug, name, description, sort_order)
   values
     (v_org_id, 'commercial', 'Commercial',
       'Revenue (sell-side) agreements, procurement (buy-side) agreements, Non-Disclosure Agreements, Artificial Intelligence Addenda.', 1),
-    (v_org_id, 'public-sector', 'Public Sector',
-      'Government relations, regulatory affairs, public-sector contracts, and policy advocacy.', 2),
     (v_org_id, 'corporate', 'Corporate',
-      'Mergers, financing, governance, securities, and entity management.', 3),
-    (v_org_id, 'privacy', 'Privacy',
-      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 4),
-    (v_org_id, 'product', 'Product',
-      'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 5),
+      'Mergers, financing, governance, securities, and entity management.', 2),
+    (v_org_id, 'public-sector', 'Public Sector',
+      'Government relations, regulatory affairs, public-sector contracts, and policy advocacy.', 4),
     (v_org_id, 'compliance', 'Compliance',
-      'Compliance program management, regulatory monitoring, and audit support.', 6),
+      'Compliance program management, regulatory monitoring, and audit support.', 5),
+    (v_org_id, 'privacy', 'Privacy',
+      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 6),
+    (v_org_id, 'product', 'Product',
+      'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 7),
     (v_org_id, 'employment', 'Employment',
-      'Hiring, terminations, employment agreements, compensation and benefits, workplace policy, and labor relations.', 7),
+      'Hiring, terminations, employment agreements, compensation and benefits, workplace policy, and labor relations.', 8),
     (v_org_id, 'operations', 'Operations',
-      'Internal operations, vendor management, procurement, and corporate transactions.', 8),
+      'Internal operations, vendor management, procurement, and corporate transactions.', 9),
     (v_org_id, 'general-tools', 'General Tools',
-      'general purpose agentic tools', 9)
+      'general purpose agentic tools', 10)
   on conflict (organization_id, slug) do update set
     name = excluded.name,
     description = excluded.description,
