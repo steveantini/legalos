@@ -5,7 +5,7 @@
 -- REPLACE `ADMIN_EMAIL_REPLACE_ME` BELOW WITH YOUR EMAIL ADDRESS BEFORE RUNNING.
 -- That email must already exist in auth.users (i.e., you have signed in via
 -- magic link at least once). The seed promotes that email's auth user to
--- `org_admin` and grants dept_admin access to all eight departments.
+-- `org_admin` and grants dept_admin access to every department.
 --
 -- This script is idempotent: safe to re-run. It uses ON CONFLICT DO UPDATE /
 -- DO NOTHING so re-running updates rather than duplicating.
@@ -30,7 +30,7 @@ begin
     select id into v_org_id from public.organizations where slug = 'your-company';
   end if;
 
-  -- 2. The eight starting departments.
+  -- 2. The starting departments.
   --
   -- Canonical state after migrations 0013 (GRRA merged into Public
   -- Sector + General Tools added), 0028 (M&A renamed to Corporate),
@@ -53,10 +53,12 @@ begin
       'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 5),
     (v_org_id, 'compliance', 'Compliance',
       'Compliance program management, regulatory monitoring, and audit support.', 6),
+    (v_org_id, 'employment', 'Employment',
+      'Hiring, terminations, employment agreements, compensation and benefits, workplace policy, and labor relations.', 7),
     (v_org_id, 'operations', 'Operations',
-      'Internal operations, vendor management, procurement, and corporate transactions.', 7),
+      'Internal operations, vendor management, procurement, and corporate transactions.', 8),
     (v_org_id, 'general-tools', 'General Tools',
-      'general purpose agentic tools', 8)
+      'general purpose agentic tools', 9)
   on conflict (organization_id, slug) do update set
     name = excluded.name,
     description = excluded.description,
