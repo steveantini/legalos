@@ -226,17 +226,20 @@ export function AgentCard({
 }
 
 /**
- * Small Info-icon button overlaid on Canonical / C4L cards. Calls
- * `onClick` (which opens the details panel for this agent) while
- * preventing the surrounding card's stretched link from following. Quiet
- * at rest (40% opacity); brightens on hover. Generous hit target (28px
- * square) around the 14px glyph so the affordance is easy to tap on
- * touch devices, where there is no hover state.
+ * Small Info-icon button overlaid on Canonical / C4L / personal cards.
+ * Calls `onClick` (which opens the details panel for this agent) while
+ * preventing the surrounding card's stretched link from following.
+ * Quiet at rest (40% opacity); brightens on hover. Generous hit target
+ * (28px square) around the 14px glyph so the affordance is easy to tap
+ * on touch devices, where there is no hover state.
  *
- * Position varies by context: on cards without an admin overflow menu
- * (non-admin viewers, or admins on personal agents) the icon sits at
- * `right-3 top-3`; on admin-template cards it shifts left to
- * `right-11 top-3` so the kebab menu and the Info icon don't overlap.
+ * Position varies by context:
+ *   - `right-3 top-3` when alone in the corner (non-admin Canonical /
+ *     C4L cards; no kebab present, no alignment target).
+ *   - `right-9 top-2` when paired with a kebab menu (admin templates,
+ *     personal agents owned by the viewer). Matches the kebab's
+ *     `top-2` for horizontal alignment and sits tight to it (~12px
+ *     visual gap) so the two read as a single control cluster.
  */
 function InfoIconButton({
   agentName,
@@ -247,6 +250,7 @@ function InfoIconButton({
   onClick: () => void;
   withMenuOffset?: boolean;
 }) {
+  const positionClass = withMenuOffset ? "right-9 top-2" : "right-3 top-3";
   return (
     <button
       type="button"
@@ -256,7 +260,7 @@ function InfoIconButton({
         onClick();
       }}
       aria-label={`View details for ${agentName}`}
-      className={`absolute ${withMenuOffset ? "right-11" : "right-3"} top-3 z-20 grid h-7 w-7 place-items-center rounded-md opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+      className={`absolute ${positionClass} z-20 grid h-7 w-7 place-items-center rounded-md opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
     >
       <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
     </button>
