@@ -190,6 +190,28 @@ A side-channel observation: regulatory-legal is the first plugin we've audited w
 
 Note: this plugin contains no reference/framework skills (pattern #5) — the first audited plugin where pattern #5 is absent. All non-configuration skills are user-invocable agents.
 
+## Filtered from `ip-legal` (filtered 2026-05-23, migration 0039)
+
+### cold-start-interview — belongs in admin configuration
+
+**Source:** `claude-for-legal:ip-legal/cold-start-interview`
+**Why filtered:** Same canonical onboarding pattern. Learns the firm's IP practice profile (portfolio scope, brand protection strategy, enforcement posture, clearance thresholds, OSS review rules).
+**Where it should land:** Admin configuration surface — unify with sibling cold-start-interview skills.
+
+### customize — belongs in admin configuration
+
+**Source:** `claude-for-legal:ip-legal/customize`
+**Why filtered:** Same canonical reconfiguration pattern.
+**Where it should land:** Admin configuration surface — unify with sibling customize skills.
+
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:ip-legal/matter-workspace`
+**Why filtered:** Same canonical management pattern as the other plugins.
+**Where it should land:** Admin workspace management surface — unify with sibling matter-workspace skills.
+
+Note: this plugin contains no reference/framework skills (pattern #5) — second plugin where pattern #5 is absent (ai-governance-legal was the first). The pattern is real but not universal across C4L plugins.
+
 ## Note on C4L `agents/` directories (across all plugins)
 
 Each C4L plugin contains both a `skills/` directory and an `agents/` directory at its top level (e.g., `../claude-for-legal/<plugin>/skills/`, `../claude-for-legal/<plugin>/agents/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/`.
@@ -221,6 +243,23 @@ Other plugins audited so far (commercial-legal, privacy-legal, product-legal, co
 
 Sync pipeline note: when Shape B is built, the import logic should explicitly skip `data/` (and `hooks/` and other non-skill directories) rather than relying on the current "only read from skills/" implementation detail.
 
+## Note on C4L `logs/` directories (observed in ip-legal)
+
+The `ip-legal` plugin contains a `logs/` directory at its top level (alongside `skills/`, `agents/`, `hooks/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/` — `logs/` content is silently skipped, same as `agents/`, `data/`, and other non-skill directories.
+
+The `logs/` directory likely contains runtime logs the plugin's skills write to during execution (per-matter or per-skill activity logs). Out of scope for Option A (SKILL.md → agent row import); relevant for the future sync pipeline (Shape B) which should explicitly skip all non-skill directories rather than relying on the current "only read from skills/" implementation detail.
+
+Other plugins audited so far (commercial-legal, privacy-legal, product-legal, corporate-legal, employment-legal, regulatory-legal, ai-governance-legal) did NOT have `logs/` directories. ip-legal is the first.
+
+Summary of non-skill plugin-level directories encountered:
+- `agents/` — scheduled-agent cookbooks (most plugins; not in ai-governance-legal)
+- `hooks/` — plugin lifecycle hooks (most plugins)
+- `references/` — shared reference content (most plugins)
+- `data/` — static data tables (employment-legal only)
+- `logs/` — runtime activity logs (ip-legal observed here for the first time)
+
+Sync pipeline note: when Shape B is built, the import logic should explicitly enumerate non-skill directories to skip rather than implicitly relying on "only read from skills/".
+
 ## Pattern note (revised after employment-legal import)
 
 This filtering should be re-applied when any new C4L plugin is imported. The following skills are C4L conventions that appear across multiple plugins and should be filtered from the department-agent tier by default:
@@ -239,6 +278,13 @@ Future plugin imports should pre-filter these five types by default, with the op
 
 The sync pipeline (Shape B, future) should use this doc as input — skills listed here are intentionally not in the agent surface and should not be re-imported.
 
+**A clarifying note on multi-mode action skills (NOT a new filter pattern).** Some C4L skills present with two or three mode flags — e.g., `cease-desist` (`--send` / `--receive`), `takedown` (`--send` / `--respond` / `--counter`), `dpa-review` (controller-direction / processor-direction). These look superficially like routers or trackers but are neither:
+
+- They have NO YAML state file (unlike trackers, which maintain persistent state).
+- They have NO delegation to other skills (unlike routers, which orchestrate sub-tasks). The mode flag just selects between related but distinct substantive workflows the same skill knows how to perform.
+
+Multi-mode action skills are imported as plain Department Agents. The mode flag is a runtime detail that doesn't affect classification. This note exists so future audits don't mistake the pattern for a new category.
+
 ## Tracker-shape skills (imported as agents for v1; candidates for future tracker UI)
 
 Some C4L skills present as agents (chat-with-an-agent UX) but functionally operate on a YAML state file with multi-mode commands. They work conversationally for v1, but long-term they're candidates for dedicated tracker UI surfaces — think Linear-style task boards or compliance dashboards.
@@ -255,6 +301,7 @@ A form 1 tracker may load a separate reference/framework skill (pattern #5) for 
 - `claude-for-legal:regulatory-legal/gaps` — open regulatory-policy gaps tracker (modes: read, close, risk-accept); loads gap-surfacer framework
 - `claude-for-legal:regulatory-legal/comments` — NPRM comment-period tracker (modes: read, decide); loads gap-surfacer framework
 - `claude-for-legal:ai-governance-legal/ai-inventory` — EU AI Act per-system inventory tracker (modes: list, add, edit, classify, show); see leading-edge note below
+- `claude-for-legal:ip-legal/portfolio` — IP portfolio tracker (modes: report, add, update, audit); see runner-up tracker-UI candidate note below
 
 **Structural form 2 — tracker pairs** (employment-legal pattern). Two skills work together on a shared YAML state file — typically one for read/check, one for write/update:
 
@@ -272,3 +319,5 @@ A form 1 tracker may load a separate reference/framework skill (pattern #5) for 
 **Action when tracker UI surface is built:** evaluate which of these skills migrate to native UIs, which stay as agents, and which run in both modes. The decision per skill will depend on how much value the dedicated UI adds over the conversational interface.
 
 **Leading-edge tracker-UI candidate: `ai-inventory`.** Of all tracker-shape skills audited, the AI Governance EU AI Act inventory is the strongest candidate for "agent → dedicated UI" migration when the tracker-UI surface is built. Its substantive content — per-system role (provider, deployer, importer, distributor, authorized representative, product manufacturer) and per-system risk tier (prohibited, high-risk, limited, minimal, GPAI, GPAI+systemic) — is inherently tabular structured data that maps naturally to form fields, dropdowns, and table views. The SKILL.md body is 10.7KB (substantially larger than any other tracker we've audited), reflecting the depth of the embedded EU AI Act methodology that the tracker would need to surface. When the tracker UI lands, this is the most obvious first migration.
+
+**Runner-up tracker-UI candidate: `portfolio` (ip-legal).** The IP portfolio tracker shares the structured-tabular-registry shape of `ai-inventory` — registrations × jurisdictions × renewal dates × maintenance fees, naturally rendered as a portfolio table. Substantively narrower than the EU AI Act inventory (no per-system regulatory classification), but the underlying data is just as tabular. When the tracker UI lands, portfolio is the obvious second migration after `ai-inventory`.
