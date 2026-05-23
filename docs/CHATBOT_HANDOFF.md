@@ -173,11 +173,9 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
 
 1. **Rail group collapsibility** — Knowledge / Workflows / Integrations / Help / possibly Departments. Increasingly important with 13 departments in the rail. THIS IS THE NEXT ITEM TO WORK ON. Start here.
 
-2. **Card affordance consistency between department and agent cards.** Today:
-   - Agent cards: card body click → chat; kebab (•••) top-right hover-reveal for admin menu; info icon (i) top-right hover-reveal
-   - Department cards: arrow icon bottom-right darkens on hover; pencil icon top-right hover-reveal
-   
-   Locked direction: unify the admin menu to kebab (•••) on both card types; replace the pencil icon on department cards with kebab. Keep the arrow on department cards as a navigation cue (departments = navigation surface; agents = action surface). Skip the info icon on department cards because the description is already visible.
+2. **Card affordance consistency between department and agent cards.** Resolved in commit [sha pending] via Option (a): the pencil-icon visibility on department cards was brought into parity with the agent-card kebab visibility model (`opacity-40` at rest, brighten on hover, brighten on focus-within, shared bare `transition-opacity`). Trigger-shape symmetry (pencil vs. kebab) was deliberately NOT pursued because the department card has exactly one admin action today (Edit description), making a kebab-with-one-item a UX regression vs. the direct pencil affordance (2 clicks vs. 1).
+
+   Future revisit: when a second department admin action lands (e.g., rename department, archive department, manage department agents from the card), the kebab swap becomes the right call — at 2+ actions the kebab earns its weight. Add the second action as part of that future scope; the kebab refactor follows.
 
 3. **Delete-dialog copy mentioning "forked copies are unaffected"** — irrelevant for C4L agents. Tighten the copy or branch by source type.
 

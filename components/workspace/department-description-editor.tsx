@@ -44,9 +44,13 @@ const MAX_DESCRIPTION_LENGTH = 280;
  *   - Pencil `onClick` calls `preventDefault` + `stopPropagation` so the
  *     click does not trigger the Link's navigation. Save/Cancel buttons
  *     do the same.
- *   - Hover-revealed via `opacity-0 group-hover:opacity-100
- *     focus-visible:opacity-100 motion-reduce:opacity-100` — matches
- *     the convention from `components/chat/download-message-button.tsx`.
+ *   - Visible-but-quiet at rest via `opacity-40 transition-opacity
+ *     group-hover:opacity-100 focus-within:opacity-100
+ *     motion-reduce:opacity-100` — matches the agent-card kebab + info-
+ *     icon visibility model so both card types' admin affordances share
+ *     one vocabulary. The previous `opacity-0` invisible-until-hover
+ *     model failed on touch (no hover) and on first-encounter
+ *     discovery; the 40%-at-rest pattern works on every input modality.
  *
  * Known limitation: while in edit mode, clicks on the card's heading
  * or foot (outside the editor's flex slot) still trigger Link
@@ -192,7 +196,7 @@ export function DepartmentDescriptionEditor({
         type="button"
         onClick={enterEdit}
         aria-label="Edit description"
-        className="absolute right-3 top-3 grid size-7 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-[180ms] ease-out hover:bg-card hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring group-hover:opacity-100 motion-reduce:opacity-100"
+        className="absolute right-3 top-3 grid size-7 place-items-center rounded-md text-muted-foreground opacity-40 transition-opacity hover:bg-card hover:text-foreground group-hover:opacity-100 focus-within:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:opacity-100"
       >
         <PencilIcon strokeWidth={1.5} className="size-3.5" aria-hidden />
       </button>
