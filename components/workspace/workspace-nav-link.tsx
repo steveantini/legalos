@@ -4,35 +4,43 @@ import Link, { type LinkProps } from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import type { AgentBreadcrumbContext } from "@/lib/auth/access";
+import {
+  type AgentsLookup,
+  isLeafActive,
+  type RailLeafMatch,
+} from "@/lib/workspace/rail-active";
 
 /**
  * Client wrapper around `<Link>` that applies an active class based on
- * the current pathname. Used by the workspace rail so the same `<Link>`
- * can render with a "default" or "active" treatment depending on the
- * current route — without making the entire rail a client component.
+ * the current pathname. Used by the workspace and admin rails so the
+ * same `<Link>` can render with a "default" or "active" treatment
+ * depending on the current route — without making the entire rail a
+ * client component.
+ *
+ * Active resolution is delegated to `isLeafActive` in
+ * `lib/workspace/rail-active.ts` — one source of truth shared with
+ * `<CollapsibleRailGroup>` so the group's force-expand-when-active
+ * logic can never diverge from the link's own active-state logic.
  *
  * Two match modes:
  *
  * - `match="exact"` — applies active when `pathname === href`. Used for
- *   the Workspace link (`/`) and the Resource links (`/coming-soon/<slug>`).
- *   `/` exact-matches only on the workspace landing — without `exact`, every
- *   path under the workspace group would match `pathname.startsWith("/")`.
+ *   the Workspace link (`/workspace`) and resource-group leaves. The
+ *   exact mode keeps `/workspace` from prefix-matching every nested
+ *   workspace route.
  *
  * - `match="prefix"` — applies active when `pathname === href` OR
- *   `pathname.startsWith(href + "/")`. Used for the Departments group so
- *   `/departments/commercial` activates the Commercial entry, AND any
- *   future nested routes like `/departments/commercial/agents/<id>`
- *   (if the department launchpad ever gains sub-routes) keep the parent
+ *   `pathname.startsWith(href + "/")`. Used for the Departments group
+ *   so `/workspace/departments/commercial` activates Commercial, and
+ *   any future nested routes under a department keep the parent
  *   active.
  *
  * Optional `agentsLookup` extends prefix-mode active resolution: when
- * the pathname is `/agents/<id>` (or `/agents/<id>/edit`) AND this link
- * is a department link (`href` starts with `/departments/`), the agent
- * is looked up in the list and the link is active if the agent's
- * `department_slug` matches this link's slug. Lets the rail's parent-
- * department highlight follow navigation into a chat surface, even
- * though chat URLs aren't structurally nested under `/departments/`.
+ * the pathname is `/workspace/agents/<id>` AND this link is a
+ * department link (`href` starts with `/workspace/departments/`), the
+ * agent is looked up in the map and the link is active if the agent's
+ * department matches this link's slug. Lets the rail's parent-
+ * department highlight follow navigation into the chat surface.
  */
 export function WorkspaceNavLink({
   href,
@@ -44,28 +52,14 @@ export function WorkspaceNavLink({
   ...rest
 }: {
   href: string;
-  match?: "exact" | "prefix";
+  match?: RailLeafMatch;
   className: string;
   activeClassName: string;
   children: ReactNode;
-  agentsLookup?: AgentBreadcrumbContext[];
+  agentsLookup?: AgentsLookup;
 } & Omit<LinkProps, "href">) {
   const pathname = usePathname();
-  let isActive =
-    match === "exact"
-      ? pathname === href
-      : pathname === href || pathname.startsWith(href + "/");
-
-  if (!isActive && agentsLookup && href.startsWith("/workspace/departments/")) {
-    const linkSlug = href.slice("/workspace/departments/".length);
-    const agentMatch = pathname.match(/^\/workspace\/agents\/([^/]+)/);
-    if (agentMatch) {
-      const agent = agentsLookup.find((a) => a.id === agentMatch[1]);
-      if (agent && agent.department_slug === linkSlug) {
-        isActive = true;
-      }
-    }
-  }
+  const isActive = isLeafActive(pathname, href, match, agentsLookup);
 
   return (
     <Link

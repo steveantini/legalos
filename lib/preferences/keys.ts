@@ -52,6 +52,41 @@ export type CollapsedSectionsValue = {
   myAgents?: boolean;
 };
 
+/**
+ * Per-user preference key for rail group collapsed state. Single global
+ * key (not per-department, unlike the launchpad's collapsed-sections
+ * preference) because the rail is global chrome — the same rail renders
+ * everywhere in the workspace, so its collapse state is a property of
+ * the user, not the surface.
+ *
+ * Value matches `RailGroupsCollapsedValue` below. `true` means
+ * "collapsed"; `false` / absent means "expanded". Absent keys read as
+ * the default (every group expanded).
+ *
+ * The Workspace single-link group at the top of the rail is not
+ * collapsible — single link, no caption, nothing to collapse. Only
+ * multi-leaf groups participate in this preference.
+ */
+export const railGroupsCollapsedKey = "ui:rail:groups_collapsed";
+
+/**
+ * Shape stored under `railGroupsCollapsedKey`. Each group flag is
+ * independent so the user can collapse one group without touching the
+ * others' state.
+ *
+ * Declared as a type alias (not an interface) so the implicit index
+ * signature lets it satisfy the `PreferenceValue` generic constraint
+ * on the user-preferences server actions — same reason as
+ * `CollapsedSectionsValue` above.
+ */
+export type RailGroupsCollapsedValue = {
+  departments?: boolean;
+  knowledge?: boolean;
+  workflows?: boolean;
+  integrations?: boolean;
+  help?: boolean;
+};
+
 // Future keys will live alongside the above. Sketches (not in use yet):
 //
 //   export const AGENT_DEFAULT_MODEL_KEY = "agent:default_model";

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDownIcon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 
 import {
   getUserPreferenceAction,
@@ -57,6 +57,7 @@ export function CollapsibleSection({
 }: CollapsibleSectionProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [, startTransition] = useTransition();
+  const contentId = useId();
 
   if (!visible) return null;
 
@@ -74,10 +75,11 @@ export function CollapsibleSection({
         type="button"
         onClick={handleToggle}
         aria-expanded={!collapsed}
+        aria-controls={contentId}
         className="group flex w-full items-center gap-2 border-b border-hairline pb-[10px] text-left transition-colors hover:[&_h2]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <ChevronDownIcon
-          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : "rotate-0"}`}
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsed ? "-rotate-90" : "rotate-0"}`}
           strokeWidth={2}
           aria-hidden="true"
         />
@@ -88,7 +90,8 @@ export function CollapsibleSection({
       </button>
 
       <div
-        className={`grid transition-all duration-200 ${collapsed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"}`}
+        id={contentId}
+        className={`grid transition-all duration-200 motion-reduce:transition-none ${collapsed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"}`}
       >
         <div className="overflow-hidden">
           <div className="pt-[14px]">{children}</div>

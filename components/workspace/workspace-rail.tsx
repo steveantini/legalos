@@ -1,22 +1,25 @@
 import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
+import { getUserPreferenceAction } from "@/lib/actions/user-preferences";
 import type {
   AgentBreadcrumbContext,
   DepartmentWithAccess,
 } from "@/lib/auth/access";
+import {
+  railGroupsCollapsedKey,
+  type RailGroupsCollapsedValue,
+} from "@/lib/preferences/keys";
 import {
   ROLE_LABEL,
   getDisplayName,
   getInitials,
   type ProfileShape,
 } from "@/lib/workspace/profile";
-import {
-  captionLabel,
-  linkActive,
-  linkBase,
-} from "@/lib/workspace/rail-styles";
+import { type AgentsLookup } from "@/lib/workspace/rail-active";
+import { linkActive, linkBase } from "@/lib/workspace/rail-styles";
 
+import { CollapsibleRailGroup } from "./collapsible-rail-group";
 import { LockedDepartmentRailRow } from "./locked-department-rail-row";
 import { WorkspaceNavLink } from "./workspace-nav-link";
 import { WorkspaceProfileBlock } from "./workspace-profile-block";
@@ -42,14 +45,22 @@ type RailLeaf = {
 };
 
 type RailGroup = {
+  /** Display caption rendered in the group header. */
   caption: string;
+  /**
+   * Persistence key for the group's collapsed state. Must be a field of
+   * `RailGroupsCollapsedValue` so the type system catches any group
+   * additions that forget to extend the preference shape.
+   */
+  groupKey: keyof RailGroupsCollapsedValue;
   leaves: ReadonlyArray<RailLeaf>;
 };
 
 /**
  * Captioned resource groups under the DEPARTMENTS section in the rail.
- * Each group has a caption and one or more leaves; each leaf either
- * points at a real route (`href`) or falls back to
+ * Each group has a caption, a persistence key (used for collapsed-state
+ * storage under `ui:rail:groups_collapsed`), and one or more leaves;
+ * each leaf either points at a real route (`href`) or falls back to
  * `/workspace/coming-soon/<slug>` for surfaces that haven't been built
  * yet.
  *
@@ -74,11 +85,13 @@ type RailGroup = {
  * the marketing surface (the "About legalOS" leaf in the Help group
  * points at `/`, the landing page). External leaves don't participate
  * in active-state matching — they are never "the current page" from
- * the rail's perspective.
+ * the rail's perspective, so they're filtered out when building the
+ * `leaves` prop passed to `<CollapsibleRailGroup>`.
  */
 const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   {
     caption: "Knowledge",
+    groupKey: "knowledge",
     leaves: [
       { label: "Research", slug: "knowledge-research" },
       { label: "Vault", slug: "knowledge-vault" },
@@ -87,6 +100,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   },
   {
     caption: "Workflows",
+    groupKey: "workflows",
     leaves: [
       { label: "My Workflows", slug: "workflows", href: "/workspace/workflows" },
       { label: "Template Library", slug: "workflows-templates" },
@@ -94,6 +108,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   },
   {
     caption: "Integrations",
+    groupKey: "integrations",
     leaves: [
       {
         label: "Connections",
@@ -105,6 +120,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   },
   {
     caption: "Help",
+    groupKey: "help",
     leaves: [
       { label: "Guides", slug: "help", href: "/workspace/help" },
       { label: "What’s New", slug: "help-whats-new" },
@@ -116,7 +132,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
 const lockedLink =
   "flex w-full items-center justify-between rounded-lg px-3 py-[7px] text-left text-[13.5px] font-[450] tracking-[-0.005em] text-muted-foreground transition-colors duration-150 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
-export function WorkspaceRail({
+export async function WorkspaceRail({
   departments,
   profile,
   agents,
@@ -130,6 +146,40 @@ export function WorkspaceRail({
   const displayName = getDisplayName(profile);
   const initials = getInitials(displayName);
   const roleLabel = ROLE_LABEL[profile.role];
+
+  // Server-side fetch of the user's persisted rail group collapsed state.
+  // Wrapped in `cache()` upstream so concurrent rail mounts in a single
+  // request share one round-trip.
+  const collapsedPrefResult =
+    await getUserPreferenceAction<RailGroupsCollapsedValue>(
+      railGroupsCollapsedKey,
+    );
+  const collapsedPrefs: RailGroupsCollapsedValue =
+    collapsedPrefResult.ok &&
+    collapsedPrefResult.value &&
+    typeof collapsedPrefResult.value === "object"
+      ? collapsedPrefResult.value
+      : {};
+
+  // Transform the `AgentBreadcrumbContext[]` array into a map shape so
+  // both `WorkspaceNavLink` (per-leaf active resolution) and
+  // `CollapsibleRailGroup` (per-group force-expand resolution) get O(1)
+  // lookups when the user is on /workspace/agents/<id>. One conversion
+  // at the rail boundary keeps every consumer downstream on one shape.
+  const agentsLookup: AgentsLookup = Object.fromEntries(
+    agents.map((a) => [a.id, a.department_slug]),
+  );
+
+  // Accessible department leaves used for force-expand-when-active
+  // resolution. Locked rows are excluded — they're never the current
+  // page (clicking opens a dialog, not a route). Computed once and
+  // reused for the `leaves` prop on the Departments group.
+  const departmentLeaves = departments
+    .filter((d) => d.hasAccess)
+    .map((d) => ({
+      href: `/workspace/departments/${d.slug}`,
+      match: "prefix" as const,
+    }));
 
   return (
     <nav
@@ -148,7 +198,8 @@ export function WorkspaceRail({
         {siteConfig.siteTitle}
       </Link>
 
-      {/* Group 1 — Workspace */}
+      {/* Workspace single-link group — not collapsible (no caption,
+          single destination, nothing to hide). */}
       <div className="flex flex-col gap-px">
         <WorkspaceNavLink
           href="/workspace"
@@ -160,21 +211,24 @@ export function WorkspaceRail({
         </WorkspaceNavLink>
       </div>
 
-      {/* Group 2 — Departments (Session 29: locked-but-visible).
+      {/* Departments group (Session 29: locked-but-visible).
           Accessible departments render as full-weight WorkspaceNavLink
           rows with prefix-match active state (agent-aware via
           agentsLookup so /agents/<id> highlights the parent dept).
-          Locked departments — those the user has no
-          user_department_roles row for — render as muted rows with a
-          lock icon; clicking opens a department-scoped mailto to the
-          configured admin email. The group is hidden entirely only
-          when the org has zero departments configured (a degenerate
-          state); a user with zero ACCESSIBLE departments still sees
-          the group with all entries locked, matching the launchpad's
-          visibility-with-permissions principle. */}
+          Locked departments render as muted rows with a lock icon;
+          clicking opens a department-scoped dialog. The group is
+          hidden entirely only when the org has zero departments
+          configured; a user with zero ACCESSIBLE departments still
+          sees the group with all entries locked, matching the
+          launchpad's visibility-with-permissions principle. */}
       {departments.length > 0 ? (
-        <div className="flex flex-col gap-px">
-          <p className={`${captionLabel} mx-2 mb-2`}>Departments</p>
+        <CollapsibleRailGroup
+          caption="Departments"
+          groupKey="departments"
+          defaultCollapsed={collapsedPrefs.departments ?? false}
+          leaves={departmentLeaves}
+          agentsLookup={agentsLookup}
+        >
           {departments.map((d) => {
             if (d.hasAccess) {
               return (
@@ -184,7 +238,7 @@ export function WorkspaceRail({
                   match="prefix"
                   className={linkBase}
                   activeClassName={`${linkBase} ${linkActive}`}
-                  agentsLookup={agents}
+                  agentsLookup={agentsLookup}
                 >
                   {d.name}
                 </WorkspaceNavLink>
@@ -198,49 +252,61 @@ export function WorkspaceRail({
               />
             );
           })}
-        </div>
+        </CollapsibleRailGroup>
       ) : null}
 
-      {/* Groups 3..N — Resource groups. Each renders a mono-caps caption
-          + one or more leaves; each leaf links to its real route when
-          `leaf.href` is set, otherwise falls back to a coming-soon page
-          for that slug. The parent <nav>'s gap-[22px] gives the same
-          inter-group rhythm the DEPARTMENTS group uses, and gap-px
-          inside each group tightens the caption-to-leaves relationship.
-          Always render — captions are static, no empty-state guard
-          needed. */}
-      {RESOURCE_GROUPS.map((group) => (
-        <div key={group.caption} className="flex flex-col gap-px">
-          <p className={`${captionLabel} mx-2 mb-2`}>{group.caption}</p>
-          {group.leaves.map((leaf) => {
-            const href = leaf.href ?? `/workspace/coming-soon/${leaf.slug}`;
-            if (leaf.external) {
+      {/* Resource groups (Knowledge / Workflows / Integrations / Help).
+          Each renders a mono-caps caption + one or more leaves; each
+          leaf links to its real route when `leaf.href` is set,
+          otherwise falls back to a coming-soon page for that slug.
+          External leaves (target="_blank") are excluded from the
+          force-expand `leaves` prop — they can never be the current
+          page. */}
+      {RESOURCE_GROUPS.map((group) => {
+        const activeSpecs = group.leaves
+          .filter((leaf) => !leaf.external)
+          .map((leaf) => ({
+            href: leaf.href ?? `/workspace/coming-soon/${leaf.slug}`,
+            match: "exact" as const,
+          }));
+        return (
+          <CollapsibleRailGroup
+            key={group.groupKey}
+            caption={group.caption}
+            groupKey={group.groupKey}
+            defaultCollapsed={collapsedPrefs[group.groupKey] ?? false}
+            leaves={activeSpecs}
+          >
+            {group.leaves.map((leaf) => {
+              const href = leaf.href ?? `/workspace/coming-soon/${leaf.slug}`;
+              if (leaf.external) {
+                return (
+                  <a
+                    key={leaf.slug}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={linkBase}
+                  >
+                    {leaf.label}
+                  </a>
+                );
+              }
               return (
-                <a
+                <WorkspaceNavLink
                   key={leaf.slug}
                   href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  match="exact"
                   className={linkBase}
+                  activeClassName={`${linkBase} ${linkActive}`}
                 >
                   {leaf.label}
-                </a>
+                </WorkspaceNavLink>
               );
-            }
-            return (
-              <WorkspaceNavLink
-                key={leaf.slug}
-                href={href}
-                match="exact"
-                className={linkBase}
-                activeClassName={`${linkBase} ${linkActive}`}
-              >
-                {leaf.label}
-              </WorkspaceNavLink>
-            );
-          })}
-        </div>
-      ))}
+            })}
+          </CollapsibleRailGroup>
+        );
+      })}
 
       <WorkspaceProfileBlock
         initials={initials}
