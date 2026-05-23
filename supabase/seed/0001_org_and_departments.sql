@@ -55,13 +55,13 @@ begin
   insert into public.departments (organization_id, slug, name, description, sort_order)
   values
     (v_org_id, 'commercial', 'Commercial',
-      'Revenue (sell-side) agreements, procurement (buy-side) agreements, Non-Disclosure Agreements, Artificial Intelligence Addenda.', 1),
+      'Revenue agreements, procurement contracts, non-disclosure agreements, and master agreement reviews.', 1),
     (v_org_id, 'corporate', 'Corporate',
       'Mergers, financing, governance, securities, and entity management.', 2),
     (v_org_id, 'regulatory', 'Regulatory',
       'Sector-specific regulatory advice — financial services, healthcare, telecommunications, energy, consumer protection, and enforcement defense.', 3),
     (v_org_id, 'public-sector', 'Public Sector',
-      'Government relations, regulatory affairs, public-sector contracts, and policy advocacy.', 4),
+      'Government contracts, public procurement, FOIA responses, and policy advocacy.', 4),
     (v_org_id, 'compliance', 'Compliance',
       'Compliance program management, regulatory monitoring, and audit support.', 5),
     (v_org_id, 'privacy', 'Privacy',
@@ -77,9 +77,9 @@ begin
     (v_org_id, 'litigation', 'Litigation',
       'Matter intake, demand letter response, dispute management, discovery, and outside counsel coordination.', 11),
     (v_org_id, 'operations', 'Operations',
-      'Internal operations, vendor management, procurement, and corporate transactions.', 12),
+      'Legal-team operations, vendor management, internal policies, and legal-spend management.', 12),
     (v_org_id, 'general-tools', 'General Tools',
-      'general purpose agentic tools', 13)
+      'Cross-functional utilities, research helpers, and general-purpose drafting assistants.', 13)
   on conflict (organization_id, slug) do update set
     name = excluded.name,
     description = excluded.description,
