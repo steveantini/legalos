@@ -73,12 +73,21 @@ interface CollapsibleRailGroupProps {
  * - No `border-b border-hairline` underline; the rail's existing leaf-
  *   list rhythm provides visual separation, and an underline would
  *   compete with that rhythm.
- * - `forceExpanded` behavior — rail-only; the launchpad has no active-
- *   leaf concern. When any leaf inside this group is the current page,
- *   the group renders expanded regardless of the persisted preference,
- *   and the toggle button is disabled. The preference is NOT
- *   overwritten while force-expand wins — the user's choice is
- *   preserved for when they navigate elsewhere.
+ * - Force-expand-on-active behavior — rail-only; the launchpad has no
+ *   active-leaf concern. When any leaf inside this group is the
+ *   current page AND the user hasn't yet toggled this group in the
+ *   current session, the group renders expanded regardless of the
+ *   persisted preference. As soon as the user clicks the chevron, their
+ *   choice wins for the rest of the session and persists to the
+ *   preference — the chevron is always interactive, hover always
+ *   present, no runtime lock. Force-expand is a courtesy default for
+ *   "you just navigated here, here's where you are," not a permanent
+ *   override.
+ *
+ *   The previous "force-expand disables the button" model meant a user
+ *   inside a department could never collapse the Departments group,
+ *   which violates the principle that the user's preference must
+ *   always win over the system's preference.
  *
  * Persistence: per-user via `ui:rail:groups_collapsed`. Read-modify-
  * write helper merges this group's flag into the existing preference
@@ -100,22 +109,37 @@ export function CollapsibleRailGroup({
   children,
 }: CollapsibleRailGroupProps) {
   const pathname = usePathname();
-  const [collapsedState, setCollapsedState] = useState(defaultCollapsed);
-  const [, startTransition] = useTransition();
   const contentId = useId();
+  const [, startTransition] = useTransition();
+
+  // Tracks the user's most-recent toggle in this session. `null` means
+  // "the user hasn't touched this group yet" — render falls through to
+  // the force-expand-if-active courtesy or the persisted preference.
+  // Once the user clicks, their choice wins for the rest of the
+  // session (and persists to the preference for future sessions).
+  //
+  // This shape (session-scoped user-override) is necessary because the
+  // rail lives inside a persistent App Router layout — the component
+  // mounts once per browser session and does NOT re-mount on intra-
+  // layout navigation. A purely useState-initializer-based model would
+  // satisfy force-expand on fresh page loads but not on navigation
+  // between workspace routes.
+  const [userToggle, setUserToggle] = useState<boolean | null>(null);
 
   const forceExpanded = leaves.some(({ href, match }) =>
     isLeafActive(pathname, href, match, agentsLookup),
   );
-  const collapsed = forceExpanded ? false : collapsedState;
+
+  const collapsed =
+    userToggle !== null
+      ? userToggle
+      : forceExpanded
+        ? false
+        : defaultCollapsed;
 
   const handleToggle = () => {
-    // No-op when force-expanded. Avoids the confusing UX where clicking
-    // does nothing visible (force-expand wins) but does write a
-    // preference the user can't see take effect.
-    if (forceExpanded) return;
-    const next = !collapsedState;
-    setCollapsedState(next);
+    const next = !collapsed;
+    setUserToggle(next);
     startTransition(async () => {
       await persistCollapsedState(groupKey, next);
     });
@@ -126,21 +150,16 @@ export function CollapsibleRailGroup({
       <button
         type="button"
         onClick={handleToggle}
-        disabled={forceExpanded}
         aria-expanded={!collapsed}
         aria-controls={contentId}
         className={cn(
-          "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-          forceExpanded
-            ? "cursor-default"
-            : "hover:[&_span]:text-foreground",
+          "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-left transition-colors hover:[&_span]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         )}
       >
         <ChevronDownIcon
           className={cn(
             "h-3 w-3 shrink-0 text-caption transition-transform duration-200 motion-reduce:transition-none",
             collapsed ? "-rotate-90" : "rotate-0",
-            forceExpanded && "opacity-40",
           )}
           strokeWidth={2}
           aria-hidden="true"
