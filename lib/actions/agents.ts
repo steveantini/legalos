@@ -444,15 +444,28 @@ const agentIdSchema = z.object({
 /**
  * Composer model-picker server action (session 17a). The chat composer
  * exposes a 3-model picker inline, so users can change the agent's
- * runtime model without leaving the conversation. Web search is a
- * read-only indicator in the composer (see WebSearchIndicator) — its
- * toggle stays in the edit form, no companion server action lives here.
+ * runtime model without leaving the conversation.
  *
- * Owner-only at the application layer, matching `updateAgentAction`. RLS
- * enforces the same scope at the DB layer regardless. Widening to
- * dept_admin is deferred to a session that loosens the form action in
- * the same pass — partial widening would let a dept_admin change the
- * composer model but not save edits via the form, which is inconsistent.
+ * Owner OR admin-of-template at the application layer, matching the
+ * permission gate in `updateAgentAction` (the edit form's server
+ * action). The symmetry is intentional: an admin who can edit a
+ * template's model via the form must also be able to edit it via the
+ * composer's model picker, otherwise the two surfaces lie to the user
+ * about what they can do. RLS enforces the same scope at the DB layer
+ * regardless.
+ *
+ * Historical note: this action was owner-only until commit [sha
+ * pending] — the original gate predated the C4L hybrid-edit work
+ * (commit 2bc28bd) that widened `updateAgentAction` to admin-of-
+ * template. The composer side wasn't widened in that same pass; this
+ * commit completes the pair.
+ *
+ * Web search is a read-only indicator in the composer (see
+ * WebSearchIndicator) — its toggle stays in the edit form, no companion
+ * server action lives here. C4L locked fields (name, description,
+ * system_prompt, web_search) are not editable from either surface; the
+ * composer can't submit those, so no extra hybrid-edit guard is needed
+ * here.
  *
  * `revalidatePath('/workspace/agents/<id>')` after each write so the agent header's
  * model chip reflects the new state without a full reload (chips are
@@ -491,10 +504,17 @@ export async function updateAgentModelAction(
     .select("id, created_by, is_template, type, deleted_at")
     .eq("id", parsed.data.agent_id)
     .maybeSingle();
+  // Owner-of-user-agent OR org-admin-of-template — mirrors
+  // updateAgentAction's gate so the form and composer agree on who can
+  // change a template's model. See the doc comment above.
+  const isOrgAdmin = agent ? await isCurrentUserOrgAdmin() : false;
+  const isOwnerOfUserAgent =
+    !!agent && agent.created_by === user.id && agent.is_template === false;
+  const isAdminOfTemplate =
+    !!agent && agent.is_template === true && isOrgAdmin;
   if (
     !agent ||
-    agent.created_by !== user.id ||
-    agent.is_template === true ||
+    (!isOwnerOfUserAgent && !isAdminOfTemplate) ||
     agent.type !== "native"
   ) {
     return { ok: false, error: "You don't have permission to edit this agent." };
