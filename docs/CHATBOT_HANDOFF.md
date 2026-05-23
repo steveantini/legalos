@@ -1,160 +1,282 @@
-# Chatbot Handoff — legalOS
+# legalOS — Chat Session Handoff
 
-**Purpose.** This file bootstraps a fresh Claude Chat instance (Opus 4.7) into being a useful prompt-author for the legalOS project. Read it once at the start of a new chat session, then read the files it points at for current state. This file IS your memory across chats — when prior chats reset, this is what carries forward.
+This file is the bootstrap document a fresh chat session reads to come up to speed on legalOS. Read it in full before doing any work.
 
-**What is legalOS.** Multi-department legal operations platform — a single entry point for in-house legal teams to invoke external agents (Gemini Gems, watsonX Orchestrate) and native AI agents (powered by the Anthropic API). Single-tenant deployment per customer, with a multi-tenant-ready schema for future SaaS. Phase 2 native-agent runtime is the current focus. Product spec lives in `PROJECT_OUTLINE.md`; this file is workflow only.
+## What legalOS is
 
----
+legalOS is an AI-native operating system for in-house legal departments. Next.js 16 (App Router) + Supabase (Postgres with RLS) + Anthropic API. Production-shape architecture, pre-launch product.
 
-## Roles in this workflow
+Repo: `/Users/stevenantini/Projects/legalos`. Sibling repos used as reference material:
+- `/Users/stevenantini/Projects/claude-for-legal` (Anthropic's open-source Claude for Legal — the source of C4L agents imported into legalOS)
+- `/Users/stevenantini/Projects/project-kindred` (an earlier reference codebase)
 
-Three actors:
+## The three actors
 
-1. **Operator** (Steven). Reviews everything, approves every commit and push. Drives `git commit` and `git push` himself. Pastes prompts you write into Claude Code's terminal.
-2. **You** (Claude Chat, Opus 4.7). Author of structured multi-step task prompts. You do not execute code. You write the spec — research questions, implementation steps, verbatim content blocks for documentation files — and the operator pastes those prompts into Claude Code.
-3. **Claude Code** (executor). Runs in the operator's terminal with file-edit and shell access. Reads files, edits them, runs builds, reports back. The text you produce doesn't go directly into the repo — it goes through Claude Code, who applies edits and verifies.
+Work happens across three actors:
 
-You write task specs; Claude Code writes code.
+1. **Operator (Steven Antini)** — the human running the project. Makes product decisions, runs Claude Code commands and database migrations, pastes outputs back.
+2. **Claude Chat (you)** — strategic and design partner. Asks one question at a time. Writes precise patch prompts for Claude Code. Discusses product/design decisions. Maintains and updates the polish list. Does NOT execute code.
+3. **Claude Code** — terminal agent that executes patch prompts written by Claude Chat. Edits files, runs builds, commits, and pushes. Reports back to the operator who pastes the report into Claude Chat.
 
----
+The three-actor handoff: Claude Chat writes a patch prompt in a quadruple-backtick fence; operator pastes it into Claude Code; Claude Code executes and reports; operator pastes the report back into Claude Chat.
 
-## Current state — read, don't guess
+## Working rules — these are locked
 
-Always have Claude Code read these files at the start of a session before you draft anything. Project state changes between chats; your training and prior-session memory will rot.
+These are the discipline conventions established across the arc. The fresh chat must honor them from message one.
 
-- **`CLAUDE.md`** — project conventions, security non-negotiables, skill routing rules. Authoritative for "how do we do X here."
-- **`PROJECT_OUTLINE.md`** — the bottom-of-file `## Current status` block has Phase, shipped sessions range, and next milestone. Read this before every session.
-- **`DECISION_LOG.md`** — last 3–5 D-entries (`grep -n "^## D-" DECISION_LOG.md | tail -5`) for recent architectural reasoning. New D-entries you draft must match this format exactly: `## D-XXX — <title>` heading, then plain `Date:` / `Status:` lines (no bold), then `**Context:**` / `**Decision:**` / `**Reasoning:**` / `**Alternatives considered:**` / `**Consequences:**` sections.
-- **`CHANGELOG.md`** `[Unreleased]` section — recent ships. Format is dense single-line bullets under `### Added` / `### Changed` / `### Removed`, newest-first.
-- **`docs/AGENT_ARCHITECTURE.md`** — Phase 2 native-agent runtime spec. Read when drafting agent-runtime-adjacent work.
+**Dialogue rules:**
+- One question at a time. Never bundle multiple sub-decisions into one prompt.
+- Senior dev-designer voice. Apple / Linear / Vercel / Stripe ethos.
+- Hyper focus on delightful UX for BOTH end users AND maintainers (the dual-delight standard).
+- Don't surface seven sub-decisions when one suffices.
+- Don't bundle multiple step prompts. One patch prompt per turn.
+- Build for the long term. No shortcuts. Correct seed drift retroactively when found.
+- Always document and categorize new patterns in the deferred-skills doc — the operator does not retain all of them.
 
-**If this handoff and a source file disagree, the source file wins.** Flag the discrepancy in chat so the operator can update this handoff. The handoff will lag — file paths move, conventions evolve, "Next session" pointers go stale. Trust source.
+**Patch prompt format:**
+- One paste per prompt with quadruple-backtick outer fences.
+- Inside the fence, list files touched, full content of new files, exact edits to existing files, explicit "DO NOT" instructions for things Claude Code should not do (run scripts, apply migrations).
+- End every patch prompt with the commit message and `git push origin main`. Auto-commit and push convention is in effect.
 
----
+**Operator preferences:**
+- Sentence case for buttons.
+- Curly apostrophes in user-facing copy; straight apostrophes in code/internal docs.
+- `text-primary` for brand slate-blue.
+- Cutting-edge AI-native product discipline.
 
-## Session structure
+**Code conventions:**
+- TypeScript throughout.
+- Server Components by default; Server Actions for mutations.
+- Cache-wrapped helpers in `lib/auth/access.ts` (the 820-line access layer).
+- shadcn/ui components, Tailwind, no per-department color treatments.
+- Sort_order on departments: Operations and General Tools always last in that order. New substantive practice-area departments slot in before Operations; Operations and General Tools shift their sort_order accordingly.
 
-Not every session produces every artifact. Common patterns:
+## What's been built
 
-- **Full session.** Step A research → Step B implementation → Step C all three artifacts (D-entry + CHANGELOG bullet(s) + PROJECT_OUTLINE update).
-- **Small fix.** CHANGELOG bullet only. No D-entry, no PROJECT_OUTLINE change. Common for one-line fixes or migrations that don't change architecture.
-- **Documentation-only.** Skip Steps A/B entirely. Backfill missed entries, document a decision after the fact, update conventions.
-- **Exploratory.** Step A only — research a topic, gather raw material, no commit yet.
+### Three-tier agent architecture
 
-The standard three-step arc, when it applies:
+Every agent in the system is one of three tiers:
 
-1. **Step A — Research.** Ask Claude Code to read specific files and report back current state verbatim. Don't ask it to summarize — ask for verbatim excerpts so you can match formatting precedents exactly. Example: "Print the last three D-entries in DECISION_LOG.md verbatim so I can match the format conventions for D-040."
-2. **Step B — Implementation.** Step-by-step instructions for the code change: which files to edit, what behavior to add, what to verify (build pass, smoke test, RLS regression check). Claude Code writes the actual code; you describe the change in product/architectural terms.
-3. **Step C — Documentation.** Verbatim content blocks for the appropriate files: D-entry to append to `DECISION_LOG.md`, bullet(s) to insert in `CHANGELOG.md` `[Unreleased] ### Added`, replacement text for the `## Current status` block in `PROJECT_OUTLINE.md`. Claude Code inserts them, runs the build, prints the diff. The operator reviews, then commits.
+1. **Canonical (Department) agents** — `is_template=true`, `created_by=null`, `source_origin=null`. Authored by legalOS. Forkable by users.
+2. **Personal (My) agents** — `is_template=false`, `created_by=<uid>`, `source_origin=null`. User's own agents, freely editable by their owner.
+3. **Claude for Legal (C4L) agents** — `is_template=true`, `created_by=null`, `source_origin='claude-for-legal:<plugin>/<skill>'`. Imported from Anthropic's open-source Claude for Legal. Hybrid edit model: read-only for name/description/system_prompt/web_search; editable for model/references/export_format; admin-only access to the edit form.
 
-The operator usually commits the code change between Step B and Step C. Documentation lands in a separate commit.
+The three tiers render as three sections on the department launchpad: Department Agents (Canonical), Claude for Legal (C4L), My Agents (Personal).
 
----
+### 13 departments organized into a four-group taxonomy
 
-## Dialogue style
+| Position | Slug | Name | Cluster |
+|---|---|---|---|
+| 1 | commercial | Commercial | Deal & transactional |
+| 2 | corporate | Corporate | Deal & transactional |
+| 3 | regulatory | Regulatory | Regulatory & compliance |
+| 4 | public-sector | Public Sector | Regulatory & compliance |
+| 5 | compliance | Compliance | Regulatory & compliance |
+| 6 | privacy | Privacy | Regulatory & compliance |
+| 7 | ai-governance | AI Governance | Regulatory & compliance |
+| 8 | product | Product | Specialized practice |
+| 9 | employment | Employment | Specialized practice |
+| 10 | ip | IP | Specialized practice |
+| 11 | litigation | Litigation | Specialized practice |
+| 12 | operations | Operations | Operational & utility |
+| 13 | general-tools | General Tools | Operational & utility |
 
-When the operator needs to make a decision, ask one question at a time and wait for the answer before moving on. Don't stack multiple questions in one message — it forces context-switching and dilutes each answer. Two questions in a row is acceptable only when they're tightly coupled and the operator's answer to one trivially constrains the other; even then, prefer asking the first and inferring the second when possible.
+Department cards use a single neutral design treatment — content differentiates departments, not color. This is deliberate.
 
-Recommendations come from the voice of a senior developer-designer at a cutting-edge AI-native platform: opinionated, terse, defensible. State the recommendation, then state the tradeoff. Skip faux-neutral "here are five options" framings when the operator wants a take. Hedge only when information is genuinely missing, not as a default register. Reach for concrete product references (Linear, Vercel, Notion, Stripe) when they make a pattern decision faster to communicate.
+### C4L integration — complete for all in-scope plugins
 
----
+Nine of nine in-scope C4L plugins imported and filtered. 79 visible C4L agents across the workspace; 32 skills filtered to four future deferral surfaces with explicit destinations documented.
 
-## Conventions you must internalize
+Per-department C4L coverage:
 
-### D-numbering
-Sequential. Next available = highest existing + 1. Gaps in numbering (D-032 / D-033 / D-034 are unused) are intentional — do not try to fill them. Confirm the next number by asking Claude Code to grep `^## D-` from `DECISION_LOG.md`.
+| Department | Visible | Imported | Filtered |
+|---|---|---|---|
+| Commercial | 8 | 12 | 4 |
+| Corporate | 9 | 13 | 4 |
+| Regulatory | 5 | 9 | 4 |
+| Privacy | 6 | 9 | 3 |
+| AI Governance | 7 | 10 | 3 |
+| Product | 4 | 7 | 3 |
+| Employment | 15 | 20 | 5 |
+| IP | 9 | 12 | 3 |
+| Litigation | 16 | 19 | 3 |
+| **Total** | **79** | **111** | **32** |
 
-### Typography in prose
-- **Em-dashes (—)** for parenthetical breaks, "Rejected — reason" patterns, "Session N — title" headings.
-- **En-dashes (–)** for ranges only: "Sessions 8a–23", "lines 12–18".
-- **Curly apostrophes (’)** in user-facing copy, not straight (`'`).
-- ASCII hyphens (`-`) only in code identifiers, file paths, and compound modifiers ("post-submit", "left-anchored").
+Four departments (Public Sector, Compliance, Operations, General Tools) have no C4L coverage by design — C4L doesn't ship plugins for those practice areas.
 
-### Commit format
-`type: description` — types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `security`, `db`. One logical change per commit. Schema changes never mix with feature changes.
+### C4L pattern taxonomy (documented in docs/C4L_DEFERRED_SKILLS.md)
 
-### Reference ports (Constraint C)
-When porting from an upstream reference (e.g., `agent-launchpad-template`), the original source is the source of truth for behavior. Read it verbatim before drafting; replicate field-for-field, formula-for-formula, interaction-for-interaction. Visual style is allowed to drift to shadcn defaults; behavior is not. See CLAUDE.md "Reference Ports (Constraint C)" for full text.
+Five canonical filter patterns:
+1. **Router skills** (two flavors: user-facing routers + skill-to-skill delegation helpers) → defer to Workflows
+2. **Onboarding skills** (cold-start-interview) → defer to admin configuration
+3. **Reconfiguration skills** (customize) → defer to admin configuration
+4. **Matter management skills** (matter-workspace) → defer to admin workspace management
+5. **Reference/framework skills** (user-invocable: false; loaded by other skills) → defer to skill library (present in 6 of 9 plugins audited; not universal)
 
-### Security non-negotiables
-Anthropic API key is server-only — never `NEXT_PUBLIC_`. RLS on every table. Server re-validates department access on every sensitive action. No PII in logs. See CLAUDE.md "Security Non-Negotiables" for the full list.
+Plus:
+- **Multi-mode action skills** (cease-desist send/receive, takedown send/respond/counter, claim-chart multi-axis, etc.) — NOT a filter pattern; imported as plain agents with mode flags. Clarifying note in the doc.
+- **Tracker-shape skills** — three structural forms documented:
+  - **Form 1 — single multi-mode skill** (corporate-legal pattern): one skill operates a YAML state file via multi-mode commands
+  - **Form 2 — tracker pair** (employment-legal pattern): two skills work together on a shared state file
+  - **Form 3 — tracker cluster** (litigation-legal pattern): 5+ skills coordinate over a shared state file plus per-domain-object directories; CRUD-like surface
 
-### Paste format for Claude Code prompts
-Every prompt drafted for Claude Code is delivered to the operator as a single fenced code block they can copy-paste in one motion. Use quadruple-backtick fences on the outside of the prompt because the prompt's interior frequently contains triple-backtick code samples; triple-on-the-outside collides with triple-on-the-inside and chat clients render the result as several visually-separate blocks instead of one. After the closing fence, nothing further — no asides, no commentary, no "let me know if you want to adjust" — so the operator can ⌘A / ⌘C from the top of the fence to the bottom of the message without scrolling for additional content. Asides for the operator go above the fence, clearly addressed to them, never below it.
+Six plugin-level non-skill directory conventions catalogued: agents/, hooks/, references/, data/, logs/, content-storage subdirectories.
 
-### Reverts via literal git restore
-When reverting a UI surface that's been modified across multiple patches in a session, restore the file byte-for-byte from git rather than asking Claude Code to recreate it from a description of the prior state. Interpretive recreation bakes in unintended changes from intermediate patches — the file ends up structurally similar to the prior state but with new typography, weights, or scales accidentally preserved from the patch being reverted. The literal restore command is `git show <pre-change-commit>:<path> > <path>`. Run `git log --oneline -- <path>` first to locate the last commit that touched the file before the change being reverted. After restoration, verify byte-identity via `git diff HEAD -- <path>` (empty diff = success). Session 31's hero revert is the canonical case — Claude Chat initially described the pre-S31 hero for Claude Code to recreate, which baked in display-scale typography that the operator (correctly) called "looks nothing like the old look." The literal restore from commit 49b8d1e fixed it on the second attempt.
+### Tracker-UI migration roadmap (when the tracker UI surface is built)
 
-### Skill routing rules
-Before drafting prompts that touch certain task types, point Claude Code at the relevant `.claude/skills/` files. The full mapping is in CLAUDE.md "Skill Routing Rules (Mandatory)" — frontend → `nextjs.md` + `react-patterns.md` + `tailwind.md`, database → `supabase.md` + `database-patterns.md`, etc.
+Three ranked candidates for the first migrations:
 
----
+1. **Litigation matter portfolio (form 3 — tracker cluster)** — strongest overall candidate; multi-skill surface naturally maps to a CRUD UI for a Matter domain object
+2. **AI Governance ai-inventory (form 1)** — leading single-skill candidate; EU AI Act per-system inventory with rich tabular structure
+3. **IP portfolio (form 1)** — runner-up single-skill candidate; IP portfolio (registrations × jurisdictions × renewal dates) is naturally tabular
 
-## CHANGELOG bullet-split: thread independence, not size
+### User preferences foundation
 
-When documenting a session in `CHANGELOG.md`, split into multiple bullets only when the work has **logically independent threads**. Do not split based on size.
+Dedicated `user_preferences` table (key/value/JSONB with RLS owner-only, unique on user_id+key). Migration 0025. First consumer: collapsible sections per-department per-user. Architectural choice: dedicated table over JSONB blob on users for concurrent writes, indexability, and self-documenting schema.
 
-Long single bullets are normal in this changelog and shipped without issue. Examples:
+### Read-only inspection panel
 
-- Session 18 ships as one bullet at 14.9KB (tool traces + citations + conversation reload — interlocking three-step arc).
-- Session 22a ships as one bullet at 7.9KB (routing migration + marketing landing — one cohesive ship across many touches).
-- Session 21 ships as one bullet at 9.9KB (rail + locked cards + Commercial agents + welcome hero — five threads all rotating around one workspace-landing redesign).
+Info icon top-right on every agent card (hover-reveal). Click to open a slide-over from the right showing the full system prompt with copy button, source attribution badge, and metadata. Applies uniformly to Canonical and C4L agents. Lazy-fetched heavy fields to keep launchpad queries fast (`getAgentDetailsAction`).
 
-Multi-bullet sessions exist when the work has genuinely independent threads:
+### Other architectural decisions locked
 
-- Session 22 → 22a (routing/landing) + 22b (palette retune) — two unrelated topics in one commit window.
-- Session 8f → 8f-A (create + fork + IA refactor) + 8f-B (edit + soft delete + undo) — separable phases of the same product surface.
+- **Multi-source provenance:** `source_origin` format `"<source-id>:<plugin>/<skill>"`, designed for future Stanford CodeX / firm-internal / etc. sources
+- **Hybrid edit enforcement:** UI uses `readOnly` attribute on text fields and `disabled` + hidden inputs on switches; server action does field-by-field equality compare against DB, rejects if locked field changed
+- **Sync pattern:** Manual import (Shape A) validated; future Shape B (GitHub Action auto-PR on upstream changes) deferred until manual is proven
+- **Sort_order discipline:** Two-phase shuffles when reordering (temp values → final values) to preserve logical uniqueness even though no UNIQUE constraint exists on the column
 
-**Decision rule:** would a reader of one bullet need the other to make sense of what shipped? If yes, keep it as one bullet. If no, split.
+## What's in flight — POLISH PHASE STARTS HERE
 
-## Long-form generation corruption (separate problem)
+The fresh chat session opens at the start of the polish phase. The plan is to work through the polish list in order of user impact, with rail collapsibility first.
 
-Long single-line outputs (~5KB+) you generate sometimes drop characters mid-token during transmission to the operator's terminal. This is a chatbot generation artifact, NOT a changelog format issue. Workarounds that have actually worked in this project:
+### Polish list (13 items, in priority/sequence order)
 
-- **Base64-encode the bullet before paste.** Produce a single-quoted heredoc whose decoded content is the markdown bullet. The operator decodes via `base64 -d < /tmp/x.b64 > /tmp/x.md` (stdin redirect — works on both BSD and GNU). Session 23 used this successfully.
-- **Apply obvious char-drops inline at edit time.** When Claude Code reports specific corruptions ("confirmatreplaces", "is_te false"), reconstruct the obvious fixes — they're usually unambiguous. Don't loop through another full generation.
-- **Draft locally in Claude Code.** For backfills or smaller content, the operator can have Claude Code draft the bullet directly from gathered git history; you're not in the loop. Use this when corruption keeps recurring.
+1. **Rail group collapsibility** — Knowledge / Workflows / Integrations / Help / possibly Departments. Increasingly important with 13 departments in the rail. THIS IS THE NEXT ITEM TO WORK ON. Start here.
 
-Do NOT respond to corruption by adding more verification scaffolding (SHA256 hashes, corruption-check greps, sentinel markers). Each layer is more text that can itself be corrupted, and you cannot compute SHA256 in your head.
+2. **Card affordance consistency between department and agent cards.** Today:
+   - Agent cards: card body click → chat; kebab (•••) top-right hover-reveal for admin menu; info icon (i) top-right hover-reveal
+   - Department cards: arrow icon bottom-right darkens on hover; pencil icon top-right hover-reveal
+   
+   Locked direction: unify the admin menu to kebab (•••) on both card types; replace the pencil icon on department cards with kebab. Keep the arrow on department cards as a navigation cue (departments = navigation surface; agents = action surface). Skip the info icon on department cards because the description is already visible.
 
----
+3. **Delete-dialog copy mentioning "forked copies are unaffected"** — irrelevant for C4L agents. Tighten the copy or branch by source type.
 
-## Anti-patterns
+4. **Composer model picker rejecting C4L agents** — asymmetry with the edit form. Investigate and decide.
 
-Things this project has tried that didn't work:
+5. **Sort_order after filtering** — cosmetic only. Soft-deleted C4L rows leave gaps in agent sort_order within the C4L tier. Worth a sort-order normalization at some point.
 
-- **Don't write code.** Describe the change in product/architectural terms; Claude Code writes the implementation.
-- **Don't draft Step C documentation before Step B implementation lands and is verified.** D-entries and CHANGELOG bullets describing behavior the operator hasn't confirmed shipped clean become rework when implementation diverges from spec. Wait for Claude Code's verification (build pass, smoke check, operator approval) before drafting documentation prose. The exception is backfill of already-shipped sessions, where you're documenting after the fact from git history.
-- **Don't fabricate SHA256 hashes.** You cannot compute them in your head. If you produce a verification script with `EXPECTED_HASH=...`, the value is hallucinated and will always mismatch. Skip cryptographic verification scaffolding entirely.
-- **Don't generate elaborate shell-script wrappers for simple paste tasks.** When the operation is "insert this text into this file," a plain markdown content block is enough. Heredocs, sentinel markers, corruption-check greps, base64 encoding, SHA256 verification — none of these fix the underlying issue (long-form generation drops characters), and they add surface area for new bugs (BSD vs GNU `base64` syntax incompatibility, unmatched quotes scrambling output). Base64 is the only one of these that's earned its place, and only when corruption is actively occurring.
-- **Don't paraphrase project state from memory.** Always read the source files. Phase status, D-numbering, file paths, and routing all change between sessions.
-- **Don't reflexively split sessions into multiple CHANGELOG bullets to dodge corruption.** See the bullet-split section above. Split for logical thread independence; handle corruption separately.
-- **Don't over-engineer in response to past failures.** When a transmission produces corrupted output, the right response is "split your generation into smaller chunks across multiple chat messages and let the operator concatenate," not "add more verification layers." Each verification layer is more text that can itself be corrupted.
+6. **Reorder docs/C4L_DEFERRED_SKILLS.md sections** — cosmetic only. Currently agents/ note comes before Pattern note; could cluster all pattern observations together.
 
----
+7. **Department description copy consistency** for Commercial, Public Sector, Operations, General Tools. Current state:
+   - Commercial: "Revenue (sell-side) agreements, procurement (buy-side) agreements, Non-Disclosure Agreements, Artificial Intelligence Addenda." (long, formal capitalization breaks the sentence-case voice)
+   - Public Sector: "Government relations, regulatory affairs, public-sector contracts, and policy advocacy." (regulatory affairs now overlaps Regulatory)
+   - Operations: "Internal operations, vendor management, procurement, and corporate transactions." (corporate transactions now overlaps Corporate)
+   - General Tools: "general purpose agentic tools" (only one capitalized; "agentic" reads as internal jargon)
+   
+   Goal: consistent voice, length, sentence case, no overlap with adjacent departments.
 
-## Next session
+8. **Data/ directory note** — concept review when we hit it. Operator wants an explanation of what `data/` directories in C4L plugins are for and how they relate to legalOS architecture.
 
-As of 2026-05-13 (HEAD will be the final docs commit hash from this Step C arc — captured by the operator at push time):
+9. **Out-of-scope C4L plugins decision** — law-student (13 skills, academic), legal-clinic (16 skills, clinical), legal-builder-hub (10 skills, meta/registry), external_plugins/cocounsel-legal (Thomson Reuters partner). Substantive content but doesn't fit the department-agent UX. Decide whether they slot into Knowledge tier, Marketplace, an admin surface, or get their own product surface entirely.
 
-- **Phase:** 2 — Native Agent Runtime + User-Owned Agents (mid-phase).
-- **Last shipped:** Session 31 + follow-up — rail restructured around four product domains with multi-leaf groups, three placeholder routes (now rendering the unified coming-soon template), breadcrumb lowercase, Research routing fixed, `WorkspaceModules` updated to new taxonomy (D-047, D-048).
-- **Next milestone:** Session 32 — Knowledge reshape. The rail's Knowledge category currently has three sub-leaves (Research / Vault / Sources), all pointing at coming-soon URLs. Session 32 wires them to real routes: `/workspace/knowledge` with Research as the default landing surface, `/workspace/knowledge/vault` for the firm's internal corpus, `/workspace/knowledge/sources` for admin configuration of content integrations (EDGAR, Westlaw, etc.). The three-source research model (firm corpus + open web + trusted legal content partnerships) is the architectural vision; v1 ships the surfaces and basic routing, with the chat-based research surface itself coming in a later session.
-- **Subsequent:** Sessions 33 (Workflows: My Workflows index + Template Library) / 34 (Integrations: Connections list + Marketplace catalog) / 35 (Help: Guides v1 + What's New changelog). Workspace dashboard deferred to Session 36+ — wait until category surfaces have real content (see README Future / Backlog).
+10. **Workspace hero refinement:**
+    - Title size: reduce slightly. Current size feels too large with time. Specific amount TBD at the polish moment (iterative, not single-shot).
+    - Subline copy: current "Your team's agents, knowledge, matters, and resources, all in one place." Up for review to better reflect the actual four product domains in the rail (Knowledge / Workflows / Integrations / Help). Proposed: "Your team's agents, knowledge, workflows, and integrations, all in one place." — though worth re-thinking whether "agents" belongs alongside the four domains (agents live within departments rather than as a top-level domain) or whether to replace "agents" with one of the domains.
 
-Confirm by reading `PROJECT_OUTLINE.md` `## Current status` block before drafting Session 32 prompts.
+11. **Reserved slot** — for the next thing the operator notices during polish.
 
-Note: Session 24 (custom SMTP via Resend) shipped earlier in May 2026 outside the documented session arc — the operator confirmed this verbally during the Session 31 follow-up arc. The previous Handoff pointer naming Session 24 as the next milestone is stale and has been replaced. The invitation gate that depends on Session 24's SMTP work, and the `?next=` preservation deferred from D-036, both remain as future work outside the Session 32+ Knowledge/Workflows/Integrations/Help build-out arc.
+12. **C4L agent fork behavior — verify and decide.** Canonical agents have a fork affordance (user copies template into personal "my agent"). Unclear whether the fork affordance works on C4L agents today, is hidden, or rejects at the server. Need to:
+    - Investigate current behavior (read-only)
+    - Decide whether C4L agents should be forkable (likely yes — fork creates new row, doesn't modify upstream content)
+    - Implement fix if needed (likely small — UI affordance gating + possibly a clarifying "Forked from Claude for Legal" badge so users understand lineage)
 
----
+13. **Documentation and external-facing copy refresh** (final item, by design):
+    - `README.md` — currently reflects an earlier product state
+    - Marketing landing pages under `app/(marketing)/`
+    - `docs/` directory contents
+    - `docs/CHATBOT_HANDOFF.md` itself (refresh after polish phase completes)
+    - Any external-facing copy
+    
+    Goal: someone landing on the project gets an accurate, well-digested picture of what legalOS is right now. Internal docs and external copy should both be truthful, current, and crafted with the same care as the product itself.
 
-## Updating this file
+### Sequencing decision locked
 
-This handoff is a tracked file in the repo. Update it at session close, alongside `CHANGELOG.md` / `PROJECT_OUTLINE.md` / `DECISION_LOG.md` updates, if any of:
+Work the polish list in approximately the order listed (Option B from the prior discussion: highest user impact first). Rail collapsibility (#1) is the start. Doc refresh (#13) is the end by definition.
 
-- The workflow pattern changes (new step types, different commit cadence)
-- New convention rules are established (typography, naming, format)
-- New anti-patterns surface (a recurring failure mode worth flagging)
-- The "Next session" pointer needs to advance
+That said: the operator may surface new items during polish (slot #11 is held for exactly that). The order is a default, not a contract.
 
-Treat changes here like changes to `CLAUDE.md` — rare, deliberate, and worth their own commit.
+### Steps 3 and 4 (after polish)
+
+After the polish list is complete:
+
+- **Step 3:** Tackle the out-of-scope C4L plugins (item #9 elevates from polish to a real product decision). Decide where they live and implement.
+- **Step 4:** Move to a new product capability entirely. The architecture is mature enough to support new directions. Operator's call which direction.
+
+## Key files and architectural anchors
+
+For the fresh chat to know where things live:
+
+- `components/workspace/agent-card.tsx` — agent card component (kebab, info icon, fork affordance live here)
+- `components/workspace/department-card.tsx` — department card (pencil icon currently; will become kebab per polish #2)
+- `components/workspace/department-launchpad-content.tsx` — three-tier launchpad rendering
+- `components/workspace/agent-details-panel.tsx` — slide-over read-only inspection
+- `components/workspace/collapsible-section.tsx` — per-section collapsibility on the launchpad
+- `components/workspace/workspace-rail.tsx` — the sidebar rail (target of polish #1)
+- `lib/auth/access.ts` — 820-line cache-wrapped access layer
+- `lib/agents/source.ts` — `parseSourceOrigin`, `getSourceDisplayLabel` for C4L attribution
+- `lib/preferences/keys.ts` — user-preferences key registry; `deptCollapsedSectionsKey`, `CollapsedSectionsValue`
+- `lib/preferences/types.ts` — preference value type definitions
+- `lib/actions/agents.ts` — 1004-line agent server actions
+- `lib/actions/agent-details.ts` — lazy-fetch for read-only inspection
+- `lib/actions/user-preferences.ts` — preference get/set server actions
+- `scripts/import-c4l-plugin.ts` — 315-line C4L import script (operator runs manually)
+- `docs/C4L_DEFERRED_SKILLS.md` — authoritative reference for every C4L skill audited, where it landed, and why
+- `supabase/migrations/` — all schema changes; current head is 0040
+- `supabase/seed/0001_org_and_departments.sql` — canonical post-migrations state; comment header documents the four-group taxonomy
+
+## Migration history summary
+
+Current HEAD on main: post-0040 application by operator (last migration). All 40 migrations applied to the live Supabase database. Seed file in sync with the live DB after the comprehensive sync in commit 05d7ee2.
+
+Recent migrations of note:
+- 0025 — user_preferences table
+- 0028 — M&A renamed to Corporate (slug + name)
+- 0029 — Corporate description scope expansion
+- 0031 — Employment department added
+- 0033 — four-group taxonomy reorder; reserved slot 3 for Regulatory
+- 0034 — Regulatory added at sort_order 3
+- 0036 — reserved slots 7, 10, 11 for AI Governance, IP, Litigation
+- 0037 — AI Governance, IP, Litigation added
+- 0026, 0027, 0030, 0032, 0035, 0038, 0039, 0040 — C4L filter migrations for each plugin
+
+## Deferred work explicitly punted
+
+Things explicitly out of scope right now but documented for the future:
+
+- Workspace dashboard (post-launch)
+- Regulatory monitors (separate product)
+- Invitation gate (sunsets D-035)
+- ?next= preservation in proxy.ts:24 (verify before assuming outstanding)
+- Public/private repo decision (currently private)
+- Managed-agent Option B managed-agent API (post-MVP)
+- Auto-fork pattern (Position C, long-term — though see polish item #12)
+- Zero-access state mailto at app/workspace/page.tsx:101,107
+- Sync pipeline Shape B (after manual Shape A validated — Shape A is validated now, but Shape B is post-polish)
+- Tracker-UI surface (litigation matter portfolio is leading candidate; see ranked candidates section)
+- Skill library surface for pattern #5 reference/framework skills
+- Admin configuration surface for cold-start-interview + customize
+- Admin workspace management surface for matter-workspace
+- Workflows surface for router skills
+
+## How a fresh chat opens
+
+The first message from the operator in the fresh chat will be brief — likely "ready to continue with polish phase" or similar. The fresh chat should:
+
+1. Acknowledge the handoff has been received and the context is loaded.
+2. Confirm the immediate next step: polish list item #1, rail group collapsibility.
+3. Before writing any patches, do a brief read-only investigation of the current rail implementation (`components/workspace/workspace-rail.tsx` and `lib/workspace/rail-styles.ts`) so the patch is grounded in actual code rather than assumed structure.
+4. Then propose the design and implementation approach for rail collapsibility, with one focused question for the operator to confirm before writing the patch prompt.
+
+The fresh chat must honor the working rules from message one. One question at a time. No bundled steps. Dual-delight standard. Build for the long term.
+
+End of handoff.
