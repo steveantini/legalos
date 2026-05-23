@@ -2,7 +2,7 @@
 
 import { InfoIcon, MoreVerticalIcon } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,16 @@ interface AgentCardProps {
      * admins get an additional overflow menu for edit/delete.
      */
     is_template: boolean;
+    /**
+     * Provenance string set on rows imported from external sources
+     * (migration 0023). Currently the only producer is the Claude for
+     * Legal import script (`scripts/import-c4l-plugin.ts`), which sets
+     * `"claude-for-legal:<plugin>/<skill>"`. Null for Canonical
+     * templates and personal agents. Used by the delete dialog to
+     * branch its copy — C4L deletions don't carry the same forks-
+     * survive concern that Canonical deletions do.
+     */
+    source_origin: string | null;
   };
   departmentSlug: string;
   /**
@@ -312,26 +322,58 @@ function EditableAgentCard({
   const [pending, startTransition] = useTransition();
 
   const isAdminMode = mode === "admin-template";
-  const dialogTitle = isAdminMode
-    ? "Delete Department Agent?"
-    : "Delete this agent?";
-  // Two-sentence pattern matching ux-writing.md's destructive
-  // confirmation rules: state the consequence + name the affected
-  // thing + give the recovery window. The admin variant adds the
-  // org-wide stakes plus the forks-survive note (per D-041 + Step A.2
-  // Thread 10 — forks are independent post-creation).
-  const dialogBody = isAdminMode ? (
-    <>
-      <strong>{agent.name}</strong> will be moved to the trash. Other users
-      will no longer see it on the department launchpad. Their forked copies
-      are unaffected. You can restore it within 30 days.
-    </>
-  ) : (
-    <>
-      <strong>{agent.name}</strong> will be moved to the trash. You can
-      restore it within 30 days.
-    </>
-  );
+  const isC4L =
+    agent.source_origin?.startsWith("claude-for-legal:") ?? false;
+
+  // Three variants of the delete confirmation copy. Two-sentence pattern
+  // from ux-writing.md: state the consequence + name the affected thing
+  // + give the recovery window.
+  //
+  //   1. Canonical (admin-template, not C4L) — keeps the forks-survive
+  //      reassurance (per D-041 + Step A.2 Thread 10). Admins forking
+  //      from a department template is the standard workflow; the line
+  //      is load-bearing for the actual concern.
+  //
+  //   2. C4L (admin-template, source_origin starts with
+  //      "claude-for-legal:") — drops the forks line as noise. The C4L
+  //      hybrid-edit pattern (commits around source_origin) lets users
+  //      customize model / references / export_format in place without
+  //      forking, so a forked-from-C4L agent is rare in practice and
+  //      mentioning it trains users to worry about a workflow that
+  //      isn't theirs.
+  //
+  //   3. My-agent (personal, owner-deletable) — forks concept doesn't
+  //      apply. Personal agents are leaves of the agent tree.
+  let dialogTitle: string;
+  let dialogBody: ReactNode;
+
+  if (isAdminMode && isC4L) {
+    dialogTitle = "Delete Claude for Legal agent?";
+    dialogBody = (
+      <>
+        <strong>{agent.name}</strong> will be moved to the trash. Other
+        users will no longer see it on the department launchpad. You can
+        restore it within 30 days.
+      </>
+    );
+  } else if (isAdminMode) {
+    dialogTitle = "Delete Department Agent?";
+    dialogBody = (
+      <>
+        <strong>{agent.name}</strong> will be moved to the trash. Other
+        users will no longer see it on the department launchpad. Their
+        forked copies are unaffected. You can restore it within 30 days.
+      </>
+    );
+  } else {
+    dialogTitle = "Delete this agent?";
+    dialogBody = (
+      <>
+        <strong>{agent.name}</strong> will be moved to the trash. You can
+        restore it within 30 days.
+      </>
+    );
+  }
 
   function onConfirmDelete() {
     startTransition(async () => {
