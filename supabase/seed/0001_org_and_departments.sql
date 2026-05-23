@@ -35,27 +35,23 @@ begin
   -- Canonical state after migrations 0013 (GRRA merged into Public
   -- Sector + General Tools added), 0028 (M&A renamed to Corporate),
   -- 0029 (Corporate description broadened), 0031 (Employment added),
-  -- 0033 (reorder to four-group taxonomy), 0034 (Regulatory added
-  -- at the reserved slot), and 0036 (reorder to reserve three slots
-  -- for AI Governance, IP, and Litigation). The seed is the
-  -- corrected documentation of "what a fresh DB looks like once
-  -- 0001..N are applied in order." If you add a new department in
-  -- a later migration, update this list in the same commit.
+  -- 0033 (reorder to four-group taxonomy), 0034 (Regulatory added at
+  -- the reserved slot), 0036 (reorder to reserve three slots), and
+  -- 0037 (AI Governance, IP, Litigation added at those reserved
+  -- slots). The seed is the corrected documentation of "what a fresh
+  -- DB looks like once 0001..N are applied in order." If you add a
+  -- new department in a later migration, update this list in the
+  -- same commit.
   --
-  -- Sort_order grouping (post-0036, three slots vacant for the
-  -- follow-up commit):
+  -- Sort_order grouping (now 13 departments, no vacant slots):
   --   1–2   deal & transactional       Commercial, Corporate
   --   3–7   regulatory & compliance    Regulatory, Public Sector,
   --                                    Compliance, Privacy,
-  --                                    AI Governance (slot 7 — vacant)
-  --   8–11  specialized practice       Product, Employment,
-  --                                    IP (slot 10 — vacant),
-  --                                    Litigation (slot 11 — vacant)
+  --                                    AI Governance
+  --   8–11  specialized practice       Product, Employment, IP,
+  --                                    Litigation
   --   12–13 operational & utility      Operations, General Tools
   --                                    (always-last per commit 7eb776b)
-  --
-  -- Positions 7, 10, and 11 are currently vacant. The follow-up
-  -- commit inserts AI Governance, IP, and Litigation there.
   insert into public.departments (organization_id, slug, name, description, sort_order)
   values
     (v_org_id, 'commercial', 'Commercial',
@@ -70,10 +66,16 @@ begin
       'Compliance program management, regulatory monitoring, and audit support.', 5),
     (v_org_id, 'privacy', 'Privacy',
       'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 6),
+    (v_org_id, 'ai-governance', 'AI Governance',
+      'AI use case assessment, AI impact assessments, vendor AI review, model governance, and AI regulatory compliance.', 7),
     (v_org_id, 'product', 'Product',
       'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 8),
     (v_org_id, 'employment', 'Employment',
       'Hiring, terminations, employment agreements, compensation and benefits, workplace policy, and labor relations.', 9),
+    (v_org_id, 'ip', 'IP',
+      'Trademark, copyright, patent, trade secret, IP licensing, and open source compliance.', 10),
+    (v_org_id, 'litigation', 'Litigation',
+      'Matter intake, demand letter response, dispute management, discovery, and outside counsel coordination.', 11),
     (v_org_id, 'operations', 'Operations',
       'Internal operations, vendor management, procurement, and corporate transactions.', 12),
     (v_org_id, 'general-tools', 'General Tools',
