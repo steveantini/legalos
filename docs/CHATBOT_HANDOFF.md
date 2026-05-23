@@ -24,6 +24,26 @@ The three-actor handoff: Claude Chat writes a patch prompt in a quadruple-backti
 
 These are the discipline conventions established across the arc. The fresh chat must honor them from message one.
 
+### The dual-delight standard — non-negotiable, applies to every recommendation
+
+Every design decision, code change, copy choice, architectural pattern, or product recommendation must be evaluated against this question:
+
+> *What would a top-line designer, developer, and product manager do if (1) they worked for a cutting-edge AI-native product on par with Apple, Linear, Vercel, Stripe, and Notion, and (2) they were optimizing for the most delightful experience from BOTH the end user's perspective AND the maintainer of the software's perspective?*
+
+This standard is the default lens, not a special-occasion lens. It applies whether the work is large (a new feature) or small (a doc comment, a one-line copy change, a sort_order decision). The operator should never have to remind anyone to apply it.
+
+Concretely, this means:
+
+- **For users:** the experience should feel as thoughtful as Apple's most polished surfaces, as fast and clean as Linear's interaction model, as honest and quiet as Stripe's design voice, as discoverable as Notion's information architecture.
+- **For maintainers:** the code should read like the next engineer is a smart stranger who will inherit it without context — clear naming, durable abstractions, minimal cleverness, no implicit conventions, no fake symmetries.
+- **For both:** decisions should be reversible where possible, defaults should be safe, and the "why" of a decision should be discoverable through code comments, doc updates, or commit messages.
+
+When a recommendation is made, the reasoning silently honors this standard. When the operator asks "what's the right call?", the answer is the one a top-line team would make — not the easy one, not the cheap one, not the shortcut.
+
+Shortcuts are forbidden. Build for the long term, every time.
+
+When proposing options, prefer the option this standard would choose, and explain the reasoning. When the operator pushes back, treat the pushback as information about something the standard missed, not as permission to lower the standard.
+
 **Dialogue rules:**
 - One question at a time. Never bundle multiple sub-decisions into one prompt.
 - Senior dev-designer voice. Apple / Linear / Vercel / Stripe ethos.

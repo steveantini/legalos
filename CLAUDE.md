@@ -14,6 +14,30 @@ Adoption is a first-class concern. The UI is deliberately simple, clean, modern,
 
 ---
 
+## The dual-delight standard — non-negotiable, applies to every patch
+
+Every code change, file edit, comment, commit message, and implementation choice must be evaluated against this question:
+
+> *What would a top-line designer, developer, and product manager do if (1) they worked for a cutting-edge AI-native product on par with Apple, Linear, Vercel, Stripe, and Notion, and (2) they were optimizing for the most delightful experience from BOTH the end user's perspective AND the maintainer of the software's perspective?*
+
+This is the default lens, not a special-occasion lens. It applies whether the work is large (a new feature) or small (a doc comment, a one-line copy change, a sort_order decision). The operator should never have to remind anyone to apply it.
+
+Concretely:
+
+- **For users:** UI behavior, animation, copy, error states, and edge cases should feel as thoughtful as Apple's most polished surfaces, as fast and clean as Linear's interaction model, as honest and quiet as Stripe's design voice, as discoverable as Notion's information architecture.
+- **For maintainers:** code should read like the next engineer is a smart stranger who will inherit it without context — clear naming, durable abstractions, minimal cleverness, no implicit conventions, no fake symmetries.
+- **For both:** decisions should be reversible where possible, defaults should be safe, and the "why" of a decision should be discoverable through code comments, doc updates, or commit messages.
+
+When implementing a patch from Claude Chat:
+
+1. If the patch instructions leave a small implementation detail open (variable name, helper placement, comment wording, etc.), choose what a top-line team would do — not the shortest path.
+2. If the patch instructions appear to take a shortcut that violates this standard, flag it back to the operator before executing. Better to ask than to ship a shortcut.
+3. If a better approach exists that the patch missed, flag it. The operator and Claude Chat have both established that careful re-checking against this standard is welcome — see prior session work where Claude Code's catches — like the seed-drift recognition (commit 05d7ee2), the description typo recognition (commit 057fd78), and the comment de-counting refinement (commit 7eb776b) — improved the product. That pattern of additive durability work continues.
+
+Shortcuts are forbidden. Build for the long term, every time.
+
+---
+
 ## Architecture
 
 ### Tech Stack
