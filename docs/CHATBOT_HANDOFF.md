@@ -181,7 +181,7 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
 
 4. **Composer model picker rejecting C4L agents** — asymmetry with the edit form. Investigate and decide.
 
-5. **Sort_order after filtering** — cosmetic only. Soft-deleted C4L rows leave gaps in agent sort_order within the C4L tier. Worth a sort-order normalization at some point.
+5. **Sort_order normalization after C4L filtering — DROPPED as no-op.** Resolved by investigation in this session: sort_order is never rendered in the UI (it's purely an ORDER BY column in `getAgentsForDepartmentLaunchpad`), so the gaps left by soft-deleted C4L rows are invisible to users. Any normalization migration would also be undone by the next C4L re-import — the import script (`scripts/import-c4l-plugin.ts`) reassigns sort_order from `100 + index` on every upsert. Modifying the import script to preserve normalized sort_orders would introduce real branching complexity to a currently-clean idempotent script, for zero observable benefit. If a future feature ever surfaces sort_order visually (drag-handle position pickers, sortable lists, tracker-UI position indicators, etc.), that feature handles normalization in its own scope.
 
 6. **Reorder docs/C4L_DEFERRED_SKILLS.md sections** — cosmetic only. Currently agents/ note comes before Pattern note; could cluster all pattern observations together.
 
