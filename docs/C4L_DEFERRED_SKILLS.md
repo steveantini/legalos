@@ -212,6 +212,28 @@ Note: this plugin contains no reference/framework skills (pattern #5) — the fi
 
 Note: this plugin contains no reference/framework skills (pattern #5) — second plugin where pattern #5 is absent (ai-governance-legal was the first). The pattern is real but not universal across C4L plugins.
 
+## Filtered from `litigation-legal` (filtered 2026-05-23, migration 0040)
+
+### cold-start-interview — belongs in admin configuration
+
+**Source:** `claude-for-legal:litigation-legal/cold-start-interview`
+**Why filtered:** Same canonical onboarding pattern as the other plugins. Branches by role (in-house, firm associate, solo) and side (plaintiff, defense, both); captures risk calibration, landscape, and house style.
+**Where it should land:** Admin configuration surface — unify with sibling cold-start-interview skills.
+
+### customize — belongs in admin configuration
+
+**Source:** `claude-for-legal:litigation-legal/customize`
+**Why filtered:** Same canonical reconfiguration pattern.
+**Where it should land:** Admin configuration surface — unify with sibling customize skills.
+
+### matter-workspace — belongs in admin workspace management
+
+**Source:** `claude-for-legal:litigation-legal/matter-workspace`
+**Why filtered:** Same canonical management pattern as the other plugins. Manages the practice-level matter workspace metadata — distinct from the per-matter tracker family (matter-intake, matter-update, matter-close, matter-briefing, portfolio-status) which are imported as form-3 tracker-cluster agents.
+**Where it should land:** Admin workspace management surface — unify with sibling matter-workspace skills.
+
+Note: this plugin contains no reference/framework skills (pattern #5) — third plugin where pattern #5 is absent. See the pattern #5 tally below.
+
 ## Note on C4L `agents/` directories (across all plugins)
 
 Each C4L plugin contains both a `skills/` directory and an `agents/` directory at its top level (e.g., `../claude-for-legal/<plugin>/skills/`, `../claude-for-legal/<plugin>/agents/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/`.
@@ -260,7 +282,30 @@ Summary of non-skill plugin-level directories encountered:
 
 Sync pipeline note: when Shape B is built, the import logic should explicitly enumerate non-skill directories to skip rather than implicitly relying on "only read from skills/".
 
-## Pattern note (revised after employment-legal import)
+## Note on C4L plugin-level content-storage subdirectories (observed in litigation-legal)
+
+The `litigation-legal` plugin contains four content-storage subdirectories at its top level: `demand-letters/`, `inbound/`, `matters/`, `oc-status/`. The import script reads only from `skills/` — these are silently skipped.
+
+Unlike the other non-skill directories observed so far:
+- `agents/` — scheduled-agent cookbooks (multi-step orchestration definitions)
+- `hooks/` — plugin lifecycle hooks
+- `references/` — shared reference content
+- `data/` — static data tables (jurisdictional rules, etc.)
+- `logs/` — runtime activity logs
+
+…these new directories are **domain-data skeletons**. They mirror the runtime layout (e.g., `~/.claude/plugins/config/claude-for-legal/litigation-legal/matters/<slug>/`) where user-generated content lives once the plugin is active. The in-plugin versions are likely seed/template skeletons that get copied into the user's runtime config on first run.
+
+This is the first plugin we've observed with this layout. The pattern matters for the future sync pipeline (Shape B): when copying plugin content into the legalOS database, these domain-data directories must NOT be imported as content — they're scaffolding for runtime, not authored content. The sync pipeline should enumerate non-skill directories to skip explicitly.
+
+Summary of non-skill plugin-level directories encountered across all 9 audited plugins:
+- `agents/` — scheduled-agent cookbooks (most plugins; absent in ai-governance-legal)
+- `hooks/` — plugin lifecycle hooks (most plugins; absent in ai-governance-legal and litigation-legal)
+- `references/` — shared reference content (most plugins; absent in ai-governance-legal and litigation-legal)
+- `data/` — static data tables (employment-legal only)
+- `logs/` — runtime activity logs (ip-legal only)
+- Domain-data skeletons — `demand-letters/`, `inbound/`, `matters/`, `oc-status/` (litigation-legal only)
+
+## Pattern note (revised after litigation-legal import)
 
 This filtering should be re-applied when any new C4L plugin is imported. The following skills are C4L conventions that appear across multiple plugins and should be filtered from the department-agent tier by default:
 
@@ -273,6 +318,8 @@ This filtering should be re-applied when any new C4L plugin is imported. The fol
 3. **Reconfiguration skills** (`customize`) — adjust an existing profile without re-running onboarding; belongs in admin configuration surface.
 4. **Matter management skills** (`matter-workspace`) — create/list/switch/close matter workspaces; not a chat-with-an-agent shape. Belongs in admin/workspace management surface.
 5. **Reference/framework skills** — explicitly marked `user-invocable: false` in their frontmatter, loaded BY other skills as shared context, never invoked directly. Different from routers (routers actively dispatch input; reference/framework skills are shared library code). Examples: `internal-investigation` and `international-expansion` in employment-legal. They belong neither in the agent tier nor in Workflows as standalone nodes. Closest match is a future "skill library" surface — until that exists, defer.
+
+**Pattern #5 running tally (across 9 plugins audited).** Pattern #5 is real but not universal. Present in 6 plugins: commercial-legal, privacy-legal, product-legal, corporate-legal, employment-legal, regulatory-legal. Absent in 3 plugins: ai-governance-legal, ip-legal, litigation-legal. Roughly 2/3 prevalence.
 
 Future plugin imports should pre-filter these five types by default, with the option to override per-plugin if a specific skill diverges from the convention.
 
@@ -289,7 +336,7 @@ Multi-mode action skills are imported as plain Department Agents. The mode flag 
 
 Some C4L skills present as agents (chat-with-an-agent UX) but functionally operate on a YAML state file with multi-mode commands. They work conversationally for v1, but long-term they're candidates for dedicated tracker UI surfaces — think Linear-style task boards or compliance dashboards.
 
-Tracker-shape skills come in two structural forms across the C4L plugins audited so far. Both forms benefit from dedicated tracker UI long-term.
+Tracker-shape skills come in three structural forms across the C4L plugins audited so far. All three forms benefit from dedicated tracker UI long-term; the form 3 tracker cluster (litigation-legal) is the strongest "all skills → unified UI" candidate.
 
 **Structural form 1 — single multi-mode skill** (corporate-legal pattern). One skill operates a YAML state file via multi-mode commands (init, update, report, etc.).
 
@@ -312,12 +359,29 @@ A form 1 tracker may load a separate reference/framework skill (pattern #5) for 
   - `claude-for-legal:employment-legal/expansion-kickoff` — init: open international expansion planning for a new country
   - `claude-for-legal:employment-legal/expansion-update` — update: recalculate what's unblocked, flag overdue items
 
+**Structural form 3 — tracker cluster** (litigation-legal pattern). Five+ skills coordinate over a shared state file plus per-domain-object directories. The cluster models a CRUD-like API surface for a single domain object (matters, in litigation-legal's case). Distinct from form 1 (single multi-mode skill) and form 2 (read/write pair) in scale and surface coherence:
+
+- Litigation matter portfolio cluster, operating on `_log.yaml` plus `matters/<slug>/` directories:
+  - `claude-for-legal:litigation-legal/matter-intake` — init (writes new matter row + creates matter.md/history.md)
+  - `claude-for-legal:litigation-legal/matter-update` — write (appends history entry + updates log row)
+  - `claude-for-legal:litigation-legal/matter-close` — terminate (marks closed, captures outcome)
+  - `claude-for-legal:litigation-legal/matter-briefing` — read (single-matter deep briefing)
+  - `claude-for-legal:litigation-legal/portfolio-status` — read (portfolio-wide rollup)
+
+Form 3 is the strongest "all skills → unified UI" migration candidate because the multi-skill surface naturally maps to a CRUD UI for a domain object. The matter portfolio cluster, taken as a whole, IS a matter-portfolio dashboard waiting to be built.
+
 **Why kept as agents for v1:** The user-facing surface IS conversational — "what's left to close?" or "what's due this month?" The internal YAML-state-machine implementation doesn't change the user experience.
 
 **Why flagged for future migration:** Trackers benefit enormously from dedicated UI — visible state, at-a-glance status, click-to-update affordances, calendar integration. When legalOS builds tracker UIs (likely in a future surface alongside Workflows), these skills become natural candidates for migration. The migration would not retire the skill; it would expose its data via a UI rendering instead of (or alongside) the chat interface.
 
-**Action when tracker UI surface is built:** evaluate which of these skills migrate to native UIs, which stay as agents, and which run in both modes. The decision per skill will depend on how much value the dedicated UI adds over the conversational interface.
+**Tracker-UI migration candidate ranking (across all forms).**
 
-**Leading-edge tracker-UI candidate: `ai-inventory`.** Of all tracker-shape skills audited, the AI Governance EU AI Act inventory is the strongest candidate for "agent → dedicated UI" migration when the tracker-UI surface is built. Its substantive content — per-system role (provider, deployer, importer, distributor, authorized representative, product manufacturer) and per-system risk tier (prohibited, high-risk, limited, minimal, GPAI, GPAI+systemic) — is inherently tabular structured data that maps naturally to form fields, dropdowns, and table views. The SKILL.md body is 10.7KB (substantially larger than any other tracker we've audited), reflecting the depth of the embedded EU AI Act methodology that the tracker would need to surface. When the tracker UI lands, this is the most obvious first migration.
+When the tracker UI surface is eventually built, three candidates are the strongest first migrations:
 
-**Runner-up tracker-UI candidate: `portfolio` (ip-legal).** The IP portfolio tracker shares the structured-tabular-registry shape of `ai-inventory` — registrations × jurisdictions × renewal dates × maintenance fees, naturally rendered as a portfolio table. Substantively narrower than the EU AI Act inventory (no per-system regulatory classification), but the underlying data is just as tabular. When the tracker UI lands, portfolio is the obvious second migration after `ai-inventory`.
+1. **`litigation-legal/matter-intake` + `matter-update` + `matter-close` + `matter-briefing` + `portfolio-status` (form 3 — tracker cluster).** The strongest overall tracker-UI candidate. The five skills taken together, ARE the matter-portfolio dashboard — five CRUD operations on a Matter domain object plus a portfolio-wide rollup view. The substantive content (matter intake fields, history events, portfolio rollup) is inherently structured around a Matter entity that maps directly to database rows + UI views. When the tracker UI lands, this is the obvious first migration because the multi-skill surface naturally becomes the UI's information architecture.
+
+2. **`ai-governance-legal/ai-inventory` (form 1 — single multi-mode skill).** Leading single-skill tracker-UI candidate. EU AI Act per-system inventory with substantial structured tabular data (per-system role, per-system risk tier, per-system obligations). The SKILL.md body is 10.7KB — substantially larger than any other tracker — reflecting the depth of the EU AI Act methodology embedded. Strong second migration.
+
+3. **`ip-legal/portfolio` (form 1 — single multi-mode skill).** Runner-up single-skill tracker-UI candidate. IP portfolio (registrations × jurisdictions × renewal dates × maintenance fees) is naturally tabular; substantively narrower than the AI Act inventory but the underlying data is just as structured. Strong third migration.
+
+**Action when tracker UI surface is built:** start with the litigation matter portfolio (form 3) as the proof-of-concept, then add ai-inventory and portfolio as single-domain trackers. Form 2 trackers (employment-legal's leave and expansion pairs) and remaining form 1 trackers (corporate-legal's three, regulatory-legal's two) follow once the core surface is validated.
