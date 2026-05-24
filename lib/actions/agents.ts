@@ -874,7 +874,7 @@ export async function forkAgentFromConversationAction(
   const { data: source } = await supabase
     .from("agents")
     .select(
-      "id, organization_id, department_id, name, description, system_prompt, model, tools_enabled, type, is_template, is_active, deleted_at, departments(slug)",
+      "id, organization_id, department_id, name, description, system_prompt, model, tools_enabled, default_output_format, type, is_template, is_active, deleted_at, departments(slug)",
     )
     .eq("id", source_agent_id)
     .maybeSingle();
@@ -929,7 +929,12 @@ export async function forkAgentFromConversationAction(
       is_template: false,
       forked_from_agent_id: source.id,
       tools_enabled: sourceTools,
-      default_output_format: "markdown" as const,
+      // Preserve the source's default output format. Today every Canonical
+      // and C4L source uses markdown, so this is functionally a no-op —
+      // but hardcoding "markdown" would silently flip the fork if a future
+      // source ships with a different default. Caught during polish #12's
+      // fork behavior verification.
+      default_output_format: source.default_output_format ?? "markdown",
       created_by: user.id,
     })
     .select("id, system_prompt, model")

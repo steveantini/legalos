@@ -209,10 +209,19 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
 
 11. **Agents/ directory listing cleanup in docs/C4L_DEFERRED_SKILLS.md.** During polish #8's directory-convention investigation (commit 29e51a4), Claude Code surfaced that lines 247-258 of `docs/C4L_DEFERRED_SKILLS.md` incorrectly list `privacy-legal/agents/` among plugins with agents/ directories — privacy-legal does NOT have an agents/ directory per the verified investigation. The list also predates the ip-legal and litigation-legal audits, so it's missing entries on the "with agents/" side. Quick factual cleanup; same shape as the corrections in commit 29e51a4. The corrected list should reflect verified state: 7 of 9 plugins have agents/ (commercial-legal, product-legal, corporate-legal, employment-legal, regulatory-legal, ip-legal, litigation-legal); 2 of 9 do NOT have agents/ (privacy-legal, ai-governance-legal). Worth fixing before polish #13 (doc refresh) starts since `docs/C4L_DEFERRED_SKILLS.md` is the authoritative reference doc.
 
-12. **C4L agent fork behavior — verify and decide.** Canonical agents have a fork affordance (user copies template into personal "my agent"). Unclear whether the fork affordance works on C4L agents today, is hidden, or rejects at the server. Need to:
-    - Investigate current behavior (read-only)
-    - Decide whether C4L agents should be forkable (likely yes — fork creates new row, doesn't modify upstream content)
-    - Implement fix if needed (likely small — UI affordance gating + possibly a clarifying "Forked from Claude for Legal" badge so users understand lineage)
+12. **C4L agent fork behavior — VERIFIED and intentional.** Investigated in this session: the fork affordance (`Customize` button in the chat surface for non-admins) renders and works correctly for C4L agents today, symmetric with Canonical template fork behavior.
+
+    **Verified end-to-end behavior on a C4L fork:**
+    - The Customize button renders for non-admin viewers on C4L agents (admins see Edit, which opens the hybrid-edit form instead).
+    - The server action `forkAgentFromConversationAction` allows the fork — no source_origin filter; C4L templates pass the same validation gate as Canonical templates.
+    - The forked copy lands in the user's My Agents bucket with `is_template=false`, `created_by=<userId>`, `source_origin=NULL` (the C4L provenance is intentionally severed at fork time), and `forked_from_agent_id=<original-C4L-id>` (DB-level lineage preserved).
+    - The forked copy is fully editable by the owner — no hybrid-edit constraints apply because it's now a personal agent, not a C4L-managed one.
+
+    **Design clarification — admin-vs-non-admin-forking inversion is intentional, not a bug.** Admins editing a C4L agent in-place are constrained by hybrid-edit (only model, references, and export_format are editable; name, description, system_prompt, web_search are locked because they're managed upstream by Anthropic). Non-admins forking the same C4L agent get full edit freedom on their personal copy. This looks like an inversion ("non-admins have more flexibility than admins?") but is correct by design: the hybrid-edit constraint exists to preserve upstream-managed C4L content while it's still C4L-managed; forking explicitly opts out of that management and creates an independent personal artifact. Admins who want full edit freedom can also fork — the affordance is available to them too via the same path.
+
+    **Latent default_output_format bug fixed in passing.** The fork action was hardcoding `default_output_format: "markdown"` instead of preserving the source's value. Today this is a no-op (all Canonical and C4L sources use markdown), but it would silently flip on any future non-markdown source. Fixed in commit [sha pending] to use `source.default_output_format ?? "markdown"`. Independent of the C4L question; surfaced by the investigation.
+
+    Polish #12 closes by verification — no behavioral fix required for the fork affordance itself.
 
 13. **Documentation and external-facing copy refresh** (final item, by design):
     - `README.md` — currently reflects an earlier product state
