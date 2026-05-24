@@ -244,16 +244,18 @@ These belong in a future Option B integration path using C4L's Managed Agents AP
 
 The sync pipeline (Shape B, future) should NOT auto-import `agents/` content. If/when cookbook agents are wired in, they get their own ingestion path — likely a separate command or workflow surface, not the department-agent tier.
 
-Plugins with `agents/` content observed (silently skipped by the import script):
+Plugins WITH `agents/` content observed (silently skipped by the import script — 7 of 9 audited plugins; verified polish #11, 2026-05-24):
 - commercial-legal/agents/ (renewal-watcher, deal-debrief, playbook-monitor, …)
-- privacy-legal/agents/
 - product-legal/agents/
 - corporate-legal/agents/
 - employment-legal/agents/
 - regulatory-legal/agents/
+- ip-legal/agents/
+- litigation-legal/agents/
 
-Plugins WITHOUT `agents/` directories:
-- ai-governance-legal — first plugin audited without one. The `policy-monitor` skill's description mentions "on a recurring schedule" which would normally indicate a sibling scheduled-agent in `agents/`, but the directory isn't present. Possibly a forthcoming addition C4L hasn't shipped yet; possibly intentional (run on-demand only for v1).
+Plugins WITHOUT `agents/` directories (2 of 9 audited plugins):
+- privacy-legal — no agents/ directory shipped
+- ai-governance-legal — no agents/ directory shipped. The `policy-monitor` skill's description mentions "on a recurring schedule" which would normally indicate a sibling scheduled-agent in `agents/`, but the directory isn't present. Possibly a forthcoming addition C4L hasn't shipped yet; possibly intentional (run on-demand only for v1).
 
 The presence of an `agents/` directory is NOT universal across C4L plugins. The sync pipeline should not assume it.
 
