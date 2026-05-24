@@ -169,7 +169,7 @@ Info icon top-right on every agent card (hover-reveal). Click to open a slide-ov
 
 The fresh chat session opens at the start of the polish phase. The plan is to work through the polish list in order of user impact, with rail collapsibility first.
 
-### Polish list (13 items, in priority/sequence order)
+### Polish list (14 items, in priority/sequence order)
 
 1. **Rail group collapsibility** — Knowledge / Workflows / Integrations / Help / possibly Departments. Increasingly important with 13 departments in the rail. THIS IS THE NEXT ITEM TO WORK ON. Start here.
 
@@ -195,7 +195,13 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
 
 8. **Data/ directory note** — concept review when we hit it. Operator wants an explanation of what `data/` directories in C4L plugins are for and how they relate to legalOS architecture.
 
-9. **Out-of-scope C4L plugins decision** — law-student (13 skills, academic), legal-clinic (16 skills, clinical), legal-builder-hub (10 skills, meta/registry), external_plugins/cocounsel-legal (Thomson Reuters partner). Substantive content but doesn't fit the department-agent UX. Decide whether they slot into Knowledge tier, Marketplace, an admin surface, or get their own product surface entirely.
+9. **Out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) — DEFERRED pending broader infrastructure.** Resolved via strategic discussion in this session:
+
+   - **Product positioning:** legalOS is broader than in-house counsel — academic, clinical, and other legal segments are in scope long-term, with the option to pare focus down later if data justifies it.
+   - **The four plugins map to two different futures.** law-student (13 skills: bar prep, case briefing, IRAC grading, etc.) and legal-clinic (16 skills: clinic intake, case memos, pro bono workflows, etc.) are user-segment content that belongs in a NEW content tier — a separate rail group with a separate entity type, NOT additional departments. Mixing academic/clinical content into the Departments group would dilute both the in-house product and the academic/clinical surface. legal-builder-hub is meta/registry content (a community-skill marketplace) that would surface alongside admin tooling. cocounsel-legal is a Thomson Reuters MCP partner integration that belongs in the Integrations tier.
+   - **Why deferred:** All four require infrastructure that doesn't exist today. The non-department content tier (new rail group, new entity type with its own schema, RLS policies, launchpad-equivalent surface, agent attribution model) is real work — disproportionate to host 29 skills from two C4L plugins with zero current users in those segments.
+   - **Trigger conditions for revisiting:** Either (a) the first real user from an academic or clinical segment signs up and demonstrates demand, OR (b) the broader product strategy explicitly requires marketing-visible content for those segments before users arrive.
+   - **Documented in the deferred-work section:** Non-department content tier (new rail group + entity type) for academic/clinical/external C4L content. See "Deferred work explicitly punted" below.
 
 10. **Workspace hero refinement:**
     - Title size: reduce slightly. Current size feels too large with time. Specific amount TBD at the polish moment (iterative, not single-shot).
@@ -216,6 +222,8 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
     - Any external-facing copy
     
     Goal: someone landing on the project gets an accurate, well-digested picture of what legalOS is right now. Internal docs and external copy should both be truthful, current, and crafted with the same care as the product itself.
+
+14. **Build a real sequenced roadmap from the deferred-work list.** Once polish #1–#13 are complete and docs/external copy reflect the current state (polish #13), the existing "Deferred work explicitly punted" list (15+ items, unprioritized) becomes the input for a real sequenced roadmap — the kind of professional, maintainer-delightful roadmap top-line product organizations maintain. Items get grouped by impact tier (high-value surfaces like Tracker-UI and Workflows; mid-value items like sync pipeline Shape B and the skill library; lower-priority strategic decisions; small maintenance items). Each tier gets explicit rationale, dependencies, and rough sequencing. The outcome: a roadmap a new engineer or stakeholder can read and understand the path forward at a glance, instead of an unorganized deferred-work pile in limbo. This is the final polish item by design — it depends on having clear, current documentation (polish #13) and a complete polish-list resolution (everything before it) so the inputs to the roadmap are accurate.
 
 ### Sequencing decision locked
 
@@ -285,6 +293,7 @@ Things explicitly out of scope right now but documented for the future:
 - Admin configuration surface for cold-start-interview + customize
 - Admin workspace management surface for matter-workspace
 - Workflows surface for router skills
+- Non-department content tier (new rail group + new entity type) for academic, clinical, and external C4L content (law-student, legal-clinic plugins and similar future content). Resolved deferral from polish #9 — separate rail group with separate entity type, distinct from the Departments group. See polish #9 entry for full context.
 
 ## How a fresh chat opens
 
