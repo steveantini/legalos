@@ -26,7 +26,6 @@ This is open-source software you can fork and run for your own legal department,
 - [`CLAUDE.md`](./CLAUDE.md) — coding conventions and AI-assistant rules.
 - [`DECISION_LOG.md`](./DECISION_LOG.md) — architectural decisions and their reasoning.
 - [`CHANGELOG.md`](./CHANGELOG.md) — version history.
-- [`skills-checklist.md`](./skills-checklist.md) — which skill files live in `.claude/skills/` per phase.
 
 ## Future / Backlog
 

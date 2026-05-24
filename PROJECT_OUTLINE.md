@@ -126,7 +126,7 @@ Department access is independent of role. A user has zero or more rows in the `u
 - Create Supabase project (dev). Enable auth. No tables yet.
 - Deploy to Vercel. Verify preview + prod pipelines.
 - Port theme presets (Carbon, Modern, Minimal) from the prior `agent-launchpad-template` using Tailwind v4's `@theme` directive and CSS variables.
-- Copy Phase 0 skills into `.claude/skills/` (see `skills-checklist.md`).
+- Copy Phase 0 skills into `.claude/skills/`.
 - Seed `config/site.ts` with placeholder branding.
 
 **Definition of done:** Push to `main`; site loads on Vercel; a health-check route returns 200; `CLAUDE.md` renders correctly on GitHub.
