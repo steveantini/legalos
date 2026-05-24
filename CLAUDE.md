@@ -93,7 +93,7 @@ legalos/
 │   └── skills/                   # Routing rules for Claude Code (see Skill Routing Rules below)
 ├── docs/
 │   ├── CHATBOT_HANDOFF.md        # Bootstrap doc for fresh chat sessions
-│   ├── AGENT_ARCHITECTURE.md     # Native agent architecture reference
+│   ├── AGENT_ARCHITECTURE.md     # Redirect stub (see file for current sources)
 │   ├── C4L_DEFERRED_SKILLS.md    # C4L skills filtered to deferral surfaces
 │   ├── DEMO_ACCESS_SCOPING.md    # Demo access spec (D-049)
 │   └── design/aperture/          # Design artifacts (historical reference)
