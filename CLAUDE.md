@@ -49,7 +49,7 @@ Shortcuts are forbidden. Build for the long term, every time.
 | Database | Supabase (PostgreSQL) with Row-Level Security | Supabase Cloud |
 | Auth | Supabase Auth (magic link) | Supabase Cloud |
 | AI / LLM | Anthropic API (Claude) for native agents; external links for Gemini Gems, watsonX, etc. | Server-side only |
-| Analytics | Supabase tables; localStorage fallback in Phase 1 | Supabase Cloud |
+| Analytics | localStorage today; Supabase promotion deferred per D-010 | Supabase Cloud |
 
 ### Directory Structure
 
