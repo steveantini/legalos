@@ -81,7 +81,7 @@ export function LockedDepartmentDialog({
           onClose();
         }
       }}
-      className="rounded-2xl bg-background p-0 shadow-2xl backdrop:bg-foreground/20 backdrop:backdrop-blur-[2px] open:animate-in open:fade-in-0 open:zoom-in-95 open:duration-150"
+      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-background p-0 shadow-2xl backdrop:bg-foreground/20 backdrop:backdrop-blur-[2px] open:animate-in open:fade-in-0 open:zoom-in-95 open:duration-150"
     >
       <div className="flex w-[min(400px,90vw)] flex-col items-center gap-5 px-8 py-9 text-center">
         <LockIcon
