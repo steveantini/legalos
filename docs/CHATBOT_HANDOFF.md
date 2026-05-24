@@ -169,7 +169,7 @@ Info icon top-right on every agent card (hover-reveal). Click to open a slide-ov
 
 The fresh chat session opens at the start of the polish phase. The plan is to work through the polish list in order of user impact, with rail collapsibility first.
 
-### Polish list (14 items, in priority/sequence order)
+### Polish list (15 items, in priority/sequence order)
 
 1. **Rail group collapsibility** — Knowledge / Workflows / Integrations / Help / possibly Departments. Increasingly important with 13 departments in the rail. THIS IS THE NEXT ITEM TO WORK ON. Start here.
 
@@ -223,7 +223,9 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
     
     Goal: someone landing on the project gets an accurate, well-digested picture of what legalOS is right now. Internal docs and external copy should both be truthful, current, and crafted with the same care as the product itself.
 
-14. **Build a real sequenced roadmap from the deferred-work list.** Once polish #1–#13 are complete and docs/external copy reflect the current state (polish #13), the existing "Deferred work explicitly punted" list (15+ items, unprioritized) becomes the input for a real sequenced roadmap — the kind of professional, maintainer-delightful roadmap top-line product organizations maintain. Items get grouped by impact tier (high-value surfaces like Tracker-UI and Workflows; mid-value items like sync pipeline Shape B and the skill library; lower-priority strategic decisions; small maintenance items). Each tier gets explicit rationale, dependencies, and rough sequencing. The outcome: a roadmap a new engineer or stakeholder can read and understand the path forward at a glance, instead of an unorganized deferred-work pile in limbo. This is the final polish item by design — it depends on having clear, current documentation (polish #13) and a complete polish-list resolution (everything before it) so the inputs to the roadmap are accurate.
+14. **Agent placement audit — verify every Canonical agent is in the right department under the current 13-department taxonomy.** During polish #7's agent census investigation, the AI Addenda agent originally raised as a candidate for migration from Commercial to AI Governance was confirmed not to exist today (a "Blank Agent" template exists in Commercial, but no AI Addenda agent). No current misplacements were identified. This polish item formalizes the audit as a recurring discipline: whenever new Canonical agents are authored, or when the C4L plugin landscape shifts, re-run the agent census query (see commit history for the SQL) and confirm placement is still correct. Today: no action needed. Future: re-audit whenever taxonomy or agent inventory changes meaningfully.
+
+15. **Build a real sequenced roadmap from the deferred-work list.** Once polish #1–#14 are complete and docs/external copy reflect the current state (polish #13), the existing "Deferred work explicitly punted" list (15+ items, unprioritized) becomes the input for a real sequenced roadmap — the kind of professional, maintainer-delightful roadmap top-line product organizations maintain. Items get grouped by impact tier (high-value surfaces like Tracker-UI and Workflows; mid-value items like sync pipeline Shape B and the skill library; lower-priority strategic decisions; small maintenance items). Each tier gets explicit rationale, dependencies, and rough sequencing. The outcome: a roadmap a new engineer or stakeholder can read and understand the path forward at a glance, instead of an unorganized deferred-work pile in limbo. This is the final polish item by design — it depends on having clear, current documentation (polish #13) and a complete polish-list resolution (everything before it) so the inputs to the roadmap are accurate.
 
 ### Sequencing decision locked
 
