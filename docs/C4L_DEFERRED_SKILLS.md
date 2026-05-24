@@ -259,28 +259,43 @@ The presence of an `agents/` directory is NOT universal across C4L plugins. The 
 
 ## Note on C4L `data/` directories (observed in employment-legal)
 
-The `employment-legal` plugin contains a `data/` directory at its top level (alongside `skills/`, `agents/`, `hooks/`, etc.). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/` — `data/` content is silently skipped. The `data/` directory likely contains static reference data the plugin's skills load at runtime (jurisdictional rule tables, escalation policies, etc.). Out of scope for Option A (SKILL.md → agent row import); relevant for the future sync pipeline (Shape B) and any eventual workflow-or-skill-library surface that would need to make this data accessible.
+The `employment-legal` plugin contains a `data/` directory at its top level. **Verified content (polish #8 investigation, 2026-05-24): a single `.gitkeep` file.** The directory is an empty placeholder scaffold — likely intended for future static data tables (jurisdictional rule indices, escalation matrices, etc.), but currently unpopulated.
 
-Other plugins audited so far (commercial-legal, privacy-legal, product-legal, corporate-legal) did NOT have `data/` directories. employment-legal is the first.
+The import script silently skips this directory regardless of contents. No legalOS action needed today; revisit only if Anthropic populates `data/` in a future C4L release. Even then, the question would be whether the data belongs in an admin-configuration surface or shipped alongside the plugin's skills as runtime context — not whether legalOS imports the data files as agents.
+
+Other plugins audited (commercial-legal, privacy-legal, product-legal, corporate-legal, regulatory-legal, ai-governance-legal, ip-legal, litigation-legal) do NOT have `data/` directories. employment-legal is the only plugin with this scaffold.
 
 Sync pipeline note: when Shape B is built, the import logic should explicitly skip `data/` (and `hooks/` and other non-skill directories) rather than relying on the current "only read from skills/" implementation detail.
 
-## Note on C4L `logs/` directories (observed in ip-legal)
+## Note on C4L `logs/` directories (observed in ip-legal and commercial-legal)
 
-The `ip-legal` plugin contains a `logs/` directory at its top level (alongside `skills/`, `agents/`, `hooks/`). The import script (`scripts/import-c4l-plugin.ts`) reads only from `skills/` — `logs/` content is silently skipped, same as `agents/`, `data/`, and other non-skill directories.
+Both `ip-legal` and `commercial-legal` ship a `logs/` directory at their top level. **Verified content (polish #8 investigation, 2026-05-24): a single `.gitkeep` file in each.** Empty placeholder scaffolds — likely intended for runtime activity logs that skills would write into during plugin execution, but currently unpopulated.
 
-The `logs/` directory likely contains runtime logs the plugin's skills write to during execution (per-matter or per-skill activity logs). Out of scope for Option A (SKILL.md → agent row import); relevant for the future sync pipeline (Shape B) which should explicitly skip all non-skill directories rather than relying on the current "only read from skills/" implementation detail.
+The import script silently skips these directories. No legalOS action needed — runtime logs are inherently per-execution artifacts that wouldn't translate to a web-app database anyway. legalOS doesn't share a filesystem with C4L plugins, so any logs C4L might generate at runtime would never reach legalOS.
 
-Other plugins audited so far (commercial-legal, privacy-legal, product-legal, corporate-legal, employment-legal, regulatory-legal, ai-governance-legal) did NOT have `logs/` directories. ip-legal is the first.
+Other plugins audited (privacy-legal, product-legal, corporate-legal, employment-legal, regulatory-legal, ai-governance-legal, litigation-legal) do NOT ship `logs/` directories. Only ip-legal and commercial-legal have this scaffold.
 
 Summary of non-skill plugin-level directories encountered:
 - `agents/` — scheduled-agent cookbooks (most plugins; not in ai-governance-legal)
-- `hooks/` — plugin lifecycle hooks (most plugins)
-- `references/` — shared reference content (most plugins)
-- `data/` — static data tables (employment-legal only)
-- `logs/` — runtime activity logs (ip-legal observed here for the first time)
+- `hooks/` — plugin lifecycle hook manifests (most plugins; verified empty `{"hooks": {}}` in audited samples)
+- `references/` — shared markdown reference docs loaded by skills as legal context (privacy-legal, product-legal, ai-governance-legal — 3 of 9)
+- `data/` — empty placeholder scaffold, `.gitkeep` only (employment-legal only — not "static data tables" as previously speculated)
+- `logs/` — empty placeholder scaffold, `.gitkeep` only (ip-legal and commercial-legal — runtime artifacts, never populated at rest)
 
 Sync pipeline note: when Shape B is built, the import logic should explicitly enumerate non-skill directories to skip rather than implicitly relying on "only read from skills/".
+
+## Note on C4L `references/` directories (observed in privacy-legal, product-legal, ai-governance-legal)
+
+Three plugins ship a `references/` directory at their top level (privacy-legal, product-legal, ai-governance-legal). **Verified content (polish #8 investigation, 2026-05-24): plain markdown documents (NO YAML frontmatter)** that skills load via the Read tool to inject up-to-date legal context into their responses. Example: `privacy-legal/references/currency-watch.md` documents current state-of-the-law for COPPA, state privacy laws, cross-border transfers, FTC enforcement trends, etc., with a "Last verified" date and a staleness-check protocol.
+
+**IMPORTANT distinction from Pattern #5 (reference/framework skills):**
+
+- **`references/` directory** — plain markdown documents at the plugin top level. NO frontmatter. NOT skills. Loaded by skills as shared legal context (think: "the current state of the law on this topic"). Lives outside `skills/`.
+- **Pattern #5 reference/framework skills** — skill files at `skills/<name>/SKILL.md` with `user-invocable: false` in their frontmatter (e.g., `internal-investigation`, `international-expansion`, `gap-surfacer`). ARE skills, just not user-invocable. Loaded BY other skills as shared workflow framework. Lives inside `skills/`.
+
+Different artifacts, different locations, different roles. Both get silently skipped by the import script (which only reads user-invocable skills from `skills/`), but they're conceptually distinct.
+
+**Where references/ should land in legalOS:** No current home. Candidate for a future Knowledge tier (per `docs/CHATBOT_HANDOFF.md`'s mention of Research/Vault/Sources surfaces) — references could become department-scoped shared context that any agent in a department could load. Until the Knowledge tier exists, defer.
 
 ## Note on C4L plugin-level content-storage subdirectories (observed in litigation-legal)
 
@@ -293,17 +308,23 @@ Unlike the other non-skill directories observed so far:
 - `data/` — static data tables (jurisdictional rules, etc.)
 - `logs/` — runtime activity logs
 
-…these new directories are **domain-data skeletons**. They mirror the runtime layout (e.g., `~/.claude/plugins/config/claude-for-legal/litigation-legal/matters/<slug>/`) where user-generated content lives once the plugin is active. The in-plugin versions are likely seed/template skeletons that get copied into the user's runtime config on first run.
+…these directories are **content-storage scaffolding**. They mirror the runtime layout (e.g., `~/.claude/plugins/config/claude-for-legal/litigation-legal/matters/<slug>/`) where user-generated work product lives once the plugin is active. **Verified content (polish #8 investigation, 2026-05-24):** each subdirectory ships a populated `_README.md` documenting the runtime workflow (slug conventions, file layout per matter, skill→file write contracts); `matters/` additionally ships `_log.yaml` containing a fully-documented portfolio-ledger schema with `matters: []` as an empty seed array. The litigation-legal skills (matter-intake, matter-update, matter-close, demand-intake, demand-draft, oc-status, etc.) write INTO these directories at runtime.
 
-This is the first plugin we've observed with this layout. The pattern matters for the future sync pipeline (Shape B): when copying plugin content into the legalOS database, these domain-data directories must NOT be imported as content — they're scaffolding for runtime, not authored content. The sync pipeline should enumerate non-skill directories to skip explicitly.
+This is the first plugin we've observed with this layout. The pattern matters for the future sync pipeline (Shape B): when copying plugin content into the legalOS database, these content-storage directories must NOT be imported as content — they're scaffolding for runtime, not authored content. The sync pipeline should enumerate non-skill directories to skip explicitly.
+
+**High-value design reference: `litigation-legal/matters/_log.yaml`.** The matters/ directory ships a populated `_log.yaml` file containing a ~50-line schema definition with `matters: []` as an empty seed array. The schema documents every field a Matter row needs (id, name, type, role, counterparty, jurisdiction, status, stage, source, outside_counsel sub-object, conflicts sub-object with override flag, risk, materiality, exposure_range, internal_owners, legal_hold sub-object with custodians/last_refresh/next_refresh/released, related_matters, opened, next_deadline, last_updated, path).
+
+This is the single most valuable design reference we've encountered across nine plugin imports. When the tracker-UI surface eventually gets built (the litigation matter portfolio is the leading form-3 tracker-UI migration candidate per the ranked list later in this doc), this schema is essentially a free spec for the Matter data model. Worth referencing directly during that future work rather than reinventing the structure.
+
+The accompanying `_README.md` files in all four content-storage directories document the runtime workflow (slug conventions, file layout per matter, skill→file write contracts). These are first-class plugin documentation, not filesystem placeholders.
 
 Summary of non-skill plugin-level directories encountered across all 9 audited plugins:
 - `agents/` — scheduled-agent cookbooks (most plugins; absent in ai-governance-legal)
-- `hooks/` — plugin lifecycle hooks (most plugins; absent in ai-governance-legal and litigation-legal)
-- `references/` — shared reference content (most plugins; absent in ai-governance-legal and litigation-legal)
-- `data/` — static data tables (employment-legal only)
-- `logs/` — runtime activity logs (ip-legal only)
-- Domain-data skeletons — `demand-letters/`, `inbound/`, `matters/`, `oc-status/` (litigation-legal only)
+- `hooks/` — plugin lifecycle hook manifests (most plugins; absent in ai-governance-legal and litigation-legal; verified empty `{"hooks": {}}` in audited samples)
+- `references/` — shared markdown reference docs loaded by skills as legal context (privacy-legal, product-legal, ai-governance-legal — 3 of 9; conceptually distinct from Pattern #5 reference/framework SKILL files, see dedicated section above)
+- `data/` — empty placeholder scaffold, `.gitkeep` only (employment-legal only)
+- `logs/` — empty placeholder scaffold, `.gitkeep` only (ip-legal and commercial-legal — 2 of 9)
+- Content-storage scaffolding — `demand-letters/`, `inbound/`, `matters/`, `oc-status/` (litigation-legal only); contains documented `_README.md` files and a fully-schema'd `_log.yaml` ledger seed — work-product storage that the litigation-legal skills write into at runtime
 
 ## Pattern note (revised after litigation-legal import)
 
