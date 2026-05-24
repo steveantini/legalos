@@ -162,6 +162,21 @@ Why: broken intermediate states make `git bisect` unreliable, complicate PR revi
 
 ---
 
+## Copy Conventions
+
+**Em-dashes are banned in user-facing copy.** Em-dashes have become a recognizable AI-authored signal, and any credibility cost on a customer-facing surface compounds. Use commas, periods, parentheses, or semicolons instead. The constraint applies to:
+
+- Marketing pages under `app/(marketing)/`
+- The landing surface at `app/page.tsx` and its components
+- In-product copy in `components/workspace/`, `components/chat/`, `components/admin/`, etc.
+- Any string literal that renders to a user
+
+Internal documentation (`CLAUDE.md`, `PROJECT_OUTLINE.md`, `DECISION_LOG.md`, `CHANGELOG.md`, `docs/CHATBOT_HANDOFF.md`, etc.) and code comments may use em-dashes, but sparingly.
+
+A comprehensive em-dash sweep of existing external-facing copy is tracked as a polish-list item.
+
+---
+
 ## Environment & Configuration
 
 - **Environment variables:** `UPPER_SNAKE_CASE`. Client-exposed vars must be prefixed `NEXT_PUBLIC_`; all others stay server-only.
