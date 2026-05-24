@@ -153,7 +153,7 @@ export function CollapsibleRailGroup({
         aria-expanded={!collapsed}
         aria-controls={contentId}
         className={cn(
-          "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-left transition-colors hover:[&_span]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-left transition-colors duration-release ease-release motion-reduce:transition-none hover:duration-hover hover:ease-soft hover:[&_span]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         )}
       >
         <ChevronDownIcon
@@ -164,7 +164,7 @@ export function CollapsibleRailGroup({
           strokeWidth={2}
           aria-hidden="true"
         />
-        <span className={cn(captionLabel, "transition-colors")}>
+        <span className={cn(captionLabel, "transition-colors duration-release ease-release motion-reduce:transition-none group-hover:duration-hover group-hover:ease-soft")}>
           {caption}
         </span>
       </button>

@@ -56,7 +56,7 @@ export function WorkspaceProfileBlock({
           <button
             type="button"
             aria-label={`Account menu for ${displayName}`}
-            className="mt-auto flex w-full items-center gap-[10px] rounded-md border-t border-hairline-strong px-2 pb-[2px] pt-[14px] text-left transition-colors hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="mt-auto flex w-full items-center gap-[10px] rounded-md border-t border-hairline-strong px-2 pb-[2px] pt-[14px] text-left transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
         }
       >

@@ -130,7 +130,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
 ];
 
 const lockedLink =
-  "flex w-full items-center justify-between rounded-lg px-3 py-[7px] text-left text-[13.5px] font-[450] tracking-[-0.005em] text-muted-foreground transition-colors duration-150 hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "flex w-full items-center justify-between rounded-lg px-3 py-[7px] text-left text-[13.5px] font-[450] tracking-[-0.005em] text-muted-foreground transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export async function WorkspaceRail({
   departments,
@@ -189,7 +189,7 @@ export async function WorkspaceRail({
       {/* Brand mark — clicking returns to /workspace landing. */}
       <Link
         href="/workspace"
-        className="flex items-center gap-[10px] rounded-md px-2 pt-[2px] text-[15px] font-semibold tracking-[-0.015em] transition-colors hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="flex items-center gap-[10px] rounded-md px-2 pt-[2px] text-[15px] font-semibold tracking-[-0.015em] transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <span
           aria-hidden
