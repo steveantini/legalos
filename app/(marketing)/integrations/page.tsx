@@ -10,7 +10,7 @@ export default function IntegrationsPage() {
   return (
     <MarketingComingSoon
       label="Integrations"
-      description="The systems legalOS connects to — contract lifecycle managers, document management, calendar, email, research. Configure once; agents read and write across your stack."
+      description="The systems legalOS will connect to, coming as the integrations surface is built out. Until then, agents work inside legalOS rather than across your wider stack."
     />
   );
 }

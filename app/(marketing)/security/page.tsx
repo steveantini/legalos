@@ -10,7 +10,7 @@ export default function SecurityPage() {
   return (
     <MarketingComingSoon
       label="Security"
-      description="How legalOS handles your data — encryption, access control, audit trails, hosting, and the compliance posture that in-house legal teams need from their tools."
+      description="How legalOS protects your data and respects your operational requirements. The full security posture, covering encryption, access control, hosting, audit, and compliance, will be detailed here as it's formalized."
     />
   );
 }
