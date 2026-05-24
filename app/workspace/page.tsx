@@ -28,7 +28,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  *     subline shape as welcome but drops the "Welcome to" prefix.
  *
  * The subline is identical default copy for both variants ("Your
- * team's agents, knowledge, matters, and resources, all in one
+ * team's departments, knowledge, workflows, and integrations, all in one
  * place."), but is overridden in the no-access branch by the
  * mailto-request-access CTA. The override now triggers on
  * `accessibleCount === 0` (Session 29) rather than `deptCount === 0`

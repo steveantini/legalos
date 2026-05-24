@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * the small "WORKSPACE" caption label and the bolded-phrase parser.
  *
  * Typography matches the landing's hero:
- *   - h1: Inter Tight 52px / 400 / -0.03em / 1.02 / max 22ch / ink
+ *   - h1: Inter Tight 44px / 400 / -0.03em / 1.02 / max 22ch / ink
  *   - subline: 14.5px / 1.5 / max 56ch / mute
  *
  * Description is nullable in the schema; renders the h1 alone when null.
@@ -30,7 +30,7 @@ export function DepartmentHeader({
   return (
     <header className="flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="max-w-[22ch] text-[52px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+        <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
           {name}
         </h1>
         {description ? (

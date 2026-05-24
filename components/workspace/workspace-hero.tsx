@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
  *
  * Both variants share the SAME default subline:
  *
- *     "Your team's agents, knowledge, matters, and resources, all in one place."
+ *     "Your team's departments, knowledge, workflows, and integrations, all in one place."
  *
  * The `subline` prop overrides the default when provided — used by
  * the workspace landing's empty-departments branch to swap in the
@@ -30,13 +30,13 @@ import type { ReactNode } from "react";
  */
 
 const DEFAULT_SUBLINE =
-  "Your team's agents, knowledge, matters, and resources, all in one place.";
+  "Your team's departments, knowledge, workflows, and integrations, all in one place.";
 
 const captionLabel =
   "mb-[14px] font-mono text-[11px] uppercase tracking-[0.16em] text-primary";
 
 const headingClass =
-  "max-w-[28ch] text-[52px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground";
+  "max-w-[28ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground";
 
 const sublineClass =
   "mt-[14px] max-w-[56ch] text-[14.5px] leading-[1.5] text-muted-foreground";
