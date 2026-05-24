@@ -4,7 +4,7 @@ This file is the bootstrap document a fresh chat session reads to come up to spe
 
 ## What legalOS is
 
-legalOS is an AI-native operating system for in-house legal departments. Next.js 16 (App Router) + Supabase (Postgres with RLS) + Anthropic API. Production-shape architecture, pre-launch product.
+legalOS is an AI-native operating system for legal teams. Next.js 16 (App Router) + Supabase (Postgres with RLS) + Anthropic API. Production-shape architecture, pre-launch product.
 
 Repo: `/Users/stevenantini/Projects/legalos`. Sibling repos used as reference material:
 - `/Users/stevenantini/Projects/claude-for-legal` (Anthropic's open-source Claude for Legal — the source of C4L agents imported into legalOS)
@@ -67,7 +67,7 @@ When proposing options, prefer the option this standard would choose, and explai
 **Code conventions:**
 - TypeScript throughout.
 - Server Components by default; Server Actions for mutations.
-- Cache-wrapped helpers in `lib/auth/access.ts` (the 820-line access layer).
+- Cache-wrapped helpers in `lib/auth/access.ts` (the project's primary access layer).
 - shadcn/ui components, Tailwind, no per-department color treatments.
 - Sort_order on departments: Operations and General Tools always last in that order. New substantive practice-area departments slot in before Operations; Operations and General Tools shift their sort_order accordingly.
 
@@ -165,35 +165,29 @@ Info icon top-right on every agent card (hover-reveal). Click to open a slide-ov
 - **Sync pattern:** Manual import (Shape A) validated; future Shape B (GitHub Action auto-PR on upstream changes) deferred until manual is proven
 - **Sort_order discipline:** Two-phase shuffles when reordering (temp values → final values) to preserve logical uniqueness even though no UNIQUE constraint exists on the column
 
-## What's in flight — POLISH PHASE STARTS HERE
+## What's in flight — POLISH PHASE CLOSING
 
-The fresh chat session opens at the start of the polish phase. The plan is to work through the polish list in order of user impact, with rail collapsibility first.
+Polish #1 through #13 are closed; the polish phase has substantially completed its content-quality sweep across product UX, doc accuracy, and architectural decisions. Items #14 through #17 remain forward-looking (recurring discipline, iterative work, retroactive sweep, final roadmap construction). A fresh chat session opens at this post-content-polish vantage point with three remaining substantive items (#15, #16, #17) plus the recurring #14.
 
 ### Polish list (17 items, in priority/sequence order)
 
-1. **Rail group collapsibility** — Knowledge / Workflows / Integrations / Help / possibly Departments. Increasingly important with 13 departments in the rail. THIS IS THE NEXT ITEM TO WORK ON. Start here.
+1. **Rail group collapsibility — CLOSED via commits d0cce05 + 156930c.** Sibling CollapsibleRailGroup component parallel to the launchpad pattern; ChevronDownIcon, 200ms duration, force-expand-when-active as default-not-lock (tri-state userToggle resolution: user-toggled wins; else force-expand-when-active applies; else persisted preference). isLeafActive helper in lib/workspace/rail-active.ts. railGroupsCollapsedKey preference. motion-reduce:transition-none and aria-controls retrofitted on both surfaces.
 
-2. **Card affordance consistency between department and agent cards.** Resolved in commit [sha pending] via Option (a): the pencil-icon visibility on department cards was brought into parity with the agent-card kebab visibility model (`opacity-40` at rest, brighten on hover, brighten on focus-within, shared bare `transition-opacity`). Trigger-shape symmetry (pencil vs. kebab) was deliberately NOT pursued because the department card has exactly one admin action today (Edit description), making a kebab-with-one-item a UX regression vs. the direct pencil affordance (2 clicks vs. 1).
+2. **Card affordance consistency between department and agent cards.** Resolved in commit cfb8174 via Option (a): the pencil-icon visibility on department cards was brought into parity with the agent-card kebab visibility model (`opacity-40` at rest, brighten on hover, brighten on focus-within, shared bare `transition-opacity`). Trigger-shape symmetry (pencil vs. kebab) was deliberately NOT pursued because the department card has exactly one admin action today (Edit description), making a kebab-with-one-item a UX regression vs. the direct pencil affordance (2 clicks vs. 1).
 
    Future revisit: when a second department admin action lands (e.g., rename department, archive department, manage department agents from the card), the kebab swap becomes the right call — at 2+ actions the kebab earns its weight. Add the second action as part of that future scope; the kebab refactor follows.
 
-3. **Delete-dialog copy mentioning "forked copies are unaffected"** — irrelevant for C4L agents. Tighten the copy or branch by source type.
+3. **Delete-dialog C4L copy — CLOSED via commit 7bfe669.** Three-variant branching by source_origin: Canonical keeps the forked-copies-unaffected reassurance; C4L drops it (sentence-case title "Delete Claude for Legal agent?"); personal agents unchanged. The agent prop type in agent-card.tsx now threads source_origin; isC4L is derived at the dialog level; isAdminMode + isC4L combine to select among three title + body variants.
 
-4. **Composer model picker rejecting C4L agents** — asymmetry with the edit form. Investigate and decide.
+4. **Composer model picker C4L — CLOSED via commit a4ba709.** Mirrored updateAgentAction's permission gate into updateAgentModelAction so admins can change models on C4L (and Canonical) agents from the chat composer, matching the edit-form behavior. Four places in lib/actions/agents.ts now use the same gate vocabulary verbatim (updateAgentAction, updateAgentModelAction, softDeleteAgentAction, restoreAgentAction). Stale doc-comment forecasting this as "deferred to a session that loosens the form action in the same pass" was updated; the deferral has been completed.
 
 5. **Sort_order normalization after C4L filtering — DROPPED as no-op.** Resolved by investigation in this session: sort_order is never rendered in the UI (it's purely an ORDER BY column in `getAgentsForDepartmentLaunchpad`), so the gaps left by soft-deleted C4L rows are invisible to users. Any normalization migration would also be undone by the next C4L re-import — the import script (`scripts/import-c4l-plugin.ts`) reassigns sort_order from `100 + index` on every upsert. Modifying the import script to preserve normalized sort_orders would introduce real branching complexity to a currently-clean idempotent script, for zero observable benefit. If a future feature ever surfaces sort_order visually (drag-handle position pickers, sortable lists, tracker-UI position indicators, etc.), that feature handles normalization in its own scope.
 
 6. **Reorder docs/C4L_DEFERRED_SKILLS.md sections — DROPPED as low-value churn.** The current ordering (per-plugin filter sections, then pattern observations) reads logically even though pattern observations aren't perfectly clustered. Reordering for aesthetic consistency would generate commit churn (the file has been edited in eight separate commits across the C4L import arc) without changing how the doc functions as authoritative reference material. If the doc later grows substantially or someone reading it fresh reports the ordering is confusing, revisit; until then, the structure is fine as-is.
 
-7. **Department description copy consistency** for Commercial, Public Sector, Operations, General Tools. Current state:
-   - Commercial: "Revenue (sell-side) agreements, procurement (buy-side) agreements, Non-Disclosure Agreements, Artificial Intelligence Addenda." (long, formal capitalization breaks the sentence-case voice)
-   - Public Sector: "Government relations, regulatory affairs, public-sector contracts, and policy advocacy." (regulatory affairs now overlaps Regulatory)
-   - Operations: "Internal operations, vendor management, procurement, and corporate transactions." (corporate transactions now overlaps Corporate)
-   - General Tools: "general purpose agentic tools" (only one capitalized; "agentic" reads as internal jargon)
-   
-   Goal: consistent voice, length, sentence case, no overlap with adjacent departments.
+7. **Department description copy consistency — CLOSED via commit 94ddcc0 + migration 0041.** Updated descriptions on four departments to sentence case and removed cross-department overlap: Commercial drops the AI-Addenda mention (no such agent exists; AI work lives in AI Governance regardless); Public Sector removes "regulatory affairs" overlap with Regulatory; Operations reframes around the legal team's own ops (not "corporate transactions"); General Tools replaces "agentic" jargon. Both the migration and the seed file (supabase/seed/0001_org_and_departments.sql) are updated; fresh setups produce same state.
 
-8. **Data/ directory note** — concept review when we hit it. Operator wants an explanation of what `data/` directories in C4L plugins are for and how they relate to legalOS architecture.
+8. **C4L plugin-level directory conventions concept review — CLOSED via commit 29e51a4.** Investigation replaced speculation with verified evidence in docs/C4L_DEFERRED_SKILLS.md. Three factual corrections: data/ (employment-legal) is empty placeholder scaffold, not static data tables; logs/ exists in both ip-legal AND commercial-legal (not just ip-legal); references/ is plain markdown shared-context docs distinct from Pattern #5 reference/framework SKILL files. Litigation-legal's matters/_log.yaml flagged as the single most valuable design reference across all nine plugin imports — a free 50-line schema spec for the Matter portfolio data model that the future tracker-UI work should reference rather than reinvent.
 
 9. **Out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) — DEFERRED pending broader infrastructure.** Resolved via strategic discussion in this session:
 
@@ -202,12 +196,11 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
    - **Why deferred:** All four require infrastructure that doesn't exist today. The non-department content tier (new rail group, new entity type with its own schema, RLS policies, launchpad-equivalent surface, agent attribution model) is real work — disproportionate to host 29 skills from two C4L plugins with zero current users in those segments.
    - **Trigger conditions for revisiting:** Either (a) the first real user from an academic or clinical segment signs up and demonstrates demand, OR (b) the broader product strategy explicitly requires marketing-visible content for those segments before users arrive.
    - **Documented in the deferred-work section:** Non-department content tier (new rail group + entity type) for academic/clinical/external C4L content. See "Deferred work explicitly punted" below.
+   - **Codified in DECISION_LOG.md as D-051** (Out-of-scope C4L plugins deferred pending non-department content tier).
 
-10. **Workspace hero refinement:**
-    - Title size: reduce slightly. Current size feels too large with time. Specific amount TBD at the polish moment (iterative, not single-shot).
-    - Subline copy: current "Your team's agents, knowledge, matters, and resources, all in one place." Up for review to better reflect the actual four product domains in the rail (Knowledge / Workflows / Integrations / Help). Proposed: "Your team's agents, knowledge, workflows, and integrations, all in one place." — though worth re-thinking whether "agents" belongs alongside the four domains (agents live within departments rather than as a top-level domain) or whether to replace "agents" with one of the domains.
+10. **Workspace hero refinement — CLOSED via commit 8d67187.** Title size reduction text-[52px] → text-[44px] on both workspace-hero.tsx and department-header.tsx (typography parity preserved between landing hero and per-department headers by deliberate design). Subline updated to rail-aligned framing: "Your team's departments, knowledge, workflows, and integrations, all in one place." Doc-comment quoting the old subline updated for accuracy. max-w-[28ch] on the hero and max-w-[22ch] on department-header unchanged (the differing character ceilings are intentional).
 
-11. **Agents/ directory listing cleanup in docs/C4L_DEFERRED_SKILLS.md.** During polish #8's directory-convention investigation (commit 29e51a4), Claude Code surfaced that lines 247-258 of `docs/C4L_DEFERRED_SKILLS.md` incorrectly list `privacy-legal/agents/` among plugins with agents/ directories — privacy-legal does NOT have an agents/ directory per the verified investigation. The list also predates the ip-legal and litigation-legal audits, so it's missing entries on the "with agents/" side. Quick factual cleanup; same shape as the corrections in commit 29e51a4. The corrected list should reflect verified state: 7 of 9 plugins have agents/ (commercial-legal, product-legal, corporate-legal, employment-legal, regulatory-legal, ip-legal, litigation-legal); 2 of 9 do NOT have agents/ (privacy-legal, ai-governance-legal). Worth fixing before polish #13 (doc refresh) starts since `docs/C4L_DEFERRED_SKILLS.md` is the authoritative reference doc.
+11. **Agents/ directory listing cleanup in docs/C4L_DEFERRED_SKILLS.md — CLOSED via commit f205623** (with reservation-slot fill at commit a5eda69). The pre-existing listing incorrectly included privacy-legal in the "WITH agents/" list and predated the ip-legal and litigation-legal plugin audits. Corrected listing: 7 of 9 plugins HAVE agents/ (commercial-legal, product-legal, corporate-legal, employment-legal, regulatory-legal, ip-legal, litigation-legal); 2 of 9 do NOT (privacy-legal, ai-governance-legal). Verification timestamps added in the doc per the pattern established in commit 29e51a4.
 
 12. **C4L agent fork behavior — VERIFIED and intentional.** Investigated in this session: the fork affordance (`Customize` button in the chat surface for non-admins) renders and works correctly for C4L agents today, symmetric with Canonical template fork behavior.
 
@@ -219,18 +212,11 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
 
     **Design clarification — admin-vs-non-admin-forking inversion is intentional, not a bug.** Admins editing a C4L agent in-place are constrained by hybrid-edit (only model, references, and export_format are editable; name, description, system_prompt, web_search are locked because they're managed upstream by Anthropic). Non-admins forking the same C4L agent get full edit freedom on their personal copy. This looks like an inversion ("non-admins have more flexibility than admins?") but is correct by design: the hybrid-edit constraint exists to preserve upstream-managed C4L content while it's still C4L-managed; forking explicitly opts out of that management and creates an independent personal artifact. Admins who want full edit freedom can also fork — the affordance is available to them too via the same path.
 
-    **Latent default_output_format bug fixed in passing.** The fork action was hardcoding `default_output_format: "markdown"` instead of preserving the source's value. Today this is a no-op (all Canonical and C4L sources use markdown), but it would silently flip on any future non-markdown source. Fixed in commit [sha pending] to use `source.default_output_format ?? "markdown"`. Independent of the C4L question; surfaced by the investigation.
+    **Latent default_output_format bug fixed in passing.** The fork action was hardcoding `default_output_format: "markdown"` instead of preserving the source's value. Today this is a no-op (all Canonical and C4L sources use markdown), but it would silently flip on any future non-markdown source. Fixed in commit 4129375 to use `source.default_output_format ?? "markdown"`. Independent of the C4L question; surfaced by the investigation.
 
     Polish #12 closes by verification — no behavioral fix required for the fork affordance itself.
 
-13. **Documentation and external-facing copy refresh** (final item, by design):
-    - `README.md` — currently reflects an earlier product state
-    - Marketing landing pages under `app/(marketing)/`
-    - `docs/` directory contents
-    - `docs/CHATBOT_HANDOFF.md` itself (refresh after polish phase completes)
-    - Any external-facing copy
-    
-    Goal: someone landing on the project gets an accurate, well-digested picture of what legalOS is right now. Internal docs and external copy should both be truthful, current, and crafted with the same care as the product itself.
+13. **Documentation and external-facing copy refresh — CLOSED via Stages 3a through 3h.** Ten-stage arc updating the entire doc estate to post-polish-phase reality. Stages: 3a (cleanup deletions: skills-checklist.md, PHASE_0_SYNCBACK_TODO.md, commit 9c4bcf8); 3b1 (CLAUDE.md refresh: 13 departments, three-tier architecture, polish phase, high-signal directory structure, commit ad9e5d6); 3b1.5 (CLAUDE.md analytics-row correction, commit aa3cb5f); 3b2 (PROJECT_OUTLINE.md refresh: largest single commit in the arc with Phase 3/4/8 retired to supersession notes, commit eec1710); 3c (DECISION_LOG.md appended D-050 and D-051, commit 0f70f75); 3d (README.md surgical staleness fix, commit f6bfb33); 3e (marketing copy delight pass on /pricing, /integrations, /security, /mission, commit 88e296d); interlude (em-dash convention recorded in CLAUDE.md; polish #16 added for retroactive sweep; roadmap construction renumbered to #17, commit 5080af1); 3f (docs/AGENT_ARCHITECTURE.md replaced with redirect stub: 404 lines → 12 lines, commit f2b0d7b); 3g (CHANGELOG.md polish-phase entry, commit 37e4c9e); 3h (this commit, CHATBOT_HANDOFF.md self-refresh — final stage).
 
 14. **Agent placement audit — verify every Canonical agent is in the right department under the current 13-department taxonomy.** During polish #7's agent census investigation, the AI Addenda agent originally raised as a candidate for migration from Commercial to AI Governance was confirmed not to exist today (a "Blank Agent" template exists in Commercial, but no AI Addenda agent). No current misplacements were identified. This polish item formalizes the audit as a recurring discipline: whenever new Canonical agents are authored, or when the C4L plugin landscape shifts, re-run the agent census query (see commit history for the SQL) and confirm placement is still correct. Today: no action needed. Future: re-audit whenever taxonomy or agent inventory changes meaningfully.
 
@@ -242,15 +228,15 @@ The fresh chat session opens at the start of the polish phase. The plan is to wo
 
 ### Sequencing decision locked
 
-Work the polish list in approximately the order listed (Option B from the prior discussion: highest user impact first). Rail collapsibility (#1) is the start. Doc refresh (#13) is the end by definition.
+Work the polish list in approximately the order listed (Option B from the prior discussion: highest user impact first). Rail collapsibility (#1) was the start. Doc refresh (#13) closes substantive content polish; sequenced roadmap construction (#17) is the genuine final item by design — it depends on docs being current per #13 and the em-dash sweep per #16.
 
-That said: the operator may surface new items during polish (slot #11 is held for exactly that). The order is a default, not a contract.
+Slot #11 was originally held for surfaced items during polish and was filled with the agents/ directory listing cleanup. Polish #16 (em-dash sweep) was added mid-polish per the same surfaced-items pattern; new items are still added when they surface.
 
 ### Steps 3 and 4 (after polish)
 
 After the polish list is complete:
 
-- **Step 3:** Tackle the out-of-scope C4L plugins (item #9 elevates from polish to a real product decision). Decide where they live and implement.
+- **Step 3:** Out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) remain deferred per D-051's trigger conditions (academic/clinical user demand OR strategic-priority signal). Revisit if/when a trigger fires; otherwise proceed directly to Step 4.
 - **Step 4:** Move to a new product capability entirely. The architecture is mature enough to support new directions. Operator's call which direction.
 
 ## Key files and architectural anchors
@@ -258,26 +244,26 @@ After the polish list is complete:
 For the fresh chat to know where things live:
 
 - `components/workspace/agent-card.tsx` — agent card component (kebab, info icon, fork affordance live here)
-- `components/workspace/department-card.tsx` — department card (pencil icon currently; will become kebab per polish #2)
+- `components/workspace/department-card.tsx` — department card (pencil icon for description edit; kebab swap deferred per polish #2 until a second admin action lands)
 - `components/workspace/department-launchpad-content.tsx` — three-tier launchpad rendering
 - `components/workspace/agent-details-panel.tsx` — slide-over read-only inspection
 - `components/workspace/collapsible-section.tsx` — per-section collapsibility on the launchpad
-- `components/workspace/workspace-rail.tsx` — the sidebar rail (target of polish #1)
-- `lib/auth/access.ts` — 820-line cache-wrapped access layer
+- `components/workspace/workspace-rail.tsx` — the sidebar rail (rail collapsibility shipped per polish #1)
+- `lib/auth/access.ts` — the project's primary cache-wrapped access layer
 - `lib/agents/source.ts` — `parseSourceOrigin`, `getSourceDisplayLabel` for C4L attribution
 - `lib/preferences/keys.ts` — user-preferences key registry; `deptCollapsedSectionsKey`, `CollapsedSectionsValue`
 - `lib/preferences/types.ts` — preference value type definitions
-- `lib/actions/agents.ts` — 1004-line agent server actions
+- `lib/actions/agents.ts` — the agents server-actions module
 - `lib/actions/agent-details.ts` — lazy-fetch for read-only inspection
 - `lib/actions/user-preferences.ts` — preference get/set server actions
-- `scripts/import-c4l-plugin.ts` — 315-line C4L import script (operator runs manually)
+- `scripts/import-c4l-plugin.ts` — the C4L import script (operator runs manually)
 - `docs/C4L_DEFERRED_SKILLS.md` — authoritative reference for every C4L skill audited, where it landed, and why
-- `supabase/migrations/` — all schema changes; current head is 0040
+- `supabase/migrations/` — all schema changes; current HEAD is 0041
 - `supabase/seed/0001_org_and_departments.sql` — canonical post-migrations state; comment header documents the four-group taxonomy
 
 ## Migration history summary
 
-Current HEAD on main: post-0040 application by operator (last migration). All 40 migrations applied to the live Supabase database. Seed file in sync with the live DB after the comprehensive sync in commit 05d7ee2.
+Current HEAD on main: post-0041 application by operator (last migration). All 41 migrations applied to the live Supabase database. Seed file maintained in sync via per-migration updates (most recently in commit 94ddcc0 for polish #7).
 
 Recent migrations of note:
 - 0025 — user_preferences table
@@ -288,6 +274,7 @@ Recent migrations of note:
 - 0034 — Regulatory added at sort_order 3
 - 0036 — reserved slots 7, 10, 11 for AI Governance, IP, Litigation
 - 0037 — AI Governance, IP, Litigation added
+- 0041 — department description updates (polish #7: sentence-case + cross-department overlap removal)
 - 0026, 0027, 0030, 0032, 0035, 0038, 0039, 0040 — C4L filter migrations for each plugin
 
 ## Deferred work explicitly punted
@@ -297,11 +284,10 @@ Things explicitly out of scope right now but documented for the future:
 - Workspace dashboard (post-launch)
 - Regulatory monitors (separate product)
 - Invitation gate (sunsets D-035)
-- ?next= preservation in proxy.ts:24 (verify before assuming outstanding)
 - Public/private repo decision (currently private)
 - Managed-agent Option B managed-agent API (post-MVP)
 - Auto-fork pattern (Position C, long-term — though see polish item #12)
-- Zero-access state mailto at app/workspace/page.tsx:101,107
+- Zero-access state mailto at app/workspace/page.tsx:101,107 (verify before assuming outstanding; not re-checked in polish phase)
 - Sync pipeline Shape B (after manual Shape A validated — Shape A is validated now, but Shape B is post-polish)
 - Tracker-UI surface (litigation matter portfolio is leading candidate; see ranked candidates section)
 - Skill library surface for pattern #5 reference/framework skills
@@ -309,15 +295,21 @@ Things explicitly out of scope right now but documented for the future:
 - Admin workspace management surface for matter-workspace
 - Workflows surface for router skills
 - Non-department content tier (new rail group + new entity type) for academic, clinical, and external C4L content (law-student, legal-clinic plugins and similar future content). Resolved deferral from polish #9 — separate rail group with separate entity type, distinct from the Departments group. See polish #9 entry for full context.
+- Analytics promotion from localStorage to Supabase per D-010. Verified during polish #13 Stage 3b2 that lib/analytics/events.ts is still localStorage-only; admin metrics page explicitly notes per-browser scope. Phase 2 commitment carried into post-polish backlog.
+- Full document export (.docx, Google Docs, etc.). Per-message markdown download is wired via DownloadMessageButton; full conversation export and rich document formats remain deferred.
+- Agent versioning. Point-in-time agent reconstruction beyond the per-conversation system_prompt + model snapshot. No audit_log table or agent_versions table exists today.
 
 ## How a fresh chat opens
 
-The first message from the operator in the fresh chat will be brief — likely "ready to continue with polish phase" or similar. The fresh chat should:
+The polish phase has closed its content-quality sweep. A fresh chat session at this point opens to a project in the post-content-polish state with three substantive items remaining (#15, #16, #17) plus the recurring discipline of #14.
 
-1. Acknowledge the handoff has been received and the context is loaded.
-2. Confirm the immediate next step: polish list item #1, rail group collapsibility.
-3. Before writing any patches, do a brief read-only investigation of the current rail implementation (`components/workspace/workspace-rail.tsx` and `lib/workspace/rail-styles.ts`) so the patch is grounded in actual code rather than assumed structure.
-4. Then propose the design and implementation approach for rail collapsibility, with one focused question for the operator to confirm before writing the patch prompt.
+The first message from the operator in the fresh chat will likely be brief. The chat should:
+
+1. Acknowledge the handoff is loaded and that polish items #1 through #13 are closed.
+2. Confirm the current state: polish #14 is a recurring discipline (no current action unless taxonomy or agent inventory shifts); polish #15 (button/card hover-effect refinement) and #16 (em-dash sweep across remaining external surfaces) are bounded iterative work; polish #17 (sequenced roadmap construction) is the genuine final polish item, gated on #15 and #16 being complete.
+3. Ask the operator which remaining item to tackle next, or whether to transition directly to Step 3 / Step 4 framing.
+
+Steps 3 and 4 after polish: per D-051, the out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) remain deferred unless a trigger fires. If no trigger, Step 4 (next product capability, operator's call) is the next direction.
 
 The fresh chat must honor the working rules from message one. One question at a time. No bundled steps. Dual-delight standard. Build for the long term.
 
