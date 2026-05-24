@@ -1424,3 +1424,111 @@ Demo users see live UI changes as the operator ships them — same routes, same 
 The same admin-API-creates-user pattern used here is a prototype for the future invitation gate that will sunset D-035 (the temporary public-signup window). When that gate ships, the demo path’s user-creation flow becomes a reference for the real invitation flow — single-use tokens, server-side user creation, no email round-trip. Likely a 1-session refactor at that point rather than a from-scratch build.
 
 The security guardrails (token entropy, single-use, rate limiting, synthetic email domain lock) are critical — the demo route is effectively a “create authenticated user” endpoint, and any weakness lets adversarial users spin up unlimited accounts. The scoping doc captures the specific implementation requirements; the build session should treat the security section as non-negotiable.
+
+## D-050 — Dual-delight standard for product and maintainer experience
+
+Date: 2026-05-24
+Status: Accepted
+
+**Context:**
+
+Across Sessions 8a–31, legalOS shipped a substantial product surface — three-tier agent architecture, 13 departments organized into four product clusters, the hybrid-edit pattern, soft-delete with 30-day undo, the workspace shell, and an admin foundation. The work was productive but also surfaced a pattern: small, locally-reasonable choices kept accumulating into structures that were harder to maintain than they needed to be. Shortcuts that “worked for now” became load-bearing in ways that compounded over time.
+
+By the start of the polish phase, the cost of inconsistencies — between similar surfaces, between docs and reality, between admin and non-admin paths, between Canonical and C4L agent flows — was becoming the dominant friction. Future engineers reading the code would pay a per-inconsistency tax forever. The polish phase needed a unifying standard to decide what was worth fixing, what was worth dropping, and how to make decisions that wouldn’t compound the same way.
+
+**Decision:**
+
+Every product and architectural decision in legalOS must delight both end-users AND maintainers. Neither audience is privileged over the other. If a change improves the user experience but introduces an inconsistency that costs future engineers, it doesn’t ship in that form — find an alternative that’s good for both, or defer until one exists.
+
+Concretely, the standard requires:
+
+- **Build for the long term, no shortcuts.** Fixes that work today but break the next time someone touches the area are net-negative. Time pressure is not a reason to ship something the next engineer will have to undo.
+- **Consistency over local cleverness.** When a similar problem has already been solved elsewhere in the codebase, the new solution should match — not invent a parallel pattern just because it’s slightly tidier in isolation.
+- **Documentation is product.** The doc that bootstraps the next chat session, the doc a new engineer reads first, the migration that explains itself in its header — these are user-facing surfaces in the same way as the product UI is. Stale or misleading documentation is a bug.
+- **Don’t fix what isn’t broken.** Pre-emptive solutions to imagined problems are forbidden. If a change has no observable benefit today and the cost is real, the right answer is to skip it and document why.
+- **Decide explicitly.** When a polish item or feature request turns out not to need code, the decision itself — with reasoning and trigger conditions for revisiting — is the polish outcome. Recording “we chose not to do this, and here’s why” is as valuable as shipping the alternative.
+
+**Reasoning:**
+
+The principle emerged across the polish phase as the clarifying frame for decisions that would otherwise have gone in multiple directions:
+
+- Polish #2 (card affordance consistency) chose tightening one inconsistent affordance over inventing a new pattern, because the existing pattern was good enough and parity reduced cognitive load.
+- Polish #5 (sort_order gaps) was dropped entirely after investigation revealed the gaps were invisible to users and any normalization would be undone by the next C4L re-import. The “fix” would have introduced complexity for zero benefit.
+- Polish #6 (deferred-skills doc reorder) was dropped because the existing order read fine and reordering would generate commit churn on a heavily-edited file.
+- Polish #8 (data/ directory concept review) closed by replacing speculation with verified evidence in the authoritative reference doc, rather than building infrastructure for empty placeholder directories.
+- Polish #12 (C4L agent fork behavior) closed by verifying that the current behavior was intentional and correct — plus a one-line latent-bug fix for `default_output_format` preservation that was found in passing.
+
+In each case, the dual-delight standard provided the discipline to recognize that the right answer wasn’t “ship code” — it was “decide correctly and document the reasoning so future work doesn’t have to re-derive the same conclusion.”
+
+The standard is named to make clear that neither audience can be sacrificed: a product change that delights users but creates a maintenance burden is rejected, just as a refactor that delights maintainers but degrades the user experience is rejected.
+
+**Alternatives considered:**
+
+- **Rejected — Optimize for shipping velocity alone.** Earlier in the project, decisions sometimes favored “what gets this working today” over “what’s the right shape long-term.” That trade-off was acceptable when the product surface was being prototyped, but is no longer acceptable once the surface is being polished for real users. Velocity-only optimization creates the exact accumulated-inconsistency problem the polish phase had to address.
+- **Rejected — Optimize for user experience alone.** Standards focused exclusively on user-facing quality would have approved decisions like “ship the visible fix even if the code is awkward to maintain.” This creates compounding tech debt that eventually slows down everything, including the user-facing work.
+- **Rejected — Document standards in CLAUDE.md only.** CLAUDE.md is read by every chat session; that’s the right place for operating principles to live. But the standard is also a decision the project has made about how it operates — and the DECISION_LOG is where decisions about the project itself belong. Both locations carry it, with CLAUDE.md as the day-to-day reference and the DECISION_LOG as the canonical record.
+
+**Consequences:**
+
+Every polish-phase decision after the standard’s codification (commit 566f417) is interpretable through it. The polish list’s mix of code commits, documentation refreshes, and “dropped as no-op” entries reflects the standard’s discipline directly — not every polish item warranted code, and recognizing that was itself the polish work.
+
+Future product decisions follow the same standard. New features must pass both the user-experience and maintainer-experience tests. New refactors must demonstrate user-visible benefit (or at minimum, no user-visible regression). New documentation must be accurate enough to bootstrap a fresh chat session without misleading it.
+
+The standard is referenced verbatim from CLAUDE.md (the day-to-day operating doc) and from CHATBOT_HANDOFF.md (the fresh-chat-bootstrap doc). It is invoked by name in commit messages and patch prompts when it’s the deciding factor in a non-obvious choice (“per the dual-delight standard, this fix is dropped as no-op”). Over time, this builds a shared vocabulary for decision-making across the project.
+
+## D-051 — Out-of-scope C4L plugins deferred pending non-department content tier
+
+Date: 2026-05-24
+Status: Accepted (deferred implementation)
+
+**Context:**
+
+The Claude for Legal (C4L) skill ecosystem ships nine in-scope plugins that were imported into legalOS across migrations 0024–0040, plus four out-of-scope plugins that were deliberately not imported during the C4L integration arc:
+
+- **law-student** (13 skills): academic learning aids for law students — bar prep coaching, case briefing, IRAC grading, Socratic drilling, cold-call prep.
+- **legal-clinic** (16 skills): clinical legal education for law school clinics serving pro-bono clients — immigration intake, housing case workflows, family law support, consumer protection, criminal defense, civil rights.
+- **legal-builder-hub** (10 skills): meta plugin for discovering and installing community C4L skills — effectively the C4L marketplace surface.
+- **cocounsel-legal**: Thomson Reuters Westlaw partner plugin using a different MCP-based architecture than the open-source plugins.
+
+Polish #9 surfaced the question: what should legalOS do with these four plugins? The “out of scope” framing assumed they didn’t fit the product, but the polish phase’s strategic discussion revealed that the underlying question was about product positioning — is legalOS in-house-counsel-only, or is it broader?
+
+**Decision:**
+
+legalOS is broader than in-house counsel — academic, clinical, and other legal segments are in scope long-term, with the option to pare focus down later if data justifies it. However, the four out-of-scope C4L plugins are deferred from implementation pending infrastructure that doesn’t yet exist. Specifically:
+
+- **law-student and legal-clinic** are user-segment content (academic and clinical respectively) that belongs in a new content tier — a separate rail group with a separate entity type, NOT additional departments. Mixing academic and clinical content into the Departments group would dilute both the in-house product and the academic/clinical surface, and would create taxonomic confusion (Bar Prep Coach is not a peer of Corporate Counsel).
+- **legal-builder-hub** is meta/registry content (a community-skill marketplace) that would surface alongside admin tooling, not in the workspace’s primary content rail.
+- **cocounsel-legal** is a partner integration that belongs in the Integrations tier when partner integrations are formalized.
+
+None of these four are imported today. Documentation in `docs/C4L_DEFERRED_SKILLS.md` and `docs/CHATBOT_HANDOFF.md` records the deferral and trigger conditions.
+
+**Reasoning:**
+
+Three factors drove the deferral:
+
+First, **no current user demand.** legalOS today has no users from academic or clinical segments. Building infrastructure (new rail group, new entity type, new schema, new RLS policies, new launchpad surface, new agent-attribution model) to host 29 skills with zero users in those segments is wildly disproportionate to the value. The dual-delight standard explicitly prohibits pre-emptive solving of imagined problems.
+
+Second, **the wrong shape would be hard to undo.** The temptation to add law-student and legal-clinic as additional departments (cheap; same data model as the 13 existing departments) would mix conceptually-distinct content into the same taxonomy. Once mixed, the dilution would be hard to reverse without a future schema migration and user-visible disruption. Deferring until a separate content tier is built avoids the wrong-shape trap.
+
+Third, **strategic flexibility is preserved without code.** “Broader now” gives legalOS the option to act when a real user from a new segment surfaces. That flexibility doesn’t require infrastructure today; it requires the option to act, plus accurate documentation of what would be required when the moment comes. Both are achievable through documentation alone.
+
+The four plugins map cleanly to three different futures (non-department content tier, admin marketplace, Integrations tier). Treating them as a single deferred bucket would have obscured those distinctions. Treating them individually preserves the option to ship each on its own appropriate surface when that surface exists.
+
+**Alternatives considered:**
+
+- **Rejected — Import law-student and legal-clinic as new Departments now.** Cheapest infrastructure (same data model as existing departments, sort_orders 14 and 15). Wrong conceptual home: students and clinical attorneys don’t think of Bar Prep Coach as a peer of Corporate Counsel. Would dilute both the in-house product and the academic/clinical surface. Would also reverse poorly once a separate content tier eventually exists.
+- **Rejected — Build the non-department content tier now.** Most correct long-term architecture. Substantial infrastructure work — easily a multi-commit arc covering a new rail group, new entity type with its own schema, RLS policies, a launchpad-equivalent surface, and an agent-attribution model for non-department content. Disproportionate to host 29 skills with zero current users in the target segments.
+- **Rejected — Decide legalOS is in-house-counsel-only and close out the four plugins permanently.** Most conservative scope. Forecloses on a real strategic option (multi-segment legal software) without evidence to support the foreclosure. The “broader now” framing preserves optionality at zero cost; closing it would be premature.
+- **Rejected — Surface the four plugins via a Marketplace concept today.** A general “browse and adopt external content” surface (skill marketplaces, partner integrations, community contributions) is a real future direction, but building it for four plugins is the same scope problem as the non-department content tier. Defer.
+
+**Consequences:**
+
+The four out-of-scope C4L plugins remain unimported. Documentation in `docs/C4L_DEFERRED_SKILLS.md` and `docs/CHATBOT_HANDOFF.md` (deferred-work section) records:
+
+- That legalOS’s product positioning is broader than in-house counsel
+- The plugin-to-future mapping (non-department content tier for law-student + legal-clinic; admin marketplace for legal-builder-hub; Integrations tier for cocounsel-legal)
+- The trigger conditions for revisiting: either (a) the first real user from an academic or clinical segment signs up and demonstrates demand, OR (b) the broader product strategy explicitly requires marketing-visible content for those segments before users arrive
+
+When a trigger condition is met, the implementation work that follows depends on which plugin’s surface is needed first. Each surface (non-department content tier, admin marketplace, Integrations) is its own multi-stage build; this decision does not lock in a specific architecture for any of them, only the principle that they are distinct from the existing Departments group.
+
+The standalone “Departments” framing in the current product is preserved — academic and clinical content do not become departments by mistake during ongoing work. The 13-department taxonomy stays clean.
