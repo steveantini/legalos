@@ -4,13 +4,13 @@
 
 legalOS — an operating system for legal departments. A multi-department, AI-native web app that gives lawyers and legal-ops staff a single, welcoming entry point to the agents and tools they use day-to-day — whether external (Gemini Gems, watsonX Orchestrate, custom links) or natively hosted inside the app.
 
-legalOS is built to serve one corporate legal department at a time (single-tenant), with a multi-tenant-ready schema so the same codebase can later support a SaaS version for multiple legal departments. It ships with eight departments — Commercial, Public Sector, Mergers & Acquisitions, Privacy, Product, Compliance, Operations, General Tools — and is designed so adding more (Litigation, IP, etc.) is mostly configuration.
+legalOS is built to serve one corporate legal department at a time (single-tenant), with a multi-tenant-ready schema so the same codebase can later support a SaaS version for multiple legal departments. It ships with 13 departments organized into four product clusters — deal & transactional (Commercial, Corporate), regulatory & compliance (Regulatory, Public Sector, Compliance, Privacy, AI Governance), specialized practice (Product, Employment, IP, Litigation), and operational & utility (Operations, General Tools) — and is designed so adding more is mostly configuration.
 
-Adoption is a first-class concern. The UI is deliberately simple, clean, modern, and welcoming. Behind that simple front end is real infrastructure: role-based access, native chat with prompt caching, web search, attached references, per-message Word export, soft-delete with 30-day undo, Supabase-backed analytics, a productivity gains calculator, support flows, and an admin area.
+Adoption is a first-class concern. The UI is deliberately simple, clean, modern, and welcoming. Behind that simple front end is real infrastructure: role-based access, a three-tier agent architecture (canonical Department Agents, Claude for Legal imports, user-owned My Agents), native chat with prompt caching, web search, attached references, per-message markdown download, soft-delete with 30-day undo, Supabase-backed analytics, a productivity gains calculator, and an admin area.
 
 ### Current Phase
 
-**Phase 2 — Agent product surface.** Native agents fully wired (chat, attachments, caching, web search, exports); agent CRUD + soft delete + trash + 8-department launchpad behind RBAC.
+**Phase 2 polish phase.** Three-tier agent architecture in place (Canonical Department Agents, Claude for Legal imports, user-owned My Agents) across a 13-department launchpad behind RBAC. Native chat with prompt caching, web search, attached references, per-message markdown download, soft delete + 30-day undo, and an admin area all shipped. Polish list (16 items) is the active workstream; doc refresh (#13) and sequenced-roadmap construction (#16) are the closing items.
 
 ---
 
@@ -53,46 +53,58 @@ Shortcuts are forbidden. Build for the long term, every time.
 
 ### Directory Structure
 
+High-signal structure, not exhaustive enumeration — directory contents shift; the categories below describe the durable shape of the repo:
+
 ```
 legalos/
 ├── app/                          # Next.js App Router
-│   ├── (public)/                 # Unauthenticated routes (login, landing)
-│   ├── (app)/                    # Authenticated routes
-│   │   ├── departments/[slug]/   # Per-department launchpad page
-│   │   ├── agents/[id]/          # Native agent chat page
-│   │   └── admin/                # Admin dashboard (role-gated)
-│   ├── api/                      # Route handlers (chat proxy, webhooks)
-│   └── layout.tsx                # Root layout (theme provider, auth provider)
-├── components/                   # Reusable React components
+│   ├── (marketing)/              # Public marketing pages
+│   ├── (public)/                 # Public auth surfaces (login)
+│   ├── workspace/                # Authenticated product surface
+│   │   ├── departments/[slug]/   # Per-department launchpad
+│   │   ├── agents/[id]/          # Agent chat + edit (also new/, trash/)
+│   │   └── admin/                # Org admin surfaces
+│   ├── api/                      # Route handlers (chat streaming, etc.)
+│   ├── globals.css               # Global CSS
+│   └── layout.tsx                # Root layout
+├── components/                   # Reusable React components by domain
+│   ├── workspace/                # Workspace shell (rail, hero, launchpad, cards)
+│   ├── chat/                     # Chat composer, agent header, model picker
+│   ├── admin/                    # Admin pages (users, agents, departments)
+│   ├── marketing/                # Marketing page templates
+│   ├── landing/                  # Marketing landing hero
 │   ├── ui/                       # shadcn/ui primitives
-│   ├── launchpad/                # Agent cards, dept grids
-│   ├── chat/                     # Chat UI for native agents
-│   └── admin/                    # Admin dashboard components
-├── styles/                       # Global CSS and theme preset files (imported from app/globals.css)
-├── lib/                          # Shared utilities
-│   ├── supabase/                 # Supabase clients (server, browser, middleware)
-│   ├── anthropic/                # Anthropic API client wrappers
-│   ├── auth/                     # Auth helpers, role checks
-│   ├── actions/                  # Server actions (promote to top-level when >~8 files)
-│   ├── hooks/                    # Custom React hooks (promote to top-level when >~8 files)
-│   └── analytics/                # Event tracking helpers
-├── config/                       # Site configuration
-│   ├── site.ts                   # Branding, company name, theme preset
-│   ├── departments.ts            # Department metadata (seed/override)
-│   └── theme.ts                  # Theme token definitions
-├── supabase/                     # Supabase config
-│   ├── migrations/               # SQL migrations
-│   ├── seed.sql                  # Seed data
-│   └── policies/                 # RLS policy SQL (organized by table)
+│   └── …                         # Other component domains
+├── lib/                          # Domain logic by product area
+│   ├── actions/                  # Server actions (agents, departments, etc.)
+│   ├── auth/                     # Access control, three-tier bucketing
+│   ├── llm/anthropic/            # Anthropic API client + streaming
+│   ├── agents/                   # Agent source resolution, attribution
+│   ├── preferences/              # User preferences (rail collapse, etc.)
+│   ├── workspace/                # Rail styles, launchpad helpers
+│   └── …                         # Other lib domains
+├── config/
+│   └── site.ts                   # Branding, company name
+├── supabase/
+│   ├── migrations/               # SQL migrations (currently through 0041)
+│   └── seed/                     # Seed SQL (departments, baseline agents)
+├── styles/                       # See styles/README.md → DECISION_LOG D-016
 ├── .claude/
-│   └── skills/                   # Skill files copied from claude-templates
+│   └── skills/                   # Routing rules for Claude Code (see Skill Routing Rules below)
+├── docs/
+│   ├── CHATBOT_HANDOFF.md        # Bootstrap doc for fresh chat sessions
+│   ├── AGENT_ARCHITECTURE.md     # Native agent architecture reference
+│   ├── C4L_DEFERRED_SKILLS.md    # C4L skills filtered to deferral surfaces
+│   ├── DEMO_ACCESS_SCOPING.md    # Demo access spec (D-049)
+│   └── design/aperture/          # Design artifacts (historical reference)
+├── scripts/                      # One-off scripts (e.g., import-c4l-plugin.ts)
 ├── public/                       # Static assets
-├── CLAUDE.md                     # This file
-├── PROJECT_OUTLINE.md            # Phases, architecture, roadmap
-├── DECISION_LOG.md               # Architecture decisions with reasoning
+├── README.md                     # Top-level repo overview
+├── PROJECT_OUTLINE.md            # Phases, data model, status
+├── DECISION_LOG.md               # Append-only architectural decisions (D-000+)
+├── CHANGELOG.md                  # Per-session/phase changelog
 ├── SETUP.md                      # Setup guide for new forks
-├── CHANGELOG.md                  # Version history
-├── README.md                     # Project overview for GitHub
+├── CLAUDE.md                     # This file
 ├── .env.example                  # Env var template
 └── proxy.ts                      # Auth proxy (Next.js 16 file convention, formerly middleware.ts)
 ```
@@ -206,7 +218,7 @@ This app handles attorney work product, and in some future deployments may handl
 - Do not create a table without RLS enabled.
 - Do not disable RLS "temporarily" for debugging. Write a policy instead.
 - Do not trust `user.id` from the client. Always read it from the Supabase server session.
-- Do not hardcode department lists or agent lists in frontend code after Phase 1 — they live in the database.
+- Do not hardcode department lists or agent lists in frontend code; they live in the database.
 - Do not log raw message bodies or email addresses.
 - Do not render model output as HTML without sanitization.
 - Do not call external APIs from client components. Route every external call through a server action or route handler.
