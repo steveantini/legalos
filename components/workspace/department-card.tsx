@@ -17,7 +17,7 @@ import { LockedDepartmentDialog } from "./locked-department-dialog";
  * "this is clickable" when navigation is disabled.
  */
 const CARD_BASE_CLASS =
-  "group relative flex min-h-[192px] flex-col gap-4 rounded-[14px] border border-card-border bg-card p-[22px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)] transition-[transform,box-shadow,border-color] duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "group relative flex min-h-[192px] flex-col gap-4 rounded-[14px] border border-card-border bg-card p-[22px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)] transition-[transform,box-shadow,border-color] duration-hover ease-soft motion-reduce:transition-none active:duration-press active:ease-spring active:translate-y-0 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const CARD_HOVER_CLASS =
   "hover:-translate-y-[2px] hover:border-primary/35 hover:shadow-[0_1px_0_rgba(26,24,22,0.03),0_4px_8px_rgba(26,24,22,0.06),0_22px_38px_-12px_rgba(26,24,22,0.12),0_8px_24px_-8px_rgba(59,86,128,0.12)]";
 
@@ -138,7 +138,7 @@ function LockedDepartmentCard({
         onClick={() => setDialogOpen(true)}
         aria-haspopup="dialog"
         aria-label={`${department.name} (locked — open access information)`}
-        className="group relative flex min-h-[192px] cursor-pointer flex-col gap-4 rounded-[14px] border border-card-border bg-background p-[22px] text-left transition-[transform,box-shadow,border-color] duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] hover:-translate-y-[1px] hover:border-hairline-strong hover:shadow-[0_1px_0_rgba(26,24,22,0.02),0_8px_18px_-10px_rgba(26,24,22,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="group relative flex min-h-[192px] cursor-pointer flex-col gap-4 rounded-[14px] border border-card-border bg-background p-[22px] text-left transition-[transform,box-shadow,border-color] duration-hover ease-soft motion-reduce:transition-none active:duration-press active:ease-spring active:translate-y-0 active:scale-[0.99] hover:-translate-y-[1px] hover:border-hairline-strong hover:shadow-[0_1px_0_rgba(26,24,22,0.02),0_8px_18px_-10px_rgba(26,24,22,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-[19px] font-normal leading-[1.15] tracking-[-0.018em] text-muted-foreground">
