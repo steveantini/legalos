@@ -48,6 +48,12 @@ type RailGroup = {
   /** Display caption rendered in the group header. */
   caption: string;
   /**
+   * Landing route the caption navigates to when clicked. Stated
+   * explicitly per group rather than derived from `groupKey` so a future
+   * key/route divergence can't silently break navigation.
+   */
+  landingHref: string;
+  /**
    * Persistence key for the group's collapsed state. Must be a field of
    * `RailGroupsCollapsedValue` so the type system catches any group
    * additions that forget to extend the preference shape.
@@ -91,6 +97,7 @@ type RailGroup = {
 const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   {
     caption: "Knowledge",
+    landingHref: "/workspace/knowledge",
     groupKey: "knowledge",
     leaves: [
       { label: "Research", slug: "knowledge-research" },
@@ -100,6 +107,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   },
   {
     caption: "Workflows",
+    landingHref: "/workspace/workflows",
     groupKey: "workflows",
     leaves: [
       {
@@ -112,6 +120,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   },
   {
     caption: "Integrations",
+    landingHref: "/workspace/integrations",
     groupKey: "integrations",
     leaves: [
       {
@@ -124,6 +133,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
   },
   {
     caption: "Help",
+    landingHref: "/workspace/help",
     groupKey: "help",
     leaves: [
       { label: "Guides", slug: "help", href: "/workspace/help/guides" },
@@ -215,6 +225,7 @@ export async function WorkspaceRail({
       {departments.length > 0 ? (
         <CollapsibleRailGroup
           caption="Departments"
+          captionHref="/workspace/departments"
           groupKey="departments"
           defaultCollapsed={collapsedPrefs.departments ?? false}
           leaves={departmentLeaves}
@@ -264,6 +275,7 @@ export async function WorkspaceRail({
           <CollapsibleRailGroup
             key={group.groupKey}
             caption={group.caption}
+            captionHref={group.landingHref}
             groupKey={group.groupKey}
             defaultCollapsed={collapsedPrefs[group.groupKey] ?? false}
             leaves={activeSpecs}

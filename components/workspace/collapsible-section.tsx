@@ -83,7 +83,7 @@ export function CollapsibleSection({
           strokeWidth={2}
           aria-hidden="true"
         />
-        <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors">
+        <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors duration-release ease-release motion-reduce:transition-none group-hover:duration-hover group-hover:ease-soft">
           {title}
         </h2>
         {meta ? <span className="ml-auto">{meta}</span> : null}

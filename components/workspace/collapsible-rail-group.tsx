@@ -20,6 +20,8 @@ import {
 } from "@/lib/workspace/rail-active";
 import { captionLabel } from "@/lib/workspace/rail-styles";
 
+import { WorkspaceNavLink } from "./workspace-nav-link";
+
 /**
  * One leaf's worth of active-resolution input. The parent rail passes
  * an array of these so this component can compute `forceExpanded`
@@ -34,6 +36,14 @@ type RailLeafActiveSpec = {
 interface CollapsibleRailGroupProps {
   /** Caption shown in the group header (e.g., "Departments", "Knowledge"). */
   caption: string;
+  /**
+   * Landing route the caption navigates to when clicked (e.g.,
+   * "/workspace/knowledge"). Always present: every rail group has a
+   * landing surface, so the caption is always a navigation link rather
+   * than inert text. Also feeds the force-expand check — being on this
+   * route expands the group, mirroring how an active leaf does.
+   */
+  captionHref: string;
   /** Field within `RailGroupsCollapsedValue` storing this group's flag. */
   groupKey: keyof RailGroupsCollapsedValue;
   /** Initial collapsed state from the server-fetched preference. */
@@ -58,6 +68,39 @@ interface CollapsibleRailGroupProps {
   agentsLookup?: AgentsLookup;
   children: React.ReactNode;
 }
+
+/**
+ * Chevron toggle button — the disclosure control. A 28px square hit area
+ * around the 12px glyph keeps the target comfortable despite the small
+ * icon, and a subtle `bg-hairline` fill on hover carries the polish #15
+ * asymmetric motion tokens (fast release at base, soft fade-in on hover).
+ * This is the canonical disclosure-chevron hover affordance; the launchpad
+ * `CollapsibleSection` mirrors its feel.
+ */
+const chevronToggle =
+  "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-caption transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+/**
+ * Caption navigation link. Fills the remaining row width (`flex-1`) and
+ * carries the same `bg-hairline` hover treatment as a rail leaf plus the
+ * polish #15 motion tokens, so the two affordances in the row (chevron
+ * fill, caption fill) read as one consistent family.
+ */
+const captionLink = cn(
+  captionLabel,
+  "flex-1 rounded-md px-2 py-[6px] transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:text-foreground hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+);
+
+/**
+ * Active caption treatment — applied when the user is on the group's
+ * landing route. Reuses the sidebar-primary fill shared with active leaf
+ * links; `cn` lets tailwind-merge drop `captionLabel`'s `text-caption` in
+ * favor of the active foreground.
+ */
+const captionLinkActive = cn(
+  captionLabel,
+  "flex-1 rounded-md px-2 py-[6px] transition-colors duration-release ease-release motion-reduce:transition-none bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+);
 
 /**
  * Collapsible group wrapper for the workspace rail. Sibling to
@@ -102,6 +145,7 @@ interface CollapsibleRailGroupProps {
  */
 export function CollapsibleRailGroup({
   caption,
+  captionHref,
   groupKey,
   defaultCollapsed,
   leaves,
@@ -126,9 +170,15 @@ export function CollapsibleRailGroup({
   // between workspace routes.
   const [userToggle, setUserToggle] = useState<boolean | null>(null);
 
-  const forceExpanded = leaves.some(({ href, match }) =>
-    isLeafActive(pathname, href, match, agentsLookup),
-  );
+  // Force-expand when the user is on the group's own landing route OR on
+  // any leaf inside it. The landing uses exact match (the caption link is
+  // exact-match active); ancestor-active treatment for deeper child
+  // routes is a later stage's concern.
+  const forceExpanded =
+    isLeafActive(pathname, captionHref, "exact") ||
+    leaves.some(({ href, match }) =>
+      isLeafActive(pathname, href, match, agentsLookup),
+    );
 
   const collapsed =
     userToggle !== null
@@ -147,27 +197,38 @@ export function CollapsibleRailGroup({
 
   return (
     <div className="flex flex-col">
-      <button
-        type="button"
-        onClick={handleToggle}
-        aria-expanded={!collapsed}
-        aria-controls={contentId}
-        className={cn(
-          "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-left transition-colors duration-release ease-release motion-reduce:transition-none hover:duration-hover hover:ease-soft hover:[&_span]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-        )}
-      >
-        <ChevronDownIcon
-          className={cn(
-            "h-3 w-3 shrink-0 text-caption transition-transform duration-200 motion-reduce:transition-none",
-            collapsed ? "-rotate-90" : "rotate-0",
-          )}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
-        <span className={cn(captionLabel, "transition-colors duration-release ease-release motion-reduce:transition-none group-hover:duration-hover group-hover:ease-soft")}>
+      {/* Header row: two sibling controls, never nested. The chevron
+          button toggles collapse (owns aria-expanded/aria-controls); the
+          caption link navigates to the group landing. Splitting keeps a
+          single click from being ambiguous between "go there" and
+          "toggle." */}
+      <div className="flex w-full items-center gap-1">
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-expanded={!collapsed}
+          aria-controls={contentId}
+          aria-label={collapsed ? `Expand ${caption}` : `Collapse ${caption}`}
+          className={chevronToggle}
+        >
+          <ChevronDownIcon
+            className={cn(
+              "h-3 w-3 shrink-0 transition-transform duration-200 motion-reduce:transition-none",
+              collapsed ? "-rotate-90" : "rotate-0",
+            )}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+        </button>
+        <WorkspaceNavLink
+          href={captionHref}
+          match="exact"
+          className={captionLink}
+          activeClassName={captionLinkActive}
+        >
           {caption}
-        </span>
-      </button>
+        </WorkspaceNavLink>
+      </div>
 
       <div
         id={contentId}
