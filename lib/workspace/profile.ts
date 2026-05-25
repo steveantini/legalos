@@ -23,6 +23,19 @@ export function getDisplayName(profile: ProfileShape): string {
   return local ? local.charAt(0).toUpperCase() + local.slice(1) : profile.email;
 }
 
+/**
+ * Returns the first whitespace-delimited token of `full_name`, or null
+ * when `full_name` is empty. Unlike `getDisplayName`, this does NOT fall
+ * back to the email local part: the home hero's first-name greeting
+ * should fall through to a no-name state rather than greet someone as
+ * "Steveantini" (an email-derived string is not a name).
+ */
+export function getFirstName(profile: ProfileShape): string | null {
+  const fullName = profile.full_name?.trim();
+  if (!fullName) return null;
+  return fullName.split(/\s+/)[0] || null;
+}
+
 export function getInitials(displayName: string): string {
   const parts = displayName.trim().split(/\s+/);
   if (parts.length >= 2) {

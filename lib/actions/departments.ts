@@ -83,5 +83,6 @@ export async function updateDepartmentDescriptionAction(
   }
 
   revalidatePath("/workspace");
+  revalidatePath("/workspace/departments");
   return { ok: true };
 }

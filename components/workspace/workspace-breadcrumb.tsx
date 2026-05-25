@@ -41,6 +41,7 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
  */
 const STATIC_SEGMENT_HREFS: Record<string, string> = {
   Workspace: "/workspace",
+  Departments: "/workspace/departments",
   Knowledge: "/workspace/knowledge",
   Workflows: "/workspace/workflows",
   Integrations: "/workspace/integrations",
@@ -93,6 +94,10 @@ type RouteEntry = {
 const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace",
+    segments: () => ["Workspace"],
+  },
+  {
+    match: "/workspace/departments",
     segments: () => ["Workspace", "Departments"],
   },
   {

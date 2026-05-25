@@ -157,6 +157,7 @@ export async function grantDepartmentAccessAction(
 
   revalidatePath("/workspace/admin/users");
   revalidatePath("/workspace");
+  revalidatePath("/workspace/departments");
   return { ok: true };
 }
 
@@ -193,6 +194,7 @@ export async function revokeDepartmentAccessAction(
 
   revalidatePath("/workspace/admin/users");
   revalidatePath("/workspace");
+  revalidatePath("/workspace/departments");
   return { ok: true };
 }
 

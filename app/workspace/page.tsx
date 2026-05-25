@@ -1,52 +1,35 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
-import { DepartmentGrid } from "@/components/workspace/department-grid";
-import { WorkspaceHero } from "@/components/workspace/workspace-hero";
-import { WorkspaceModules } from "@/components/workspace/workspace-modules";
-import { siteConfig } from "@/config/site";
+import { BrowseAllCard } from "@/components/workspace/browse-all-card";
+import { ContinueWorkingSection } from "@/components/workspace/continue-working-section";
+import { HomeHero } from "@/components/workspace/home-hero";
+import { RecentlyUsedSection } from "@/components/workspace/recently-used-section";
 import {
-  getAgentCountsByDepartment,
   getAllDepartmentsWithAccess,
   getCurrentUserProfile,
-  isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * Aperture Workspace landing — content only. The chrome (rail + top bar
- * + footer + outer grid shell) lives in `app/(workspace)/layout.tsx` so
- * it persists across navigation as more workspace routes land.
+ * Aperture Workspace home — a personalized landing. The chrome (rail,
+ * top bar, body wrapper) lives in `app/workspace/layout.tsx`; this page
+ * supplies the body content.
  *
- * Hero variant decision (Session 21 — simplified):
+ * Structure: a personal greeting (`HomeHero`), then — for users with at
+ * least one accessible department — "Continue working" (recent
+ * conversations), "Recently used" (recent agents), and a "Browse all
+ * departments" card. The department grid that used to live here moved to
+ * `/workspace/departments`. The two data sections each fetch
+ * independently and stream in behind Suspense so the hero and skeletons
+ * paint immediately.
  *
- *   - `welcomed_at IS NULL`     → variant="welcome". Page also writes
- *     `welcomed_at = now()` so the next request falls through to the
- *     returning variant.
- *   - `welcomed_at IS NOT NULL` → variant="returning". Same lead /
- *     subline shape as welcome but drops the "Welcome to" prefix.
- *
- * The subline is identical default copy for both variants ("Your
- * team's departments, knowledge, workflows, and integrations, all in one
- * place."), but is overridden in the no-access branch by the
- * mailto-request-access CTA. The override now triggers on
- * `accessibleCount === 0` (Session 29) rather than `deptCount === 0`
- * since the grid surfaces every department in the org with a locked
- * variant for the ones the user can't enter — having zero access and
- * having zero departments configured are distinct states. A user with
- * zero access sees both the request-access subline AND the locked
- * grid below it (visibility-with-permissions); an org with literally
- * zero departments configured falls through to no grid at all.
- *
- * Reads composed by this page: `requireAuthUser`, `getCurrentUserProfile`,
- * `getAllDepartmentsWithAccess` (all wrapped in React's `cache()` per
- * `lib/auth/access.ts` — the layout's earlier calls and this page's
- * calls dedup to a single round-trip per helper, per request).
- * `getAgentCountsByDepartment` is page-only (the chrome doesn't need
- * counts) and not memoized today since there's only one caller.
+ * Reads composed here: `requireAuthUser`, `getCurrentUserProfile`,
+ * `getAllDepartmentsWithAccess` (all `cache()`-wrapped per
+ * `lib/auth/access.ts`, deduped with the layout's calls).
  */
-
 export const metadata: Metadata = {
   title: "Workspace",
 };
@@ -56,33 +39,20 @@ export default async function WorkspacePage() {
   const profile = await getCurrentUserProfile();
 
   if (!profile) {
-    // Layout already redirects on null profile, but TypeScript needs
-    // narrowing. The cache() wrap means this is a no-op fetch repeating
-    // the layout's result.
+    // Layout already redirects on null profile; narrow for TypeScript.
     redirect("/login");
   }
 
-  const [departments, agentCounts, isOrgAdmin] = await Promise.all([
-    getAllDepartmentsWithAccess(authUser.id),
-    getAgentCountsByDepartment(),
-    isCurrentUserOrgAdmin(),
-  ]);
+  const departments = await getAllDepartmentsWithAccess(authUser.id);
+  const hasAnyAccess = departments.some((d) => d.hasAccess);
 
-  const isFirstLogin = profile.welcomed_at == null;
-  const variant: "welcome" | "returning" = isFirstLogin
-    ? "welcome"
-    : "returning";
-
-  // First-login path: write welcomed_at before render returns. We DON'T
-  // use a fire-and-forget here because Next.js Server Components run
-  // in a request-bounded context — backgrounded promises after the
-  // response stream finishes can be terminated by the platform. An
-  // awaited UPDATE ensures the mutation lands before the request ends,
-  // at the cost of one Supabase round-trip on the first authenticated
-  // load (one-time per account lifetime). Failures are logged and
-  // swallowed: the user sees the welcome again on next request, which
-  // is preferable to a render error on first visit.
-  if (isFirstLogin) {
+  // First-login: stamp welcomed_at once per account. The hero no longer
+  // branches on it (it greets "Welcome back" regardless), but it remains
+  // a useful first-seen signal for adoption analytics, so the write is
+  // preserved. Awaited so the mutation lands before the request ends
+  // (server components run request-bounded); failures are logged and
+  // swallowed rather than blocking the render.
+  if (profile.welcomed_at == null) {
     try {
       const supabase = await createSupabaseServerClient();
       await supabase
@@ -94,53 +64,41 @@ export default async function WorkspacePage() {
     }
   }
 
-  const deptCount = departments.length;
-  const accessibleCount = departments.filter((d) => d.hasAccess).length;
-
-  // No-access branch — overrides both hero variants' default subline
-  // with a focused mailto CTA pointing at siteConfig.adminEmail. Same
-  // treatment whether the user is freshly auto-provisioned via
-  // ensure_user_provisioned with no defaults, or a real org member
-  // whose grants were revoked. The grid below still renders (with
-  // every department locked) so the user can see what exists.
-  const requestAccessHref =
-    `mailto:${siteConfig.adminEmail}` +
-    `?subject=${encodeURIComponent("Request access to legalOS")}` +
-    `&body=${encodeURIComponent(
-      "Hi, I'd like to request access to a department in legalOS.",
-    )}`;
-  const sublineOverride =
-    accessibleCount === 0 ? (
-      <>
-        You don&apos;t have access to any departments yet.
-        <br />
-        <a
-          href={requestAccessHref}
-          className="text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          Request access from your admin.
-        </a>
-      </>
-    ) : undefined;
-
   return (
-    <main className="flex flex-col gap-9">
-      <WorkspaceHero variant={variant} subline={sublineOverride} />
-      {deptCount > 0 ? (
+    <main className="flex flex-col gap-12">
+      <HomeHero profile={profile} hasAnyAccess={hasAnyAccess} />
+
+      {hasAnyAccess ? (
         <>
-          <DepartmentGrid
-            departments={departments}
-            agentCounts={agentCounts}
-            canEdit={isOrgAdmin}
-          />
-          {/* Secondary modules — only rendered for users who have
-              access to at least one department. A user with zero
-              access keeps the focused request-access subline above
-              and the all-locked grid below; "More in legalOS" would
-              compete with the mailto CTA for attention. */}
-          {accessibleCount > 0 ? <WorkspaceModules /> : null}
+          <Suspense fallback={<SectionSkeleton title="Continue working" />}>
+            <ContinueWorkingSection userId={authUser.id} />
+          </Suspense>
+
+          <Suspense fallback={<SectionSkeleton title="Recently used" />}>
+            <RecentlyUsedSection userId={authUser.id} />
+          </Suspense>
+
+          <BrowseAllCard />
         </>
       ) : null}
     </main>
+  );
+}
+
+function SectionSkeleton({ title }: { title: string }) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="text-[15px] font-medium tracking-[-0.005em] text-foreground">
+        {title}
+      </h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-[120px] animate-pulse rounded-[14px] border border-card-border bg-muted/30 motion-reduce:animate-none"
+          />
+        ))}
+      </div>
+    </section>
   );
 }

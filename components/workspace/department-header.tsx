@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 
 /**
- * Page header for a department launchpad — the Aperture-vocabulary
- * equivalent of the landing's `<WorkspaceHero>` h1+subline shape, minus
- * the small "WORKSPACE" caption label and the bolded-phrase parser.
+ * Page header for a department launchpad — the same h1+subline shape the
+ * workspace home hero (`HomeHero`) and the Stage 1 group landings use,
+ * minus the bolded-phrase parser the prior landing hero carried.
  *
- * Typography matches the landing's hero:
+ * Typography:
  *   - h1: Inter Tight 44px / 400 / -0.03em / 1.02 / max 22ch / ink
  *   - subline: 14.5px / 1.5 / max 56ch / mute
  *

@@ -668,6 +668,22 @@ export async function POST(request: Request) {
           return;
         }
 
+        // Bump conversations.updated_at to reflect genuine last activity.
+        // The chat flow otherwise never updates the conversation row, so
+        // updated_at would stay frozen at creation time and the home's
+        // "Continue working" ordering would be wrong. One write per
+        // request (both turns are now persisted). Best-effort: a failure
+        // here must not abort a stream that already produced a reply.
+        const { error: bumpErr } = await supabase
+          .from("conversations")
+          .update({ updated_at: new Date().toISOString() })
+          .eq("id", conversationId);
+        if (bumpErr) {
+          console.error("conversation updated_at bump failed", {
+            code: bumpErr.code,
+          });
+        }
+
         // If the stream errored mid-flight, surface error then close —
         // skip usage_events (we don't have final usage) and skip done.
         if (streamError) {
