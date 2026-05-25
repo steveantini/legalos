@@ -63,3 +63,28 @@ export function isLeafActive(
 
   return false;
 }
+
+/**
+ * Returns true when the current pathname is a *descendant* of `captionHref`
+ * but not `captionHref` itself. Sibling to `isLeafActive`, kept here so all
+ * rail active-state resolution lives in one place.
+ *
+ * Used by `<CollapsibleRailGroup>` to give a group caption an "ancestor-
+ * active" treatment (a subtle text-color lift) when the current route is
+ * somewhere inside the group, distinct from the full active treatment the
+ * caption shows when you're on its landing exactly.
+ *
+ * The trailing slash is load-bearing: matching on `${captionHref}/` rather
+ * than `captionHref` avoids false positives from sibling routes that share
+ * a prefix (e.g. `/workspace/departments-archive` must NOT count as a
+ * descendant of `/workspace/departments`). And the explicit equality guard
+ * keeps the landing route itself out of "ancestor" — that case is full
+ * active, a higher tier, resolved by `isLeafActive`/`WorkspaceNavLink`.
+ */
+export function isAncestorActive(
+  pathname: string,
+  captionHref: string,
+): boolean {
+  if (pathname === captionHref) return false;
+  return pathname.startsWith(`${captionHref}/`);
+}

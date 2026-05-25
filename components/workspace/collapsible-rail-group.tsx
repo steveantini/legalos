@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   type AgentsLookup,
+  isAncestorActive,
   isLeafActive,
   type RailLeafMatch,
 } from "@/lib/workspace/rail-active";
@@ -171,14 +172,22 @@ export function CollapsibleRailGroup({
   const [userToggle, setUserToggle] = useState<boolean | null>(null);
 
   // Force-expand when the user is on the group's own landing route OR on
-  // any leaf inside it. The landing uses exact match (the caption link is
-  // exact-match active); ancestor-active treatment for deeper child
-  // routes is a later stage's concern.
+  // any leaf inside it. Keyed on exact-landing + leaves specifically (not
+  // the broader ancestor check below) so the auto-expand courtesy fires for
+  // the group's known destinations rather than every prefix-matching
+  // descendant.
   const forceExpanded =
     isLeafActive(pathname, captionHref, "exact") ||
     leaves.some(({ href, match }) =>
       isLeafActive(pathname, href, match, agentsLookup),
     );
+
+  // Ancestor-active: the current route is somewhere inside this group (a
+  // descendant of the landing) but not the landing itself. Drives the
+  // caption's subtle text-foreground lift — "you're in here" — one tier
+  // below the full active treatment the caption shows on its exact landing
+  // (which WorkspaceNavLink resolves via activeClassName).
+  const ancestorActive = isAncestorActive(pathname, captionHref);
 
   const collapsed =
     userToggle !== null
@@ -206,7 +215,7 @@ export function CollapsibleRailGroup({
         <WorkspaceNavLink
           href={captionHref}
           match="exact"
-          className={captionLink}
+          className={cn(captionLink, ancestorActive && "text-foreground")}
           activeClassName={captionLinkActive}
         >
           {caption}
