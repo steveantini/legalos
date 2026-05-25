@@ -165,9 +165,9 @@ Info icon top-right on every agent card (hover-reveal). Click to open a slide-ov
 - **Sync pattern:** Manual import (Shape A) validated; future Shape B (GitHub Action auto-PR on upstream changes) deferred until manual is proven
 - **Sort_order discipline:** Two-phase shuffles when reordering (temp values → final values) to preserve logical uniqueness even though no UNIQUE constraint exists on the column
 
-## What's in flight — POLISH PHASE COMPLETE
+## Polish phase (HISTORICAL)
 
-Polish #1 through #15 are closed; the polish phase has completed its content-quality and interaction sweep across product UX, doc accuracy, motion, and architectural decisions. Items #16 (em-dash sweep) and #17 (sequenced roadmap construction) remain forward-looking, and #14 (agent placement audit) is a recurring discipline with no current action. The "Workspace home and rail restructure" arc that followed the polish phase is now also closed (six stages shipped; see the arc section below), so a fresh chat opens to a stable post-arc state.
+The polish phase ran from the creation of the polish list through polish #17 (sequenced roadmap construction). All 17 items are resolved: #1-#15 and #17 are CLOSED with their resolutions documented below; #16 (em-dash sweep across remaining marketing pages) became roadmap item 10 and is tracked there. #14 (agent placement audit) remains a recurring discipline with no current action. The "Workspace home and rail restructure" arc that followed the polish phase is also closed (six stages shipped; see the arc section below). The polish list below remains as a historical record of the phase's scope; active and pending work now lives on the roadmap at docs/ROADMAP.md.
 
 ### Polish list (17 items, in priority/sequence order)
 
@@ -229,9 +229,9 @@ Polish #1 through #15 are closed; the polish phase has completed its content-qua
 
     Stage 15c (button base conversion) was not pursued — the cards and rail refinements were sufficient for the operator's "springy and soft" target. Button refinement deferred unless and until a specific need surfaces. The motion tokens are available for future button conversion if desired.
 
-16. **Em-dash sweep across external-facing copy.** Em-dashes have become a recognizable AI-authored signal; the polish #13 marketing copy refresh (commit 88e296d) established the project convention to avoid them in external surfaces. Apply the convention retroactively: audit all marketing pages, the landing surface, in-product copy, and any other externally-visible string literal; replace em-dashes with commas, periods, parentheses, or semicolons as the structure requires. The 6 marketing pages not touched in commit 88e296d (about, blog, contact, documentation, faq, legal) are known to still contain em-dashes; the broader audit may surface more. This is a focused content pass with no architectural changes. Internal docs and code comments are out of scope per the convention's external-only framing.
+16. **Em-dash sweep across external-facing copy — MERGED into roadmap item 10.** Originally added mid-polish for retroactive em-dash cleanup. Rather than tracking it as a polish item now that the polish phase is historical, the work continues as roadmap item 10. Scope unchanged: the 6 marketing pages not touched in commit 88e296d (about, blog, contact, documentation, faq, legal) are known to still contain em-dashes, and the broader audit may surface more. Internal docs and code comments stay out of scope per the convention's external-only framing.
 
-17. **Build a real sequenced roadmap from the deferred-work list.** Once polish #1–#16 are complete and docs/external copy reflect the current state (polish #13), the existing "Deferred work explicitly punted" list (15+ items, unprioritized) becomes the input for a real sequenced roadmap — the kind of professional, maintainer-delightful roadmap top-line product organizations maintain. Items get grouped by impact tier (high-value surfaces like Tracker-UI and Workflows; mid-value items like sync pipeline Shape B and the skill library; lower-priority strategic decisions; small maintenance items). Each tier gets explicit rationale, dependencies, and rough sequencing. The outcome: a roadmap a new engineer or stakeholder can read and understand the path forward at a glance, instead of an unorganized deferred-work pile in limbo. This is the final polish item by design — it depends on having clear, current documentation (polish #13) and a complete polish-list resolution (everything before it) so the inputs to the roadmap are accurate.
+17. **Sequenced roadmap construction — CLOSED via this commit.** Final polish item by design. Took the accumulated deferred-work list plus operator-surfaced items from the polish phase and the Workspace home and rail restructure arc, sequenced them into operator-prioritized order, and stored the result as docs/ROADMAP.md. The roadmap supersedes this handoff's deferred-work section (now a pointer to the roadmap). 20 prioritized items + 9 backlog items at time of creation. Reordering the roadmap is normal work; this closure covers the initial construction, not ongoing maintenance.
 
 ### Sequencing decision locked
 
@@ -268,7 +268,7 @@ Six stages shipped:
 
 5. **Active state model — CLOSED via commit da01ee4.** New isAncestorActive helper in lib/workspace/rail-active.ts, sibling to isLeafActive. URL prefix match (pathname starts with captionHref + "/") with an explicit equality guard: the exact landing returns false because that is the higher full-active tier, resolved by WorkspaceNavLink's activeClassName. Three-tier active state: leaf full active (sidebar-primary fill) > ancestor caption shift (text-caption to text-foreground, no fill) > default. The caption applies the ancestor class on its inactive className only, so full active still wins on the exact landing. The forceExpanded comment was refreshed (it had described ancestor-active as a later stage's concern; that stage shipped here, and forceExpanded intentionally keeps its narrower exact-landing-plus-leaves match rather than the broader ancestor check).
 
-6. **Cleanup and closure — CLOSED via this commit.** Doc closure: this arc section migrated to closed form with per-stage commit shas; six deferred items recorded in the deferred-work section; "How a fresh chat opens" updated to the post-arc state; a comprehensive CHANGELOG entry. No code changes in this stage; the arc's substantive work completed at Stage 5.
+6. **Cleanup and closure — CLOSED via this commit.** Doc closure: this arc section migrated to closed form with per-stage commit shas; six deferred items recorded in the deferred-work section (since migrated into docs/ROADMAP.md by polish #17); "How a fresh chat opens" updated to the post-arc state; a comprehensive CHANGELOG entry. No code changes in this stage; the arc's substantive work completed at Stage 5.
 
 Each stage committed independently; Stage 2 was intentionally bundled because the move-out and the new-content-in were tightly coupled (decoupling would have created a broken intermediate /workspace state). Migration 0042 was applied to the live database via the dashboard SQL editor, with no separate migration-application commit.
 
@@ -311,50 +311,21 @@ Recent migrations of note:
 - 0042 — conversations(user_id, updated_at desc) index supporting the home's Continue working section (Workspace arc Stage 2b)
 - 0026, 0027, 0030, 0032, 0035, 0038, 0039, 0040 — C4L filter migrations for each plugin
 
-## Deferred work explicitly punted
+## Deferred work
 
-Things explicitly out of scope right now but documented for the future:
-
-- Workspace dashboard (post-launch)
-- Regulatory monitors (separate product)
-- Invitation gate (sunsets D-035)
-- Public/private repo decision (currently private)
-- Managed-agent Option B managed-agent API (post-MVP)
-- Auto-fork pattern (Position C, long-term — though see polish item #12)
-- Zero-access state mailto at app/workspace/page.tsx:101,107 (verify before assuming outstanding; not re-checked in polish phase)
-- Sync pipeline Shape B (after manual Shape A validated — Shape A is validated now, but Shape B is post-polish)
-- Tracker-UI surface (litigation matter portfolio is leading candidate; see ranked candidates section)
-- Skill library surface for pattern #5 reference/framework skills
-- Admin configuration surface for cold-start-interview + customize
-- Admin workspace management surface for matter-workspace
-- Workflows surface for router skills
-- Non-department content tier (new rail group + new entity type) for academic, clinical, and external C4L content (law-student, legal-clinic plugins and similar future content). Resolved deferral from polish #9 — separate rail group with separate entity type, distinct from the Departments group. See polish #9 entry for full context.
-- Analytics promotion from localStorage to Supabase per D-010. Verified during polish #13 Stage 3b2 that lib/analytics/events.ts is still localStorage-only; admin metrics page explicitly notes per-browser scope. Phase 2 commitment carried into post-polish backlog.
-- Full document export (.docx, Google Docs, etc.). Per-message markdown download is wired via DownloadMessageButton; full conversation export and rich document formats remain deferred.
-- Agent versioning. Point-in-time agent reconstruction beyond the per-conversation system_prompt + model snapshot. No audit_log table or agent_versions table exists today.
-
-Surfaced during the Workspace home and rail restructure arc (most-likely-to-be-addressed first):
-
-- **Workspace home dashboard revamp.** The personalized home shipped in arc Stage 2b (Continue working + Recently used + Browse all) is functional but, per the operator's assessment, visually and conceptually thin. A future redesign should give the home the treatment a real dashboard deserves: content that makes users want to open the product (matters, activity, team momentum), beyond just resuming recent work. Direction TBD; needs dedicated design thought, not incremental tweaks.
-- **Auth-layer optimization (workspace layout).** app/workspace/layout.tsx makes ~3 sequential supabase.auth.getUser() network calls per render plus several table reads, all on every navigation's critical path. The arc's loading.tsx follow-up addressed perceived latency (instant skeleton) but left the server wall-clock unchanged. Concrete fix: collapse the 3 getUser() calls to 1 (a single cache-wrapped helper all three sites share), and derive isAdmin from the already-fetched profile rather than a separate getUser() + users query. Deferred because loading.tsx was sufficient for the operator's current sensitivity.
-- **Rail auto-expand, user-control toggle preference.** The force-expand logic (polish #1, extended in arc Stage 4) auto-expands a group when its leaf or landing is the active route, unless the user has explicitly toggled the group this session. The operator leans toward "full control by user" (no auto-expand) but chose to live with the current behavior. If that preference firms up, remove the forceExpanded computation from CollapsibleRailGroup and rely solely on the user toggle + persisted preference.
-- **Brand mark visual upgrade, concentric-circles motif.** The rail brand mark is a 7px filled dot placeholder + "legalOS Workspace" wordmark. A scaled, polished version of the landing page's concentric-circles motif would be a delightful brand-continuity moment between marketing and product. Slot reserved; design needed.
-- **Rail caption hover-bar width, potential tune.** After the Stage 4 correction moved the chevron to the right of the caption, the caption's flex-1 means its hover bg-fill spans the full row width up to the chevron. This may read as too wide on visual evaluation; if so, narrowing the fill (a different className composition, or dropping flex-1 from the hover surface only) is a small tune. Not flagged by the operator as an issue; recorded in case future evaluation surfaces it.
-- **Template Library concept definition.** The Workflows group's "Template Library" leaf is a coming-soon card; the underlying concept is undefined (most likely workflow templates users adopt and customize, but possibly agent or prompt templates). Defer until the Workflows surface gets real work, where the concept gets settled.
+See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. The roadmap covers everything that was previously tracked in this section: 20 prioritized items plus a 9-item backlog of unprioritized candidates. The roadmap file is the source of truth; reordering and adding items is a normal part of regular work.
 
 ## How a fresh chat opens
 
-Both the polish phase (items #1 through #15 closed; #16 em-dash sweep and #17 sequenced-roadmap construction forward-looking; #14 agent placement audit a recurring discipline with no current action) and the Workspace home and rail restructure arc (six stages closed) are complete. The workspace now has a personalized home, clickable rail group headings, a three-tier active-state model, and a loading boundary on navigation. The product is in a stable state with no active arc in progress.
+Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). The product is in a stable state with no active arc in progress.
 
 A fresh chat session at this point opens to a project waiting for the operator's next direction. The chat should:
 
 1. Acknowledge the handoff is loaded and that both the polish phase and the workspace arc are closed.
-2. Confirm the operator's intent: continue with a remaining polish item (#16 em-dash sweep across the remaining marketing pages; #17 sequenced-roadmap construction), kick off a new product direction, or pick up one of the deferred items recorded above.
-3. Default to the operator's lead. No single item is "obviously next" at this state.
+2. Confirm the operator's intent: pick up the top item from docs/ROADMAP.md, kick off a new direction not on the roadmap yet, or pull a backlog item up.
+3. Default to the operator's lead. The roadmap is ordered; item 1 (chat page enhancement) is the current top priority, but the operator may pivot for any reason.
 
-If the operator wants a suggestion: #17 (sequenced-roadmap construction) is more valuable now that the arc has surfaced additional deferred items to fold into a real roadmap. The deferred-work list has grown enough that turning it from a flat list into a sequenced, tiered roadmap with rationale is a worthwhile exercise.
-
-Steps 3 and 4 after polish and arcs remain as previously framed: per D-051, out-of-scope C4L plugins remain deferred unless a trigger fires; otherwise Step 4 (next product capability) is the operator's call.
+The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 11) stay deferred unless a trigger fires.
 
 The fresh chat must honor the working rules from message one. One question at a time. No bundled steps. Dual-delight standard. Build for the long term.
 
