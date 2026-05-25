@@ -1,9 +1,9 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
-import { modelLabel } from "@/lib/llm/model-label";
 
 import { CustomizeTemplateButton } from "./customize-template-button";
 
@@ -14,22 +14,25 @@ import { CustomizeTemplateButton } from "./customize-template-button";
  *
  * Active state (default) — name (Inter Tight 28 / 400 / -0.025em / 1.05)
  * + description (14 / 1.55 / muted-fg, max 60ch) + meta chips row
- * (Department Agent / model / web search / attachment count) + a
- * top-right action chosen by viewer × role.
+ * (web search / attachment count, rendered only when at least one is
+ * present) + a top-right action chosen by viewer × role.
  *
- * Top-right action (Session 27 — three-way branch):
- *   - `isTemplate && canManageTemplates` → Edit link (admin path —
- *     the edit page admits org-admins on templates).
+ * The chat page redesign (commit 1) dropped the "Department Agent" chip
+ * and the model-name chip from the meta row: the agent's identity reads
+ * from the name + description, and the live model lives in the composer's
+ * model picker, so surfacing it again here was redundant.
+ *
+ * Top-right action (Session 27 — three-way branch; redesign demoted the
+ * Edit affordance to an icon-only Pencil so it reads as quiet
+ * maintenance, leaving Customize as the prominent call-to-action):
+ *   - `isTemplate && canManageTemplates` → icon-only Edit link (admin
+ *     path — the edit page admits org-admins on templates).
  *   - `isTemplate && !canManageTemplates` → "Customize" button (calls
  *     `forkAgentFromConversationAction` to create a personal copy
  *     including the current conversation's messages).
- *   - `isOwner && !isTemplate` → Edit link (user owns the agent, can
- *     edit personal copy).
+ *   - `isOwner && !isTemplate` → icon-only Edit link (user owns the
+ *     agent, can edit personal copy).
  *   - otherwise → no top-right action.
- *
- * Template chip — renders in the meta chips row when `isTemplate` is
- * true, regardless of viewer. Slate-blue mono-caps chip ("· Department
- * Agent") matching the existing web-search chip vocabulary.
  *
  * Soft-deleted state — wraps in a card with the warn palette banner.
  * No top-right action.
@@ -105,7 +108,6 @@ export function AgentHeader({
     );
   }
 
-  const model = modelLabel(agent.model);
   const webSearchOn = isWebSearchOn(agent.tools_enabled);
 
   // Top-right action: three-way branch keyed on isTemplate × canManage.
@@ -115,9 +117,10 @@ export function AgentHeader({
     topRightAction = (
       <Link
         href={`/workspace/agents/${agent.id}/edit`}
-        className={buttonVariants({ variant: "ghost", size: "sm" })}
+        aria-label="Edit agent"
+        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
       >
-        Edit
+        <Pencil className="size-4" aria-hidden />
       </Link>
     );
   } else if (isTemplate && !canManageTemplates) {
@@ -131,9 +134,10 @@ export function AgentHeader({
     topRightAction = (
       <Link
         href={`/workspace/agents/${agent.id}/edit`}
-        className={buttonVariants({ variant: "ghost", size: "sm" })}
+        aria-label="Edit agent"
+        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
       >
-        Edit
+        <Pencil className="size-4" aria-hidden />
       </Link>
     );
   }
@@ -150,36 +154,24 @@ export function AgentHeader({
               {agent.description}
             </p>
           ) : null}
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            {isTemplate ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-chat-cite-bg px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
-                <span
-                  aria-hidden
-                  className="h-[5px] w-[5px] rounded-full bg-primary"
-                />
-                Department Agent
-              </span>
-            ) : null}
-            {model ? (
-              <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-caption">
-                {model}
-              </span>
-            ) : null}
-            {webSearchOn ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-chat-cite-bg px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
-                <span
-                  aria-hidden
-                  className="h-[5px] w-[5px] rounded-full bg-primary"
-                />
-                Web search
-              </span>
-            ) : null}
-            {attachmentCount > 0 ? (
-              <span className="font-mono text-[11px] text-caption">
-                {attachmentCount} attached
-              </span>
-            ) : null}
-          </div>
+          {webSearchOn || attachmentCount > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {webSearchOn ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-chat-cite-bg px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
+                  <span
+                    aria-hidden
+                    className="h-[5px] w-[5px] rounded-full bg-primary"
+                  />
+                  Web search
+                </span>
+              ) : null}
+              {attachmentCount > 0 ? (
+                <span className="font-mono text-[11px] text-caption">
+                  {attachmentCount} attached
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {topRightAction}
       </div>

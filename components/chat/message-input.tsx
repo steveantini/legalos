@@ -1,7 +1,7 @@
 "use client";
 
 import { Send } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent } from "react";
 
 import { ModelPicker } from "./model-picker";
 import { WebSearchIndicator } from "./web-search-indicator";
@@ -45,30 +45,30 @@ interface MessageInputProps {
 }
 
 /**
- * Chat composer card (session 17a + 17b, spec §2.7).
+ * Chat composer card (session 17a + 17b, spec §2.7; chat page redesign
+ * commit 1 inverted the keyboard contract and dropped the hint row).
  *
- * Three-row vertical stack inside the white card surface (session 15):
+ * Two-row vertical stack inside the white card surface (session 15):
  *
  *   1. Textarea — auto-grows, placeholder + screen-reader label.
  *   2. Tools row — left: <WebSearchIndicator/> (read-only chip,
  *      rendered only when `webSearchEnabled`; clicks link to the
  *      edit form); right: <ModelPicker/> (per-agent persistence via
  *      updateAgentModelAction) + send-or-stop button.
- *   3. Hint — keyboard contract copy, centered, mono caption.
  *
- * Keyboard contract (session 17b, spec §2.7):
- * - ⌘/Ctrl+Return → send. The plain Enter key is reserved for newline
- *   so legal-domain users can compose multi-paragraph prompts without
- *   accidentally sending.
- * - Plain Return → newline (default browser behavior; we don't
- *   preventDefault).
+ * Keyboard contract (chat page redesign commit 1):
+ * - Return → send. Inverted from the prior ⌘/Ctrl+Return contract so the
+ *   common case (send) needs no modifier — the platform-standard chat
+ *   affordance.
+ * - Shift+Return → newline (default browser behavior; we don't
+ *   preventDefault) for multi-paragraph prompts.
  * - Esc while streaming → stop generation (window-level listener
  *   in ChatInterface; the textarea is disabled and won't fire keyboard
  *   events itself).
  *
- * The platform glyph in the hint defaults to "Ctrl" for the SSR pass;
- * Mac/iOS hydration swaps to "⌘". One-character flash on hydration is
- * acceptable for caption text.
+ * The visible hint row was removed in the redesign: Return-to-send is the
+ * platform-standard chat affordance and no longer needs inline documentation,
+ * which also retired the SSR ⌘/Ctrl platform-glyph dance.
  *
  * Stop button visual: icon-only filled square at size-9 (12×12 inner
  * square via `size-3 bg-current`), `aria-label="Stop generating"`, paper-
@@ -90,30 +90,22 @@ export function MessageInput({
   focusRef,
 }: MessageInputProps) {
   const localRef = useRef<HTMLTextAreaElement | null>(null);
-  const [modKey, setModKey] = useState<"⌘" | "Ctrl">("Ctrl");
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    if (/Mac|iPhone|iPad/i.test(navigator.platform)) {
-      setModKey("⌘");
-    }
-  }, []);
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    // ⌘+Return (Mac) or Ctrl+Return (Win/Linux) sends. We accept either
-    // modifier on either platform — no platform branching at the handler
-    // layer, only at the hint-copy layer.
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    // Return sends; Shift+Return inserts a newline. Return-to-send is the
+    // chat-native default users reach for; multi-paragraph prompts stay
+    // reachable via Shift+Return.
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (!disabled && value.trim().length > 0) {
         onSend();
       }
       return;
     }
-    // Plain Return / Shift+Return / any other key falls through to
-    // default textarea behavior (newline insertion). Esc-while-streaming
-    // is handled at the window level by ChatInterface — the textarea is
-    // disabled during streaming and won't dispatch keyboard events.
+    // Shift+Return / any other key falls through to default textarea
+    // behavior (newline insertion). Esc-while-streaming is handled at the
+    // window level by ChatInterface — the textarea is disabled during
+    // streaming and won't dispatch keyboard events.
   }
 
   function handleSendClick() {
@@ -177,9 +169,6 @@ export function MessageInput({
             )}
           </div>
         </div>
-        <p className="px-3 pb-2 text-center text-xs text-muted-foreground">
-          {modKey} Return to send &middot; Return for newline &middot; Esc to stop
-        </p>
       </div>
     </div>
   );

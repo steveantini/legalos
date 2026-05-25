@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { updateAgentModelAction } from "@/lib/actions/agents";
-import { modelDisplayNameShort } from "@/lib/llm/model-label";
+import { modelDisplayName, modelDisplayNameShort } from "@/lib/llm/model-label";
 
 interface ModelPickerProps {
   agentId: string;
@@ -39,11 +39,17 @@ interface ModelPickerProps {
  * toast. The `pending` flag from `useTransition` disables the trigger
  * during the round-trip.
  *
- * Visual treatment matches `.cx .compose .model` from the visual
- * reference: mono caps, hairline border, paper-2 fill, muted-fg text.
- * Distinct from the slate-blue `WebSearchToggle` active state — this
- * is a neutral picker, not a state indicator. Chevron rotates 180°
- * when open per the spec's 220ms cubic-bezier rotation timing.
+ * Visual treatment (chat page redesign commit 1): a subtle borderless
+ * pill — rounded-full, no fill at rest, the sentence-case full model
+ * name ("Claude Sonnet 4.6") in the sans UI font, muted-fg text, with a
+ * bg-hairline + foreground-text hover. Carries the polish #15 motion
+ * tokens shared by the rail's interactive leaves (duration-release /
+ * ease-release at base, duration-hover / ease-soft on hover) so it reads
+ * as a quiet neutral control, not the mono-caps status chip it was. The
+ * chevron rotates 180° when open via the same token vocabulary.
+ *
+ * Trigger shows the full model name; the menu items stay short-form
+ * (`modelDisplayNameShort`) — a descriptive trigger over a compact list.
  */
 const COMPOSER_MODEL_OPTIONS: ReadonlyArray<string> = [
   "anthropic/claude-sonnet-4-6",
@@ -77,11 +83,11 @@ export function ModelPicker({ agentId, initialModel }: ModelPickerProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={pending}
-        className="group inline-flex items-center gap-1.5 rounded-[7px] border border-border bg-paper-2 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground transition-[background-color,color,border-color] duration-[180ms] ease hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-        aria-label={`Model: ${modelDisplayNameShort(model)}. Change model.`}
+        className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] text-muted-foreground transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:text-foreground hover:duration-hover hover:ease-soft disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        aria-label={`Model: ${modelDisplayName(model)}. Change model.`}
       >
-        <span>{modelDisplayNameShort(model)}</span>
-        <ChevronDownIcon className="size-3 transition-transform duration-[220ms] ease-[cubic-bezier(.2,.7,.2,1)] group-data-[popup-open]:rotate-180" />
+        <span>{modelDisplayName(model)}</span>
+        <ChevronDownIcon className="size-3 transition-transform duration-hover ease-soft motion-reduce:transition-none group-data-[popup-open]:rotate-180" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6}>
         {COMPOSER_MODEL_OPTIONS.map((value) => {

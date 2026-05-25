@@ -13,6 +13,7 @@ import {
   type ChatStreamEvent,
   type ChatToolCall,
 } from "@/lib/chat/sse-parser";
+import { cn } from "@/lib/utils";
 
 /**
  * localStorage key for the per-agent draft autosave (session 17b, spec §2.7).
@@ -226,12 +227,13 @@ export function ChatInterface({
    * Failed-send rollback (Session 19, Step C smoke fix): the user
    * message is NOT committed to the messages array until the fetch
    * succeeds (response.ok && response.body). If the fetch throws or
-   * returns !ok, the messages array stays in its pre-send state — the
-   * §2.8 empty-state panel keeps rendering, the agent header stays in
-   * its empty-state variant, and the composer keeps the user's typed
-   * text. The retry handler reads `apiError.retryUserText` to re-fire
-   * the original failed message regardless of any subsequent edits the
-   * user made to the composer.
+   * returns !ok, the messages array stays in its pre-send state — when
+   * it was empty, the centered empty-state layout (the
+   * `messages.length === 0` branch in the render below) keeps rendering,
+   * and the composer keeps the user's typed text. The retry handler
+   * reads `apiError.retryUserText` to re-fire the original failed
+   * message regardless of any subsequent edits the user made to the
+   * composer.
    *
    * `appendUser`:
    *   - true (default, used by handleSend + handleApiRetry): the user
@@ -574,8 +576,21 @@ export function ChatInterface({
     tools_enabled: webSearchEnabled ? ["web_search"] : [],
   };
 
+  // When there are no messages yet, vertically center the header + composer
+  // as a group (chat page redesign commit 1). MessageList is omitted in this
+  // state so its flex-1 fill doesn't reintroduce the empty middle the
+  // top-anchored / bottom-anchored layout produced. Once the first message
+  // lands, the standard layout takes over: header on top, MessageList filling
+  // the middle, composer pinned to the bottom.
+  const isEmpty = messages.length === 0;
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col",
+        isEmpty && "justify-center",
+      )}
+    >
       <AgentHeader
         agent={headerAgent}
         attachmentCount={agentAttachmentCount}
@@ -585,15 +600,17 @@ export function ChatInterface({
         conversationId={conversationId}
         isDeleted={isDeleted ?? false}
       />
-      <MessageList
-        messages={messages}
-        isStreaming={isStreaming}
-        isWaitingForFirstToken={waitingForFirstToken}
-        streamErrorLead={COPY_STREAM_ERROR_LEAD}
-        streamErrorBody={COPY_STREAM_ERROR_BODY}
-        onStreamErrorRetry={handleStreamErrorRetry}
-        onToolErrorRetry={handleToolErrorRetry}
-      />
+      {!isEmpty ? (
+        <MessageList
+          messages={messages}
+          isStreaming={isStreaming}
+          isWaitingForFirstToken={waitingForFirstToken}
+          streamErrorLead={COPY_STREAM_ERROR_LEAD}
+          streamErrorBody={COPY_STREAM_ERROR_BODY}
+          onStreamErrorRetry={handleStreamErrorRetry}
+          onToolErrorRetry={handleToolErrorRetry}
+        />
+      ) : null}
       {apiError ? (
         <div className="mx-auto w-full max-w-3xl pb-2">
           <ChatErrorMessage
