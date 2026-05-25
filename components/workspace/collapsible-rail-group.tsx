@@ -203,6 +203,14 @@ export function CollapsibleRailGroup({
           single click from being ambiguous between "go there" and
           "toggle." */}
       <div className="flex w-full items-center gap-1">
+        <WorkspaceNavLink
+          href={captionHref}
+          match="exact"
+          className={captionLink}
+          activeClassName={captionLinkActive}
+        >
+          {caption}
+        </WorkspaceNavLink>
         <button
           type="button"
           onClick={handleToggle}
@@ -220,14 +228,6 @@ export function CollapsibleRailGroup({
             aria-hidden="true"
           />
         </button>
-        <WorkspaceNavLink
-          href={captionHref}
-          match="exact"
-          className={captionLink}
-          activeClassName={captionLinkActive}
-        >
-          {caption}
-        </WorkspaceNavLink>
       </div>
 
       <div
