@@ -102,7 +102,11 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     caption: "Workflows",
     groupKey: "workflows",
     leaves: [
-      { label: "My Workflows", slug: "workflows", href: "/workspace/workflows" },
+      {
+        label: "My Workflows",
+        slug: "workflows",
+        href: "/workspace/workflows/my-workflows",
+      },
       { label: "Template Library", slug: "workflows-templates" },
     ],
   },
@@ -113,7 +117,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
       {
         label: "Connections",
         slug: "integrations",
-        href: "/workspace/integrations",
+        href: "/workspace/integrations/connections",
       },
       { label: "Marketplace", slug: "integrations-marketplace" },
     ],
@@ -122,7 +126,7 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     caption: "Help",
     groupKey: "help",
     leaves: [
-      { label: "Guides", slug: "help", href: "/workspace/help" },
+      { label: "Guides", slug: "help", href: "/workspace/help/guides" },
       { label: "What’s New", slug: "help-whats-new" },
       { label: "About legalOS", slug: "help-about", href: "/", external: true },
     ],

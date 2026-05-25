@@ -41,6 +41,7 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
  */
 const STATIC_SEGMENT_HREFS: Record<string, string> = {
   Workspace: "/workspace",
+  Knowledge: "/workspace/knowledge",
   Workflows: "/workspace/workflows",
   Integrations: "/workspace/integrations",
   Help: "/workspace/help",
@@ -103,16 +104,32 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     },
   },
   {
+    match: "/workspace/knowledge",
+    segments: () => ["Workspace", "Knowledge"],
+  },
+  {
     match: "/workspace/workflows",
     segments: () => ["Workspace", "Workflows"],
+  },
+  {
+    match: "/workspace/workflows/my-workflows",
+    segments: () => ["Workspace", "Workflows", "My Workflows"],
   },
   {
     match: "/workspace/integrations",
     segments: () => ["Workspace", "Integrations"],
   },
   {
+    match: "/workspace/integrations/connections",
+    segments: () => ["Workspace", "Integrations", "Connections"],
+  },
+  {
     match: "/workspace/help",
     segments: () => ["Workspace", "Help"],
+  },
+  {
+    match: "/workspace/help/guides",
+    segments: () => ["Workspace", "Help", "Guides"],
   },
   {
     match: "/workspace/agents/new",

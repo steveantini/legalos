@@ -59,11 +59,13 @@ const GENERIC_COPY = "We're building this part of the app. Check back soon.";
  *   - `<ComingSoon area>` (below) — looks up `AREA_COPY` by slug and
  *     delegates here. Powers the dynamic `/workspace/coming-soon/[area]`
  *     route.
- *   - Real-route pages (`/workspace/workflows`, `/workspace/integrations`,
- *     `/workspace/help`, future siblings) — import `ComingSoonContent`
- *     directly and pass their own `label` + `description`. URL stays
- *     stable across the real → coming-soon → real rebuild cycle; only
- *     the body swaps in.
+ *   - Leaf placeholder pages (`/workspace/workflows/my-workflows`,
+ *     `/workspace/integrations/connections`, `/workspace/help/guides`,
+ *     future siblings) — import `ComingSoonContent` directly and pass
+ *     their own `label` + `description`. URL stays stable across the
+ *     real → coming-soon → real rebuild cycle; only the body swaps in.
+ *     (The top-level `/workspace/<group>` routes are now group landings
+ *     with a card grid — a separate pattern; see `coming-soon-card.tsx`.)
  *
  * `label` is optional: when absent (the unrecognized-slug fallback in
  * `ComingSoon`), the mono-caps header is omitted and only the h1 +
