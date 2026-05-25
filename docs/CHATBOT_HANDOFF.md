@@ -165,9 +165,9 @@ Info icon top-right on every agent card (hover-reveal). Click to open a slide-ov
 - **Sync pattern:** Manual import (Shape A) validated; future Shape B (GitHub Action auto-PR on upstream changes) deferred until manual is proven
 - **Sort_order discipline:** Two-phase shuffles when reordering (temp values → final values) to preserve logical uniqueness even though no UNIQUE constraint exists on the column
 
-## What's in flight — POLISH PHASE CLOSING
+## What's in flight — POLISH PHASE COMPLETE
 
-Polish #1 through #13 are closed; the polish phase has substantially completed its content-quality sweep across product UX, doc accuracy, and architectural decisions. Items #14 through #17 remain forward-looking (recurring discipline, iterative work, retroactive sweep, final roadmap construction). A fresh chat session opens at this post-content-polish vantage point with three remaining substantive items (#15, #16, #17) plus the recurring #14.
+Polish #1 through #15 are closed; the polish phase has completed its content-quality and interaction sweep across product UX, doc accuracy, motion, and architectural decisions. Items #16 (em-dash sweep) and #17 (sequenced roadmap construction) remain forward-looking, and #14 (agent placement audit) is a recurring discipline with no current action. A fresh chat session now opens to the start of the new "Workspace home and rail restructure" arc (scoped below).
 
 ### Polish list (17 items, in priority/sequence order)
 
@@ -220,7 +220,14 @@ Polish #1 through #13 are closed; the polish phase has substantially completed i
 
 14. **Agent placement audit — verify every Canonical agent is in the right department under the current 13-department taxonomy.** During polish #7's agent census investigation, the AI Addenda agent originally raised as a candidate for migration from Commercial to AI Governance was confirmed not to exist today (a "Blank Agent" template exists in Commercial, but no AI Addenda agent). No current misplacements were identified. This polish item formalizes the audit as a recurring discipline: whenever new Canonical agents are authored, or when the C4L plugin landscape shifts, re-run the agent census query (see commit history for the SQL) and confirm placement is still correct. Today: no action needed. Future: re-audit whenever taxonomy or agent inventory changes meaningfully.
 
-15. **Button and card hover-effect refinement — make the existing hover behavior even more delightful.** Today's hover affordances across cards (department cards, agent cards, locked-department cards) and buttons work correctly — they communicate interactivity and respond to gesture. The polish target is the *delightfulness* of the response: micro-interaction timing, easing curves, the subtle "feel" that separates a competent hover from a memorable one. Reference points: Linear's card-hover lift; Stripe's subtle button shadow shifts; Apple's spring-physics on interactive elements. Specifics TBD at the polish moment — likely an iterative session of trying refinements live, evaluating against the dual-delight standard (does it feel right; is the maintainer story clean), and locking the best version. Scope includes department cards, agent cards, locked-department cards, primary action buttons, and possibly the rail link hover states.
+15. **Button and card hover-effect refinement — CLOSED.** Iterative work refined the hover-and-press feel across card surfaces and rail links. Eight commits across the arc:
+    - Stage 15a (commit af51229): motion tokens added to globals.css @theme inline (--ease-soft, --ease-spring, --duration-hover, --duration-press)
+    - Stage 15b (commit 1baff78): three card surfaces (department, agent, locked-department) converted to consume tokens; press feedback added; motion-reduce guards added
+    - Stages 15e iterations 1-4 (commits 7397370, 29148f0, d709ddf, cd2c867): four rounds of live token tuning to land on the right hover feel; final values --ease-soft cubic-bezier(0.23, 1, 0.43, 1), --duration-hover 360ms, --ease-spring cubic-bezier(0.34, 1.4, 0.64, 1), --duration-press 150ms; iteration 4 added --duration-release 80ms and --ease-release cubic-bezier(0.25, 0.46, 0.45, 0.94) for asymmetric press timing
+    - Stage 15f (commit 66b85a8): three-zone timing pattern applied to cards — base transition uses release tokens (fast snap on click-release and mouseleave), hover state uses hover tokens (soft glide), active state uses press tokens (springy compression)
+    - Stage 15d (commit c765878): six rail surfaces (link, locked link, brand mark in workspace + admin rails, profile block, collapsible group caption + descendant span) converted to the same three-zone pattern
+
+    Stage 15c (button base conversion) was not pursued — the cards and rail refinements were sufficient for the operator's "springy and soft" target. Button refinement deferred unless and until a specific need surfaces. The motion tokens are available for future button conversion if desired.
 
 16. **Em-dash sweep across external-facing copy.** Em-dashes have become a recognizable AI-authored signal; the polish #13 marketing copy refresh (commit 88e296d) established the project convention to avoid them in external surfaces. Apply the convention retroactively: audit all marketing pages, the landing surface, in-product copy, and any other externally-visible string literal; replace em-dashes with commas, periods, parentheses, or semicolons as the structure requires. The 6 marketing pages not touched in commit 88e296d (about, blog, contact, documentation, faq, legal) are known to still contain em-dashes; the broader audit may surface more. This is a focused content pass with no architectural changes. Internal docs and code comments are out of scope per the convention's external-only framing.
 
@@ -238,6 +245,32 @@ After the polish list is complete:
 
 - **Step 3:** Out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) remain deferred per D-051's trigger conditions (academic/clinical user demand OR strategic-priority signal). Revisit if/when a trigger fires; otherwise proceed directly to Step 4.
 - **Step 4:** Move to a new product capability entirely. The architecture is mature enough to support new directions. Operator's call which direction.
+
+## Recent cleanups outside polish list
+
+- **Locked-department dialog centering (commit 112d5c9).** Native HTML <dialog> element rendered pinned to top-left of viewport instead of centered. Cause: Tailwind v4 Preflight zeroes margin: auto on dialog elements, breaking the UA stylesheet's centering mechanism. Fix: added explicit transform centering classes (fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2) matching the shadcn DialogContent convention used elsewhere in the codebase. Backdrop dimming was already working and was not affected.
+
+  Forward-looking note: any future native <dialog> in this codebase will hit the same Preflight wall. Copy the centering pattern from this fix or from components/ui/dialog.tsx rather than relying on UA defaults.
+
+## Next arc: Workspace home and rail restructure
+
+A real product redesign of the workspace navigation and home page. Treated as its own multi-stage arc rather than a polish-list item — matches the framing used for polish #13's multi-stage doc refresh. The arc reshapes the entry point experience: a personalized home replaces the static department grid at /workspace, the rail's "Workspace" group dissolves into a brand mark at top, and rail group headings become clickable navigation links to their own landing pages.
+
+Six stages:
+
+1. **Coming-soon landing pages.** New routes at /workspace/knowledge, /workspace/workflows, /workspace/integrations, /workspace/help. Simple card grid landings, consistent with how marketing pages handle pre-shipped surfaces. Each landing has its own header with title and description (matching the pattern Departments will adopt).
+
+2. **Workspace restructure (home + departments split, bundled commit).** Move department grid from /workspace to /workspace/departments. Move the hero from /workspace to the new personalized home at /workspace. Delete the "More" section (the four sub-sections now have their own rail entries). Build personalized home MVP: recent conversations, recently used agents, browse-all-departments link. Department grid page gets a Departments header with description matching the pattern from Stage 1.
+
+3. **Rail header restructure.** Brand mark replaces the Workspace group at the top of the rail. Wordmark only for now ("legalOS Workspace"), no logo — concentric circles motif from the landing page is logged as a future enhancement when a real logo is designed. Clicking the brand mark navigates to /workspace (the personalized home).
+
+4. **Rail group click model.** Group headings (Departments, Knowledge, Workflows, Integrations, Help) become clickable links to their respective /workspace/<group> pages. Chevron splits from the heading as a separate click target for expand/collapse. Chevron position moves to the right of the word. Subtle hover affordance on the chevron, applied consistently to every chevron in the product (including existing launchpad collapsible-section chevrons for visual parity).
+
+5. **Active state model.** When a leaf is active (e.g., on /workspace/departments/commercial), the leaf gets full active treatment AND its ancestor group heading gets subtle active treatment ("you're somewhere in Departments"). When the group's index page itself is active (e.g., on /workspace/departments), the heading gets full active treatment with no active leaf. New isAncestorActive helper as sibling to isLeafActive from polish #1.
+
+6. **Cleanup, polish, edge cases.** Keyboard navigation through the split heading/chevron model. Locked rail row behavior preserved (lock dialog still triggers). Any breadcrumb implications. Final visual tuning across the arc.
+
+Each stage commits independently when reasonable. Stage 2 is intentionally bundled because the move-out and the new-content-in are tightly coupled — decoupling would create a broken intermediate /workspace state.
 
 ## Key files and architectural anchors
 
@@ -301,15 +334,15 @@ Things explicitly out of scope right now but documented for the future:
 
 ## How a fresh chat opens
 
-The polish phase has closed its content-quality sweep. A fresh chat session at this point opens to a project in the post-content-polish state with three substantive items remaining (#15, #16, #17) plus the recurring discipline of #14.
+Polish phase is complete. Polish items #1 through #15 are closed; #16 (em-dash sweep) and #17 (sequenced roadmap construction) are forward-looking and gated on the new arc not creating fresh em-dash debt and on having a stable post-arc product state to build the roadmap from. Polish #14 (agent placement audit) remains a recurring discipline with no current action.
 
-The first message from the operator in the fresh chat will likely be brief. The chat should:
+A fresh chat session at this point opens to the start of the "Workspace home and rail restructure" arc. The arc has six stages, scoped above. The chat should:
 
-1. Acknowledge the handoff is loaded and that polish items #1 through #13 are closed.
-2. Confirm the current state: polish #14 is a recurring discipline (no current action unless taxonomy or agent inventory shifts); polish #15 (button/card hover-effect refinement) and #16 (em-dash sweep across remaining external surfaces) are bounded iterative work; polish #17 (sequenced roadmap construction) is the genuine final polish item, gated on #15 and #16 being complete.
-3. Ask the operator which remaining item to tackle next, or whether to transition directly to Step 3 / Step 4 framing.
+1. Acknowledge the handoff is loaded and that polish phase plus the locked-dialog cleanup are closed.
+2. Confirm the operator's intent to continue the new arc (or switch direction).
+3. If continuing, kick off Stage 1 (coming-soon landing pages) as the next active work, using the staging discipline established during polish #13 (read-only investigation when needed, surgical patches, one stage per commit when stages are independent).
 
-Steps 3 and 4 after polish: per D-051, the out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) remain deferred unless a trigger fires. If no trigger, Step 4 (next product capability, operator's call) is the next direction.
+Steps 3 and 4 after the arc remain as previously framed: per D-051, out-of-scope C4L plugins remain deferred unless a trigger fires; otherwise Step 4 (next product capability) is the operator's call.
 
 The fresh chat must honor the working rules from message one. One question at a time. No bundled steps. Dual-delight standard. Build for the long term.
 
