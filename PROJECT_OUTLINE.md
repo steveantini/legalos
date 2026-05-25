@@ -199,7 +199,7 @@ User-level agent create / edit ships in Phase 2 (per D-023 + D-025 in `DECISION_
 - Cross-user view of every agent in the organization (org_admin) and in a department (dept_admin).
 - Force-disable / re-enable on any user-owned agent.
 - Ownership transfer when a user leaves the organization.
-- Audit trail: who created / edited / deleted / forked which agent, when. Reads from the existing soft-delete and (deferred) versioning data; if agent versioning ever lands (currently in the post-polish deferred-work list per `docs/CHATBOT_HANDOFF.md`), the audit view consumes it.
+- Audit trail: who created / edited / deleted / forked which agent, when. Reads from the existing soft-delete and (deferred) versioning data; if agent versioning ever lands (roadmap item 20 in `docs/ROADMAP.md`), the audit view consumes it.
 - Template management — adding / editing / retiring templates beyond the six Commercial + Blank Agent set that ships in Phase 2 (item 10 of Phase 2's remaining work).
 
 **Definition of done:** An org_admin can see every agent in the organization, force-disable one if needed, transfer ownership, and view an audit trail of changes.
@@ -275,8 +275,7 @@ These are adjacent to the legal department's stack but out of scope for a launch
 
 ## Current status
 
-- **Phase status:** Phase 2 polish phase. The product surface is built; remaining work is polish-list resolution and roadmap construction.
-- **Shipped:** Sessions 8a–31 plus polish items #1, #2, #5, #6, #9, #10, #11, #12. Latest commit at the time of this refresh: `4129375` (close polish #12 — C4L fork behavior verified; `default_output_format` preserved on fork).
-- **In flight:** Polish #13 — documentation and external-copy refresh (this update is part of it).
-- **Remaining polish:** #14 (agent placement audit — recurring discipline, no current action), #15 (button/card hover-effect refinement), #16 (sequenced roadmap construction from the deferred-work list).
-- **After polish:** Step 3 — out-of-scope C4L plugins decision (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) per polish #9 resolution. Step 4 — next product capability, operator's call.
+- **Phase status:** Phase 2 complete. The product surface is built; the polish phase (items #1 through #17) and the Workspace home and rail restructure arc (six stages) are both closed. Active and pending work is tracked in `docs/ROADMAP.md`.
+- **Polish phase:** all 17 items resolved; see `docs/CHATBOT_HANDOFF.md` for the full disposition. #14 (agent placement audit) remains a recurring discipline with no current action; #16 (em-dash sweep) carried forward as roadmap item 10; #17 (sequenced roadmap construction) shipped `docs/ROADMAP.md` in commit `5d54b45`.
+- **What's next:** `docs/ROADMAP.md` is the authoritative ordered list (20 prioritized items plus a 9-item backlog). Item 1 (chat page enhancement) is the current top priority; the operator may reorder or pivot at any time.
+- **Deferred strategic decision:** per D-051, the out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) stay deferred unless a trigger fires; they sit at roadmap item 11.
