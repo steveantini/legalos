@@ -202,19 +202,6 @@ export async function WorkspaceRail({
         {siteConfig.siteTitle}
       </Link>
 
-      {/* Workspace single-link group — not collapsible (no caption,
-          single destination, nothing to hide). */}
-      <div className="flex flex-col gap-px">
-        <WorkspaceNavLink
-          href="/workspace"
-          match="exact"
-          className={linkBase}
-          activeClassName={`${linkBase} ${linkActive}`}
-        >
-          Workspace
-        </WorkspaceNavLink>
-      </div>
-
       {/* Departments group (Session 29: locked-but-visible).
           Accessible departments render as full-weight WorkspaceNavLink
           rows with prefix-match active state (agent-aware via
