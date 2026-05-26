@@ -375,10 +375,6 @@ export function AgentForm({
         }))}
       />
 
-      <p className="text-sm text-muted-foreground">
-        Export to Word, Google Docs, and more &mdash; coming soon.
-      </p>
-
       <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
         <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>
           Cancel
