@@ -24,9 +24,11 @@ interface SendButtonProps {
  *
  * States:
  *   - Rest: solid primary fill, white arrow, subtle shadow.
- *   - Hover (enabled): slight brightness shift (bg-primary/90).
+ *   - Hover (enabled): brightness-110 lighten — a shade up rather than a
+ *     darken, matching Claude.ai's send button.
  *   - Active (mousedown): scale-95 for tactile press feedback.
- *   - Disabled (empty input): opacity-40, no hover shift, not-allowed cursor.
+ *   - Disabled (empty input): visually identical to rest (solid primary, no
+ *     dim); only the not-allowed cursor and suppressed hover signal it.
  */
 export function SendButton({ onClick, disabled, className }: SendButtonProps) {
   return (
@@ -37,10 +39,10 @@ export function SendButton({ onClick, disabled, className }: SendButtonProps) {
       aria-label="Send message"
       className={cn(
         "inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm",
-        "transition-[transform,background-color,opacity] duration-release ease-release motion-reduce:transition-none",
-        "hover:bg-primary/90 hover:duration-hover hover:ease-soft",
+        "transition-[transform,filter] duration-release ease-release motion-reduce:transition-none",
+        "hover:brightness-110 hover:duration-hover hover:ease-soft",
         "active:scale-95 active:duration-press",
-        "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary",
+        "disabled:cursor-not-allowed disabled:hover:brightness-100",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         className,
       )}
