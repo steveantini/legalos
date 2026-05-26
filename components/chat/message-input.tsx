@@ -1,9 +1,9 @@
 "use client";
 
-import { Send } from "lucide-react";
 import { useRef, type KeyboardEvent } from "react";
 
 import { ModelPicker } from "./model-picker";
+import { SendButton } from "./send-button";
 import { WebSearchIndicator } from "./web-search-indicator";
 
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,9 @@ export function MessageInput({
           <label htmlFor="message-input" className="sr-only">
             Message
           </label>
+          {/* px-0 cancels the shadcn Textarea's default px-2.5 so the composer
+              text isn't double-padded (card px-3 + textarea px-2.5) and sits
+              closer to the assistant prose's left edge. */}
           <Textarea
             id="message-input"
             ref={setRef}
@@ -139,7 +142,7 @@ export function MessageInput({
             disabled={disabled}
             placeholder="Type your message…"
             rows={2}
-            className="resize-none border-0 bg-transparent shadow-none focus-visible:border-0 focus-visible:ring-0"
+            className="resize-none border-0 bg-transparent px-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
         </div>
         <div className="flex items-center justify-between gap-3 px-3 pt-1 pb-2">
@@ -167,15 +170,10 @@ export function MessageInput({
                 <span aria-hidden className="size-3 bg-current" />
               </Button>
             ) : (
-              <Button
-                type="button"
+              <SendButton
                 onClick={handleSendClick}
                 disabled={disabled || value.trim().length === 0}
-                aria-label="Send message"
-                className="size-9 p-0"
-              >
-                <Send className="size-4" />
-              </Button>
+              />
             )}
           </div>
         </div>
