@@ -19,7 +19,7 @@ interface CopyButtonProps {
  * the copy glyph rather than lying with a check.
  *
  * Shares its muted-foreground / hover-darken treatment with the sibling
- * DownloadMessageButton so the two read as one coherent action group.
+ * MessageActionsMenu kebab so the two read as one coherent action group.
  */
 export function CopyButton({ text, className }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);

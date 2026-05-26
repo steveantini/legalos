@@ -1,7 +1,7 @@
 "use client";
 
 import { CopyButton } from "./copy-button";
-import { DownloadMessageButton } from "./download-message-button";
+import { MessageActionsMenu } from "./message-actions-menu";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { SourcesList } from "./sources-list";
 import { ToolTraceCard } from "./tool-trace-card";
@@ -242,7 +242,7 @@ export function MessageBubble({
             <div className="mt-2 flex items-center gap-1">
               <CopyButton text={copyText} />
               {isExportable ? (
-                <DownloadMessageButton messageId={message.id} />
+                <MessageActionsMenu messageId={message.id} />
               ) : null}
             </div>
           ) : null}
