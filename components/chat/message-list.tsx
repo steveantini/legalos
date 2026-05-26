@@ -174,7 +174,7 @@ export function MessageList({
           );
         })}
         {isWaitingForFirstToken ? (
-          <li>
+          <li className="mx-auto w-full max-w-3xl">
             <TypingIndicator />
           </li>
         ) : null}

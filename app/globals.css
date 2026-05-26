@@ -221,7 +221,6 @@
    Session 18c — chat surface keyframes
    ---------------------------------------------------------------------------
    Pinned to the chat-aperture-spec.md §4 motion contract:
-     - Three-dot pulse: 1.4s ease-in-out, staggered 180ms, opacity 0.3 → 1.0
      - Caret blink:     1s steps(2)
      - Trace running:   1.2s ease-in-out, opacity 0.3 → 1.0 (Step C addition;
                         pulse on the running indicator dot)
@@ -230,11 +229,6 @@
    prefers-reduced-motion: reduce → all animations resolve to a static
    end-state (full opacity, no flash) so users with motion sensitivity
    get the same information without the pulse/blink. */
-
-@keyframes chat-typing-dot {
-  0%, 100% { opacity: 0.3; }
-  50%      { opacity: 1.0; }
-}
 
 @keyframes chat-trace-dot {
   0%, 100% { opacity: 0.3; }
@@ -251,10 +245,6 @@
   100% { background-color: transparent; }
 }
 
-@utility chat-typing-dot {
-  animation: chat-typing-dot 1.4s ease-in-out infinite;
-}
-
 @utility chat-trace-dot {
   animation: chat-trace-dot 1.2s ease-in-out infinite;
 }
@@ -268,7 +258,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-typing-dot,
   .chat-trace-dot,
   .chat-caret-blink,
   .chat-source-flash {
