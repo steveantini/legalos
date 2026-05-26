@@ -1,9 +1,7 @@
 "use client";
 
-import { Pencil } from "lucide-react";
 import Link from "next/link";
 
-import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { CustomizeTemplateButton } from "./customize-template-button";
@@ -23,15 +21,17 @@ import { CustomizeTemplateButton } from "./customize-template-button";
  * from the name + description, and the live model lives in the composer's
  * model picker, so surfacing it again here was redundant.
  *
- * Top-right action (Session 27 — three-way branch; redesign demoted the
- * Edit affordance to an icon-only Pencil so it reads as quiet
- * maintenance, leaving Customize as the prominent call-to-action):
- *   - `isTemplate && canManageTemplates` → icon-only Edit link (admin
+ * Top-right action (Session 27 — three-way branch; redesign renders the
+ * Edit affordance as a refined caption-color text link so it reads as
+ * quiet maintenance, leaving Customize as the prominent call-to-action.
+ * It shares the text-caption → text-foreground hover treatment with the
+ * message action row's Copy / Download icons):
+ *   - `isTemplate && canManageTemplates` → "Edit" text link (admin
  *     path — the edit page admits org-admins on templates).
  *   - `isTemplate && !canManageTemplates` → "Customize" button (calls
  *     `forkAgentFromConversationAction` to create a personal copy
  *     including the current conversation's messages).
- *   - `isOwner && !isTemplate` → icon-only Edit link (user owns the
+ *   - `isOwner && !isTemplate` → "Edit" text link (user owns the
  *     agent, can edit personal copy).
  *   - otherwise → no top-right action.
  *
@@ -128,10 +128,9 @@ export function AgentHeader({
     topRightAction = (
       <Link
         href={`/workspace/agents/${agent.id}/edit`}
-        aria-label="Edit agent"
-        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+        className="rounded-md px-1.5 py-1 text-[13px] text-caption transition-colors duration-release ease-release motion-reduce:transition-none hover:text-foreground hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <Pencil className="size-4" aria-hidden />
+        Edit
       </Link>
     );
   } else if (isTemplate && !canManageTemplates) {
@@ -145,10 +144,9 @@ export function AgentHeader({
     topRightAction = (
       <Link
         href={`/workspace/agents/${agent.id}/edit`}
-        aria-label="Edit agent"
-        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+        className="rounded-md px-1.5 py-1 text-[13px] text-caption transition-colors duration-release ease-release motion-reduce:transition-none hover:text-foreground hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <Pencil className="size-4" aria-hidden />
+        Edit
       </Link>
     );
   }

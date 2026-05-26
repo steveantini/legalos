@@ -72,7 +72,7 @@ export function DownloadMessageButton({ messageId }: DownloadMessageButtonProps)
       disabled={pending}
       aria-label="Download as Word"
       className={cn(
-        "inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground",
+        "inline-flex items-center justify-center rounded-md p-1.5 text-caption",
         "transition-colors duration-release ease-release motion-reduce:transition-none",
         "hover:text-foreground hover:duration-hover hover:ease-soft",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
