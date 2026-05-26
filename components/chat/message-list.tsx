@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { ArrowDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChatErrorMessage } from "./chat-error-message";
 import { MessageBubble, type ChatMessage } from "./message-bubble";
 import { ThinkingGlyph } from "./thinking-glyph";
 import { TypingIndicator } from "./typing-indicator";
+
+import { cn } from "@/lib/utils";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -95,6 +98,9 @@ export function MessageList({
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
+  // Surfaced as state (not just the ref) so the scroll-to-bottom affordance
+  // can show/hide. The ref still drives the auto-scroll decision below.
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
 
   // Track whether the user is at-or-near the bottom of the scrollable
   // container. Updated on scroll; consulted on each render to decide whether
@@ -103,7 +109,22 @@ export function MessageList({
     const el = containerRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickToBottomRef.current = distanceFromBottom < 80;
+    const atBottom = distanceFromBottom < 80;
+    stickToBottomRef.current = atBottom;
+    setIsScrolledUp(!atBottom);
+  }
+
+  // Smoothly return to the latest message (honors reduced-motion).
+  function scrollToBottom() {
+    const el = containerRef.current;
+    if (!el) return;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: prefersReduced ? "auto" : "smooth",
+    });
   }
 
   useEffect(() => {
@@ -124,79 +145,99 @@ export function MessageList({
   const showRestingGlyph = !isStreaming && lastMessage?.role === "assistant";
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="scrollbar-stable -mr-[15px] min-h-0 flex-1 overflow-y-auto"
-      aria-live="polite"
-      aria-busy={isStreaming}
-    >
-      <ul className="flex w-full flex-col gap-7 py-6">
-        {messages.map((m, i) => {
-          // Only the last assistant message gets the streaming caret —
-          // never the user message (no caret on user prose), never a
-          // mid-list assistant message (only the actively streaming
-          // one). Cleared once isStreaming flips false on stream end.
-          const isLast = i === messages.length - 1;
-          const showCaret =
-            isStreaming &&
-            isLast &&
-            m.role === "assistant" &&
-            !isWaitingForFirstToken;
+    <div className="relative min-h-0 flex-1">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="scrollbar-stable -mr-[15px] h-full min-h-0 overflow-y-auto"
+        aria-live="polite"
+        aria-busy={isStreaming}
+      >
+        <ul className="flex w-full flex-col gap-7 py-6">
+          {messages.map((m, i) => {
+            // Only the last assistant message gets the streaming caret —
+            // never the user message (no caret on user prose), never a
+            // mid-list assistant message (only the actively streaming
+            // one). Cleared once isStreaming flips false on stream end.
+            const isLast = i === messages.length - 1;
+            const showCaret =
+              isStreaming &&
+              isLast &&
+              m.role === "assistant" &&
+              !isWaitingForFirstToken;
 
-          // Synthetic banner-message: render the shared
-          // <ChatErrorMessage> directly inside an <li>. mx-auto +
-          // max-w-3xl matches the conversation column the rest of the
-          // surface uses (user cards, prose, composer). Each
-          // banner-message owns its own retry callback, closed over its
-          // id so ChatInterface can locate the partial turn to discard.
-          if (m.role === "error_banner") {
+            // Synthetic banner-message: render the shared
+            // <ChatErrorMessage> directly inside an <li>. mx-auto +
+            // max-w-3xl matches the conversation column the rest of the
+            // surface uses (user cards, prose, composer). Each
+            // banner-message owns its own retry callback, closed over its
+            // id so ChatInterface can locate the partial turn to discard.
+            if (m.role === "error_banner") {
+              return (
+                <li key={m.id}>
+                  <div className="mx-auto max-w-3xl">
+                    <ChatErrorMessage
+                      lead={streamErrorLead}
+                      body={streamErrorBody}
+                      onRetry={() => onStreamErrorRetry(m.id)}
+                    />
+                  </div>
+                </li>
+              );
+            }
+
+            // Tool-error retry: only assistant messages that carry at
+            // least one errored tool call get an onRetry handler passed
+            // down to their ToolTraceCard(s). Other messages pass
+            // undefined so the trace-card branch hides the button.
+            const hasToolError =
+              m.role === "assistant" &&
+              m.toolCalls.some((c) => c.status === "error");
+            const toolRetry = hasToolError
+              ? () => onToolErrorRetry(m.id)
+              : undefined;
+
             return (
-              <li key={m.id}>
-                <div className="mx-auto max-w-3xl">
-                  <ChatErrorMessage
-                    lead={streamErrorLead}
-                    body={streamErrorBody}
-                    onRetry={() => onStreamErrorRetry(m.id)}
-                  />
-                </div>
-              </li>
+              <MessageBubble
+                key={m.id}
+                message={m}
+                isStreaming={showCaret}
+                onToolErrorRetry={toolRetry}
+              />
             );
-          }
-
-          // Tool-error retry: only assistant messages that carry at
-          // least one errored tool call get an onRetry handler passed
-          // down to their ToolTraceCard(s). Other messages pass
-          // undefined so the trace-card branch hides the button.
-          const hasToolError =
-            m.role === "assistant" &&
-            m.toolCalls.some((c) => c.status === "error");
-          const toolRetry = hasToolError
-            ? () => onToolErrorRetry(m.id)
-            : undefined;
-
-          return (
-            <MessageBubble
-              key={m.id}
-              message={m}
-              isStreaming={showCaret}
-              onToolErrorRetry={toolRetry}
-            />
-          );
-        })}
-        {isWaitingForFirstToken ? (
-          <li className="mx-auto w-full max-w-3xl">
-            <TypingIndicator />
-          </li>
-        ) : showRestingGlyph ? (
-          <li className="mx-auto w-full max-w-3xl">
-            <ThinkingGlyph
-              pulsing={false}
-              className="animate-in fade-in duration-300 motion-reduce:animate-none"
-            />
-          </li>
-        ) : null}
-      </ul>
+          })}
+          {isWaitingForFirstToken ? (
+            <li className="mx-auto w-full max-w-3xl">
+              <TypingIndicator />
+            </li>
+          ) : showRestingGlyph ? (
+            <li className="mx-auto w-full max-w-3xl">
+              <ThinkingGlyph
+                pulsing={false}
+                className="animate-in fade-in duration-300 motion-reduce:animate-none"
+              />
+            </li>
+          ) : null}
+        </ul>
+      </div>
+      {isScrolledUp ? (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          aria-label="Scroll to latest message"
+          className={cn(
+            "absolute bottom-4 left-1/2 z-10 -translate-x-1/2",
+            "inline-flex size-9 items-center justify-center rounded-full",
+            "border border-border-strong bg-background shadow-md",
+            "transition-colors duration-release ease-release motion-reduce:transition-none",
+            "hover:bg-muted hover:duration-hover hover:ease-soft",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            "animate-in fade-in motion-reduce:animate-none",
+          )}
+        >
+          <ArrowDown className="size-4 text-foreground" aria-hidden />
+        </button>
+      ) : null}
     </div>
   );
 }

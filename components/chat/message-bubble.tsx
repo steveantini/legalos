@@ -1,5 +1,6 @@
 "use client";
 
+import { CopyButton } from "./copy-button";
 import { DownloadMessageButton } from "./download-message-button";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { SourcesList } from "./sources-list";
@@ -188,6 +189,16 @@ export function MessageBubble({
   const blocks = buildBlocks(message);
   const lastTextIdx = lastTextBlockIndex(blocks);
 
+  // Clean copy text: strip the inline citation <sup> markers so the clipboard
+  // gets the prose, not the raw data-source-id tags. The Copy button shows
+  // only on a completed turn with actual text — not the empty placeholder
+  // during the waiting phase, and not while the caret is streaming.
+  const copyText = message.content
+    .replace(/<sup\b[^>]*>[\s\S]*?<\/sup>/gi, "")
+    .replace(/<sup\b[^>]*\/>/gi, "")
+    .trim();
+  const showCopy = !isStreaming && copyText.length > 0;
+
   return (
     <li role="article" className="group/message">
       <div className="mx-auto flex w-full max-w-3xl items-start gap-2">
@@ -227,6 +238,11 @@ export function MessageBubble({
             />
           ) : null}
           <SourcesList sources={message.sources} />
+          {showCopy ? (
+            <div className="mt-2 flex items-center justify-end">
+              <CopyButton text={copyText} />
+            </div>
+          ) : null}
         </div>
         {isExportable ? <DownloadMessageButton messageId={message.id} /> : null}
       </div>

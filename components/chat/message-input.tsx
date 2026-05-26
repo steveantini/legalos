@@ -6,7 +6,6 @@ import { ModelPicker } from "./model-picker";
 import { SendButton } from "./send-button";
 import { WebSearchIndicator } from "./web-search-indicator";
 
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 interface MessageInputProps {
@@ -65,20 +64,17 @@ interface MessageInputProps {
  * - Esc while streaming → stop generation (window-level listener
  *   in ChatInterface; the textarea is disabled and won't fire keyboard
  *   events itself). A contextual "Esc to stop" caption fades in beside
- *   the Stop button during generation (commit 1.5) and disappears when
- *   the Stop button swaps back to Send.
+ *   the send/stop button during generation (commit 1.5).
  *
  * The visible hint row was removed in the redesign: Return-to-send is the
  * platform-standard chat affordance and no longer needs inline documentation,
  * which also retired the SSR ⌘/Ctrl platform-glyph dance.
  *
- * Stop button visual: icon-only filled square at size-9 (12×12 inner
- * square via `size-3 bg-current`), `aria-label="Stop generating"`, paper-
- * tone outline variant for visual differentiation from the filled-ink
- * send button. Spec §2.6 calls for visible "STOP" text alongside the
- * glyph; that doesn't fit cleanly in the 36×36 footprint at the spec's
- * mono-caps weight, and icon-only matches the send button's restraint.
- * Flagged for revisit if smoke wants the visible label.
+ * Send / stop is a single <SendButton> (chat page redesign): one circle that
+ * sends when idle and stops while streaming, with the fill / icon colors
+ * inverting in place rather than swapping to a separate button. `showStop`
+ * (= disabled && onStop, i.e. streaming with a stop handler available) drives
+ * its `streaming` prop.
  */
 export function MessageInput({
   agentId,
@@ -165,22 +161,12 @@ export function MessageInput({
                 Esc to stop
               </span>
             ) : null}
-            {showStop ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onStop}
-                aria-label="Stop generating"
-                className="size-9 bg-paper-2 p-0"
-              >
-                <span aria-hidden className="size-3 bg-current" />
-              </Button>
-            ) : (
-              <SendButton
-                onClick={handleSendClick}
-                disabled={disabled || value.trim().length === 0}
-              />
-            )}
+            <SendButton
+              onClick={handleSendClick}
+              onStop={onStop}
+              disabled={value.trim().length === 0}
+              streaming={Boolean(showStop)}
+            />
           </div>
         </div>
       </div>
