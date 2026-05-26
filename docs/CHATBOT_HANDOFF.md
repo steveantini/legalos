@@ -345,13 +345,13 @@ See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. 
 
 ## How a fresh chat opens
 
-Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). The product is in a stable state with no active arc in progress.
+Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). Word export arc complete (three commits closed: cf8df0e, 1a284af, 5c5c811; D-054 adopted). The product is in a stable state with no active arc in progress.
 
 A fresh chat session at this point opens to a project waiting for the operator's next direction. The chat should:
 
 1. Acknowledge the handoff is loaded and that the polish phase and both major arcs (workspace home and rail restructure, chat page redesign) are closed.
 2. Confirm the operator's intent: pick up the top item from docs/ROADMAP.md, kick off a new direction not on the roadmap yet, or pull a backlog item up.
-3. Default to the operator's lead. The roadmap is ordered; item 1 (full document export) is the current top priority following the chat page redesign closure, but the operator may pivot for any reason.
+3. Default to the operator's lead. The roadmap is ordered; item 1 (chat attachments / knowledge upload) is the current top priority following the Word export arc closure, but the operator may pivot for any reason.
 
 The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 12) stay deferred unless a trigger fires.
 

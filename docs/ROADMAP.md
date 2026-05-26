@@ -8,11 +8,7 @@ Items shipped from this roadmap get removed; items added get inserted at the app
 
 ---
 
-## 1. Full document export (.docx, Google Docs)
-
-Per-message markdown export is already wired via DownloadMessageButton. Full conversation export to richer formats (.docx, Google Docs) is deferred. Real product value: legal users frequently want to export work product to send to clients or paste into matter files. Requires picking export format(s), defining what gets included (just messages? sources? metadata?), and implementing the document generation pipeline.
-
-## 2. Chat attachments / knowledge upload
+## 1. Chat attachments / knowledge upload
 
 The chat composer lacks a "+" affordance for uploading documents and knowledge into the conversation context. This is a real product gap: modern chat surfaces all support attachments (text files, PDFs, images, documents). It is required for any user who wants to discuss specific documents with an agent.
 
@@ -22,6 +18,17 @@ Two scopes within this arc:
 - Phase 2: connected drives (Google Drive, Box, Dropbox, and similar) via integrations, dependent on the Connections surface being built out.
 
 Phase 1 is real product work across the stack: backend (a storage bucket, an attachment-metadata table, RLS), frontend (a composer "+" button, file picker, attachment previews, a removal affordance), and integration (passing attachments into the chat message context so the agent can read them). Multi-commit arc.
+
+## 2. Share & connector hub for per-message export and send-to destinations
+
+Per-message Word (.docx) export ships today via the kebab destination hub on the chat message action row (D-054). The hub is designed to absorb additional destinations as items, using the "Export to" / "Send to" verb convention:
+
+- Export to: Word (shipped), Google Docs, Excel, PDF.
+- Send to: Slack, Gmail, Outlook, Apple Mail, Messages / SMS, Box.
+
+Most destinations depend on the Connections infrastructure landing (item 1 phase 2): workspace-level OAuth connections to Google, Slack, Gmail/Outlook, Box, and similar; the kebab menu reads connected services and renders matching items. Phase 1 destinations that don't require a connection (PDF rendered locally, mailto: links for native email) can ship ahead of the Connections work.
+
+Full-conversation export (multi-message stitched into one document) is the natural second feature of this arc, likely as a kebab item at the conversation level (chat header) rather than per-message. Per D-054 it stays deferred until the hub ships its second destination.
 
 ## 3. Recents panel
 

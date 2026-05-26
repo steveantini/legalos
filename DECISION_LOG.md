@@ -1585,3 +1585,59 @@ The SendButton is a constant UI element users see hundreds of times per session;
 **Consequences:**
 
 The ThinkingGlyph was introduced in commit 711d746; the SendButton was kept as a polished arrow rather than a concentric-circles morph in commit 1bbdce3. Roadmap items 4 (workspace home dashboard revamp) and 5 (brand mark concentric-circles upgrade) will weigh this principle when extending the motif to other surfaces; the rail brand mark is the natural third placement. Any future use of the motif is measured against the scarcity test: does this moment earn the mark, or would it become decoration?
+
+## D-054 — Per-message destination hub on chat messages: kebab pattern, verb convention, footnote citations, branded attribution
+
+Date: 2026-05-26
+Status: Accepted
+
+**Context:**
+
+Per-message Word (.docx) export shipped in Session 8k as a direct "Download as Word" button on the bottom-left action row of completed assistant messages. The Word export arc reopened the surface to add citation support (the renderer deliberately stripped citation markers and dropped link URLs as a known deferral) and to anticipate additional destinations the operator described as imminent: Google Docs, Box, text/SMS, email (Gmail/Outlook/Mail), Slack, and similar. A consolidated design decision was needed for where and how those destinations surface.
+
+**Decision:**
+
+The destination hub for per-message export and send-to actions is a kebab menu (MoreHorizontal) on the per-message action row. The row was Copy · Download before this arc and collapses to Copy · ⋯ once Word moved into the menu. Future destinations join the kebab as items rather than as new icons in the row.
+
+Within the menu, verbs follow a two-word convention:
+
+- "Export to <X>" for file-producing destinations (Word, Google Docs, Excel, PDF).
+- "Send to <X>" for messaging destinations (Slack, Gmail, Outlook, Messages, SMS).
+
+Each item's destination name uses the everyday term users say ("Word", not ".docx" or "Microsoft Word"; "Google Docs", not "GDocs"). The leading icon is a Lucide glyph (FileText for Word in phase 1); partner-brand logos are deliberately not used, to keep the icon palette consistent across a growing list of destinations.
+
+The exported .docx itself adopts three patterns the arc established:
+
+- Citations become Word footnotes. Citation markers in the body become FootnoteReferenceRuns indexed in body first-appearance order; a "Sources" section closes the document with a Word-native numbered list whose numbers match the footnote numbers.
+- Filename pattern: `<Agent name> - <YYYY-MM-DD>.docx` (UTC), with the agent name sanitized for cross-platform filesystem safety. The product name is intentionally absent from the filename to avoid grep-and-replace work on a future product rename.
+- Document attribution lives in a page footer ("Exported from {siteConfig.siteTitle} on {Month DD, YYYY}") pulled from the existing single source of truth in config/site.ts. A product rename flows through automatically.
+
+The agent edit form does not carry per-agent destination configuration. The kebab on the message is the destination-discovery surface; connectors will be workspace-level under roadmap item 1 phase 2 (Connections).
+
+**Reasoning:**
+
+Direct buttons in the action row work for one or two destinations and become noise at five or more. The kebab is the standard pattern across consumer SaaS (Notion's share menu, Linear's issue-action menu) for exactly this reason: it absorbs new destinations without re-litigating placement each time. Establishing the kebab from day one with a single item is less disruptive than introducing it later when the second destination forces the question.
+
+The "Export to" / "Send to" verb split carries the mental model: export produces a file the user takes with them, send delivers content to a person or channel. Both verbs are universal across the consumer products users already know. Choosing once, now, prevents a mixed verb palette when the menu grows.
+
+Footnotes were chosen over inline-numbered citation markers in the body because footnotes are the conventional citation form in legal work product, and Word's native footnote feature renders them at the bottom of each page where readers expect them. The Sources section duplicates the footnote content at the document end so a reader who prefers a bibliography view has one without losing the inline citations.
+
+Workspace-level connectors (versus per-agent connector toggles) match every consumer SaaS we'd emulate: one connection per workspace, available everywhere it makes sense. Per-agent destination state would multiply storage (a column or JSONB blob), RLS implications, sync edge cases on fork or C4L re-import, and a configuration UI surface for a preference no user actually wants ("Word on Commercial Reviewer but not on Litigation Strategist" is a confusion-generator, not a use case).
+
+The product name lives in config/site.ts and only in config/site.ts for surfaces that display it. Filenames don't display it; the document footer does. The operator may rename the product (D-052 and D-053 already touched user-facing copy; a name change sits in the broader future considerations), and the rename should be a one-file edit.
+
+**Alternatives considered:**
+
+- **Rejected — Keep the direct "Download as Word" button alongside a kebab for future destinations.** Preserves a one-click affordance for the dominant case but creates asymmetry the moment a second destination lands ("why is Word a button when Google Docs is in a menu?"). Re-litigating placement when the second destination ships is a worse outcome than the small additional click today.
+- **Rejected — Pre-configure destinations on the agent edit form.** Reviewed in the arc when the operator surfaced a stale "Export to Word, Google Docs ... coming soon" line in the agent edit form. Workspace-level connectors are the right surface; per-agent toggles would multiply state with no real preference to express.
+- **Rejected — Word-branded icon (the blue W) on the menu item.** On-brand for Microsoft but off-brand for legalOS, and the moment Google Docs / Excel / PDF land the icon palette becomes a mixed bag of partner logos. Lucide's FileText scales consistently across every file-producing destination.
+- **Rejected — Citations dropped from the .docx (the prior state).** The renderer stripped citation markers and link URLs. Acceptable as a known deferral when the feature first shipped; not acceptable for legal work product where citation provenance is a core requirement.
+- **Deferred — Full-conversation export (multiple messages stitched into one document).** A legitimate future feature (audit trail, "show your work"), most likely a header-level affordance or a kebab item once the Share & connector hub work lands. Per-message export serves the dominant lawyer use case ("send this great response to my client") and ships first.
+
+**Consequences:**
+
+The destination-hub pattern is now the standard surface for any future per-message export or send-to destination. New destinations land as items in the kebab using the "Export to" / "Send to" verb convention. The renderer's RenderMessageAsDocxInput shape (markdown, agentName, sources, exportedAt, productName) is the reference signature for any future renderer (e.g., a Google Docs renderer when Connections lands).
+
+The former roadmap item 1 (full document export) closes with this arc; full-conversation export remains deferred to the new Share & connector hub item (roadmap item 2), which depends on the Connections phase of the chat attachments item (roadmap item 1 phase 2).
+
+Shipped across commits cf8df0e (renderer), 1a284af (kebab UI), 5c5c811 (agent edit form cleanup).
