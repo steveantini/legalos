@@ -13,6 +13,7 @@ import {
   type ChatStreamEvent,
   type ChatToolCall,
 } from "@/lib/chat/sse-parser";
+import { usePacedText } from "@/lib/chat/use-paced-text";
 import { cn } from "@/lib/utils";
 
 /**
@@ -220,6 +221,20 @@ export function ChatInterface({
     });
   }
 
+  // Paced streaming text (lib/chat/use-paced-text.ts): append() buffers token
+  // text and drains it to the last assistant message at a steady visual rate
+  // so display cadence doesn't track irregular network bursts. flush() empties
+  // the buffer immediately (stream end / abort / before structural events);
+  // reset() clears it for a fresh request.
+  const {
+    append: appendPacedText,
+    flush: flushPacedText,
+    reset: resetPacedText,
+  } = usePacedText({
+    onText: (text) =>
+      updateLastAssistant((m) => ({ ...m, content: m.content + text })),
+  });
+
   /**
    * Core fetch+stream sequence shared by handleSend and the three
    * retry handlers.
@@ -261,6 +276,9 @@ export function ChatInterface({
     setApiError(null);
     setIsStreaming(true);
     setWaitingForFirstToken(true);
+    // Clean slate: discard any residual paced-text buffer before this turn's
+    // assistant placeholder starts receiving tokens.
+    resetPacedText();
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -360,6 +378,10 @@ export function ChatInterface({
         });
       }
     } finally {
+      // Emit any text still buffered when the stream ends — covers the abort
+      // and interruption paths where no "done" event fired to flush it.
+      // Idempotent after a normal completion (the done event already flushed).
+      flushPacedText();
       setIsStreaming(false);
       setWaitingForFirstToken(false);
       abortRef.current = null;
@@ -457,6 +479,14 @@ export function ChatInterface({
   }
 
   function handleStreamEvent(event: ChatStreamEvent) {
+    // Structural events act on the assistant message's current content:
+    // tool-trace cards splice in at captured character positions, and citation
+    // markers resolve against already-rendered text. Flush buffered text first
+    // so they see the up-to-date message. Tokens append to the buffer; meta
+    // touches no message — neither needs a flush.
+    if (event.type !== "token" && event.type !== "meta") {
+      flushPacedText();
+    }
     switch (event.type) {
       case "meta": {
         if (!conversationId) {
@@ -475,8 +505,12 @@ export function ChatInterface({
         break;
       }
       case "token": {
+        // Clearing waitingForFirstToken stays immediate: the ThinkingGlyph
+        // should disappear the moment the network confirms the agent has
+        // started responding, even though the text itself reveals at the
+        // paced rate.
         if (waitingForFirstToken) setWaitingForFirstToken(false);
-        updateLastAssistant((m) => ({ ...m, content: m.content + event.text }));
+        appendPacedText(event.text);
         break;
       }
       case "tool_trace_start": {
