@@ -576,19 +576,22 @@ export function ChatInterface({
     tools_enabled: webSearchEnabled ? ["web_search"] : [],
   };
 
-  // When there are no messages yet, vertically center the header + composer
-  // as a group (chat page redesign commit 1). MessageList is omitted in this
-  // state so its flex-1 fill doesn't reintroduce the empty middle the
-  // top-anchored / bottom-anchored layout produced. Once the first message
-  // lands, the standard layout takes over: header on top, MessageList filling
-  // the middle, composer pinned to the bottom.
+  // No messages yet → the header + composer sit together in the upper third
+  // (commit 1.5; commit 1 dead-centered them). MessageList is omitted so its
+  // flex-1 fill doesn't reintroduce the empty middle; once the first message
+  // lands the standard layout takes over (header top, list fills, composer
+  // bottom) and the conversation column animates in.
   const isEmpty = messages.length === 0;
 
   return (
     <div
       className={cn(
         "flex min-h-0 flex-1 flex-col",
-        isEmpty && "justify-center",
+        // Upper-third, not dead-center: the top bar + workspace body padding
+        // already offset this container ~112px down, so a modest viewport
+        // top-pad lands the group around 35-40% from the top. Tune the vh if
+        // it reads high or low across viewport heights.
+        isEmpty && "pt-[14vh]",
       )}
     >
       <AgentHeader
@@ -599,17 +602,27 @@ export function ChatInterface({
         canManageTemplates={canManageTemplates}
         conversationId={conversationId}
         isDeleted={isDeleted ?? false}
+        isEmpty={isEmpty}
       />
       {!isEmpty ? (
-        <MessageList
-          messages={messages}
-          isStreaming={isStreaming}
-          isWaitingForFirstToken={waitingForFirstToken}
-          streamErrorLead={COPY_STREAM_ERROR_LEAD}
-          streamErrorBody={COPY_STREAM_ERROR_BODY}
-          onStreamErrorRetry={handleStreamErrorRetry}
-          onToolErrorRetry={handleToolErrorRetry}
-        />
+        // First-message delight: the conversation column fades + rises in
+        // when the surface flips from empty to active. The layout itself
+        // switches in a single frame (the composer's reflow from mid-group
+        // to bottom can't be CSS-transitioned), so this entrance carries the
+        // moment rather than a partial layout tween. The wrapper forwards
+        // MessageList's flex-1 role so the scroll + centerline math is intact.
+        // Reduced motion → no animation, content just appears.
+        <div className="flex min-h-0 flex-1 flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
+          <MessageList
+            messages={messages}
+            isStreaming={isStreaming}
+            isWaitingForFirstToken={waitingForFirstToken}
+            streamErrorLead={COPY_STREAM_ERROR_LEAD}
+            streamErrorBody={COPY_STREAM_ERROR_BODY}
+            onStreamErrorRetry={handleStreamErrorRetry}
+            onToolErrorRetry={handleToolErrorRetry}
+          />
+        </div>
       ) : null}
       {apiError ? (
         <div className="mx-auto w-full max-w-3xl pb-2">

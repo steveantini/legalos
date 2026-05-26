@@ -64,7 +64,9 @@ interface MessageInputProps {
  *   preventDefault) for multi-paragraph prompts.
  * - Esc while streaming → stop generation (window-level listener
  *   in ChatInterface; the textarea is disabled and won't fire keyboard
- *   events itself).
+ *   events itself). A contextual "Esc to stop" caption fades in beside
+ *   the Stop button during generation (commit 1.5) and disappears when
+ *   the Stop button swaps back to Send.
  *
  * The visible hint row was removed in the redesign: Return-to-send is the
  * platform-standard chat affordance and no longer needs inline documentation,
@@ -146,6 +148,14 @@ export function MessageInput({
           </div>
           <div className="flex items-center gap-2">
             <ModelPicker agentId={agentId} initialModel={agentModel} />
+            {showStop ? (
+              <span
+                aria-hidden
+                className="text-[11px] text-muted-foreground animate-in fade-in duration-200 motion-reduce:animate-none"
+              >
+                Esc to stop
+              </span>
+            ) : null}
             {showStop ? (
               <Button
                 type="button"

@@ -4,6 +4,7 @@ import { Pencil } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import { CustomizeTemplateButton } from "./customize-template-button";
 
@@ -38,9 +39,13 @@ import { CustomizeTemplateButton } from "./customize-template-button";
  * No top-right action.
  *
  * Centerline alignment: header content sits at `max-w-3xl mx-auto` to
- * share the conversation column's width. Active `<header>` stays at the
- * full chat-surface width (max-w-4xl) so the border-b reads as a
- * separator between agent context and conversation.
+ * share the conversation column's width. The bottom border lives on that
+ * same max-w-3xl content row (commit 1.5, Decision C) so the separator
+ * rule matches the composer's width rather than spanning the wider
+ * chat surface. In the empty state the border is suppressed entirely
+ * (commit 1.5, Decision B) — there's no conversation below it to
+ * separate, and the centered empty-state group reads cleaner without a
+ * floating divider.
  */
 
 interface AgentHeaderProps {
@@ -68,6 +73,11 @@ interface AgentHeaderProps {
    */
   conversationId?: string | null;
   isDeleted: boolean;
+  /**
+   * True when the conversation has no messages yet. Suppresses the
+   * header's bottom border in the empty state (commit 1.5, Decision B).
+   */
+  isEmpty?: boolean;
 }
 
 function isWebSearchOn(toolsEnabled: unknown): boolean {
@@ -85,6 +95,7 @@ export function AgentHeader({
   canManageTemplates = false,
   conversationId = null,
   isDeleted,
+  isEmpty = false,
 }: AgentHeaderProps) {
   if (isDeleted) {
     return (
@@ -143,8 +154,16 @@ export function AgentHeader({
   }
 
   return (
-    <header className="mb-7 border-b border-hairline-strong pb-4">
-      <div className="mx-auto flex w-full max-w-3xl items-start justify-between gap-4">
+    <header className="mb-7">
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-3xl items-start justify-between gap-4 pb-4",
+          // Border rides the max-w-3xl content row so it matches the
+          // composer width (Decision C); dropped in the empty state so no
+          // divider floats under the centered group (Decision B).
+          !isEmpty && "border-b border-hairline-strong",
+        )}
+      >
         <div className="min-w-0 flex-1">
           <h1 className="text-[28px] font-normal leading-[1.05] tracking-[-0.025em] text-foreground">
             {agent.name}
