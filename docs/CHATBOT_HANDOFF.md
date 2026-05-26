@@ -167,7 +167,7 @@ Info icon top-right on every agent card (hover-reveal). Click to open a slide-ov
 
 ## Polish phase (HISTORICAL)
 
-The polish phase ran from the creation of the polish list through polish #17 (sequenced roadmap construction). All 17 items are resolved: #1-#15 and #17 are CLOSED with their resolutions documented below; #16 (em-dash sweep across remaining marketing pages) became roadmap item 10 and is tracked there. #14 (agent placement audit) remains a recurring discipline with no current action. The "Workspace home and rail restructure" arc that followed the polish phase is also closed (six stages shipped; see the arc section below). The polish list below remains as a historical record of the phase's scope; active and pending work now lives on the roadmap at docs/ROADMAP.md.
+The polish phase ran from the creation of the polish list through polish #17 (sequenced roadmap construction). All 17 items are resolved: #1-#15 and #17 are CLOSED with their resolutions documented below; #16 (em-dash sweep across remaining marketing pages) became roadmap item 11 and is tracked there. #14 (agent placement audit) remains a recurring discipline with no current action. The "Workspace home and rail restructure" arc that followed the polish phase is also closed (six stages shipped; see the arc section below). The polish list below remains as a historical record of the phase's scope; active and pending work now lives on the roadmap at docs/ROADMAP.md.
 
 ### Polish list (17 items, in priority/sequence order)
 
@@ -229,7 +229,7 @@ The polish phase ran from the creation of the polish list through polish #17 (se
 
     Stage 15c (button base conversion) was not pursued — the cards and rail refinements were sufficient for the operator's "springy and soft" target. Button refinement deferred unless and until a specific need surfaces. The motion tokens are available for future button conversion if desired.
 
-16. **Em-dash sweep across external-facing copy — MERGED into roadmap item 10.** Originally added mid-polish for retroactive em-dash cleanup. Rather than tracking it as a polish item now that the polish phase is historical, the work continues as roadmap item 10. Scope unchanged: the 6 marketing pages not touched in commit 88e296d (about, blog, contact, documentation, faq, legal) are known to still contain em-dashes, and the broader audit may surface more. Internal docs and code comments stay out of scope per the convention's external-only framing.
+16. **Em-dash sweep across external-facing copy — MERGED into roadmap item 11.** Originally added mid-polish for retroactive em-dash cleanup. Rather than tracking it as a polish item now that the polish phase is historical, the work continues as roadmap item 11. Scope unchanged: the 6 marketing pages not touched in commit 88e296d (about, blog, contact, documentation, faq, legal) are known to still contain em-dashes, and the broader audit may surface more. Internal docs and code comments stay out of scope per the convention's external-only framing.
 
 17. **Sequenced roadmap construction — CLOSED via this commit.** Final polish item by design. Took the accumulated deferred-work list plus operator-surfaced items from the polish phase and the Workspace home and rail restructure arc, sequenced them into operator-prioritized order, and stored the result as docs/ROADMAP.md. The roadmap supersedes this handoff's deferred-work section (now a pointer to the roadmap). 20 prioritized items + 9 backlog items at time of creation. Reordering the roadmap is normal work; this closure covers the initial construction, not ongoing maintenance.
 
@@ -272,6 +272,34 @@ Six stages shipped:
 
 Each stage committed independently; Stage 2 was intentionally bundled because the move-out and the new-content-in were tightly coupled (decoupling would have created a broken intermediate /workspace state). Migration 0042 was applied to the live database via the dashboard SQL editor, with no separate migration-application commit.
 
+## Arc: Chat page redesign (CLOSED)
+
+An eleven-commit product redesign of the agent chat surface at /workspace/agents/[id], treated as its own focused arc (matching the framing used for the Workspace home and rail restructure arc). Claude.ai was the reference for a modern chat surface. The arc reshaped the surface: a vertically centered empty state, a focused header, a polished composer, smooth paced streaming, a branded thinking indicator, a unified send/stop control, consolidated secondary actions, and a consistent quiet-action visual language across every chat affordance.
+
+Eleven commits shipped:
+
+1. **Structural redesign — 5ea1507 (commit 1).** Vertically centered header + composer in the empty state; dropped the "Department Agent" pill and the model-name line from the header; demoted Edit; inverted the keyboard contract to Return-to-send + Shift+Return-for-newline (D-052); removed the persistent composer hint; polished the model selector to a sentence-case pill.
+2. **Polish pass — 2321765 (commit 1.5).** Empty-state content shifted up to ~35-40% from the top; header border removed in the empty state and matched to composer width via the max-w-3xl content row; fade-in-up on the empty-to-active transition; contextual Esc-to-stop hint during generation only.
+3. **ThinkingGlyph — 711d746 (commit 1.6).** Pulsing concentric-circles ThinkingGlyph replaces the three-dot indicator (brand continuity with the landing page); fixed a ~52px column-misalignment bug via the mx-auto max-w-3xl wrapper; reused the landing-ring-pulse keyframe.
+4. **Polished send button — 1bbdce3 (commit 2).** Solid primary-blue circle with a white upward arrow; polish #15 motion tokens. The concentric-circles motif was intentionally NOT used here, per D-053.
+5. **Composer text alignment — 276b766.** Composer card shifted left by -ml-3 to align its text with the header text and the assistant prose left edge.
+6. **Send button state polish — 168741b.** Send button stays solid primary across all input states; hover lifts brightness rather than darkening, matching Claude.ai.
+7. **Streaming pacing — 9cad674.** New usePacedText hook (requestAnimationFrame proportional drain) decouples display cadence from network chunking; flush-on-done/abort/unmount preserves the tail; flush-before-source-events keeps citations anchored; reduced-motion bypass.
+8. **Streaming transitions — d07739b.** User-message entrance animation; persistent static ThinkingGlyph below the latest completed response; pacing-speed tune (divisor 8 to 5).
+9. **Unified action row — 7646c1b.** Send/stop unified in one circle via color inversion; floating bottom-center scroll-to-bottom affordance; Copy button on completed assistant messages.
+10. **Action row consolidation — 063e77d.** Copy + Download consolidated into one always-visible icon-only action row at the bottom-left of completed assistant messages.
+11. **Refined Edit + secondary-action color consistency — 1850769.** Edit reverted to a refined text affordance; Copy and Download resting color lightened to text-caption; all three secondary actions share the text-caption-to-text-foreground treatment with polish #15 motion tokens.
+
+Patterns established:
+
+- **Brand-scarcity principle (D-053).** The concentric-circles motif is deployed only at high-impact moments (landing page + thinking indicator), never as decoration on common UI.
+- **Secondary-action visual language.** text-caption at rest, text-foreground on hover, with polish #15 motion tokens; applied across Edit, Copy, and Download.
+- **Streaming text pacing via usePacedText.** Decouples network arrival from display rendering; reusable for any future paced-text surface.
+- **Unified send/stop affordance via color inversion.** Same circle shape and position; the colors invert while generating.
+- **Return-to-send keyboard contract (D-052).** The standard chat keyboard contract across the product going forward.
+
+Two decision-log entries were adopted during the arc: D-052 (Return-to-send keyboard contract, reversing the Session 17b ⌘+Return decision) and D-053 (concentric-circles brand-scarcity principle). Full commit-by-commit detail is in CHANGELOG.md.
+
 ## Key files and architectural anchors
 
 For the fresh chat to know where things live:
@@ -313,19 +341,19 @@ Recent migrations of note:
 
 ## Deferred work
 
-See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. The roadmap covers everything that was previously tracked in this section: 20 prioritized items plus a 9-item backlog of unprioritized candidates. The roadmap file is the source of truth; reordering and adding items is a normal part of regular work.
+See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. The roadmap covers everything that was previously tracked in this section: 21 prioritized items plus a 9-item backlog of unprioritized candidates. The roadmap file is the source of truth; reordering and adding items is a normal part of regular work.
 
 ## How a fresh chat opens
 
-Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). The product is in a stable state with no active arc in progress.
+Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). The product is in a stable state with no active arc in progress.
 
 A fresh chat session at this point opens to a project waiting for the operator's next direction. The chat should:
 
-1. Acknowledge the handoff is loaded and that both the polish phase and the workspace arc are closed.
+1. Acknowledge the handoff is loaded and that the polish phase and both major arcs (workspace home and rail restructure, chat page redesign) are closed.
 2. Confirm the operator's intent: pick up the top item from docs/ROADMAP.md, kick off a new direction not on the roadmap yet, or pull a backlog item up.
-3. Default to the operator's lead. The roadmap is ordered; item 1 (chat page enhancement) is the current top priority, but the operator may pivot for any reason.
+3. Default to the operator's lead. The roadmap is ordered; item 1 (full document export) is the current top priority following the chat page redesign closure, but the operator may pivot for any reason.
 
-The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 11) stay deferred unless a trigger fires.
+The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 12) stay deferred unless a trigger fires.
 
 The fresh chat must honor the working rules from message one. One question at a time. No bundled steps. Dual-delight standard. Build for the long term.
 

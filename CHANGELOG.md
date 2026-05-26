@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Chat page redesign arc — eleven-commit product redesign of the agent chat surface at /workspace/agents/[id]: a vertically centered empty state, a focused header, a polished composer, smooth paced streaming, a branded thinking indicator, a unified send/stop control, consolidated secondary actions, and a consistent quiet-action visual language across every chat affordance.**
+
+  **Catalyst.** The agent chat page is one of the highest-traffic surfaces in the product, but it felt unfinished next to modern chat surfaces (Claude.ai as the reference). It was roadmap item 1, selected as the first focused arc after the Workspace home and rail restructure arc closed.
+
+  **Commit 1 — structural redesign (5ea1507).** Vertically centered the header and composer when the conversation is empty; dropped the "Department Agent" pill and the model-name line from the header; demoted the Edit button; inverted the keyboard contract to Return-to-send and Shift+Return-for-newline (D-052); removed the persistent hint text below the composer; polished the model selector to a subtle pill with full sentence-case naming ("Claude Sonnet 4.6"); adopted polish #15 motion tokens.
+
+  **Commit 1.5 — polish pass (2321765).** Shifted the centered empty-state content up to roughly 35-40% from the top; removed the header border in the empty state; matched the header to the composer width by relocating the border onto the max-w-3xl content row; animated the empty-to-active layout transition with a fade-in-up on the message list; made the Esc-to-stop hint contextual, visible only during generation.
+
+  **Commit 1.6 — ThinkingGlyph (711d746).** Replaced the three-dot typing indicator with a pulsing concentric-circles ThinkingGlyph for brand continuity with the landing page; fixed a bug where the indicator rendered roughly 52px left of where the assistant message replaces it (a missing mx-auto max-w-3xl column wrapper); reused the existing landing-ring-pulse keyframe.
+
+  **Commit 2 — polished send button (1bbdce3).** A solid filled primary-blue circle with a white upward arrow, using polish #15 motion tokens for hover, active, disabled, and focus states. The concentric-circles motif was intentionally NOT used here, per the brand-scarcity principle (D-053).
+
+  **Composer text alignment (276b766).** Shifted the composer card left by -ml-3 so the composer text aligns with the header text and the assistant prose left edge; the card's internal px-3 padding had been offsetting its text to the right of where the surrounding content sits.
+
+  **Send button state polish (168741b).** The send button now stays solid primary regardless of input state (dropping the disabled-opacity dim), and its hover reverses from a darken to a brightness lift, matching Claude.ai's send-button behavior.
+
+  **Streaming pacing (9cad674).** Paced streaming text via a new usePacedText hook (a requestAnimationFrame-based proportional drain) that decouples the display cadence from irregular network chunking; flush-on-done/abort/unmount preserves the tail; a flush before source events keeps citation anchoring intact; a reduced-motion bypass renders immediately.
+
+  **Streaming transitions (d07739b).** Smoother streaming transitions: a user-message entrance animation (fade plus a subtle slide); a persistent static ThinkingGlyph below the latest completed response (the pulse settles to static, matching Claude.ai's logo-at-latest-response pattern); a pacing-speed tune (divisor 8 to 5) for a faster reveal that stays smooth.
+
+  **Unified action row (7646c1b).** The send button now handles both send and stop with a color inversion inside the same circle (blue circle with white arrow at idle; white circle with a blue square while streaming) for a seamless transition; a floating scroll-to-bottom affordance sits bottom-center above the composer as a solid white circle, matching the Claude.ai pattern; a Copy button on completed assistant messages with a copied-confirmation state.
+
+  **Action row consolidation (063e77d).** Consolidated Copy and Download into a single icon-only action row at the bottom-left of completed assistant messages, in a matching muted color with a hover-darken treatment; both are always visible (Download is no longer hover-only), removing the prior asymmetric layout.
+
+  **Refined Edit and secondary-action color consistency (1850769).** Reverted the pencil Edit icon back to a refined Edit text affordance (smaller, muted, hover-darkening to foreground); lightened the Copy and Download resting color to text-caption so the hover-darken transition reads clearly; all three secondary actions now share the identical text-caption-to-text-foreground treatment with polish #15 motion tokens.
+
+  **New patterns established during the arc.**
+  - **Brand-scarcity principle (D-053).** The concentric-circles motif is deployed only at high-impact moments (the landing page and the thinking indicator), never as decoration on common UI.
+  - **Secondary-action visual language.** text-caption at rest, text-foreground on hover, with polish #15 motion tokens. Applied across Edit, Copy, and Download, and the reference for any future quiet-action affordance.
+  - **Streaming text pacing via a custom hook.** usePacedText decouples network arrival from display rendering; reusable for any future surface needing a paced text reveal (document streaming, regenerate animations).
+  - **Unified send/stop affordance via color inversion.** The same circle shape and position; the colors invert while generating. The reference for any future generate/stop affordance.
+  - **Return-to-send keyboard contract (D-052).** The standard chat keyboard contract across the product going forward.
+
+  **Files touched across the arc.** Components: components/chat/chat-interface.tsx, agent-header.tsx, message-input.tsx, message-list.tsx, message-bubble.tsx, model-picker.tsx, download-message-button.tsx, typing-indicator.tsx, plus new send-button.tsx, thinking-glyph.tsx, and copy-button.tsx. Library: lib/chat/use-paced-text.ts (new). Styles: app/globals.css (the orphaned chat-typing-dot keyframe removed).
+
+  **Out of scope, deferred.** Three items sit on the roadmap as their own future arcs: full document export (roadmap item 1), chat attachments / knowledge upload (new roadmap item 2), and a recents panel (new roadmap item 3).
+
 - **Workspace home and rail restructure arc — six-stage product redesign of the workspace entry experience: a personalized home at /workspace (HomeHero + Continue working + Recently used + Browse all), the department grid relocated to /workspace/departments, four new coming-soon group landings, the rail brand mark canonicalized, rail group headings made clickable with a split-control chevron pattern, and a three-tier active-state model.**
 
   **Catalyst.** The polish phase refined the workspace's existing surfaces, but the static department grid at /workspace was a directory, not a dashboard. The arc reshaped the entry experience so /workspace is a personalized "your work" surface, separated structural navigation (rail group headings now navigate to landing pages) from disclosure (chevrons as separate controls), and established a coherent active-state model that helps users orient at every nesting level.

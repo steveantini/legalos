@@ -199,7 +199,7 @@ User-level agent create / edit ships in Phase 2 (per D-023 + D-025 in `DECISION_
 - Cross-user view of every agent in the organization (org_admin) and in a department (dept_admin).
 - Force-disable / re-enable on any user-owned agent.
 - Ownership transfer when a user leaves the organization.
-- Audit trail: who created / edited / deleted / forked which agent, when. Reads from the existing soft-delete and (deferred) versioning data; if agent versioning ever lands (roadmap item 20 in `docs/ROADMAP.md`), the audit view consumes it.
+- Audit trail: who created / edited / deleted / forked which agent, when. Reads from the existing soft-delete and (deferred) versioning data; if agent versioning ever lands (roadmap item 21 in `docs/ROADMAP.md`), the audit view consumes it.
 - Template management — adding / editing / retiring templates beyond the six Commercial + Blank Agent set that ships in Phase 2 (item 10 of Phase 2's remaining work).
 
 **Definition of done:** An org_admin can see every agent in the organization, force-disable one if needed, transfer ownership, and view an audit trail of changes.
@@ -275,7 +275,8 @@ These are adjacent to the legal department's stack but out of scope for a launch
 
 ## Current status
 
-- **Phase status:** Phase 2 complete. The product surface is built; the polish phase (items #1 through #17) and the Workspace home and rail restructure arc (six stages) are both closed. Active and pending work is tracked in `docs/ROADMAP.md`.
-- **Polish phase:** all 17 items resolved; see `docs/CHATBOT_HANDOFF.md` for the full disposition. #14 (agent placement audit) remains a recurring discipline with no current action; #16 (em-dash sweep) carried forward as roadmap item 10; #17 (sequenced roadmap construction) shipped `docs/ROADMAP.md` in commit `5d54b45`.
-- **What's next:** `docs/ROADMAP.md` is the authoritative ordered list (20 prioritized items plus a 9-item backlog). Item 1 (chat page enhancement) is the current top priority; the operator may reorder or pivot at any time.
-- **Deferred strategic decision:** per D-051, the out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) stay deferred unless a trigger fires; they sit at roadmap item 11.
+- **Phase status:** Phase 2 complete. The product surface is built; the polish phase (items #1 through #17), the Workspace home and rail restructure arc (six stages), and the chat page redesign arc (eleven commits, 5ea1507 through 1850769) are all closed. The product is in a stable state with no active arc in progress. Active and pending work is tracked in `docs/ROADMAP.md`.
+- **Chat page redesign arc:** eleven commits redesigning the agent chat surface at /workspace/agents/[id] (vertically centered empty state, focused header, polished composer, paced streaming, branded ThinkingGlyph, unified send/stop control, consolidated secondary actions). Adopted D-052 (Return-to-send keyboard contract, reversing Session 17b) and D-053 (concentric-circles brand-scarcity principle). Full disposition in `CHANGELOG.md`.
+- **Polish phase:** all 17 items resolved; see `docs/CHATBOT_HANDOFF.md` for the full disposition. #14 (agent placement audit) remains a recurring discipline with no current action; #16 (em-dash sweep) carried forward as roadmap item 11; #17 (sequenced roadmap construction) shipped `docs/ROADMAP.md` in commit `5d54b45`.
+- **What's next:** `docs/ROADMAP.md` is the authoritative ordered list (21 prioritized items plus a 9-item backlog). Item 1 (full document export) is the current top priority following the chat page redesign closure; the operator may reorder or pivot at any time.
+- **Deferred strategic decision:** per D-051, the out-of-scope C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) stay deferred unless a trigger fires; they sit at roadmap item 12.

@@ -1532,3 +1532,56 @@ The four out-of-scope C4L plugins remain unimported. Documentation in `docs/C4L_
 When a trigger condition is met, the implementation work that follows depends on which plugin’s surface is needed first. Each surface (non-department content tier, admin marketplace, Integrations) is its own multi-stage build; this decision does not lock in a specific architecture for any of them, only the principle that they are distinct from the existing Departments group.
 
 The standalone “Departments” framing in the current product is preserved — academic and clinical content do not become departments by mistake during ongoing work. The 13-department taxonomy stays clean.
+
+## D-052 — Return-to-send keyboard contract for the chat composer (reverses Session 17b)
+
+Date: 2026-05-26
+Status: Accepted (reverses the Session 17b ⌘+Return decision)
+
+**Context:**
+
+The chat composer at /workspace/agents/[id] previously required ⌘+Return to send, with plain Return inserting a newline, and displayed a persistent hint below the composer documenting that contract. That contract was chosen in Session 17b to protect against accidental sends of multi-paragraph legal prompts — a defensible concern, but one that diverges from the behavior of every chat product the operator's users touch daily (Claude.ai, ChatGPT, Gemini, Slack), all of which send on Return. The chat page redesign arc reopened the question.
+
+**Decision:**
+
+The composer uses Return to send, Shift+Return for a newline, and Esc to stop an in-flight generation. The persistent hint text documenting the contract is removed in the same change. This reverses the Session 17b ⌘+Return decision.
+
+**Reasoning:**
+
+User expectation wins over edge-case protection. Return-to-send is the universal contract across every chat product users interact with daily; diverging from it imposes friction on every single message in order to guard against an occasional accidental send. Shift+Return for a newline is itself universally known, so users composing multi-paragraph prompts keep a familiar affordance. The accidental-send worry that motivated Session 17b is real but smaller than the constant cost of contradicting established muscle memory. The hint text is dropped because modern chat surfaces don't display these instructions persistently; users learn the pattern within a session, and a permanent instruction line is visual debt.
+
+**Alternatives considered:**
+
+- **Rejected — Keep ⌘+Return (the Session 17b position).** Preserves accidental-send protection but creates friction on every interaction and contradicts the muscle memory users bring from every other chat product.
+- **Rejected — Make it configurable per user.** Adds a settings surface and persistence complexity for a low-stakes choice. A contract that every other product treats as a default shouldn't become a legalOS preference toggle.
+
+**Consequences:**
+
+The keyboard contract (Return to send, Shift+Return for a newline, Esc to stop) is now the standard for the chat composer and the reference for any future compose-and-send surface in the product. Shipped in commit 5ea1507 (the structural redesign, commit 1 of the chat page redesign arc), which also removed the hint text. Session 17b's reasoning is preserved in its original form per the immutable-history rule; this entry supersedes its conclusion.
+
+## D-053 — Concentric-circles motif deployed scarcely for brand impact
+
+Date: 2026-05-26
+Status: Accepted
+
+**Context:**
+
+The concentric-circles motif originates in components/landing/landing-glyph.tsx as the marketing visual identity. During the chat page redesign, the initial plan applied the motif to the SendButton, transitioning from concentric circles at rest to an upward arrow on hover. That raised a general question: where, and how often, should a distinctive brand mark appear inside the product?
+
+**Decision:**
+
+The concentric-circles motif is deployed scarcely across the product to preserve its meaning. It currently lives in exactly two intentional places: the landing-page brand mark, and the chat ThinkingGlyph shown while an agent is generating a response. The SendButton uses a clean, polished arrow instead of the motif.
+
+**Reasoning:**
+
+The SendButton is a constant UI element users see hundreds of times per session; putting the motif there would dilute it into background furniture users stop noticing. The ThinkingGlyph appears only briefly, during agent generation — a genuine high-impact moment that benefits from brand reinforcement. The principle: deploy distinctive brand motifs at moments that earn them, not as decoration on common UI. Scarcity preserves meaning.
+
+**Alternatives considered:**
+
+- **Rejected — Apply the motif to both the SendButton and the ThinkingGlyph.** The initial arc plan; reconsidered as over-deployment that would erode the motif into a button people stop noticing.
+- **Rejected — Restrict the motif to the landing page only.** Too scarce. The ThinkingGlyph is a genuine in-product brand moment and the strongest natural home for the motif inside the workspace.
+- **Deferred — Extend the motif to other thinking states (future workflow thinking, document-analysis thinking, and the like).** A viable extension if those surfaces emerge, and consistent with the scarcity principle because thinking states are inherently brief and high-attention.
+
+**Consequences:**
+
+The ThinkingGlyph was introduced in commit 711d746; the SendButton was kept as a polished arrow rather than a concentric-circles morph in commit 1bbdce3. Roadmap items 4 (workspace home dashboard revamp) and 5 (brand mark concentric-circles upgrade) will weigh this principle when extending the motif to other surfaces; the rail brand mark is the natural third placement. Any future use of the motif is measured against the scarcity test: does this moment earn the mark, or would it become decoration?
