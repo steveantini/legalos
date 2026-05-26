@@ -4,24 +4,24 @@ import { DownloadIcon, Loader2Icon } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface DownloadMessageButtonProps {
   messageId: string;
 }
 
 /**
- * Hover-revealed "Download as Word" button for a single assistant
- * message. Click triggers a fetch against the export route, converts
- * the response to a Blob, and uses a virtual anchor click to fire the
- * native browser download — equivalent visible behavior to a plain
- * `<a href download>` but with proper error surfaces (toast on failure
- * instead of a broken download).
+ * "Download as Word" button for a single assistant message. Click triggers a
+ * fetch against the export route, converts the response to a Blob, and uses a
+ * virtual anchor click to fire the native browser download — equivalent
+ * visible behavior to a plain `<a href download>` but with proper error
+ * surfaces (toast on failure instead of a broken download). While the export
+ * is in flight, the icon swaps to a spinner and the button disables.
  *
- * The opacity-0 / group-hover:opacity-100 / focus-visible:opacity-100
- * pattern hides the button until the parent message is hovered or the
- * button itself is keyboard-focused. Parent <li> must carry the
- * `group/message` named group class.
+ * Lives in the always-visible action row below a completed message, beside
+ * CopyButton, and shares its muted-foreground / hover-darken treatment so the
+ * two read as one coherent action group (previously this was a hover-revealed
+ * icon in the message's top-right corner).
  *
  * Filename comes from the response's Content-Disposition header
  * (server constructs it as `<agent-slug>-<YYYY-MM-DD>.docx`); we
@@ -66,21 +66,25 @@ export function DownloadMessageButton({ messageId }: DownloadMessageButtonProps)
   }
 
   return (
-    <Button
+    <button
       type="button"
-      variant="ghost"
-      size="icon-sm"
       onClick={handleClick}
       disabled={pending}
       aria-label="Download as Word"
-      className="self-start opacity-0 transition-opacity group-hover/message:opacity-100 focus-visible:opacity-100"
+      className={cn(
+        "inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground",
+        "transition-colors duration-release ease-release motion-reduce:transition-none",
+        "hover:text-foreground hover:duration-hover hover:ease-soft",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        "disabled:cursor-not-allowed",
+      )}
     >
       {pending ? (
-        <Loader2Icon className="size-3.5 animate-spin" />
+        <Loader2Icon className="size-4 animate-spin" aria-hidden />
       ) : (
-        <DownloadIcon className="size-3.5" />
+        <DownloadIcon className="size-4" aria-hidden />
       )}
-    </Button>
+    </button>
   );
 }
 

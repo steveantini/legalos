@@ -200,7 +200,7 @@ export function MessageBubble({
   const showCopy = !isStreaming && copyText.length > 0;
 
   return (
-    <li role="article" className="group/message">
+    <li role="article">
       <div className="mx-auto flex w-full max-w-3xl items-start gap-2">
         <div className="min-w-0 flex-1">
           {blocks.map((b, i) => {
@@ -239,12 +239,14 @@ export function MessageBubble({
           ) : null}
           <SourcesList sources={message.sources} />
           {showCopy ? (
-            <div className="mt-2 flex items-center justify-end">
+            <div className="mt-2 flex items-center gap-1">
               <CopyButton text={copyText} />
+              {isExportable ? (
+                <DownloadMessageButton messageId={message.id} />
+              ) : null}
             </div>
           ) : null}
         </div>
-        {isExportable ? <DownloadMessageButton messageId={message.id} /> : null}
       </div>
     </li>
   );

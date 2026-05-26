@@ -12,13 +12,14 @@ interface CopyButtonProps {
 }
 
 /**
- * Quiet copy-to-clipboard button shown below a completed assistant message.
- * Swaps to a "Copied" check for 2s after a successful copy, then reverts.
- * Failures are swallowed (the clipboard API rejects on insecure contexts /
- * denied permission); the label simply stays "Copy" rather than lying.
+ * Quiet icon-only copy-to-clipboard button in the action row below a
+ * completed assistant message. Swaps to a check glyph for 2s after a
+ * successful copy, then reverts. Failures are swallowed (the clipboard API
+ * rejects on insecure contexts / denied permission); the icon simply stays
+ * the copy glyph rather than lying with a check.
  *
- * This is the lightweight copy action; export-to-document (Word) is a
- * separate affordance (DownloadMessageButton) and its own roadmap arc.
+ * Shares its muted-foreground / hover-darken treatment with the sibling
+ * DownloadMessageButton so the two read as one coherent action group.
  */
 export function CopyButton({ text, className }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
@@ -49,7 +50,7 @@ export function CopyButton({ text, className }: CopyButtonProps) {
       onClick={handleCopy}
       aria-label={copied ? "Copied" : "Copy message"}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-muted-foreground",
+        "inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground",
         "transition-colors duration-release ease-release motion-reduce:transition-none",
         "hover:text-foreground hover:duration-hover hover:ease-soft",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
@@ -57,15 +58,9 @@ export function CopyButton({ text, className }: CopyButtonProps) {
       )}
     >
       {copied ? (
-        <>
-          <Check className="size-3.5" aria-hidden />
-          <span>Copied</span>
-        </>
+        <Check className="size-4" aria-hidden />
       ) : (
-        <>
-          <Copy className="size-3.5" aria-hidden />
-          <span>Copy</span>
-        </>
+        <Copy className="size-4" aria-hidden />
       )}
     </button>
   );
