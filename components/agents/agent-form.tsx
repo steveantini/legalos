@@ -229,9 +229,10 @@ export function AgentForm({
 
       <div className="space-y-2">
         <Label htmlFor="agent-description">Description</Label>
-        <Input
+        <Textarea
           id="agent-description"
           name="description"
+          rows={2}
           maxLength={500}
           defaultValue={defaults.description}
           readOnly={isC4LEdit}
