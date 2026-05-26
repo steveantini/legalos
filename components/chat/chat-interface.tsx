@@ -233,6 +233,9 @@ export function ChatInterface({
   } = usePacedText({
     onText: (text) =>
       updateLastAssistant((m) => ({ ...m, content: m.content + text })),
+    // Lowered from the hook default (8) for a slightly faster reveal that
+    // still reads smooth; tune toward 3-4 if it should move faster.
+    divisor: 5,
   });
 
   /**

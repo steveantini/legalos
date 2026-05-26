@@ -159,8 +159,20 @@ export function MessageBubble({
   }
 
   if (message.role === "user") {
+    // Animate only freshly-sent messages (tmp- ids) into the thread, not the
+    // ones hydrated from history on load — otherwise every message in a
+    // loaded conversation would slide in at once. Mirrors the `isHydrated`
+    // id convention used in the assistant branch below.
+    const isNew = message.id.startsWith("tmp-");
     return (
-      <li role="article">
+      <li
+        role="article"
+        className={
+          isNew
+            ? "animate-in fade-in slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
+            : undefined
+        }
+      >
         <div className="mx-auto flex w-full max-w-3xl justify-end">
           <div className="max-w-full rounded-[10px] border border-border bg-chat-user-bubble-bg px-4 py-3 text-[14.5px] leading-[1.55] text-foreground whitespace-pre-wrap break-words">
             {message.content}

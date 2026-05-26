@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { ChatErrorMessage } from "./chat-error-message";
 import { MessageBubble, type ChatMessage } from "./message-bubble";
+import { ThinkingGlyph } from "./thinking-glyph";
 import { TypingIndicator } from "./typing-indicator";
 
 interface MessageListProps {
@@ -110,7 +111,17 @@ export function MessageList({
     const el = containerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, isWaitingForFirstToken]);
+    // `isStreaming` is in the deps so the bottom settles into view when
+    // generation completes and the resting glyph appears below the response.
+  }, [messages, isWaitingForFirstToken, isStreaming]);
+
+  // After a completed assistant turn (not mid-generation), leave a static
+  // resting glyph below the latest response — the concentric mark stays at
+  // the most recent answer (Claude.ai's logo-at-latest-response pattern).
+  // Hidden while streaming (the text + caret carry that state) and when the
+  // last turn is a user message or an error banner.
+  const lastMessage = messages[messages.length - 1];
+  const showRestingGlyph = !isStreaming && lastMessage?.role === "assistant";
 
   return (
     <div
@@ -176,6 +187,13 @@ export function MessageList({
         {isWaitingForFirstToken ? (
           <li className="mx-auto w-full max-w-3xl">
             <TypingIndicator />
+          </li>
+        ) : showRestingGlyph ? (
+          <li className="mx-auto w-full max-w-3xl">
+            <ThinkingGlyph
+              pulsing={false}
+              className="animate-in fade-in duration-300 motion-reduce:animate-none"
+            />
           </li>
         ) : null}
       </ul>

@@ -1,8 +1,10 @@
 import { cn } from "@/lib/utils";
 
 /**
- * ThinkingGlyph — a small pulsing concentric-circles mark shown while the
- * assistant is thinking (between message send and the first response token).
+ * ThinkingGlyph — a small concentric-circles mark. Pulsing (default) while
+ * the assistant is thinking (between send and the first token); static
+ * (`pulsing={false}`) as the resting mark left at the latest completed
+ * response, matching Claude.ai's logo-at-latest-response pattern.
  *
  * Reuses the landing page's concentric-circles motif (see
  * `components/landing/landing-glyph.tsx`) so the brand identity recurs at a
@@ -22,7 +24,20 @@ import { cn } from "@/lib/utils";
  * proportions down to a single-glyph format; tune the rendered size via the
  * `className` (defaults to size-8 / 32px) without touching the viewBox.
  */
-export function ThinkingGlyph({ className }: { className?: string }) {
+interface ThinkingGlyphProps {
+  className?: string;
+  /**
+   * True (default) renders the expanding pulse ring — the agent is actively
+   * thinking. False renders only the static rings + center dot, the resting
+   * mark left below the latest completed response.
+   */
+  pulsing?: boolean;
+}
+
+export function ThinkingGlyph({
+  className,
+  pulsing = true,
+}: ThinkingGlyphProps) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -49,17 +64,20 @@ export function ThinkingGlyph({ className }: { className?: string }) {
         strokeOpacity="0.18"
         strokeWidth="1"
       />
-      {/* Pulse ring — expands from center outward on the shared keyframe. */}
-      <circle
-        cx="16"
-        cy="16"
-        r="14"
-        fill="none"
-        stroke="var(--primary)"
-        strokeWidth="1"
-        className="landing-ring-pulse"
-        style={{ transformBox: "fill-box", transformOrigin: "center" }}
-      />
+      {/* Pulse ring — expands from center on the shared keyframe; omitted in
+          the resting (non-pulsing) state. */}
+      {pulsing ? (
+        <circle
+          cx="16"
+          cy="16"
+          r="14"
+          fill="none"
+          stroke="var(--primary)"
+          strokeWidth="1"
+          className="landing-ring-pulse"
+          style={{ transformBox: "fill-box", transformOrigin: "center" }}
+        />
+      ) : null}
       {/* Center dot — the anchor, matching the landing glyph. */}
       <circle cx="16" cy="16" r="2" fill="var(--primary)" />
     </svg>
