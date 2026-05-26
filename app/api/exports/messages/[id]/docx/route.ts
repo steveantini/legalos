@@ -2,6 +2,8 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 
+import { siteConfig } from "@/config/site";
+import type { ChatSource } from "@/lib/chat/sse-parser";
 import { renderMessageAsDocx } from "@/lib/exports/docx";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -44,6 +46,30 @@ function errorResponse(error: ExportErrorCode, status: number) {
   return NextResponse.json({ ok: false, error }, { status });
 }
 
+/**
+ * Make an agent name safe to drop into a Content-Disposition filename across
+ * Windows, macOS, and Linux: strip the reserved characters and control codes,
+ * collapse whitespace, and fall back to a generic label if nothing usable
+ * remains.
+ */
+function sanitizeFilenamePart(input: string): string {
+  const cleaned = input.replace(/[\\/:*?"<>|\x00-\x1f]/g, " ");
+  const collapsed = cleaned.replace(/\s+/g, " ").trim();
+  return collapsed.length > 0 ? collapsed : "Agent response";
+}
+
+/**
+ * Filename date stamp: YYYY-MM-DD in UTC. Takes the same `exportedAt` instant
+ * the renderer stamps into the document subtitle and footer, so the filename
+ * date and the in-document date never disagree.
+ */
+function formatYYYYMMDDUtc(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -64,7 +90,7 @@ export async function GET(
     //      tripped (missing message vs. another user's message).
     const { data: message, error: msgErr } = await supabase
       .from("messages")
-      .select("id, conversation_id, role, content")
+      .select("id, conversation_id, role, content, sources")
       .eq("id", messageId)
       .maybeSingle();
     if (msgErr) {
@@ -92,10 +118,10 @@ export async function GET(
       return errorResponse("not_found", 404);
     }
 
-    // ---- Load the agent for the filename slug.
+    // ---- Load the agent for the title block + filename.
     const { data: agent, error: agentErr } = await supabase
       .from("agents")
-      .select("slug")
+      .select("slug, name")
       .eq("id", conversation.agent_id)
       .maybeSingle();
     if (agentErr || !agent) {
@@ -103,10 +129,18 @@ export async function GET(
       return errorResponse("internal_error", 500);
     }
 
-    // ---- Render markdown → docx.
+    // ---- Render markdown → docx. The same `exportedAt` instant feeds the
+    //      document's date subtitle, the page footer, and the filename below.
+    const exportedAt = new Date();
     let buffer: Buffer;
     try {
-      buffer = await renderMessageAsDocx(message.content);
+      buffer = await renderMessageAsDocx({
+        markdown: message.content,
+        agentName: agent.name ?? "Untitled agent",
+        sources: (message.sources ?? []) as ChatSource[],
+        exportedAt,
+        productName: siteConfig.siteTitle,
+      });
     } catch (err) {
       console.error("renderMessageAsDocx failed", err);
       return errorResponse("internal_error", 500);
@@ -131,13 +165,14 @@ export async function GET(
       });
     }
 
-    // ---- Filename: <agent-slug>-<YYYY-MM-DD>.docx (UTC date — minor
-    //      cosmetic timezone drift acceptable in v1).
-    const now = new Date();
-    const yyyymmdd = `${now.getUTCFullYear()}-${String(
-      now.getUTCMonth() + 1,
-    ).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
-    const filename = `${agent.slug}-${yyyymmdd}.docx`;
+    // ---- Filename: "<Agent name> - <YYYY-MM-DD>.docx" (UTC date — minor
+    //      cosmetic timezone drift acceptable in v1). The agent name is
+    //      sanitized for cross-platform filesystem safety; slug is the
+    //      fallback if the name is somehow empty.
+    const agentNamePart = sanitizeFilenamePart(
+      agent.name ?? agent.slug ?? "Agent response",
+    );
+    const filename = `${agentNamePart} - ${formatYYYYMMDDUtc(exportedAt)}.docx`;
 
     return new Response(new Uint8Array(buffer), {
       status: 200,
