@@ -339,7 +339,7 @@ export function AgentForm({
               ? "agent-system-prompt-error"
               : "agent-system-prompt-helper"
           }
-          className={`min-h-[220px] font-mono text-sm ${lockedFieldClass}`}
+          className={`min-h-[220px] ${lockedFieldClass}`}
         />
         {fieldError("system_prompt") ? (
           <p
