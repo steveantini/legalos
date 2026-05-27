@@ -25,7 +25,7 @@ export function CalendarConnectCard() {
   return (
     <section
       aria-labelledby="calendar-connect-heading"
-      className="rounded-xl border border-border bg-card p-8 shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_1px_0_rgba(26,24,22,0.03),0_12px_28px_-18px_rgba(26,24,22,0.10)]"
+      className="rounded-xl border border-border bg-card p-8"
     >
       <div className="flex items-center justify-between gap-8">
         <div className="flex-1">
