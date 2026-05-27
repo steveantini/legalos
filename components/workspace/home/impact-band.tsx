@@ -54,11 +54,13 @@ export async function ImpactBand({ userId, isAdmin }: ImpactBandProps) {
             mode="setup-needed"
             label="Hours saved"
             ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
+            ariaLabel="Set up hours saved tracking"
           />
           <ImpactCell
             mode="setup-needed"
             label="Estimated cost saved"
             ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
+            ariaLabel="Set up estimated cost saved tracking"
           />
           <ImpactCell
             mode="value"

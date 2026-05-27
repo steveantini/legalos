@@ -31,7 +31,7 @@ type ComingSoonCardProps = {
  */
 export function ComingSoonCard({ title, description }: ComingSoonCardProps) {
   return (
-    <article className="flex min-h-[160px] flex-col gap-3 rounded-[14px] border border-card-border bg-card p-[22px]">
+    <article className="flex min-h-[160px] flex-col gap-3 rounded-[14px] border border-border bg-card p-[22px]">
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-[19px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
           {title}

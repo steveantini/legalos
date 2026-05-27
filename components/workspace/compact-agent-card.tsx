@@ -26,7 +26,7 @@ export function CompactAgentCard({
   return (
     <Link
       href={`/workspace/agents/${id}`}
-      className="group flex min-h-[80px] flex-col justify-between gap-1 rounded-[14px] border border-card-border bg-card p-4 transition-[transform,box-shadow,border-color] duration-release ease-release motion-reduce:transition-none hover:duration-hover hover:ease-soft hover:-translate-y-[1px] hover:border-primary/35 hover:shadow-[0_1px_0_rgba(26,24,22,0.02),0_8px_18px_-10px_rgba(26,24,22,0.08)] active:duration-press active:ease-spring active:translate-y-0 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="group flex min-h-[80px] flex-col justify-between gap-1 rounded-[14px] border border-border bg-card p-4 transition-[transform,box-shadow,border-color] duration-release ease-release motion-reduce:transition-none hover:duration-hover hover:ease-soft hover:-translate-y-[1px] hover:border-primary/35 hover:shadow-[0_1px_0_rgba(26,24,22,0.02),0_8px_18px_-10px_rgba(26,24,22,0.08)] active:duration-press active:ease-spring active:translate-y-0 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <span className="line-clamp-1 text-[14.5px] font-medium tracking-[-0.005em] text-foreground">
         {name}

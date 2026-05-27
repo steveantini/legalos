@@ -14,10 +14,9 @@ import { Button } from "@/components/ui/button";
  * view backed by real data; the card frame and placement stay put.
  *
  * Visual vocabulary follows Direction A / Stage 1: rounded-xl (14px via
- * the --radius-xl scale), a border-border + bg-card frame (the real card
- * token, not the latent border-card-border no-op flagged for Stage 7), a
- * mono caption eyebrow, a 22px medium section heading, and a
- * muted-foreground body. The Connect CTA uses the Button primitive's
+ * the --radius-xl scale), a border-border + bg-card frame, a mono caption
+ * eyebrow, a 22px medium section heading, and a muted-foreground body.
+ * The Connect CTA uses the Button primitive's
  * `render` prop to render as a Link — Base UI's polymorphism convention
  * and this project's asChild equivalent.
  */
@@ -43,7 +42,10 @@ export function CalendarConnectCard() {
             free/busy and today’s schedule. We never write to your calendar.
           </p>
         </div>
-        <Button render={<Link href="/workspace/integrations/connections" />}>
+        <Button
+          aria-label="Connect your calendar"
+          render={<Link href="/workspace/integrations/connections" />}
+        >
           Connect →
         </Button>
       </div>

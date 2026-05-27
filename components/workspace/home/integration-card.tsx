@@ -35,6 +35,7 @@ export function IntegrationCard({ serviceName, ctaHref }: IntegrationCardProps) 
       </p>
       <Link
         href={ctaHref}
+        aria-label={`Set up ${serviceName}`}
         className="text-[13px] font-medium text-primary hover:underline"
       >
         Set up →

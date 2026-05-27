@@ -31,6 +31,12 @@ type ImpactCellSetupProps = ImpactCellBase & {
   mode: "setup-needed";
   /** Where "Set up →" routes; omitted for non-admins, who see no link. */
   ctaHref?: string;
+  /**
+   * Discriminating accessible name for the link — the visible "Set up →"
+   * is identical across cells, so each passes its own label (e.g. "Set up
+   * hours saved tracking"). Applied only when `ctaHref` is present.
+   */
+  ariaLabel?: string;
 };
 
 type ImpactCellProps =
@@ -95,7 +101,7 @@ function TextCell({ primary, secondary }: ImpactCellTextProps) {
   );
 }
 
-function SetupNeededCell({ ctaHref }: ImpactCellSetupProps) {
+function SetupNeededCell({ ctaHref, ariaLabel }: ImpactCellSetupProps) {
   return (
     <>
       <p className="mb-2 text-[20px] font-medium leading-[1.2] tracking-[-0.015em] text-muted-foreground">
@@ -104,6 +110,7 @@ function SetupNeededCell({ ctaHref }: ImpactCellSetupProps) {
       {ctaHref && (
         <Link
           href={ctaHref}
+          aria-label={ariaLabel}
           className="text-[12px] font-medium text-primary hover:underline"
         >
           Set up →

@@ -139,7 +139,7 @@ function SectionSkeleton({ title }: { title: string }) {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="h-[120px] animate-pulse rounded-[14px] border border-card-border bg-muted/30 motion-reduce:animate-none"
+            className="h-[120px] animate-pulse rounded-xl border border-border bg-muted/30 motion-reduce:animate-none"
           />
         ))}
       </div>
