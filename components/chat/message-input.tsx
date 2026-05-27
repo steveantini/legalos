@@ -2,10 +2,17 @@
 
 import { useRef, type KeyboardEvent } from "react";
 
+import { AttachButton } from "./attach-button";
 import { ModelPicker } from "./model-picker";
+import { PendingAttachmentsRow } from "./pending-attachments-row";
 import { SendButton } from "./send-button";
 import { WebSearchIndicator } from "./web-search-indicator";
 
+import {
+  isReady,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  type PendingAttachment,
+} from "@/lib/chat/pending-attachment";
 import { Textarea } from "@/components/ui/textarea";
 
 interface MessageInputProps {
@@ -41,6 +48,12 @@ interface MessageInputProps {
   onStop?: () => void;
   /** Re-focus the textarea programmatically (after streaming completes). */
   focusRef?: { current: HTMLTextAreaElement | null };
+  /** Pending (not-yet-sent) attachments, owned by ChatInterface. */
+  pendingAttachments: PendingAttachment[];
+  /** Fired with the files the user picked via the attach button. */
+  onAttachFiles: (files: File[]) => void;
+  /** Fired with a pending attachment's localId to remove it before send. */
+  onRemoveAttachment: (localId: string) => void;
 }
 
 /**
@@ -86,16 +99,32 @@ export function MessageInput({
   disabled,
   onStop,
   focusRef,
+  pendingAttachments,
+  onAttachFiles,
+  onRemoveAttachment,
 }: MessageInputProps) {
   const localRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Send is allowed when not streaming, no attachment is still uploading, and
+  // there's something to send — typed text OR at least one ready attachment.
+  // Attachments-only sends (no typed text) are allowed, matching the
+  // frontier chat-surface pattern.
+  const isUploadingAttachment = pendingAttachments.some(
+    (a) => a.status === "attaching",
+  );
+  const hasReadyAttachment = pendingAttachments.some(isReady);
+  const hasContent = value.trim().length > 0 || hasReadyAttachment;
+  const canSend = !disabled && !isUploadingAttachment && hasContent;
+  const atAttachmentCap =
+    pendingAttachments.length >= MAX_ATTACHMENTS_PER_MESSAGE;
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     // Return sends; Shift+Return inserts a newline. Return-to-send is the
     // chat-native default users reach for; multi-paragraph prompts stay
-    // reachable via Shift+Return.
+    // reachable via Shift+Return (D-052 keyboard contract).
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!disabled && value.trim().length > 0) {
+      if (canSend) {
         onSend();
       }
       return;
@@ -107,7 +136,7 @@ export function MessageInput({
   }
 
   function handleSendClick() {
-    if (!disabled && value.trim().length > 0) {
+    if (canSend) {
       onSend();
     }
   }
@@ -128,6 +157,10 @@ export function MessageInput({
           right edge stays at the column; only the left border extends ~12px
           into the gutter. */}
       <div className="-ml-3 rounded-[14px] border border-border-strong bg-card shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10)] transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-primary/45 focus-within:shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10),0_0_0_3px_oklch(0.4512_0.0766_258.9642_/_0.08)]">
+        <PendingAttachmentsRow
+          attachments={pendingAttachments}
+          onRemove={onRemoveAttachment}
+        />
         <div className="px-3 pt-3">
           <label htmlFor="message-input" className="sr-only">
             Message
@@ -149,6 +182,13 @@ export function MessageInput({
         </div>
         <div className="flex items-center justify-between gap-3 px-3 pt-1 pb-2">
           <div className="flex items-center gap-2">
+            <AttachButton
+              disabled={disabled || atAttachmentCap}
+              reasonWhenDisabled={
+                atAttachmentCap ? "Up to 5 files per message" : null
+              }
+              onFilesSelected={onAttachFiles}
+            />
             {webSearchEnabled ? <WebSearchIndicator agentId={agentId} /> : null}
           </div>
           <div className="flex items-center gap-2">
@@ -164,7 +204,7 @@ export function MessageInput({
             <SendButton
               onClick={handleSendClick}
               onStop={onStop}
-              disabled={value.trim().length === 0}
+              disabled={!canSend}
               streaming={Boolean(showStop)}
             />
           </div>

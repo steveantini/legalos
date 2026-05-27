@@ -145,6 +145,7 @@ function messageRowToChatMessage(row: ConversationMessage): ChatMessage {
       content: row.content,
       sources: [],
       toolCalls: [],
+      attachments: row.attachments,
     };
   }
   if (row.role === "system") {

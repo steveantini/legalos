@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { AgentHeader } from "./agent-header";
 import { ChatErrorMessage } from "./chat-error-message";
@@ -8,6 +9,16 @@ import { MessageInput } from "./message-input";
 import { MessageList } from "./message-list";
 import type { ChatMessage } from "./message-bubble";
 
+import {
+  removeMessageAttachmentAction,
+  uploadMessageAttachmentAction,
+} from "@/lib/actions/message-attachments";
+import {
+  isReady,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  toSendPayload,
+  type PendingAttachment,
+} from "@/lib/chat/pending-attachment";
 import {
   parseSseStream,
   type ChatStreamEvent,
@@ -141,6 +152,24 @@ export function ChatInterface({
     body: string;
     retryUserText: string;
   } | null>(null);
+
+  // ---- Chat-attachments state (chat attachments arc) ----
+  // Pending (not-yet-sent) attachments rendered as chips in the composer.
+  const [pendingAttachments, setPendingAttachments] = useState<
+    PendingAttachment[]
+  >([]);
+  // Client-pre-allocated id for the NEXT user message (D-055). Attachment
+  // uploads write under this id's storage path and the send payload carries
+  // it; regenerated after each successful send. Kept distinct from the
+  // optimistic message's tmp- id so the user-bubble entrance animation (keyed
+  // on the "tmp-" prefix) still fires.
+  const [nextMessageId, setNextMessageId] = useState(() => crypto.randomUUID());
+  // Pre-allocated conversation id for a fresh chat so uploads have a final
+  // storage path before the first send. Once the conversation is persisted
+  // (the SSE meta handler sets conversationId), that canonical id takes over;
+  // for a continuing conversation, conversationId is already non-null.
+  const [freshConversationId] = useState(() => crypto.randomUUID());
+  const pendingConversationId = conversationId ?? freshConversationId;
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -293,8 +322,10 @@ export function ChatInterface({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agent_id: agentId,
-          conversation_id: conversationId,
+          conversation_id: pendingConversationId,
+          message_id: nextMessageId,
           user_message: userText,
+          attachments: toSendPayload(pendingAttachments),
         }),
         signal: controller.signal,
       });
@@ -317,6 +348,11 @@ export function ChatInterface({
 
     if (!response.ok || !response.body) {
       const errorCode = await readErrorCode(response);
+      // A UUID collision on the pre-allocated message id is extraordinarily
+      // unlikely (a real bug or race). Regenerate so a retry uses a fresh id.
+      if (errorCode === "message_id_conflict") {
+        setNextMessageId(crypto.randomUUID());
+      }
       const errorCopy = messageForErrorCode(errorCode);
       setApiError({
         lead: errorCopy.lead,
@@ -346,6 +382,14 @@ export function ChatInterface({
           content: userText,
           sources: [],
           toolCalls: [],
+          // Display the ready attachments on the optimistic user bubble. On
+          // reload these hydrate from message_attachments instead. Kept as the
+          // tmp- id (not nextMessageId) so the entrance animation still fires.
+          attachments: pendingAttachments.filter(isReady).map((a) => ({
+            filename: a.filename,
+            sizeBytes: a.sizeBytes,
+            contentType: a.contentType,
+          })),
         });
       }
       additions.push({
@@ -361,6 +405,10 @@ export function ChatInterface({
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(DRAFT_STORAGE_KEY(agentId));
     }
+    // This send consumed the pending attachments and the pre-allocated id;
+    // clear the chips and roll a fresh id for the next message.
+    setPendingAttachments([]);
+    setNextMessageId(crypto.randomUUID());
 
     try {
       for await (const event of parseSseStream(response)) {
@@ -404,6 +452,103 @@ export function ChatInterface({
 
   function handleStop() {
     abortRef.current?.abort();
+  }
+
+  /**
+   * Upload one or more picked files as pending attachments. Each shows as an
+   * "attaching" chip immediately, then uploads in parallel; the chip settles
+   * to ready or failed as its action resolves. Enforces the 5-per-message cap
+   * (counting attaching + ready + failed chips) before uploading.
+   */
+  async function handleAttachFiles(files: File[]) {
+    const remainingSlots =
+      MAX_ATTACHMENTS_PER_MESSAGE - pendingAttachments.length;
+    if (remainingSlots <= 0) {
+      toast.error("Up to 5 files per message.");
+      return;
+    }
+    let toUpload = files;
+    if (files.length > remainingSlots) {
+      toast.error(
+        `Up to 5 files per message. ${remainingSlots} slot${remainingSlots === 1 ? "" : "s"} remaining.`,
+      );
+      toUpload = files.slice(0, remainingSlots);
+    }
+    if (toUpload.length === 0) return;
+
+    const newPending: PendingAttachment[] = toUpload.map((file) => ({
+      localId: crypto.randomUUID(),
+      status: "attaching",
+      filename: file.name,
+      sizeBytes: file.size,
+      contentType: file.type,
+    }));
+    setPendingAttachments((prev) => [...prev, ...newPending]);
+
+    await Promise.all(
+      newPending.map(async (pending, index) => {
+        const file = toUpload[index];
+        const formData = new FormData();
+        formData.append("conversation_id", pendingConversationId);
+        formData.append("message_id", nextMessageId);
+        formData.append("file", file);
+
+        const result = await uploadMessageAttachmentAction(formData);
+
+        setPendingAttachments((prev) =>
+          prev.map((p) => {
+            if (p.localId !== pending.localId) return p;
+            if (result.ok) {
+              return {
+                localId: p.localId,
+                status: "ready",
+                filename: result.attachment.originalFilename,
+                sizeBytes: result.attachment.sizeBytes,
+                contentType: result.attachment.contentType,
+                storagePath: result.attachment.storagePath,
+                extractionWarning: result.attachment.extractionWarning,
+              };
+            }
+            return {
+              localId: p.localId,
+              status: "failed",
+              filename: pending.filename,
+              sizeBytes: pending.sizeBytes,
+              contentType: pending.contentType,
+              errorCode: result.error,
+            };
+          }),
+        );
+
+        if (result.ok && result.attachment.extractionWarning) {
+          toast.warning(
+            `${pending.filename}: ${result.attachment.extractionWarning}`,
+          );
+        }
+      }),
+    );
+  }
+
+  /**
+   * Remove a pending attachment before send. The chip vanishes immediately;
+   * if the file reached Storage (ready), the object is purged. Failed chips
+   * have nothing in Storage; attaching chips have no remove affordance, so
+   * they never reach here.
+   */
+  async function handleRemoveAttachment(localId: string) {
+    const target = pendingAttachments.find((p) => p.localId === localId);
+    if (!target) return;
+    setPendingAttachments((prev) => prev.filter((p) => p.localId !== localId));
+    if (target.status === "ready") {
+      const formData = new FormData();
+      formData.append("storage_path", target.storagePath);
+      const result = await removeMessageAttachmentAction(formData);
+      if (!result.ok) {
+        toast.error(
+          "Removed from your message, but the file couldn't be fully deleted. It will be cleaned up automatically.",
+        );
+      }
+    }
   }
 
   /**
@@ -690,6 +835,9 @@ export function ChatInterface({
             onStop={handleStop}
             disabled={isStreaming}
             focusRef={textareaRef}
+            pendingAttachments={pendingAttachments}
+            onAttachFiles={handleAttachFiles}
+            onRemoveAttachment={handleRemoveAttachment}
           />
         )}
       </div>

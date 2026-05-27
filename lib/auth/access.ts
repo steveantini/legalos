@@ -843,6 +843,16 @@ export interface ConversationMessage {
   content: string;
   sources: unknown;
   tool_calls: unknown;
+  /**
+   * Per-message file attachments (chat attachments arc), hydrated alongside
+   * the message so the chat surface renders attachment chips on reload, not
+   * just optimistically. Empty for messages with no attachments.
+   */
+  attachments: Array<{
+    filename: string;
+    sizeBytes: number;
+    contentType: string;
+  }>;
 }
 
 /**
@@ -885,8 +895,42 @@ export async function getConversationForChatSurface(
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
+  const messageRows = (messages ?? []) as Array<
+    Omit<ConversationMessage, "attachments">
+  >;
+
+  // Hydrate per-message attachments in the same trip (chat attachments arc).
+  // Grouped by message_id, ordered by created_at so chips render in the order
+  // they were attached.
+  const attachmentsByMessage = new Map<
+    string,
+    ConversationMessage["attachments"]
+  >();
+  if (messageRows.length > 0) {
+    const { data: attachmentRows } = await supabase
+      .from("message_attachments")
+      .select("message_id, original_filename, size_bytes, content_type")
+      .in(
+        "message_id",
+        messageRows.map((m) => m.id),
+      )
+      .order("created_at", { ascending: true });
+    for (const row of attachmentRows ?? []) {
+      const list = attachmentsByMessage.get(row.message_id) ?? [];
+      list.push({
+        filename: row.original_filename,
+        sizeBytes: Number(row.size_bytes),
+        contentType: row.content_type,
+      });
+      attachmentsByMessage.set(row.message_id, list);
+    }
+  }
+
   return {
     id: convo.id,
-    messages: (messages ?? []) as ConversationMessage[],
+    messages: messageRows.map((m) => ({
+      ...m,
+      attachments: attachmentsByMessage.get(m.id) ?? [],
+    })),
   };
 }

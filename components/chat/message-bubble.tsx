@@ -1,5 +1,7 @@
 "use client";
 
+import { FileTextIcon } from "lucide-react";
+
 import { CopyButton } from "./copy-button";
 import { MessageActionsMenu } from "./message-actions-menu";
 import { MarkdownRenderer } from "./markdown-renderer";
@@ -34,7 +36,47 @@ export type ChatMessage = {
   content: string;
   sources: ChatSource[];
   toolCalls: ChatToolCall[];
+  /**
+   * Per-message file attachments (chat attachments arc). Present on user
+   * messages that carried uploads — populated optimistically at send and
+   * hydrated from `message_attachments` on conversation reload. Rendered as
+   * compact read-only chips above the message content. Absent / empty on
+   * messages with no attachments and on every assistant message.
+   */
+  attachments?: Array<{
+    filename: string;
+    sizeBytes: number;
+    contentType: string;
+  }>;
 };
+
+/**
+ * Read-only attachment chips shown above a user message's content. Quieter
+ * than the composer's pending chips (no remove X, no loading state, muted
+ * surface) — a record of what was attached, not an editable control. No
+ * download affordance: there's no signed-URL surface for message attachments
+ * today (that's its own scope).
+ */
+function MessageAttachmentsDisplay({
+  attachments,
+}: {
+  attachments: NonNullable<ChatMessage["attachments"]>;
+}) {
+  if (attachments.length === 0) return null;
+  return (
+    <div className="mb-2 flex flex-wrap gap-1.5">
+      {attachments.map((att, i) => (
+        <div
+          key={`${att.filename}-${i}`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-muted px-2 py-1 text-xs text-caption"
+        >
+          <FileTextIcon className="size-3 shrink-0" aria-hidden />
+          <span className="max-w-[18ch] truncate">{att.filename}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -176,6 +218,9 @@ export function MessageBubble({
       >
         <div className="mx-auto flex w-full max-w-3xl justify-end">
           <div className="max-w-full rounded-[10px] border border-border bg-chat-user-bubble-bg px-4 py-3 text-[14.5px] leading-[1.55] text-foreground whitespace-pre-wrap break-words">
+            {message.attachments && message.attachments.length > 0 ? (
+              <MessageAttachmentsDisplay attachments={message.attachments} />
+            ) : null}
             {message.content}
           </div>
         </div>
