@@ -3,6 +3,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
+import { ALLOWED_MIME_TYPES, extractText } from "@/lib/extract/extract";
 import {
   streamAnthropicChat,
   type AnthropicSystemBlock,
@@ -62,9 +64,24 @@ export const runtime = "nodejs";
 // platform notes); a chat call will close well inside that.
 export const maxDuration = 300;
 
+// Aggregate cap on extracted attachment text across all of a message's
+// attachments (D-055), enforced at send. Per-file extraction already truncates
+// at 100k chars; this bounds the sum so several large files can't blow up the
+// prompt and its cost.
+const ATTACHMENT_AGGREGATE_CHAR_BUDGET = 250_000;
+
 const chatRequestSchema = z.object({
   agent_id: z.string().uuid(),
+  // Optional client pre-allocation (Stage 4 composer supplies it; legacy
+  // payloads don't). Stays nullable for back-compat: when absent the route
+  // server-generates the id, preserving today's behavior. When supplied it may
+  // be a fresh id or an existing owned conversation to continue.
   conversation_id: z.string().uuid().nullable(),
+  // Optional client pre-allocation so message attachments can be uploaded under
+  // <user>/<conversation>/<message>/ before the send round-trip. When absent
+  // (legacy payloads) the user message falls back to the DB default id
+  // (gen_random_uuid()); when supplied the route inserts the message with it.
+  message_id: z.string().uuid().optional(),
   user_message: z
     .string()
     .trim()
@@ -77,6 +94,23 @@ const chatRequestSchema = z.object({
       (s) => !/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(s),
       { message: "User message contains disallowed control characters" },
     ),
+  // Per-message attachment references. The client uploads each file via
+  // uploadMessageAttachmentAction (which returns this metadata), holds it in
+  // pending state, and passes it here on send. extracted_text is intentionally
+  // NOT accepted from the client — the route re-extracts from Storage (trusted
+  // source). Capped at 5; the aggregate text budget is enforced after
+  // extraction.
+  attachments: z
+    .array(
+      z.object({
+        storage_path: z.string().min(1).max(1024),
+        original_filename: z.string().min(1).max(512),
+        content_type: z.enum(ALLOWED_MIME_TYPES),
+        size_bytes: z.number().int().positive().max(MAX_BYTES),
+      }),
+    )
+    .max(5)
+    .default([]),
 });
 
 type ChatErrorCode =
@@ -87,7 +121,11 @@ type ChatErrorCode =
   | "invalid_input"
   | "rate_limited"
   | "upstream_error"
-  | "internal_error";
+  | "internal_error"
+  | "conversation_id_conflict"
+  | "message_id_conflict"
+  | "invalid_attachment"
+  | "attachments_too_large";
 
 function errorResponse(error: ChatErrorCode, status: number) {
   return NextResponse.json({ ok: false, error }, { status });
@@ -118,6 +156,22 @@ function domainFromUrl(url: string): string {
   } catch {
     return url;
   }
+}
+
+/**
+ * Escape a string for safe inclusion inside an XML-style double-quoted
+ * attribute. The attachment filename is user-supplied and could contain `"`,
+ * `&`, or angle brackets that would otherwise break the
+ * <attachment filename="..."> framing the model relies on to delimit the file.
+ * `&` is escaped first so the entities introduced by the later replacements
+ * are not double-escaped.
+ */
+function escapeAttributeValue(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /**
@@ -164,7 +218,18 @@ export async function POST(request: Request) {
     }
     const parsed = chatRequestSchema.safeParse(rawBody);
     if (!parsed.success) return errorResponse("invalid_input", 400);
-    const { agent_id, conversation_id, user_message } = parsed.data;
+    const { agent_id, conversation_id, message_id, user_message, attachments } =
+      parsed.data;
+
+    // Validate attachment ownership up front — before any inserts — so a bad
+    // storage_path fails fast without leaving an orphan message row. Storage
+    // RLS would also block a foreign path, but the early reject is clearer and
+    // cheaper.
+    for (const att of attachments) {
+      if (att.storage_path.split("/")[0] !== user.id) {
+        return errorResponse("invalid_attachment", 400);
+      }
+    }
 
     // ---- Load + verify agent
     const { data: agentRow, error: agentErr } = await supabase
@@ -212,22 +277,45 @@ export async function POST(request: Request) {
     let modelSnapshot: string;
     let priorMessages: Array<{ role: MessageRole; content: string }> = [];
 
+    // The client may pre-allocate a conversation id (Stage 4 composer) or omit
+    // it (legacy payloads). When present it may reference an existing owned
+    // conversation to continue, or be a fresh id; try to load it first. A hit
+    // reuses it; a miss — or no id at all — creates a new conversation, using
+    // the client id when supplied and a server-generated one otherwise. RLS
+    // scopes the fetch to the user's own conversations.
+    let existingConvo:
+      | {
+          id: string;
+          user_id: string;
+          system_prompt_snapshot: string;
+          model_snapshot: string;
+        }
+      | null = null;
     if (conversation_id) {
-      const { data: convo, error: convoErr } = await supabase
+      const { data, error: convoFetchErr } = await supabase
         .from("conversations")
         .select("id, user_id, system_prompt_snapshot, model_snapshot")
         .eq("id", conversation_id)
         .maybeSingle();
-      if (convoErr) {
-        console.error("conversation fetch failed", { code: convoErr.code });
+      if (convoFetchErr) {
+        console.error("conversation fetch failed", {
+          code: convoFetchErr.code,
+        });
         return errorResponse("internal_error", 500);
       }
-      if (!convo || convo.user_id !== user.id) {
+      existingConvo = data;
+    }
+
+    if (existingConvo) {
+      // Existing conversation must be owned by the requester. RLS already
+      // scopes the read; the explicit check is defense in depth and preserves
+      // the prior 403-on-foreign behavior.
+      if (existingConvo.user_id !== user.id) {
         return errorResponse("forbidden", 403);
       }
-      conversationId = convo.id;
-      systemPromptSnapshot = convo.system_prompt_snapshot;
-      modelSnapshot = convo.model_snapshot;
+      conversationId = existingConvo.id;
+      systemPromptSnapshot = existingConvo.system_prompt_snapshot;
+      modelSnapshot = existingConvo.model_snapshot;
 
       const { data: history, error: historyErr } = await supabase
         .from("messages")
@@ -243,9 +331,13 @@ export async function POST(request: Request) {
         content: string;
       }>;
     } else {
+      // New conversation: use the client-supplied id when present, else
+      // server-generate (back-compat with today's composer).
+      const conversationIdToInsert = conversation_id ?? crypto.randomUUID();
       const { data: created, error: createErr } = await supabase
         .from("conversations")
         .insert({
+          id: conversationIdToInsert,
           organization_id: agent.organization_id,
           user_id: user.id,
           agent_id: agent.id,
@@ -255,9 +347,12 @@ export async function POST(request: Request) {
         .select("id, system_prompt_snapshot, model_snapshot")
         .single();
       if (createErr || !created) {
-        console.error("conversation insert failed", {
-          code: createErr?.code,
-        });
+        // 23505 = unique_violation: a client-supplied id already exists (a
+        // race, or a foreign conversation hidden from the RLS-scoped fetch).
+        if (createErr?.code === "23505") {
+          return errorResponse("conversation_id_conflict", 409);
+        }
+        console.error("conversation insert failed", { code: createErr?.code });
         return errorResponse("internal_error", 500);
       }
       conversationId = created.id;
@@ -265,10 +360,13 @@ export async function POST(request: Request) {
       modelSnapshot = created.model_snapshot;
     }
 
-    // ---- Insert user message
+    // ---- Insert user message. Use the client-supplied id when present (Stage
+    // 4 composer pre-allocates it for attachment paths); otherwise let the DB
+    // default (gen_random_uuid()) fire, preserving today's composer behavior.
     const { data: userMsg, error: userMsgErr } = await supabase
       .from("messages")
       .insert({
+        ...(message_id ? { id: message_id } : {}),
         conversation_id: conversationId,
         role: "user" satisfies MessageRole,
         content: user_message,
@@ -276,13 +374,19 @@ export async function POST(request: Request) {
       .select("id")
       .single();
     if (userMsgErr || !userMsg) {
+      // 23505 = unique_violation on a client-supplied message id.
+      if (userMsgErr?.code === "23505") {
+        return errorResponse("message_id_conflict", 409);
+      }
       console.error("user message insert failed", {
         code: userMsgErr?.code,
       });
       return errorResponse("internal_error", 500);
     }
+    // Source of truth from here on, whether client-supplied or DB-generated.
+    const canonicalMessageId = userMsg.id;
 
-    // ---- Build Anthropic messages array
+    // ---- Build Anthropic messages array (prior turns first)
     const apiMessages: Array<{
       role: "user" | "assistant";
       content: string;
@@ -294,9 +398,105 @@ export async function POST(request: Request) {
         apiMessages.push({ role: "assistant", content: m.content });
       }
     }
+
+    // ---- Persist message-attachment rows, then repopulate their text from
+    // the trusted Storage object. The client passed back upload metadata, but
+    // its extracted_text is never trusted: we re-read each object and re-run
+    // extraction server-side. (storage_path ownership was validated up front.)
+    if (attachments.length > 0) {
+      const { error: insertAttErr } = await supabase
+        .from("message_attachments")
+        .insert(
+          attachments.map((att) => ({
+            message_id: canonicalMessageId,
+            user_id: user.id,
+            organization_id: agent.organization_id,
+            storage_path: att.storage_path,
+            original_filename: att.original_filename,
+            content_type: att.content_type,
+            size_bytes: att.size_bytes,
+            // extracted_text repopulated below from the Storage object.
+          })),
+        );
+      if (insertAttErr) {
+        console.error("message_attachments insert failed", {
+          code: insertAttErr.code,
+        });
+        // No orphan: drop the just-inserted message so the user can retry.
+        await supabase.from("messages").delete().eq("id", canonicalMessageId);
+        return errorResponse("internal_error", 500);
+      }
+
+      for (const att of attachments) {
+        const { data: blob } = await supabase.storage
+          .from("message-attachments")
+          .download(att.storage_path);
+        if (!blob) continue; // object missing (deleted between upload + send)
+        const buffer = Buffer.from(await blob.arrayBuffer());
+        const extraction = await extractText(buffer, att.content_type);
+        if (extraction.ok) {
+          await supabase
+            .from("message_attachments")
+            .update({ extracted_text: extraction.text })
+            .eq("message_id", canonicalMessageId)
+            .eq("storage_path", att.storage_path);
+        }
+      }
+    }
+
+    // ---- Load the message attachments' text + enforce the aggregate budget.
+    // Soft cap checked here (not at upload) because only the send sees the full
+    // set: a user may attach several small files and one large one.
+    let messageAttachmentBlocks = "";
+    if (attachments.length > 0) {
+      const { data: msgAttRows, error: msgAttErr } = await supabase
+        .from("message_attachments")
+        .select("original_filename, extracted_text")
+        .eq("message_id", canonicalMessageId)
+        .order("created_at", { ascending: true });
+      if (msgAttErr) {
+        console.error("message_attachments fetch failed", {
+          code: msgAttErr.code,
+        });
+        await supabase.from("messages").delete().eq("id", canonicalMessageId);
+        return errorResponse("internal_error", 500);
+      }
+
+      const totalChars = (msgAttRows ?? []).reduce(
+        (sum, row) => sum + (row.extracted_text?.length ?? 0),
+        0,
+      );
+      if (totalChars > ATTACHMENT_AGGREGATE_CHAR_BUDGET) {
+        // Drop the message (cascades the attachment rows) so the user can
+        // remove files and retry. Storage objects orphan until the cleanup
+        // cron sweeps them (deferred).
+        await supabase.from("messages").delete().eq("id", canonicalMessageId);
+        return errorResponse("attachments_too_large", 413);
+      }
+
+      // One <attachment> block per file. The filename is user-supplied and sits
+      // inside an XML-style attribute, so it's escaped. Empty extractions
+      // (scanned PDFs, missing objects) drop out.
+      messageAttachmentBlocks = (msgAttRows ?? [])
+        .filter(
+          (row) => row.extracted_text && row.extracted_text.trim().length > 0,
+        )
+        .map(
+          (row) =>
+            `<attachment filename="${escapeAttributeValue(row.original_filename)}">\n${row.extracted_text}\n</attachment>`,
+        )
+        .join("\n\n");
+    }
+
+    // Current user turn: attachment blocks (if any) prepended to the typed
+    // message, all inside <user_input> per the prompt-defense contract —
+    // attachment content is user-supplied DATA, never instructions.
+    const userTurnBody = messageAttachmentBlocks
+      ? `${messageAttachmentBlocks}\n\n${user_message}`
+      : user_message;
     apiMessages.push({
       role: "user",
-      content: wrapUserMessage(user_message),
+      content: wrapUserMessage(userTurnBody),
     });
 
     // ---- Load active attachments (deterministic order for prefix caching)

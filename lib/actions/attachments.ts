@@ -4,11 +4,16 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import {
-  ALLOWED_MIME_TYPES,
-  extractText,
-  type AllowedMimeType,
-} from "@/lib/extract/extract";
+  objectKeySegment,
+  uploadAndExtractToBucket,
+  type AttachmentMetadata,
+  type AttachmentUploadError,
+} from "./_attachment-shared";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+// Re-export so existing consumers (e.g. agent-attachments-section.tsx) keep
+// importing AttachmentMetadata from this module unchanged.
+export type { AttachmentMetadata };
 
 /**
  * Server actions for permanent agent attachments (architecture §3).
@@ -36,7 +41,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * file_size_limit and allowed_mime_types as the last line.
  */
 
-const MAX_BYTES = 20 * 1024 * 1024; // 20MB
 const MAX_ATTACHMENTS_PER_AGENT = 5;
 const STORAGE_BUCKET = "agent-attachments";
 
@@ -52,15 +56,6 @@ const removeDraftSchema = z.object({
   storage_path: z.string().min(1),
 });
 
-export type AttachmentMetadata = {
-  storagePath: string;
-  originalFilename: string;
-  contentType: AllowedMimeType;
-  sizeBytes: number;
-  extractedText: string | null;
-  extractionWarning: string | null;
-};
-
 export type UploadResult =
   | { ok: true; attachment: AttachmentMetadata }
   | { ok: false; error: string };
@@ -72,113 +67,55 @@ export type AddResult =
 export type RemoveResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Sanitize the user-provided filename for use inside a storage object
- * key. The original filename is preserved in
- * agent_attachments.original_filename for display; this is just the
- * key-safe form. Adds a short suffix to prevent collisions when the
- * user uploads two files with the same name.
+ * Map a shared file-level upload error to the agent surface's user-facing
+ * copy. Preserves the exact strings the agent attachment UI showed before the
+ * upload + extraction logic moved into the shared helper.
  */
-function objectKeySegment(filename: string): string {
-  const base = filename
-    .toLowerCase()
-    .replace(/\.[^.]+$/, "") // strip extension
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60) || "file";
-  const suffix = Math.random().toString(36).slice(2, 8);
-  const ext = filename.match(/\.[^.]+$/)?.[0] ?? "";
-  return `${base}-${suffix}${ext.toLowerCase()}`;
-}
-
-function isAllowedMime(mime: string): mime is AllowedMimeType {
-  return (ALLOWED_MIME_TYPES as readonly string[]).includes(mime);
+function uploadErrorToMessage(code: AttachmentUploadError): string {
+  switch (code) {
+    case "file_empty":
+      return "File is empty.";
+    case "file_too_large":
+      return "File is larger than 20MB.";
+    case "unsupported_type":
+      return "Unsupported file type. Allowed: PDF, DOCX, TXT, MD, XLSX.";
+    case "internal_error":
+    default:
+      return "Could not upload file. Try again.";
+  }
 }
 
 /**
- * Common upload + extraction path used by both draft and bound modes.
- * Returns the storage path on success, deleting the storage object on
- * extraction-side failure to avoid orphans where extraction failed AT
- * THE FORMAT LEVEL (the user's file is rejected wholesale). For
- * extraction failures that produce { ok: false } from extractText —
- * unsupported / corrupt / empty — the storage object is also deleted
- * since the row would be useless.
+ * Common upload + extraction path used by both draft and bound modes. Builds
+ * the agent storage path (<user_id>/<agent_id>/<key>) and delegates file
+ * validation + upload + extraction to the shared helper.
  *
- * Per architecture §3 / Decision Q3 from the 8h plan: a failed
- * extraction surfaces as a warning the user removes manually. To make
- * that work the storage object MUST stay so the user sees it in the
- * list with the warning. The implementation: keep the upload but
- * return extractionWarning + extractedText: null, and do NOT delete.
+ * Per architecture §3 / Decision Q3 from the 8h plan: a failed extraction
+ * surfaces as a warning the user removes manually, so the storage object is
+ * kept and the result carries extractedText: null + extractionWarning rather
+ * than being deleted.
  */
 async function uploadAndExtract(
   agentId: string,
   file: File,
 ): Promise<UploadResult> {
   const supabase = await createSupabaseServerClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "You must be signed in." };
+  if (!(file instanceof File)) return { ok: false, error: "Invalid file." };
 
-  if (!file || !(file instanceof File)) {
-    return { ok: false, error: "Invalid file." };
+  const path = `${user.id}/${agentId}/${objectKeySegment(file.name)}`;
+  const result = await uploadAndExtractToBucket({
+    bucket: STORAGE_BUCKET,
+    path,
+    file,
+  });
+  if (!result.ok) {
+    return { ok: false, error: uploadErrorToMessage(result.error) };
   }
-  if (file.size === 0) {
-    return { ok: false, error: "File is empty." };
-  }
-  if (file.size > MAX_BYTES) {
-    return { ok: false, error: "File is larger than 20MB." };
-  }
-  if (!isAllowedMime(file.type)) {
-    return {
-      ok: false,
-      error:
-        "Unsupported file type. Allowed: PDF, DOCX, TXT, MD, XLSX.",
-    };
-  }
-
-  const storagePath = `${user.id}/${agentId}/${objectKeySegment(file.name)}`;
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  const { error: uploadErr } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(storagePath, buffer, {
-      contentType: file.type,
-      cacheControl: "3600",
-      upsert: false,
-    });
-  if (uploadErr) {
-    console.error("attachment upload failed", { code: uploadErr.message });
-    return { ok: false, error: "Could not upload file. Try again." };
-  }
-
-  const extraction = await extractText(buffer, file.type);
-  if (!extraction.ok) {
-    return {
-      ok: true,
-      attachment: {
-        storagePath,
-        originalFilename: file.name,
-        contentType: file.type,
-        sizeBytes: file.size,
-        extractedText: null,
-        extractionWarning: extraction.reason,
-      },
-    };
-  }
-
-  return {
-    ok: true,
-    attachment: {
-      storagePath,
-      originalFilename: file.name,
-      contentType: file.type,
-      sizeBytes: file.size,
-      extractedText: extraction.text,
-      extractionWarning: null,
-    },
-  };
+  return { ok: true, attachment: result.attachment };
 }
 
 /**
