@@ -94,11 +94,13 @@ export function HomeGreeting({ profile, hasAnyAccess }: HomeGreetingProps) {
           <>{greetingPhrase}.</>
         )}
       </h1>
+      {/* Non-breaking spaces tie the closing clause together so that, when
+          the subhead wraps, it never orphans a lone "place." on its own line. */}
       <p className="max-w-[80ch] text-[14.5px] leading-[1.5] text-muted-foreground">
         Welcome back to{" "}
         <strong className="font-medium text-primary">legalOS</strong>, your
-        team’s departments, knowledge, workflows, and integrations, all in one
-        place.
+        team’s departments, knowledge, workflows, and integrations,
+        all&nbsp;in&nbsp;one&nbsp;place.
       </p>
     </section>
   );
