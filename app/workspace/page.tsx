@@ -7,6 +7,7 @@ import { CalendarConnectCard } from "@/components/workspace/home/calendar-connec
 import { HomeGreeting } from "@/components/workspace/home/home-greeting";
 import { ImpactBand } from "@/components/workspace/home/impact-band";
 import { IntegrationsRow } from "@/components/workspace/home/integrations-row";
+import { ReadingSection } from "@/components/workspace/home/reading-section";
 import {
   getAllDepartmentsWithAccess,
   getCurrentUserProfile,
@@ -23,10 +24,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * Structure: a personal greeting (`HomeGreeting`), then, for users with
  * at least one accessible department, a calendar Connect card
  * (`CalendarConnectCard`), a usage impact band (`ImpactBand`), an
- * integrations row (`IntegrationsRow`), and "Continue working" (recent
- * conversations). The impact band and Continue Working each fetch
+ * integrations row (`IntegrationsRow`), "Continue working" (recent
+ * conversations), and a "For your reading" empty-state section
+ * (`ReadingSection`). The impact band and Continue Working each fetch
  * independently behind their own Suspense boundaries; the greeting,
- * calendar card, and integrations row are static and paint immediately.
+ * calendar card, integrations row, and reading section are static and
+ * paint immediately.
  *
  * Recently-used agents and the full department directory used to live
  * here too; the Stage 1 home revamp removed them so every element on the
@@ -92,6 +95,8 @@ export default async function WorkspacePage() {
           <Suspense fallback={<SectionSkeleton title="Continue working" />}>
             <ContinueWorkingSection userId={authUser.id} />
           </Suspense>
+
+          <ReadingSection />
         </>
       ) : null}
     </main>
