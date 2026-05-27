@@ -1,16 +1,22 @@
 "use client";
 
-import { PaperclipIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useRef } from "react";
 
 /**
- * The composer's attach affordance: an icon-only paperclip trigger plus a
- * hidden multi-file input. Lives in the tools-row left slot beside the
- * web-search indicator.
+ * The composer's attach affordance: an icon-only plus trigger plus a hidden
+ * multi-file input. Lives in the tools-row left slot beside the web-search
+ * indicator.
  *
- * Paperclip (not a "+"): a paperclip reads as "attach a file" with zero
- * ambiguity across every chat surface users know; a "+" reads as "add
- * something" (a message? a tool? a context block?). Precision over generality.
+ * Plus (not a paperclip): a plus is the single entry point for adding context.
+ * Today that's files; tomorrow it may include voice input, references, or agent
+ * memory snippets. A paperclip would force a second affordance when the next
+ * context type lands, breaking the destination-hub discipline D-054 set for the
+ * assistant-message kebab. It also matches the AI-native composer reference set
+ * (Claude.ai, Notion AI, Cursor, Linear); the paperclip belongs to the email-
+ * and-Slack generation. The aria-label stays "Attach file" because that's what
+ * the affordance does in Phase 1 — the plus framing is future-proofing, not a
+ * rename.
  *
  * The accept string is hardcoded here (extensions + MIME types) rather than
  * imported from lib/extract/extract.ts, because that module is `server-only`
@@ -59,7 +65,7 @@ export function AttachButton({
         }
         className="inline-flex items-center justify-center rounded-md p-1.5 text-caption transition-colors duration-release ease-release motion-reduce:transition-none hover:text-foreground hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <PaperclipIcon className="size-4" aria-hidden />
+        <PlusIcon className="size-4" strokeWidth={2} aria-hidden />
       </button>
       <input
         ref={inputRef}
