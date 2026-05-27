@@ -36,21 +36,22 @@ begin
   -- Sector + General Tools added), 0028 (M&A renamed to Corporate),
   -- 0029 (Corporate description broadened), 0031 (Employment added),
   -- 0033 (reorder to four-group taxonomy), 0034 (Regulatory added at
-  -- the reserved slot), 0036 (reorder to reserve three slots), and
-  -- 0037 (AI Governance, IP, Litigation added at those reserved
-  -- slots). The seed is the corrected documentation of "what a fresh
-  -- DB looks like once 0001..N are applied in order." If you add a
-  -- new department in a later migration, update this list in the
-  -- same commit.
+  -- the reserved slot), 0036 (reorder to reserve three slots), 0037
+  -- (AI Governance, IP, Litigation added at those reserved slots),
+  -- and 0043 (Public Sector and Compliance soft-deleted and removed
+  -- from this seed, remaining departments resequenced to 1..11). The
+  -- seed is the corrected documentation of "what a fresh DB looks like
+  -- once 0001..N are applied in order." If you add or remove a
+  -- department in a later migration, update this list in the same
+  -- commit.
   --
-  -- Sort_order grouping (now 13 departments, no vacant slots):
+  -- Sort_order grouping (now 11 departments, no vacant slots):
   --   1–2   deal & transactional       Commercial, Corporate
-  --   3–7   regulatory & compliance    Regulatory, Public Sector,
-  --                                    Compliance, Privacy,
+  --   3–5   regulatory & compliance    Regulatory, Privacy,
   --                                    AI Governance
-  --   8–11  specialized practice       Product, Employment, IP,
+  --   6–9   specialized practice       Product, Employment, IP,
   --                                    Litigation
-  --   12–13 operational & utility      Operations, General Tools
+  --   10–11 operational & utility      Operations, General Tools
   --                                    (always-last per commit 7eb776b)
   insert into public.departments (organization_id, slug, name, description, sort_order)
   values
@@ -60,26 +61,22 @@ begin
       'Mergers, financing, governance, securities, and entity management.', 2),
     (v_org_id, 'regulatory', 'Regulatory',
       'Sector-specific regulatory advice — financial services, healthcare, telecommunications, energy, consumer protection, and enforcement defense.', 3),
-    (v_org_id, 'public-sector', 'Public Sector',
-      'Government contracts, public procurement, FOIA responses, and policy advocacy.', 4),
-    (v_org_id, 'compliance', 'Compliance',
-      'Compliance program management, regulatory monitoring, and audit support.', 5),
     (v_org_id, 'privacy', 'Privacy',
-      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 6),
+      'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 4),
     (v_org_id, 'ai-governance', 'AI Governance',
-      'AI use case assessment, AI impact assessments, vendor AI review, model governance, and AI regulatory compliance.', 7),
+      'AI use case assessment, AI impact assessments, vendor AI review, model governance, and AI regulatory compliance.', 5),
     (v_org_id, 'product', 'Product',
-      'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 8),
+      'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 6),
     (v_org_id, 'employment', 'Employment',
-      'Hiring, terminations, employment agreements, compensation and benefits, workplace policy, and labor relations.', 9),
+      'Hiring, terminations, employment agreements, compensation and benefits, workplace policy, and labor relations.', 7),
     (v_org_id, 'ip', 'IP',
-      'Trademark, copyright, patent, trade secret, IP licensing, and open source compliance.', 10),
+      'Trademark, copyright, patent, trade secret, IP licensing, and open source compliance.', 8),
     (v_org_id, 'litigation', 'Litigation',
-      'Matter intake, demand letter response, dispute management, discovery, and outside counsel coordination.', 11),
+      'Matter intake, demand letter response, dispute management, discovery, and outside counsel coordination.', 9),
     (v_org_id, 'operations', 'Operations',
-      'Legal-team operations, vendor management, internal policies, and legal-spend management.', 12),
+      'Legal-team operations, vendor management, internal policies, and legal-spend management.', 10),
     (v_org_id, 'general-tools', 'General Tools',
-      'Cross-functional utilities, research helpers, and general-purpose drafting assistants.', 13)
+      'Cross-functional utilities, research helpers, and general-purpose drafting assistants.', 11)
   on conflict (organization_id, slug) do update set
     name = excluded.name,
     description = excluded.description,

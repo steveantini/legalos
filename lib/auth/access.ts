@@ -151,7 +151,11 @@ export const getAllDepartmentsWithAccess = cache(
     const [departmentsResult, rolesResult] = await Promise.all([
       supabase
         .from("departments")
+        // Soft-deleted departments (migration 0043) never surface in the
+        // product. Filtered here so the rail, breadcrumb, and top-bar
+        // department list show only active departments.
         .select("id, slug, name, description, sort_order")
+        .is("deleted_at", null)
         .order("sort_order", { ascending: true }),
       supabase
         .from("user_department_roles")
@@ -376,6 +380,9 @@ export async function getDepartmentIfAccessible(slug: string) {
     .from("departments")
     .select("id, slug, name, description")
     .eq("slug", slug)
+    // Soft-deleted departments (migration 0043) resolve to null here, so a
+    // direct navigation to a removed department's launchpad 404s.
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (!department) {

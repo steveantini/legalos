@@ -177,6 +177,8 @@ export async function createAgentAction(
     .from("departments")
     .select("id, slug")
     .eq("slug", input.department_slug)
+    // Soft-deleted departments (migration 0043) can't receive new agents.
+    .is("deleted_at", null)
     .maybeSingle();
   if (!department) {
     return { ok: false, formError: "That department is not available." };
@@ -767,6 +769,8 @@ export async function createTemplateAgentAction(
     .from("departments")
     .select("id, slug")
     .eq("slug", input.department_slug)
+    // Soft-deleted departments (migration 0043) can't receive new agents.
+    .is("deleted_at", null)
     .maybeSingle();
   if (!department) {
     return { ok: false, formError: "That department is not available." };
