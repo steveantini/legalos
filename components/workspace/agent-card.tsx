@@ -113,21 +113,16 @@ interface AgentCardProps {
  * onClick fires.
  */
 
-// Shared card styling (border, padding, hover lift, etc.) applied to both
-// root anchors (external, defensive link) and wrapper divs (admin-template,
-// template-no-manage, my-agent). Press animation is intentionally NOT
-// included here — it's applied separately via pressClassName to the click
-// target only, so descendant icon buttons don't activate the whole card.
+// Shared card styling (border, padding, hover lift, press animation, etc.)
+// applied to both root anchors (external, defensive link) and wrapper divs
+// (admin-template, template-no-manage, my-agent). The press animation is
+// guarded with `:has()` so it fires on card-body press but is suppressed
+// when the (i) info button or kebab trigger is active. Menu items inside
+// the kebab are portaled (see components/ui/dropdown-menu.tsx) and can't
+// trigger the card's :active, so they need no guard. CSS `:has()` is
+// Baseline 2023 (Safari 15.4+, Chrome 105+, Firefox 121+).
 const cardClassName =
-  "flex min-h-[160px] flex-col gap-3 rounded-[14px] border border-card-border bg-card p-[22px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)] transition-[transform,box-shadow,border-color] duration-release ease-release motion-reduce:transition-none hover:duration-hover hover:ease-soft hover:-translate-y-[2px] hover:border-primary/35 hover:shadow-[0_1px_0_rgba(26,24,22,0.03),0_4px_8px_rgba(26,24,22,0.06),0_22px_38px_-12px_rgba(26,24,22,0.12),0_8px_24px_-8px_rgba(59,86,128,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-
-// CSS press animation. Lives on the click-through target (the anchor/link
-// itself, or the stretched <Link> overlay in wrapper branches), NOT on the
-// outer wrapper. If applied to the wrapper, the browser's :active ancestor-
-// matching fires the press when descendant buttons are pressed too. Keep
-// this scoped to actual click targets.
-const pressClassName =
-  "active:duration-press active:ease-spring active:scale-[0.99]";
+  "flex min-h-[160px] flex-col gap-3 rounded-[14px] border border-card-border bg-card p-[22px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)] transition-[transform,box-shadow,border-color] duration-release ease-release motion-reduce:transition-none hover:duration-hover hover:ease-soft active:duration-press active:ease-spring active:scale-[0.99] has-[button:active]:!scale-100 hover:-translate-y-[2px] hover:border-primary/35 hover:shadow-[0_1px_0_rgba(26,24,22,0.03),0_4px_8px_rgba(26,24,22,0.06),0_22px_38px_-12px_rgba(26,24,22,0.12),0_8px_24px_-8px_rgba(59,86,128,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 const stretchedLinkClassName =
   "absolute inset-0 z-10 rounded-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -179,7 +174,7 @@ export function AgentCard({
         rel="noopener noreferrer"
         onPointerDown={handlePointerDown}
         aria-label={`Open ${agent.name} (external)`}
-        className={`${cardClassName} ${pressClassName}`}
+        className={cardClassName}
       >
         {renderBody("")}
       </a>
@@ -213,7 +208,7 @@ export function AgentCard({
         <Link
           href={`/workspace/agents/${agent.id}`}
           aria-label={`Open ${agent.name}`}
-          className={`${stretchedLinkClassName} ${pressClassName}`}
+          className={stretchedLinkClassName}
           onPointerDown={handlePointerDown}
         />
         {onOpenDetails ? (
@@ -231,7 +226,7 @@ export function AgentCard({
         href={`/workspace/agents/${agent.id}`}
         onPointerDown={handlePointerDown}
         aria-label={`Open ${agent.name}`}
-        className={`${cardClassName} ${pressClassName}`}
+        className={cardClassName}
       >
         {renderBody("")}
       </Link>
@@ -431,7 +426,7 @@ function EditableAgentCard({
         <Link
           href={`/workspace/agents/${agent.id}`}
           aria-label={`Open ${agent.name}`}
-          className={`${stretchedLinkClassName} ${pressClassName}`}
+          className={stretchedLinkClassName}
           onPointerDown={onPointerDownLink}
         />
         {onOpenDetails ? (
