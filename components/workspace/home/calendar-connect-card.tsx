@@ -15,39 +15,47 @@ import { Button } from "@/components/ui/button";
  *
  * Visual vocabulary follows Direction A / Stage 1: rounded-xl (14px via
  * the --radius-xl scale), a border-border + bg-card frame, a mono caption
- * eyebrow, a 22px medium section heading, and a muted-foreground body.
- * The Connect CTA uses the Button primitive's
- * `render` prop to render as a Link — Base UI's polymorphism convention
- * and this project's asChild equivalent.
+ * eyebrow, an 18px medium card title, and a muted-foreground body. The
+ * 20px medium section heading ("Today") sits above the card frame, sharing
+ * the unified home-section heading idiom; the card title is a plain
+ * paragraph since the section already carries its <h2>. The Connect CTA
+ * uses the Button primitive's `render` prop to render as a Link — Base UI's
+ * polymorphism convention and this project's asChild equivalent.
  */
 export function CalendarConnectCard() {
   return (
     <section
-      aria-labelledby="calendar-connect-heading"
-      className="rounded-xl border border-border bg-card p-8"
+      aria-labelledby="today-section-heading"
+      className="flex flex-col gap-5"
     >
-      <div className="flex items-center justify-between gap-8">
-        <div className="flex-1">
-          <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
-            Calendar · not yet connected
-          </p>
-          <h2
-            id="calendar-connect-heading"
-            className="mb-2 text-[22px] font-medium tracking-[-0.015em] text-foreground"
+      <h2
+        id="today-section-heading"
+        className="text-[20px] font-medium tracking-[-0.005em] text-foreground"
+      >
+        Today
+      </h2>
+
+      <div className="rounded-xl border border-border bg-card p-8">
+        <div className="flex items-center justify-between gap-8">
+          <div className="flex-1">
+            <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
+              Calendar · not yet connected
+            </p>
+            <p className="mb-2 text-[18px] font-medium text-foreground">
+              Connect your calendar
+            </p>
+            <p className="max-w-[56ch] text-[14px] leading-[1.5] text-muted-foreground">
+              Two clicks to wire up Google or Outlook. legalOS reads your
+              free/busy and today’s schedule. We never write to your calendar.
+            </p>
+          </div>
+          <Button
+            aria-label="Connect your calendar"
+            render={<Link href="/workspace/integrations/connections" />}
           >
-            Connect your calendar
-          </h2>
-          <p className="max-w-[56ch] text-[14px] leading-[1.5] text-muted-foreground">
-            Two clicks to wire up Google or Outlook. legalOS reads your
-            free/busy and today’s schedule. We never write to your calendar.
-          </p>
+            Connect →
+          </Button>
         </div>
-        <Button
-          aria-label="Connect your calendar"
-          render={<Link href="/workspace/integrations/connections" />}
-        >
-          Connect →
-        </Button>
       </div>
     </section>
   );

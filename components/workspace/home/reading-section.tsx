@@ -8,10 +8,10 @@
  * future arc), the empty-state card gives way to a real card grid on the
  * same surface.
  *
- * Header idiom mirrors the rest of the home: a 22px medium heading (the
- * calendar card's scale) paired with a right-aligned mono status caption
- * (the impact band's caption idiom). The empty-state copy is centered on a
- * constrained measure so it reads as an empty state, not as content.
+ * Header idiom mirrors the rest of the home: a 20px medium heading (the
+ * unified home-section heading scale) paired with a right-aligned mono
+ * status caption. The empty-state copy is centered on a constrained
+ * measure so it reads as an empty state, not as content.
  */
 export function ReadingSection() {
   return (
@@ -22,7 +22,7 @@ export function ReadingSection() {
       <div className="flex items-baseline justify-between">
         <h2
           id="reading-section-heading"
-          className="text-[22px] font-medium tracking-[-0.015em] text-foreground"
+          className="text-[20px] font-medium tracking-[-0.005em] text-foreground"
         >
           For your reading
         </h2>

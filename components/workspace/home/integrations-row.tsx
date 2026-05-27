@@ -4,12 +4,12 @@ const CONNECTIONS_HREF = "/workspace/integrations/connections";
 
 /**
  * Workspace home integrations row (Stage 4): three "Connect" placeholder
- * cards — Slack, Mail, Drive — in a tight row between the impact band and
- * Continue Working. Server component, fully static.
+ * cards — Slack, Mail, Drive — between the impact band and Continue
+ * Working, under a "Tools" section heading. Server component, fully static.
  *
- * No visible heading: the per-card eyebrows ("Slack · not connected") are
- * self-describing, and a label above them would be redundant. The section
- * still carries an `aria-label` so the region is named for screen readers.
+ * The "Tools" heading shares the unified home-section heading idiom (20px
+ * medium); the section is named for screen readers via `aria-labelledby`
+ * pointing at that heading.
  *
  * "Mail" / "Drive" are generic service names rather than provider brands
  * (Gmail/Outlook, Google Drive/OneDrive); the connections destination is
@@ -20,10 +20,22 @@ const CONNECTIONS_HREF = "/workspace/integrations/connections";
  */
 export function IntegrationsRow() {
   return (
-    <section aria-label="Integrations" className="grid grid-cols-3 gap-3">
-      <IntegrationCard serviceName="Slack" ctaHref={CONNECTIONS_HREF} />
-      <IntegrationCard serviceName="Mail" ctaHref={CONNECTIONS_HREF} />
-      <IntegrationCard serviceName="Drive" ctaHref={CONNECTIONS_HREF} />
+    <section
+      aria-labelledby="tools-section-heading"
+      className="flex flex-col gap-5"
+    >
+      <h2
+        id="tools-section-heading"
+        className="text-[20px] font-medium tracking-[-0.005em] text-foreground"
+      >
+        Tools
+      </h2>
+
+      <div className="grid grid-cols-3 gap-3">
+        <IntegrationCard serviceName="Slack" ctaHref={CONNECTIONS_HREF} />
+        <IntegrationCard serviceName="Mail" ctaHref={CONNECTIONS_HREF} />
+        <IntegrationCard serviceName="Drive" ctaHref={CONNECTIONS_HREF} />
+      </div>
     </section>
   );
 }

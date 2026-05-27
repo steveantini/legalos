@@ -69,7 +69,7 @@ export async function ContinueWorkingSection({ userId }: { userId: string }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-[15px] font-medium tracking-[-0.005em] text-foreground">
+      <h2 className="text-[20px] font-medium tracking-[-0.005em] text-foreground">
         Continue working
       </h2>
       {conversations.length === 0 ? (

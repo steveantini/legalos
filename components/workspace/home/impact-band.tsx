@@ -38,15 +38,12 @@ export async function ImpactBand({ userId, isAdmin }: ImpactBandProps) {
       aria-labelledby="impact-band-heading"
       className="flex flex-col gap-4"
     >
-      <div className="flex items-center gap-2">
-        <div className="h-px w-6 bg-caption" />
-        <h2
-          id="impact-band-heading"
-          className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption"
-        >
-          {data.monthLabel} · this month
-        </h2>
-      </div>
+      <h2
+        id="impact-band-heading"
+        className="text-[20px] font-medium tracking-[-0.005em] text-foreground"
+      >
+        Impact
+      </h2>
 
       <div className="rounded-xl border border-border bg-paper-2 p-1">
         <div className="grid grid-cols-4 divide-x divide-hairline">
