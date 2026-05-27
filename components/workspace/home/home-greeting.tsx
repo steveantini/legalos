@@ -95,7 +95,7 @@ export function HomeGreeting({ profile, hasAnyAccess }: HomeGreetingProps) {
         )}
       </h1>
       <p className="max-w-[80ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-        <strong className="font-medium text-foreground">legalOS</strong>, your
+        <strong className="font-medium text-primary">legalOS</strong>, your
         team’s departments, knowledge, workflows, and integrations, all in one
         place.
       </p>
