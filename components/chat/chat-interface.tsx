@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AgentHeader } from "./agent-header";
 import { ChatErrorMessage } from "./chat-error-message";
+import { DropOverlay } from "./drop-overlay";
 import { MessageInput } from "./message-input";
 import { MessageList } from "./message-list";
 import type { ChatMessage } from "./message-bubble";
@@ -170,6 +171,16 @@ export function ChatInterface({
   // for a continuing conversation, conversationId is already non-null.
   const [freshConversationId] = useState(() => crypto.randomUUID());
   const pendingConversationId = conversationId ?? freshConversationId;
+
+  // ---- Whole-surface drag-and-drop (chat attachments arc) ----
+  // True while a file drag hovers the chat surface; drives the drop overlay.
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  // Browser drag events fire dragenter/dragleave on every nested child the
+  // cursor crosses (the message list, the composer, individual bubbles). A
+  // bare boolean would flicker as the cursor moves between them. The depth ref
+  // counts net enters minus leaves so the overlay shows while depth > 0 and
+  // hides only when the drag has truly left the surface.
+  const dragDepthRef = useRef(0);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -551,6 +562,50 @@ export function ChatInterface({
     }
   }
 
+  // ---- Whole-surface drag-and-drop handlers ----
+  // All four gate on dataTransfer.types containing "Files" so text selections,
+  // dragged links, and dragged images from other tabs don't trigger the
+  // overlay. During a drag the file bytes aren't readable for security, but
+  // the "Files" type marker is, which is all the gate needs. Plain function
+  // declarations (not useCallback) to match this component's handler idiom —
+  // they attach to a plain <div>, so referential stability buys nothing.
+
+  function handleDragEnter(event: React.DragEvent<HTMLDivElement>) {
+    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    if (dragDepthRef.current === 1) setIsDraggingFiles(true);
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+    event.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    // preventDefault on dragover is required for the drop event to fire.
+    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Reuse the picker's orchestration: handleAttachFiles enforces the 5-file
+    // cap and the overflow toast here, and the upload action enforces the MIME
+    // allowlist and the per-file 20 MB cap server-side. Folders carry no
+    // entries in dataTransfer.files, so they're silently ignored.
+    void handleAttachFiles(files);
+  }
+
   /**
    * Retry an API-error-before-send. Reads the originally-failed text
    * from `apiError.retryUserText` — NOT from the messages array (the
@@ -768,13 +823,19 @@ export function ChatInterface({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-1 flex-col",
+        // `relative` anchors the absolutely-positioned DropOverlay to the chat
+        // surface (not the viewport) so it fills exactly this column.
+        "relative flex min-h-0 flex-1 flex-col",
         // Upper-third, not dead-center: the top bar + workspace body padding
         // already offset this container ~112px down, so a modest viewport
         // top-pad lands the group around 35-40% from the top. Tune the vh if
         // it reads high or low across viewport heights.
         isEmpty && "pt-[14vh]",
       )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       <AgentHeader
         agent={headerAgent}
@@ -841,6 +902,7 @@ export function ChatInterface({
           />
         )}
       </div>
+      <DropOverlay visible={isDraggingFiles} />
     </div>
   );
 }
