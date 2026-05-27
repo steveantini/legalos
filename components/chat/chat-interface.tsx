@@ -172,6 +172,19 @@ export function ChatInterface({
   const [freshConversationId] = useState(() => crypto.randomUUID());
   const pendingConversationId = conversationId ?? freshConversationId;
 
+  // ---- Attachment privacy note (session-scoped, chat attachments arc) ----
+  // The one-line reassurance caption shows once per mount, the first time the
+  // user attaches a file. Two flags so it shows through the send moment but
+  // never re-appears later in the session:
+  //   - hasBeenShown: sticky for the mount; once true the note won't re-trigger
+  //     on a later attach.
+  //   - shouldShow: the live visibility flag, raised on first attach and
+  //     lowered when the pending-attachments row clears (via send or removal).
+  // Session = this mount; a reload re-shows on first attach, by design: no
+  // localStorage persistence for a costless one-line reassurance caption.
+  const [privacyNoteHasBeenShown, setPrivacyNoteHasBeenShown] = useState(false);
+  const [privacyNoteShouldShow, setPrivacyNoteShouldShow] = useState(false);
+
   // ---- Whole-surface drag-and-drop (chat attachments arc) ----
   // True while a file drag hovers the chat surface; drives the drop overlay.
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
@@ -419,6 +432,9 @@ export function ChatInterface({
     // This send consumed the pending attachments and the pre-allocated id;
     // clear the chips and roll a fresh id for the next message.
     setPendingAttachments([]);
+    // The row just cleared, so the privacy caption has done its job; hide it.
+    // hasBeenShown stays true, so a later attach this session won't re-show it.
+    setPrivacyNoteShouldShow(false);
     setNextMessageId(crypto.randomUUID());
 
     try {
@@ -487,6 +503,13 @@ export function ChatInterface({
     }
     if (toUpload.length === 0) return;
 
+    // First real attach this session raises the privacy caption. Gated on
+    // hasBeenShown so it never re-appears after the row has cleared once.
+    if (!privacyNoteHasBeenShown) {
+      setPrivacyNoteHasBeenShown(true);
+      setPrivacyNoteShouldShow(true);
+    }
+
     const newPending: PendingAttachment[] = toUpload.map((file) => ({
       localId: crypto.randomUUID(),
       status: "attaching",
@@ -550,6 +573,12 @@ export function ChatInterface({
     const target = pendingAttachments.find((p) => p.localId === localId);
     if (!target) return;
     setPendingAttachments((prev) => prev.filter((p) => p.localId !== localId));
+    // Removing the last pending chip empties the row without a send; retire the
+    // privacy caption (hasBeenShown keeps it from re-showing on a later attach),
+    // so a subsequent plain-text message carries no stale caption.
+    if (pendingAttachments.length === 1) {
+      setPrivacyNoteShouldShow(false);
+    }
     if (target.status === "ready") {
       const formData = new FormData();
       formData.append("storage_path", target.storagePath);
@@ -899,6 +928,7 @@ export function ChatInterface({
             pendingAttachments={pendingAttachments}
             onAttachFiles={handleAttachFiles}
             onRemoveAttachment={handleRemoveAttachment}
+            showPrivacyNote={privacyNoteShouldShow}
           />
         )}
       </div>

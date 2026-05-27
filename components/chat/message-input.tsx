@@ -3,6 +3,7 @@
 import { useRef, type KeyboardEvent } from "react";
 
 import { AttachButton } from "./attach-button";
+import { AttachmentPrivacyNote } from "./attachment-privacy-note";
 import { ModelPicker } from "./model-picker";
 import { PendingAttachmentsRow } from "./pending-attachments-row";
 import { SendButton } from "./send-button";
@@ -54,6 +55,13 @@ interface MessageInputProps {
   onAttachFiles: (files: File[]) => void;
   /** Fired with a pending attachment's localId to remove it before send. */
   onRemoveAttachment: (localId: string) => void;
+  /**
+   * True while the session's one-time attachment privacy caption should
+   * show. Owned by ChatInterface (appears on first attach, dismisses on send
+   * or when the pending-attachments row clears). Rendered below the chip row,
+   * above the textarea.
+   */
+  showPrivacyNote: boolean;
 }
 
 /**
@@ -102,6 +110,7 @@ export function MessageInput({
   pendingAttachments,
   onAttachFiles,
   onRemoveAttachment,
+  showPrivacyNote,
 }: MessageInputProps) {
   const localRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -161,6 +170,7 @@ export function MessageInput({
           attachments={pendingAttachments}
           onRemove={onRemoveAttachment}
         />
+        <AttachmentPrivacyNote visible={showPrivacyNote} />
         <div className="px-3 pt-3">
           <label htmlFor="message-input" className="sr-only">
             Message
