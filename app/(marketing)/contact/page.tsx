@@ -10,7 +10,7 @@ export default function ContactPage() {
   return (
     <MarketingComingSoon
       label="Contact"
-      description="Get in touch about legalOS — demos, partnerships, press, or just a question. A direct contact channel is on the way."
+      description="Get in touch about legalOS: demos, partnerships, press, or just a question. A direct contact channel is on the way."
     />
   );
 }

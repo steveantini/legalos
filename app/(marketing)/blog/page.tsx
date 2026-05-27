@@ -10,7 +10,7 @@ export default function BlogPage() {
   return (
     <MarketingComingSoon
       label="Blog"
-      description="Writing on AI-native legal work — product updates, thinking on where the practice is going, and notes from the build."
+      description="Writing on AI-native legal work: product updates, thinking on where the practice is going, and notes from the build."
     />
   );
 }

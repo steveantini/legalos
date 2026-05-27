@@ -10,7 +10,7 @@ export default function FAQPage() {
   return (
     <MarketingComingSoon
       label="FAQ"
-      description="Common questions about legalOS — what it is, how it's different, how data is handled, and how to get started."
+      description="Common questions about legalOS: what it is, how it's different, how data is handled, and how to get started."
     />
   );
 }
