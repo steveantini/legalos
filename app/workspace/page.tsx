@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { ContinueWorkingSection } from "@/components/workspace/continue-working-section";
+import { CalendarConnectCard } from "@/components/workspace/home/calendar-connect-card";
 import { HomeGreeting } from "@/components/workspace/home/home-greeting";
 import {
   getAllDepartmentsWithAccess,
@@ -17,9 +18,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * supplies the body content.
  *
  * Structure: a personal greeting (`HomeGreeting`), then, for users with
- * at least one accessible department, "Continue working" (recent
- * conversations). That section fetches independently and streams in
- * behind Suspense so the greeting and its skeleton paint immediately.
+ * at least one accessible department, a calendar Connect card
+ * (`CalendarConnectCard`) and "Continue working" (recent conversations).
+ * The Continue Working section fetches independently and streams in
+ * behind Suspense so the greeting, the calendar card, and the skeleton
+ * paint immediately.
  *
  * Recently-used agents and the full department directory used to live
  * here too; the Stage 1 home revamp removed them so every element on the
@@ -69,9 +72,13 @@ export default async function WorkspacePage() {
       <HomeGreeting profile={profile} hasAnyAccess={hasAnyAccess} />
 
       {hasAnyAccess ? (
-        <Suspense fallback={<SectionSkeleton title="Continue working" />}>
-          <ContinueWorkingSection userId={authUser.id} />
-        </Suspense>
+        <>
+          <CalendarConnectCard />
+
+          <Suspense fallback={<SectionSkeleton title="Continue working" />}>
+            <ContinueWorkingSection userId={authUser.id} />
+          </Suspense>
+        </>
       ) : null}
     </main>
   );
