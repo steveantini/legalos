@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { ContinueWorkingSection } from "@/components/workspace/continue-working-section";
 import { CalendarConnectCard } from "@/components/workspace/home/calendar-connect-card";
 import { HomeGreeting } from "@/components/workspace/home/home-greeting";
+import { ImpactBand } from "@/components/workspace/home/impact-band";
 import {
   getAllDepartmentsWithAccess,
   getCurrentUserProfile,
@@ -19,10 +20,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  *
  * Structure: a personal greeting (`HomeGreeting`), then, for users with
  * at least one accessible department, a calendar Connect card
- * (`CalendarConnectCard`) and "Continue working" (recent conversations).
- * The Continue Working section fetches independently and streams in
- * behind Suspense so the greeting, the calendar card, and the skeleton
- * paint immediately.
+ * (`CalendarConnectCard`), a usage impact band (`ImpactBand`), and
+ * "Continue working" (recent conversations). The impact band and Continue
+ * Working each fetch independently behind their own Suspense boundaries,
+ * so the greeting and the calendar card paint immediately.
  *
  * Recently-used agents and the full department directory used to live
  * here too; the Stage 1 home revamp removed them so every element on the
@@ -75,12 +76,42 @@ export default async function WorkspacePage() {
         <>
           <CalendarConnectCard />
 
+          <Suspense fallback={<ImpactBandSkeleton />}>
+            <ImpactBand userId={authUser.id} />
+          </Suspense>
+
           <Suspense fallback={<SectionSkeleton title="Continue working" />}>
             <ContinueWorkingSection userId={authUser.id} />
           </Suspense>
         </>
       ) : null}
     </main>
+  );
+}
+
+/**
+ * Loading placeholder for the impact band — mirrors its frame (tinted
+ * paper-2 container, four hairline-divided cells) with pulsing blocks so
+ * the layout doesn't shift when the real data streams in.
+ */
+function ImpactBandSkeleton() {
+  return (
+    <section aria-label="Impact band loading" className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <div className="h-px w-6 bg-caption" />
+        <div className="h-3 w-32 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+      </div>
+      <div className="rounded-xl border border-border bg-paper-2 p-1">
+        <div className="grid grid-cols-4 divide-x divide-hairline">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="px-6 py-5">
+              <div className="mb-3 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+              <div className="h-10 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

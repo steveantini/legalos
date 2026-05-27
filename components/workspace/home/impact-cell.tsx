@@ -1,0 +1,112 @@
+import Link from "next/link";
+
+import { Sparkline } from "./sparkline";
+
+type ImpactCellBase = {
+  /** Eyebrow text; rendered uppercased + tracked by the wrapper. */
+  label: string;
+};
+
+type ImpactCellValueProps = ImpactCellBase & {
+  mode: "value";
+  /** Pre-formatted, e.g. "23" or "$14,235". */
+  value: string;
+  /** Optional unit, e.g. "hrs". */
+  suffix?: string;
+  /** Optional change line, e.g. "+12 vs last month". */
+  delta?: string;
+  /** Optional 12-point series, oldest to newest. */
+  sparkline?: number[];
+};
+
+type ImpactCellTextProps = ImpactCellBase & {
+  mode: "text";
+  /** Primary line, e.g. an agent name. */
+  primary: string;
+  /** Secondary line, e.g. "14 runs this month". */
+  secondary?: string;
+};
+
+type ImpactCellSetupProps = ImpactCellBase & {
+  mode: "setup-needed";
+  /** Where "Set up →" routes. */
+  ctaHref: string;
+};
+
+type ImpactCellProps =
+  | ImpactCellValueProps
+  | ImpactCellTextProps
+  | ImpactCellSetupProps;
+
+/**
+ * One cell of the impact band. Three modes: `value` (a big number with an
+ * optional unit, delta, and sparkline), `text` (a primary/secondary label
+ * pair, used for Top agent), and `setup-needed` (a reduced-weight
+ * placeholder with a "Set up →" link, used for cells awaiting the
+ * calculator's task book). The mono caption label is shared across all
+ * three.
+ */
+export function ImpactCell(props: ImpactCellProps) {
+  return (
+    <div className="px-6 py-5">
+      <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-caption">
+        {props.label}
+      </p>
+      {props.mode === "value" && <ValueCell {...props} />}
+      {props.mode === "text" && <TextCell {...props} />}
+      {props.mode === "setup-needed" && <SetupNeededCell {...props} />}
+    </div>
+  );
+}
+
+function ValueCell({ value, suffix, delta, sparkline }: ImpactCellValueProps) {
+  return (
+    <>
+      <div className="mb-1.5 flex items-baseline gap-1.5">
+        <span className="text-[38px] font-normal leading-none tracking-[-0.025em] text-foreground tabular-nums">
+          {value}
+        </span>
+        {suffix && (
+          <span className="font-mono text-[14px] font-medium text-caption">
+            {suffix}
+          </span>
+        )}
+      </div>
+      {delta && <p className="text-[11.5px] font-medium text-primary">{delta}</p>}
+      {sparkline && (
+        <div className="mt-3">
+          <Sparkline values={sparkline} />
+        </div>
+      )}
+    </>
+  );
+}
+
+function TextCell({ primary, secondary }: ImpactCellTextProps) {
+  return (
+    <>
+      <p className="mb-1.5 text-[26px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground">
+        {primary}
+      </p>
+      {secondary && (
+        <p className="font-mono text-[11.5px] text-caption">{secondary}</p>
+      )}
+    </>
+  );
+}
+
+function SetupNeededCell({ ctaHref }: ImpactCellSetupProps) {
+  return (
+    <>
+      <p className="mb-2 text-[20px] font-medium leading-[1.2] tracking-[-0.015em] text-muted-foreground">
+        Setup needed
+      </p>
+      <Link
+        href={ctaHref}
+        className="text-[12px] font-medium text-primary hover:underline"
+      >
+        Set up →
+      </Link>
+    </>
+  );
+}
