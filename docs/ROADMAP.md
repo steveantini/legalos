@@ -8,29 +8,20 @@ Items shipped from this roadmap get removed; items added get inserted at the app
 
 ---
 
-## 1. Chat attachments / knowledge upload
-
-The chat composer lacks a "+" affordance for uploading documents and knowledge into the conversation context. This is a real product gap: modern chat surfaces all support attachments (text files, PDFs, images, documents). It is required for any user who wants to discuss specific documents with an agent.
-
-Two scopes within this arc:
-
-- Phase 1: file uploads from the local desktop (drag-and-drop plus a file picker), stored in Supabase Storage and attached to the message context.
-- Phase 2: connected drives (Google Drive, Box, Dropbox, and similar) via integrations, dependent on the Connections surface being built out.
-
-Phase 1 is real product work across the stack: backend (a storage bucket, an attachment-metadata table, RLS), frontend (a composer "+" button, file picker, attachment previews, a removal affordance), and integration (passing attachments into the chat message context so the agent can read them). Multi-commit arc.
-
-## 2. Share & connector hub for per-message export and send-to destinations
+## 1. Share & connector hub for per-message export and send-to destinations
 
 Per-message Word (.docx) export ships today via the kebab destination hub on the chat message action row (D-054). The hub is designed to absorb additional destinations as items, using the "Export to" / "Send to" verb convention:
 
 - Export to: Word (shipped), Google Docs, Excel, PDF.
 - Send to: Slack, Gmail, Outlook, Apple Mail, Messages / SMS, Box.
 
-Most destinations depend on the Connections infrastructure landing (item 1 phase 2): workspace-level OAuth connections to Google, Slack, Gmail/Outlook, Box, and similar; the kebab menu reads connected services and renders matching items. Phase 1 destinations that don't require a connection (PDF rendered locally, mailto: links for native email) can ship ahead of the Connections work.
+Most destinations depend on the Connections infrastructure landing, which this item now owns: workspace-level OAuth connections to Google, Slack, Gmail/Outlook, Box, and similar; the kebab menu reads connected services and renders matching items. Phase 1 destinations that don't require a connection (PDF rendered locally, mailto: links for native email) can ship ahead of the Connections work.
+
+Connected-drive uploads for chat attachments also live here. Phase 1 of the chat-attachments arc shipped local-desktop uploads to the chat composer (a "+" affordance, drag-and-drop, attachment chips, and an inline privacy disclosure); Phase 2 of chat attachments, uploads from connected drives like Google Drive, Box, and Dropbox, depends on the same Connections infrastructure and joins this item.
 
 Full-conversation export (multi-message stitched into one document) is the natural second feature of this arc, likely as a kebab item at the conversation level (chat header) rather than per-message. Per D-054 it stays deferred until the hub ships its second destination.
 
-## 3. Recents panel
+## 2. Recents panel
 
 A left-side panel showing recent conversations with the current agent (agent-scoped, not workspace-scoped, per the design decision during the chat page redesign session). Same shape as Claude.ai's recent-chats sidebar.
 
@@ -38,43 +29,43 @@ The Continue working section on the workspace home already surfaces recent conve
 
 Requirements: panel positioning (left of the message thread, persistent across conversation switches), the conversation-list query (filtered by agent_id, ordered by updated_at), click-to-resume behavior, the current conversation highlighted, and possibly a "New chat" button at the top.
 
-## 4. Workspace home dashboard revamp
+## 3. Workspace home dashboard revamp
 
 The personalized home shipped in Stage 2b of the Workspace home and rail restructure arc (HomeHero + Continue working + Recently used + Browse all) is functional but visually and conceptually thin per the operator's assessment. The home page deserves the treatment a real dashboard merits: content that makes users want to open the product, surfacing matters/activity/team momentum beyond just continuing recent work. Specific direction needs dedicated design thought, not incremental tweaks.
 
-## 5. Brand mark concentric circles upgrade
+## 4. Brand mark concentric circles upgrade
 
 The rail brand mark currently uses a 7px filled dot placeholder + "legalOS Workspace" wordmark. The concentric circles motif from the landing page (the marketing visual identity) would be a delightful brand-continuity moment between marketing and product if scaled and refined for the rail. Slot reserved; visual design needed before engineering. Governed by the brand-scarcity principle (D-053): the rail brand mark is the natural third placement for the motif, after the landing page and the chat ThinkingGlyph.
 
-## 6. Template Library concept definition
+## 5. Template Library concept definition
 
-Workflows group's "Template Library" leaf is currently a coming-soon card. The actual concept is undefined: most likely workflow templates (multi-step workflows users can adopt and customize), but could be agent templates or prompt templates. Decide concept before building. Related to item 8 (skill library surface); both involve reusable artifact libraries and could share design thought.
+Workflows group's "Template Library" leaf is currently a coming-soon card. The actual concept is undefined: most likely workflow templates (multi-step workflows users can adopt and customize), but could be agent templates or prompt templates. Decide concept before building. Related to item 7 (skill library surface); both involve reusable artifact libraries and could share design thought.
 
-## 7. Tracker-UI surface
+## 6. Tracker-UI surface
 
 Structured matter-tracking surface: a portfolio of legal matters with status, deadlines, action items, ownership. The litigation-legal C4L plugin's matters/_log.yaml schema (flagged in polish #8 as "the single most valuable design reference across all nine plugin imports") provides a free 50-line schema spec for the matter portfolio data model. Substantial product work; legal teams universally need matter tracking. Use the litigation plugin's schema as design reference rather than reinventing.
 
-## 8. Skill library surface (C4L pattern #5)
+## 7. Skill library surface (C4L pattern #5)
 
-C4L plugins ship with reference SKILL.md files (Pattern #5 in docs/C4L_DEFERRED_SKILLS.md) that aren't exposed in product UI today. A skill library surface would let users browse and use the patterns and reference materials from C4L plugins. Related to item 6 (Template Library); both are reusable-artifact libraries and could share design thought or even a UI shell.
+C4L plugins ship with reference SKILL.md files (Pattern #5 in docs/C4L_DEFERRED_SKILLS.md) that aren't exposed in product UI today. A skill library surface would let users browse and use the patterns and reference materials from C4L plugins. Related to item 5 (Template Library); both are reusable-artifact libraries and could share design thought or even a UI shell.
 
-## 9. Auto-fork pattern
+## 8. Auto-fork pattern
 
 The C4L hybrid-edit pattern (admin edits to C4L agents preserve original C4L provenance while letting the admin customize) works today, but the pattern is manual and gate-based. An "auto-fork" refinement would streamline or restructure it: possibly automatic fork on first admin edit, possibly different fork semantics, possibly making the hybrid-edit pattern more transparent to admins. Scope to be defined when work starts.
 
-## 10. Managed-agent Option B API
+## 9. Managed-agent Option B API
 
 Architectural decision and implementation for how managed (vendor-imported) agents are stored, updated, and re-imported when vendors push new versions. C4L plugins are the current concrete instance; the pattern generalizes to any vendor-shipped agent. Option B (specifics in C4L design history) is the chosen direction; implementation deferred. Infrastructure work, not directly user-visible but foundational for scaling C4L beyond the current 9 plugins.
 
-## 11. Polish #16: em-dash sweep across remaining marketing pages
+## 10. Polish #16: em-dash sweep across remaining marketing pages
 
 Six marketing pages were not touched in commit 88e296d's marketing copy delight pass: about, blog, contact, documentation, faq, legal. They still contain em-dashes per the no-em-dashes-in-external-copy convention established in polish #15 stage 3-interlude. Mechanical pass: read each file, replace em-dashes with commas or periods, preserve sentence rhythm. Could be one focused commit.
 
-## 12. Out-of-scope C4L plugins (per D-051)
+## 11. Out-of-scope C4L plugins (per D-051)
 
 Four C4L plugins (law-student, legal-clinic, legal-builder-hub, cocounsel-legal) remain deferred per D-051's trigger conditions: academic/clinical user demand OR strategic-priority signal. These don't fit the current department taxonomy and would require new infrastructure (a new rail group, a new entity type). Revisit if/when a trigger fires; otherwise stays in position pending real user demand.
 
-## 13. Admin section full revamp
+## 12. Admin section full revamp
 
 Three sub-areas surface here, each substantial enough to be its own multi-stage effort:
 
@@ -84,13 +75,19 @@ Three sub-areas surface here, each substantial enough to be its own multi-stage 
 
 Likely absorbs the admin-config-surface and matter-workspace-management backlog items when this work starts. Treat as its own multi-stage arc when ready. Scope conversation needed before any engineering starts.
 
-## 14. Signup flow that captures display name
+## 13. Signup flow that captures display name
 
 The current signup flow doesn't capture a user's full_name; the column stays null in public.users. Discovered when the personalized home hero showed "Welcome back." with no name for the operator's own account. Every new user signing up today has the same problem. Fix: modify signup to collect a name (at signup time or as a required first-login step), store in public.users.full_name. Real production gap for any multi-user deployment.
 
-## 15. Privacy and security
+## 14. Privacy and security
 
 Broad initiative covering multiple sub-areas. Specific scope to be determined when work starts. Likely candidates: RLS audit (ensure all tables have correct policies and that policies match intent), security review of auth flows, data retention policies, user privacy controls (export/delete account, consent management), GDPR/CCPA readiness if targeting those jurisdictions, SOC 2 prep if planning to sell to enterprise. Some of these are quick audits; some are major undertakings.
+
+## 15. Privacy and security FAQ content for chat attachments and AI data handling
+
+The chat-attachments arc surfaced privacy and security questions that deserve dedicated treatment on the FAQ landing page: where files live (the customer's Supabase workspace), what happens to content during chat (Anthropic's standard no-training contract, the default abuse-monitoring retention window, zero-data-retention availability for enterprise customers if pursued), how prompt caching works in practice, attachment delete-after-send mechanics, and the policy on agent-attached references versus message-attached files.
+
+The inline privacy disclosure on first attach (shipped in the chat-attachments arc) is the lightweight in-product touchpoint; the FAQ entries are the deeper treatment. Scope: 4 to 6 Q&A entries on the existing FAQ page (which is in scope for item 10's em-dash sweep, but content additions are a separate workstream). Phrasing should be plain-language, not legal: the privacy policy is the binding document, the FAQ is the explainer.
 
 ## 16. Full code review / bug sweep / maintenance polish
 
@@ -106,7 +103,7 @@ The workspace layout makes 3 sequential supabase.auth.getUser() network calls pe
 
 ## 19. Analytics promotion from localStorage to Supabase (per D-010)
 
-The current analytics_events writer (lib/analytics/events.ts) is localStorage-only per D-010's Phase 2 deferral. Promotion to Supabase: create an analytics_events table, migrate the writer to make server-side inserts, update admin metrics views to read from the new table. Real benefit: per-user analytics, cross-device, server-side aggregation, admin metrics quality improvement. Prerequisite for richer admin analytics in item 13 (admin section revamp).
+The current analytics_events writer (lib/analytics/events.ts) is localStorage-only per D-010's Phase 2 deferral. Promotion to Supabase: create an analytics_events table, migrate the writer to make server-side inserts, update admin metrics views to read from the new table. Real benefit: per-user analytics, cross-device, server-side aggregation, admin metrics quality improvement. Prerequisite for richer admin analytics in item 12 (admin section revamp).
 
 ## 20. Zero-access state mailto verification
 
@@ -114,7 +111,7 @@ Per the Workspace arc's Stage 3h handoff cleanup, the zero-access state mailto r
 
 ## 21. Agent versioning (audit trail)
 
-Tracking who created / edited / deleted / forked which agent and when. No audit_log table or version history table exists today. Scope is unclear and depends on the use case: full audit log (every change with diff), version history (rollback to previous), or just provenance (who created this, when). Each has different complexity. Decide scope when the use case becomes concrete, likely surfacing during item 13 (admin section revamp) when admins ask "who changed this agent?"
+Tracking who created / edited / deleted / forked which agent and when. No audit_log table or version history table exists today. Scope is unclear and depends on the use case: full audit log (every change with diff), version history (rollback to previous), or just provenance (who created this, when). Each has different complexity. Decide scope when the use case becomes concrete, likely surfacing during item 12 (admin section revamp) when admins ask "who changed this agent?"
 
 ---
 
@@ -132,7 +129,7 @@ Some form of regulatory change tracking: alerting users when laws or regulations
 
 ### Invitation gate
 
-User invitation flow: admins inviting new users to legalOS. The current state has no invitation flow; users have to be manually added via Supabase. Real production gap for any multi-user deployment beyond the operator's single account. Related to item 14 (signup flow) in that both address gaps in the multi-user onboarding path.
+User invitation flow: admins inviting new users to legalOS. The current state has no invitation flow; users have to be manually added via Supabase. Real production gap for any multi-user deployment beyond the operator's single account. Related to item 13 (signup flow) in that both address gaps in the multi-user onboarding path.
 
 ### Public/private repo decision
 
@@ -148,12 +145,12 @@ After Stage 4 of the workspace arc moved the chevron to the right of the caption
 
 ### Admin config surface
 
-Substructure of the admin section revamp (item 13). Specific admin UI for configuring application-wide settings. Likely absorbed when item 13 is scoped.
+Substructure of the admin section revamp (item 12). Specific admin UI for configuring application-wide settings. Likely absorbed when item 12 is scoped.
 
 ### Matter-workspace management
 
-Substructure that overlaps with the Tracker-UI surface (item 7) and the admin section revamp (item 13). Specific UI for managing the relationship between legal matters and workspace state. Likely clarifies as items 7 and 13 are scoped.
+Substructure that overlaps with the Tracker-UI surface (item 6) and the admin section revamp (item 12). Specific UI for managing the relationship between legal matters and workspace state. Likely clarifies as items 6 and 12 are scoped.
 
 ### Router-skills Workflows surface
 
-Substructure of the Workflows group's eventual product surface. The router-skills pattern (Pattern #1 in docs/C4L_DEFERRED_SKILLS.md) is the C4L approach for multi-skill agents routing between sub-skills. A Workflows UI surface would expose this pattern. Likely clarifies when item 6 (Template Library concept) is defined.
+Substructure of the Workflows group's eventual product surface. The router-skills pattern (Pattern #1 in docs/C4L_DEFERRED_SKILLS.md) is the C4L approach for multi-skill agents routing between sub-skills. A Workflows UI surface would expose this pattern. Likely clarifies when item 5 (Template Library concept) is defined.

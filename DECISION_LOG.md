@@ -1641,3 +1641,44 @@ The destination-hub pattern is now the standard surface for any future per-messa
 The former roadmap item 1 (full document export) closes with this arc; full-conversation export remains deferred to the new Share & connector hub item (roadmap item 2), which depends on the Connections phase of the chat attachments item (roadmap item 1 phase 2).
 
 Shipped across commits cf8df0e (renderer), 1a284af (kebab UI), 5c5c811 (agent edit form cleanup).
+
+## D-055 — Client-pre-allocated parent ids for chat attachments
+
+Date: 2026-05-26
+Status: Accepted
+
+**Context:**
+
+Phase 1 of the chat-attachments arc surfaced a timing problem. The documented Storage path for message attachments is `<user_id>/<conversation_id>/<message_id>/<filename>`, but at file-select time neither id necessarily exists. The message_id never exists yet (the chat route inserts the user message only on send), and the conversation_id doesn't exist for a fresh conversation (the route inserts the conversation on the first send). Files need to upload at attach-time, not wait for send, so the path has to resolve at upload. Three resolutions were available: pre-allocate both ids client-side and accept them server-side; simplify the path to drop the conversation segment; or upload to a staging path and move the file once the ids exist.
+
+**Decision:**
+
+The composer pre-allocates both `conversation_id` (when starting a fresh conversation) and `message_id` (every send) via `crypto.randomUUID()`, before any file is attached. The pre-allocated ids ride the upload server action's Storage path and the chat-route send payload. The chat route accepts client-supplied ids in its conversation-create and user-message-insert branches: when supplied, the route inserts with the client value and surfaces a 23505 unique-violation as a 409 conflict (`conversation_id_conflict`, `message_id_conflict`); when absent, the route falls back to server-side id generation (the existing behavior, preserved for backward compatibility with any legacy or non-composer payload). The path convention is preserved verbatim: `<user_id>/<conversation_id>/<message_id>/<filename>`.
+
+This extends the precedent established by the draft-mode agent flow, which already pre-allocates `agent_id` client-side so file uploads can resolve to their final path before the agent row exists. The chat-attachment work makes this a general pattern: when a parent id is needed at upload time and the parent doesn't exist yet, the client allocates the id and the server accepts it with validation.
+
+**Reasoning:**
+
+Three considerations pointed to client-pre-allocation.
+
+Maintainer consistency. The draft-mode agent flow already pre-allocates parent ids. Choosing the same pattern for chat attachments means one mental model across the codebase ("the client pre-allocates parent ids when uploads need them") rather than two parallel patterns ("client pre-allocates for agents, server stages-and-moves for messages"). The dual-delight standard treats fake symmetries as actively harmful; reusing the existing pattern avoids inventing a second one.
+
+Storage-convention preservation. Dropping the conversation_id segment from the path (the simpler alternative) would have diverged from the documented convention. Future engineers reading the two paths would see different schemes across agent and message attachments and have to wonder why. Pre-allocation lets the one convention hold.
+
+Failure-mode reduction. A staging-then-move alternative doubles Storage I/O per send, adds orphan-cleanup pathways for half-moved files, and creates a window where a file exists at a temporary path while the canonical path is empty. Pre-allocation eliminates all three: the file lives at its final path from the first moment it exists in Storage, remove-before-send purges from the canonical path, and send commits the row. No orphan windows, no move failures, no inconsistency between Storage and metadata.
+
+The trust surface is the cost. Client-supplied ids become primary keys, which is a new trust boundary, so validation discipline at the route layer is non-negotiable: UUID-shape required, unique-violation surfaced as 409, and the existing "fetch or 403" pattern for conversation_id gracefully covers cross-user UUID collisions (RLS returns not-found, the route returns 403, no leak). The route-layer validation is the binding contract; the schema is only the entry point.
+
+The schema was also kept backward-compatible during the arc itself. A breaking schema change between the server-foundation commit and the composer-UI commit would have left the production composer broken for the window between them. The arc preserved forward-compat for the legacy composer's payload throughout, and the optional/nullable fields remain the canonical shape going forward: a non-composer caller (a programmatic client, a future workflow surface) can omit the ids and let the server generate them. Pre-allocation is the encouraged path; back-compat is the safety net.
+
+**Alternatives considered:**
+
+- **Rejected — Simplify the path to `<user_id>/<message_id>/<filename>` for message attachments, dropping the conversation segment.** Easier to implement today (no conversation_id pre-allocation needed). Diverges from the documented convention and creates asymmetry between the agent and message attachment path schemes, which future engineers would have to internalize without explanation. Convention drift is a long-term cost.
+- **Rejected — Staging path with a server-side move on send.** Conceptually clean (the server orchestrates id allocation and file placement) but doubles Storage I/O per send, introduces orphan-cleanup pathways for half-moved files, and adds a temporary state where Storage and metadata diverge. None of those failure modes exist with pre-allocation.
+- **Rejected — Make the schema strict (required `message_id`, non-nullable `conversation_id`) from the server-foundation commit onward.** This was the original spec for the foundation stage, corrected before commit. A strict schema between the foundation and composer-UI commits would have broken production chat for any user on the live composer, which sends neither field. The back-compat fallback is the durable shape: the client pre-allocates when it can, the server generates when it can't.
+
+**Consequences:**
+
+The pre-allocation pattern is now the standard for any future chat-surface upload that needs a parent id before the parent exists. The schema's backward-compatible shape (optional message_id, nullable conversation_id) is the durable contract; tightening it to required would re-introduce the production-break risk during any future multi-stage arc that touches the chat schema. The 409 conflict codes (`conversation_id_conflict`, `message_id_conflict`) are part of the route's standard error vocabulary going forward.
+
+Shipped across commits 7928cae (server foundation accepting the client ids), 08b3690 (composer pre-allocating and sending them), 66499de (drop overlay reusing the same upload path), 4015093 (privacy disclosure on the same flow), and d3e42ee (visual correction to the affordance).
