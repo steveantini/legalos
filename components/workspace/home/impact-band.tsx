@@ -9,6 +9,8 @@ import { ImpactCell } from "./impact-cell";
 
 type ImpactBandProps = {
   userId: string;
+  /** Gates the calculator CTAs, which route to an admin-only page. */
+  isAdmin: boolean;
 };
 
 /**
@@ -21,12 +23,14 @@ type ImpactBandProps = {
  * Server component — awaits `getImpactBandData`, so the page wraps it in
  * Suspense with a matching skeleton.
  *
- * Note: the Set up / "How this is calculated" links point at
- * /workspace/admin/calculator, which is admin-gated; non-admin users
- * following them hit the admin gate. Tracked for the calculator-promotion
- * sub-arc, which also decides the right destination for non-admins.
+ * The Set up / "How this is calculated" links point at the admin-gated
+ * /workspace/admin/calculator, so they render only when `isAdmin` is true
+ * (mirroring the route's own gate). Non-admins see the honest "Setup
+ * needed" status without a dead CTA. When the calculator's task book is
+ * promoted to the database (separate sub-arc), these cells flip to real
+ * data for everyone and the gating falls away.
  */
-export async function ImpactBand({ userId }: ImpactBandProps) {
+export async function ImpactBand({ userId, isAdmin }: ImpactBandProps) {
   const data = await getImpactBandData(userId);
 
   return (
@@ -49,12 +53,12 @@ export async function ImpactBand({ userId }: ImpactBandProps) {
           <ImpactCell
             mode="setup-needed"
             label="Hours saved"
-            ctaHref="/workspace/admin/calculator"
+            ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
           />
           <ImpactCell
             mode="setup-needed"
             label="Estimated cost saved"
-            ctaHref="/workspace/admin/calculator"
+            ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
           />
           <ImpactCell
             mode="value"
@@ -80,12 +84,14 @@ export async function ImpactBand({ userId }: ImpactBandProps) {
         <span className="text-[12px] text-caption">
           Based on the calculator’s task book for your role.
         </span>
-        <Link
-          href="/workspace/admin/calculator"
-          className="text-[12px] text-primary hover:underline"
-        >
-          How this is calculated ↗
-        </Link>
+        {isAdmin && (
+          <Link
+            href="/workspace/admin/calculator"
+            className="text-[12px] text-primary hover:underline"
+          >
+            How this is calculated ↗
+          </Link>
+        )}
       </div>
     </section>
   );

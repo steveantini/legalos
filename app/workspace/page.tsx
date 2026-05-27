@@ -9,6 +9,7 @@ import { ImpactBand } from "@/components/workspace/home/impact-band";
 import {
   getAllDepartmentsWithAccess,
   getCurrentUserProfile,
+  isCurrentUserAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,6 +51,10 @@ export default async function WorkspacePage() {
   const departments = await getAllDepartmentsWithAccess(authUser.id);
   const hasAnyAccess = departments.some((d) => d.hasAccess);
 
+  // Gates the impact band's calculator CTAs (admin-only page). `cache()`-
+  // wrapped, so this dedupes with the layout's own isCurrentUserAdmin call.
+  const isAdmin = await isCurrentUserAdmin();
+
   // First-login: stamp welcomed_at once per account. The hero no longer
   // branches on it (it greets "Welcome back" regardless), but it remains
   // a useful first-seen signal for adoption analytics, so the write is
@@ -77,7 +82,7 @@ export default async function WorkspacePage() {
           <CalendarConnectCard />
 
           <Suspense fallback={<ImpactBandSkeleton />}>
-            <ImpactBand userId={authUser.id} />
+            <ImpactBand userId={authUser.id} isAdmin={isAdmin} />
           </Suspense>
 
           <Suspense fallback={<SectionSkeleton title="Continue working" />}>

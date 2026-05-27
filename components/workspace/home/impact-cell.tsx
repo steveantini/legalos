@@ -29,8 +29,8 @@ type ImpactCellTextProps = ImpactCellBase & {
 
 type ImpactCellSetupProps = ImpactCellBase & {
   mode: "setup-needed";
-  /** Where "Set up →" routes. */
-  ctaHref: string;
+  /** Where "Set up →" routes; omitted for non-admins, who see no link. */
+  ctaHref?: string;
 };
 
 type ImpactCellProps =
@@ -101,12 +101,14 @@ function SetupNeededCell({ ctaHref }: ImpactCellSetupProps) {
       <p className="mb-2 text-[20px] font-medium leading-[1.2] tracking-[-0.015em] text-muted-foreground">
         Setup needed
       </p>
-      <Link
-        href={ctaHref}
-        className="text-[12px] font-medium text-primary hover:underline"
-      >
-        Set up →
-      </Link>
+      {ctaHref && (
+        <Link
+          href={ctaHref}
+          className="text-[12px] font-medium text-primary hover:underline"
+        >
+          Set up →
+        </Link>
+      )}
     </>
   );
 }
