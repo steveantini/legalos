@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { BrowseAllCard } from "@/components/workspace/browse-all-card";
 import { ContinueWorkingSection } from "@/components/workspace/continue-working-section";
-import { HomeHero } from "@/components/workspace/home-hero";
-import { RecentlyUsedSection } from "@/components/workspace/recently-used-section";
+import { HomeGreeting } from "@/components/workspace/home/home-greeting";
 import {
   getAllDepartmentsWithAccess,
   getCurrentUserProfile,
@@ -18,13 +16,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * top bar, body wrapper) lives in `app/workspace/layout.tsx`; this page
  * supplies the body content.
  *
- * Structure: a personal greeting (`HomeHero`), then — for users with at
- * least one accessible department — "Continue working" (recent
- * conversations), "Recently used" (recent agents), and a "Browse all
- * departments" card. The department grid that used to live here moved to
- * `/workspace/departments`. The two data sections each fetch
- * independently and stream in behind Suspense so the hero and skeletons
- * paint immediately.
+ * Structure: a personal greeting (`HomeGreeting`), then, for users with
+ * at least one accessible department, "Continue working" (recent
+ * conversations). That section fetches independently and streams in
+ * behind Suspense so the greeting and its skeleton paint immediately.
+ *
+ * Recently-used agents and the full department directory used to live
+ * here too; the Stage 1 home revamp removed them so every element on the
+ * home earns its place. They remain reachable at `/workspace/agents` and
+ * `/workspace/departments`.
  *
  * Reads composed here: `requireAuthUser`, `getCurrentUserProfile`,
  * `getAllDepartmentsWithAccess` (all `cache()`-wrapped per
@@ -65,21 +65,13 @@ export default async function WorkspacePage() {
   }
 
   return (
-    <main className="flex flex-col gap-12">
-      <HomeHero profile={profile} hasAnyAccess={hasAnyAccess} />
+    <main className="flex flex-col gap-9">
+      <HomeGreeting profile={profile} hasAnyAccess={hasAnyAccess} />
 
       {hasAnyAccess ? (
-        <>
-          <Suspense fallback={<SectionSkeleton title="Continue working" />}>
-            <ContinueWorkingSection userId={authUser.id} />
-          </Suspense>
-
-          <Suspense fallback={<SectionSkeleton title="Recently used" />}>
-            <RecentlyUsedSection userId={authUser.id} />
-          </Suspense>
-
-          <BrowseAllCard />
-        </>
+        <Suspense fallback={<SectionSkeleton title="Continue working" />}>
+          <ContinueWorkingSection userId={authUser.id} />
+        </Suspense>
       ) : null}
     </main>
   );

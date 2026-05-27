@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 
 /**
  * Page header for a department launchpad — the same h1+subline shape the
- * workspace home hero (`HomeHero`) and the Stage 1 group landings use,
- * minus the bolded-phrase parser the prior landing hero carried.
+ * workspace home greeting (`HomeGreeting`) and the Stage 1 group landings
+ * use, minus the bolded-phrase parser the prior landing hero carried.
  *
  * Typography:
  *   - h1: Inter Tight 44px / 400 / -0.03em / 1.02 / max 22ch / ink
