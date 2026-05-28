@@ -46,7 +46,7 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
   return (
     <section
       aria-labelledby="impact-band-heading"
-      className="flex h-full flex-col gap-5"
+      className="flex h-full flex-col gap-4"
     >
       <h2
         id="impact-band-heading"
@@ -56,7 +56,7 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
       </h2>
 
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-paper-2">
-        <div className="flex items-center justify-end px-6 py-4">
+        <div className="flex items-center justify-end px-6 py-3">
           <TimeframeToggle selected={selected} onChange={setSelected} />
         </div>
 
@@ -100,7 +100,7 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
           </div>
         </div>
 
-        <div className="mt-auto flex items-baseline justify-between border-t border-hairline px-6 py-4">
+        <div className="mt-auto flex items-baseline justify-between border-t border-hairline px-6 py-3">
           <span className="text-[12px] text-caption">
             Calculated from your role’s task book.
           </span>

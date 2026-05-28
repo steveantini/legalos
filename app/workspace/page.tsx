@@ -120,24 +120,24 @@ function ImpactBandSkeleton() {
   return (
     <section
       aria-label="Impact band loading"
-      className="flex h-full flex-col gap-5"
+      className="flex h-full flex-col gap-4"
     >
       <div className="h-5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-paper-2">
-        <div className="flex items-center justify-end px-6 py-4">
+        <div className="flex items-center justify-end px-6 py-3">
           <div className="h-7 w-40 animate-pulse rounded-full bg-hairline motion-reduce:animate-none" />
         </div>
         <div className="grid grid-cols-2 border-t border-hairline">
           {cellBorders.map((border, i) => (
             <div key={i} className={border}>
-              <div className="px-6 py-5">
+              <div className="px-6 py-4">
                 <div className="mb-3 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
-                <div className="h-10 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+                <div className="h-8 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
               </div>
             </div>
           ))}
         </div>
-        <div className="mt-auto flex items-baseline border-t border-hairline px-6 py-4">
+        <div className="mt-auto flex items-baseline border-t border-hairline px-6 py-3">
           <div className="h-3 w-56 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
         </div>
       </div>

@@ -30,7 +30,7 @@ export function CalendarConnectCard() {
   return (
     <section
       aria-labelledby="today-section-heading"
-      className="flex h-full flex-col gap-5"
+      className="flex h-full flex-col gap-4"
     >
       <h2
         id="today-section-heading"
@@ -39,7 +39,7 @@ export function CalendarConnectCard() {
         Today
       </h2>
 
-      <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-8">
+      <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-6">
         <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
           Calendar · not yet connected
         </p>
