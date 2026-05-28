@@ -27,7 +27,7 @@ import {
  */
 export function ConnectionsPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl">
+    <main className="w-full max-w-3xl">
       <header>
         <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
           Connections
@@ -38,7 +38,7 @@ export function ConnectionsPage() {
         </p>
       </header>
 
-      <div className="mt-14 flex flex-col gap-12">
+      <div className="mt-14 flex flex-col gap-10">
         {CAPABILITY_GROUPS.map((group) => (
           <section key={group.id} aria-labelledby={`connections-${group.id}`}>
             <h2
@@ -77,27 +77,59 @@ export function ConnectionsPage() {
   );
 }
 
+type DotVariant = "ring" | "solid" | "faint";
+
+/**
+ * Grounding state-dot in a fixed-width left column so provider names align to
+ * a consistent edge (inset under the group title, reinforcing the
+ * list-under-heading hierarchy). "ring" = available but not connected (hollow
+ * slate ring, ready to be filled); "solid" = connected (built and ready for
+ * when real connections ship); "faint" = coming-soon / dormant. Decorative
+ * (aria-hidden): the text status line beside it carries the state for
+ * assistive tech, so the dot is visual reinforcement, not the sole signal.
+ */
+function StateDot({ variant }: { variant: DotVariant }) {
+  const dotClass =
+    variant === "ring"
+      ? "border-[1.5px] border-primary"
+      : variant === "solid"
+        ? "bg-primary"
+        : "bg-muted-foreground/40";
+  return (
+    <span
+      aria-hidden="true"
+      className="flex w-7 shrink-0 items-center justify-center"
+    >
+      <span className={`h-[7px] w-[7px] rounded-full ${dotClass}`} />
+    </span>
+  );
+}
+
 /**
  * A personal-provider row. "available" rows respond to hover (a subtle lift,
  * the same bg-paper-2 treatment as the settings landing rows) and carry an
- * inert "Connect" affordance; "coming-soon" rows are calm and static.
+ * inert "Connect" affordance; "coming-soon" rows are calm and static. Each
+ * row leads with a grounding state-dot.
  */
 function ProviderRow({ provider }: { provider: Provider }) {
   const available = provider.status === "available";
 
   return (
     <div
-      className={`flex items-center gap-4 px-5 py-4 ${
+      className={`flex items-center px-5 py-3 ${
         available
           ? "rounded-lg transition-colors duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft motion-reduce:transition-none"
           : ""
       }`}
     >
+      {/* available + not connected → hollow ring; coming-soon → faint filled.
+          A real connection (a later milestone) maps to "solid". */}
+      <StateDot variant={available ? "ring" : "faint"} />
       <div className="min-w-0">
         <p className="text-[15px] font-medium text-foreground">
           {provider.name}
         </p>
-        <p className="mt-1 text-[12px] text-muted-foreground">
+        <p className="mt-0.5 text-[12px] text-muted-foreground">
           {available ? "Not connected" : "Available soon"}
         </p>
       </div>
@@ -107,7 +139,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
         // app's Connect CTAs, so we ship no broken navigation. It becomes a
         // real interactive control (with proper button/link semantics) when
         // the OAuth flow ships in a later milestone. The arrow is decorative.
-        <span className="ml-auto shrink-0 text-[14px] font-medium text-primary">
+        <span className="ml-auto shrink-0 pl-4 text-[14px] font-medium text-primary">
           Connect <span aria-hidden="true">→</span>
         </span>
       ) : null}
@@ -123,7 +155,10 @@ function ProviderRow({ provider }: { provider: Provider }) {
  */
 function OrgProviderRow({ provider }: { provider: Provider }) {
   return (
-    <div className="flex items-center gap-4 rounded-lg bg-paper-2 px-5 py-4">
+    <div className="flex items-center rounded-lg bg-paper-2 px-5 py-3">
+      {/* Faint dot: Ironclad's honest state is "available soon". When org CLM
+          integration ships and it is really connected, this becomes "solid". */}
+      <StateDot variant="faint" />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-[15px] font-medium text-foreground">
@@ -133,7 +168,7 @@ function OrgProviderRow({ provider }: { provider: Provider }) {
             Org
           </span>
         </div>
-        <p className="mt-1 text-[12px] text-muted-foreground">
+        <p className="mt-0.5 text-[12px] text-muted-foreground">
           Connected by your admin · read access · available soon
         </p>
       </div>

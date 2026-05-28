@@ -32,7 +32,7 @@ export const metadata: Metadata = {
  */
 export default function SettingsLandingPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl">
+    <main className="w-full max-w-3xl">
       <header>
         <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
           Settings
