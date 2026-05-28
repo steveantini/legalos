@@ -27,10 +27,19 @@ import { WorkspaceProfileBlock } from "./workspace-profile-block";
  * cannot diverge on link styling, captions, or active treatment because
  * they consume one source.
  *
- * Differs from `AdminRail` only in the middle: a flat list of
- * `SETTINGS_NAV_ITEMS` (no captioned groups, per the locked flat design)
- * rendered with `match="prefix"` so a nested route like
- * `/workspace/settings/connections/<anything>` keeps Connections active.
+ * Mirrors `AdminRail`'s anchoring exactly: a lead-line "Settings" item at
+ * the top (match="exact", active only on the settings landing itself),
+ * then the sub-pages from `SETTINGS_NAV_ITEMS` listed beneath it as an
+ * ungrouped flat list (match="prefix", so a nested route like
+ * `/workspace/settings/connections/<anything>` keeps Connections active).
+ * The lead-line gives the section a sense of place, the same way the
+ * "Admin" lead-line anchors the admin rail. Spacing between the lead-line
+ * and the sub-pages is the nav's own gap-[22px], matching admin's
+ * lead-line-to-first-group spacing.
+ *
+ * No caption sits over the sub-pages: three items don't need an artificial
+ * group label. Captions emerge naturally when the section grows to several
+ * sub-pages, and get added then.
  *
  * Like `AdminRail`, takes only `profile` and `isAdmin` (the latter feeds
  * the profile block's conditional Admin item); no department- or
@@ -61,7 +70,21 @@ export function SettingsRail({
         {siteConfig.siteTitle}
       </Link>
 
-      {/* Flat settings nav — no captioned groups, per the locked design. */}
+      {/* Lead-line anchor — exact-match active on the landing only.
+          Mirrors the admin rail's top-line "Admin" item. */}
+      <div className="flex flex-col gap-px">
+        <WorkspaceNavLink
+          href="/workspace/settings"
+          match="exact"
+          className={linkBase}
+          activeClassName={`${linkBase} ${linkActive}`}
+        >
+          Settings
+        </WorkspaceNavLink>
+      </div>
+
+      {/* Sub-pages, ungrouped (no caption) — same treatment admin gives its
+          sub-items; separated from the lead-line by the nav's gap-[22px]. */}
       <div className="flex flex-col gap-px">
         {SETTINGS_NAV_ITEMS.map((item) => (
           <WorkspaceNavLink
