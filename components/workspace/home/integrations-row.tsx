@@ -8,7 +8,7 @@ const CONNECTIONS_HREF = "/workspace/integrations/connections";
  * Working, under a "Tools" section heading. Server component, fully static.
  *
  * The "Tools" heading shares the unified home-section heading idiom (20px
- * medium); the section is named for screen readers via `aria-labelledby`
+ * 18px medium); the section is named for screen readers via `aria-labelledby`
  * pointing at that heading.
  *
  * "Mail" / "Drive" are generic service names rather than provider brands
@@ -26,7 +26,7 @@ export function IntegrationsRow() {
     >
       <h2
         id="tools-section-heading"
-        className="text-[20px] font-medium tracking-[-0.005em] text-foreground"
+        className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
       >
         Tools
       </h2>

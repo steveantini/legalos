@@ -40,7 +40,7 @@ export async function ImpactBand({ userId, isAdmin }: ImpactBandProps) {
     >
       <h2
         id="impact-band-heading"
-        className="text-[20px] font-medium tracking-[-0.005em] text-foreground"
+        className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
       >
         Impact
       </h2>

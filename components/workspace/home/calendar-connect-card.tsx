@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
  * Visual vocabulary follows Direction A / Stage 1: rounded-xl (14px via
  * the --radius-xl scale), a border-border + bg-card frame, a mono caption
  * eyebrow, an 18px medium card title, and a muted-foreground body. The
- * 20px medium section heading ("Today") sits above the card frame, sharing
+ * 18px medium section heading ("Today") sits above the card frame, sharing
  * the unified home-section heading idiom; the card title is a plain
  * paragraph since the section already carries its <h2>. The Connect CTA
  * uses the Button primitive's `render` prop to render as a Link — Base UI's
@@ -30,7 +30,7 @@ export function CalendarConnectCard() {
     >
       <h2
         id="today-section-heading"
-        className="text-[20px] font-medium tracking-[-0.005em] text-foreground"
+        className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
       >
         Today
       </h2>
