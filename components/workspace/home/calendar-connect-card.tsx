@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Persistent "Connect your calendar" card on the workspace home, mounted
- * between the greeting and Continue Working. Honest placeholder state:
+ * in the top two-column row beside the Impact band. Honest placeholder state:
  * the calendar is not yet connected, so the card says exactly that and
  * routes the Connect button to /workspace/integrations/connections, where
  * the eventual OAuth flow will live.
@@ -21,12 +21,16 @@ import { Button } from "@/components/ui/button";
  * paragraph since the section already carries its <h2>. The Connect CTA
  * uses the Button primitive's `render` prop to render as a Link — Base UI's
  * polymorphism convention and this project's asChild equivalent.
+ *
+ * The card fills its grid column (h-full / flex-1) to stay equal-height with
+ * the Impact band; its content is a left-aligned vertical stack (eyebrow,
+ * title, value prop, Connect CTA) that stays top-anchored as the card grows.
  */
 export function CalendarConnectCard() {
   return (
     <section
       aria-labelledby="today-section-heading"
-      className="flex flex-col gap-5"
+      className="flex h-full flex-col gap-5"
     >
       <h2
         id="today-section-heading"
@@ -35,27 +39,24 @@ export function CalendarConnectCard() {
         Today
       </h2>
 
-      <div className="rounded-xl border border-border bg-card p-8">
-        <div className="flex items-center justify-between gap-8">
-          <div className="flex-1">
-            <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
-              Calendar · not yet connected
-            </p>
-            <p className="mb-2 text-[18px] font-medium text-foreground">
-              Connect your calendar
-            </p>
-            <p className="max-w-[56ch] text-[14px] leading-[1.5] text-muted-foreground">
-              Two clicks to wire up Google or Outlook. legalOS reads your
-              free/busy and today’s schedule. We never write to your calendar.
-            </p>
-          </div>
-          <Button
-            aria-label="Connect your calendar"
-            render={<Link href="/workspace/integrations/connections" />}
-          >
-            Connect →
-          </Button>
-        </div>
+      <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-8">
+        <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
+          Calendar · not yet connected
+        </p>
+        <p className="mb-2 text-[18px] font-medium text-foreground">
+          Connect your calendar
+        </p>
+        <p className="max-w-[56ch] text-[14px] leading-[1.5] text-muted-foreground">
+          Two clicks to wire up Google or Outlook. legalOS reads your free/busy
+          and today’s schedule. We never write to your calendar.
+        </p>
+        <Button
+          aria-label="Connect your calendar"
+          render={<Link href="/workspace/integrations/connections" />}
+          className="mt-6 self-start"
+        >
+          Connect →
+        </Button>
       </div>
     </section>
   );

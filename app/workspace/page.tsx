@@ -81,11 +81,13 @@ export default async function WorkspacePage() {
 
       {hasAnyAccess ? (
         <>
-          <CalendarConnectCard />
+          <div className="grid grid-cols-2 items-stretch gap-6">
+            <CalendarConnectCard />
 
-          <Suspense fallback={<ImpactBandSkeleton />}>
-            <ImpactBand userId={authUser.id} isAdmin={isAdmin} />
-          </Suspense>
+            <Suspense fallback={<ImpactBandSkeleton />}>
+              <ImpactBand userId={authUser.id} isAdmin={isAdmin} />
+            </Suspense>
+          </div>
 
           <IntegrationsRow />
 
@@ -98,28 +100,44 @@ export default async function WorkspacePage() {
 
 /**
  * Loading placeholder for the impact band — mirrors its composition (the
- * "Impact" heading above a tinted paper-2 container; inside, a top-right
- * toggle row, then four hairline-divided cells, then a footer line, each
- * separated by a hairline rule) with pulsing blocks so the layout doesn't
- * shift when the real data streams in.
+ * "Impact" heading above a tinted paper-2 container that fills the column
+ * height; inside, a top-right toggle row, then a 2x2 grid of hairline-divided
+ * cells, then a footer line pinned to the bottom, each separated by a hairline
+ * rule) with pulsing blocks so the layout doesn't shift when the real data
+ * streams in. The h-full / flex-1 mirror keeps it equal-height with the Today
+ * card in the two-column row.
  */
 function ImpactBandSkeleton() {
+  // Per-cell borders form the 2x2 cross divider: right + bottom on the
+  // top-left, bottom on the top-right, right on the bottom-left, none on the
+  // bottom-right.
+  const cellBorders = [
+    "border-r border-b border-hairline",
+    "border-b border-hairline",
+    "border-r border-hairline",
+    "",
+  ];
   return (
-    <section aria-label="Impact band loading" className="flex flex-col gap-5">
+    <section
+      aria-label="Impact band loading"
+      className="flex h-full flex-col gap-5"
+    >
       <div className="h-5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
-      <div className="rounded-xl border border-border bg-paper-2">
+      <div className="flex flex-1 flex-col rounded-xl border border-border bg-paper-2">
         <div className="flex items-center justify-end px-6 py-4">
           <div className="h-7 w-40 animate-pulse rounded-full bg-hairline motion-reduce:animate-none" />
         </div>
-        <div className="grid grid-cols-4 divide-x divide-hairline border-t border-hairline">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="px-6 py-5">
-              <div className="mb-3 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
-              <div className="h-10 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+        <div className="grid grid-cols-2 border-t border-hairline">
+          {cellBorders.map((border, i) => (
+            <div key={i} className={border}>
+              <div className="px-6 py-5">
+                <div className="mb-3 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+                <div className="h-10 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+              </div>
             </div>
           ))}
         </div>
-        <div className="flex items-baseline border-t border-hairline px-6 py-4">
+        <div className="mt-auto flex items-baseline border-t border-hairline px-6 py-4">
           <div className="h-3 w-56 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
         </div>
       </div>
