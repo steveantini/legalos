@@ -3,7 +3,9 @@
  * settings rail (`components/workspace/settings-rail.tsx`) and the
  * settings landing cards (`app/workspace/settings/page.tsx`). Adding a
  * new settings sub-page is one entry here and both surfaces update.
- * Item order is the rendered order.
+ * Item order is the rendered order, sequenced by the user's mental
+ * journey (identity, then experience, then integrations) rather than
+ * build order.
  *
  * Flat (no captioned groups), unlike `lib/admin/nav.ts` — the settings
  * rail is a flat list per the locked design. What the two files share is
@@ -21,11 +23,6 @@ export interface SettingsNavItem {
 
 export const SETTINGS_NAV_ITEMS: ReadonlyArray<SettingsNavItem> = [
   {
-    label: "Connections",
-    href: "/workspace/settings/connections",
-    description: "The tools your agents can read from and write to.",
-  },
-  {
     label: "Profile",
     href: "/workspace/settings/profile",
     description: "Your name, photo, and account details.",
@@ -34,5 +31,10 @@ export const SETTINGS_NAV_ITEMS: ReadonlyArray<SettingsNavItem> = [
     label: "Display",
     href: "/workspace/settings/display",
     description: "How legalOS looks and behaves for you.",
+  },
+  {
+    label: "Connections",
+    href: "/workspace/settings/connections",
+    description: "The tools your agents can read from and write to.",
   },
 ];

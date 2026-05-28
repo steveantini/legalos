@@ -42,26 +42,34 @@ export default function SettingsLandingPage() {
         </p>
       </header>
 
-      <div className="mt-10">
+      {/* Hairlines live on the outer wrappers so they read as full-width
+          editorial dividers; the padded Link inside is the interactive
+          surface, so hover/focus/active highlights inset their content
+          (px-5) gracefully on both edges including past the trailing arrow. */}
+      <div className="mt-12">
         {SETTINGS_NAV_ITEMS.map((item) => (
-          <Link
+          <div
             key={item.href}
-            href={item.href}
-            className="group flex items-baseline gap-6 border-b border-hairline py-5 transition-colors duration-release ease-release last:border-b-0 hover:bg-paper-2 hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+            className="border-b border-hairline last:border-b-0"
           >
-            <span className="w-[140px] shrink-0 text-[17px] font-medium text-foreground">
-              {item.label}
-            </span>
-            <span className="flex-1 text-[13.5px] leading-[1.5] text-caption">
-              {item.description}
-            </span>
-            <span
-              aria-hidden
-              className="shrink-0 text-primary opacity-60 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
+            <Link
+              href={item.href}
+              className="group flex items-center gap-6 rounded-lg px-5 py-5 transition-[background-color,transform] duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.99] active:duration-press active:ease-spring motion-reduce:transition-none"
             >
-              →
-            </span>
-          </Link>
+              <span className="w-[140px] shrink-0 text-[17px] font-medium text-foreground">
+                {item.label}
+              </span>
+              <span className="flex-1 text-[13.5px] leading-[1.5] text-caption">
+                {item.description}
+              </span>
+              <span
+                aria-hidden
+                className="ml-auto shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
+              >
+                →
+              </span>
+            </Link>
+          </div>
         ))}
       </div>
     </main>
