@@ -1,5 +1,5 @@
 /**
- * "For your reading" — the bottom section of the workspace home. v1 is a
+ * "Desk" — the bottom section of the workspace home. v1 is a
  * single honest empty-state card: there is no reading content yet (no
  * reading_items table, no curation tooling), so rather than fake items the
  * section names its own not-yet state and previews what will land here.
@@ -24,7 +24,7 @@ export function ReadingSection() {
           id="reading-section-heading"
           className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
         >
-          For your reading
+          Desk
         </h2>
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
           Curation tools coming
@@ -33,9 +33,9 @@ export function ReadingSection() {
 
       <div className="rounded-xl border border-border bg-card p-12">
         <p className="mx-auto max-w-[56ch] text-center text-[14px] leading-[1.55] text-muted-foreground">
-          Your admin hasn’t shared anything here yet. When admin-curated
-          reading tools ship, regulations, podcasts, and internal headlines
-          will land here for your role.
+          Your admin hasn’t put anything on your desk yet. When admin-curated
+          content ships, regulations, podcasts, and internal headlines will
+          land here for your role.
         </p>
       </div>
     </section>

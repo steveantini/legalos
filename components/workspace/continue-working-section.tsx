@@ -26,7 +26,7 @@ function truncateSnippet(content: string): string {
 }
 
 /**
- * "Continue working" — the user's 3 most recently active conversations,
+ * "Recent" — the user's 3 most recently active conversations,
  * deep-linking back into the chat surface. Ordered by
  * `conversations.updated_at` (now bumped per message by the chat route +
  * indexed in migration 0042). Conversations whose agent has been deleted
@@ -70,7 +70,7 @@ export async function ContinueWorkingSection({ userId }: { userId: string }) {
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-[18px] font-medium tracking-[-0.005em] text-foreground">
-        Continue working
+        Recent
       </h2>
       {conversations.length === 0 ? (
         <p className="text-[14px] leading-[1.5] text-muted-foreground">
