@@ -300,6 +300,30 @@ Patterns established:
 
 Two decision-log entries were adopted during the arc: D-052 (Return-to-send keyboard contract, reversing the Session 17b ⌘+Return decision) and D-053 (concentric-circles brand-scarcity principle). Full commit-by-commit detail is in CHANGELOG.md.
 
+## Arc: Workspace home revamp and Matters (CLOSED)
+
+A 29-commit arc (60b9e3a through f47942e) reshaping the workspace home from a launcher into a value-mirror of the user's actual work, with honest empty states. The home now answers a single identity question: it reflects what the product is for (agents, matters, impact, your day), not peripheral plumbing or rail-duplicating navigation (D-056).
+
+Final home spine, top to bottom: an editorial greeting, a two-column Today and Impact row, Matters, and Desk (the empty-state reading section).
+
+Work, grouped:
+
+1. **Home composition.** Editorial greeting replaced the prior hero; Recently used and Browse all were removed (the department directory stays at /workspace/departments). Section headings unified to a single-word family at 18px medium (Today, Impact, Desk). Token-hygiene and accessibility-label sweep across the home. The breadcrumb's first segment renamed from "workspace" to "home" via a shared HOME_SEGMENT constant.
+2. **Impact band.** Reads real usage_events for Agent runs and Top agent behind a Week/Month/YTD toggle (all three windows pre-fetched server-side). Hours saved and Estimated cost saved show an honest Setup-needed state with admin-gated CTAs, because the calculator's task book is still localStorage, not the database (D-059). Stats reflowed to a 2x2 grid for the half-width column; the toggle sits on the section heading row; row height compressed.
+3. **Connected-state gating (Reading-1 pattern, D-057).** The Today card (calendar) and the Matters section (CLM / matter management) each ship their full rich connected view, built and typed, gated behind a connection check that returns false. The honest Connect placeholder is the only state any user sees today; the rich views are unreachable until the gates flip. Today renders a day's schedule; Matters renders a four-stat row, matter rows with type badges and stage-progress indicators, a Mine/Team/All scope toggle, and a footer. Both render from typed shapes via data fetchers that return empty/null now (D-058).
+4. **Removals, retained unmounted.** The Recent section (formerly Continue working) and the Tools section (Slack/Mail/Drive launcher) were removed from the home. Their components (ContinueWorkingSection; IntegrationsRow, IntegrationCard) are retained unmounted with retention notes, the same discipline as sparkline.tsx. Recents feeds the future Recents panel (roadmap item 9); the Tools components may return as a connection-status strip (D-061).
+
+Decisions adopted: D-056 (home as value-mirror with honest empty states), D-057 (Reading-1 build-and-gate pattern), D-058 (typed connection-helper pattern), D-059 (calculator stays localStorage for v1), D-060 (no serif), D-061 (Tools removed, status-strip may return).
+
+What flips the dormant gates live: the Share and connector hub (roadmap item 1) builds the OAuth/integration layer that sets isCalendarConnected and isMattersConnected true, at which point Today and Matters render real data with no further UI work. That item is now the top roadmap priority.
+
+Working lessons carried forward this arc:
+
+- Migrations and the code that depends on them ship together, or the schema change lands first; never a commit that references a column or table that does not exist yet.
+- Verify the push reached origin/main before reporting work as shipped, and for this project confirm the production deployment reached READY on the canonical domain. Prod is the operator's review surface; "pushed" is not "visible," and a commit that is gated dormant (no visible change) must be called out as such up front.
+- Honest-state discipline: no dummy data is shown to users. Surfaces without real data show a Connect placeholder or an empty state, never fabricated content.
+- Prompts to the coding agent are plain and terminal-safe: no nested code fences, no backtick-wrapped className strings, no characters a shell or terminal mangles.
+
 ## Key files and architectural anchors
 
 For the fresh chat to know where things live:
@@ -310,6 +334,9 @@ For the fresh chat to know where things live:
 - `components/workspace/agent-details-panel.tsx` — slide-over read-only inspection
 - `components/workspace/collapsible-section.tsx` — per-section collapsibility on the launchpad
 - `components/workspace/workspace-rail.tsx` — the sidebar rail (rail collapsibility shipped per polish #1)
+- `app/workspace/page.tsx` — the workspace home composition (greeting, Today and Impact row, Matters, Desk)
+- `components/workspace/home/` — home section components: home-greeting, calendar-connect-card + today-schedule (the Today card and its dormant schedule view), impact-band + impact-band-client + impact-cell + timeframe-toggle, matters-section + matters-connected (the Matters placeholder and its dormant rich view), reading-section; retained unmounted: integrations-row, integration-card, continue-working-section, sparkline
+- `lib/workspace/home/` — home data and gates: impact-math (usage_events queries), calendar-connection (isCalendarConnected, getTodaysEvents, NormalizedEvent), matters-connection (isMattersConnected, getMatters, getMattersSummary, Matter, MattersSummary)
 - `lib/auth/access.ts` — the project's primary cache-wrapped access layer
 - `lib/agents/source.ts` — `parseSourceOrigin`, `getSourceDisplayLabel` for C4L attribution
 - `lib/preferences/keys.ts` — user-preferences key registry; `deptCollapsedSectionsKey`, `CollapsedSectionsValue`
@@ -341,19 +368,19 @@ Recent migrations of note:
 
 ## Deferred work
 
-See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. The roadmap covers everything that was previously tracked in this section: 21 prioritized items plus a 9-item backlog of unprioritized candidates. The roadmap file is the source of truth; reordering and adding items is a normal part of regular work.
+See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. The roadmap covers everything that was previously tracked in this section: 19 prioritized items plus a 9-item backlog of unprioritized candidates. The roadmap file is the source of truth; reordering and adding items is a normal part of regular work.
 
 ## How a fresh chat opens
 
-Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). Word export arc complete (three commits closed: cf8df0e, 1a284af, 5c5c811; D-054 adopted). Chat attachments arc complete (five commits closed: 7928cae, 08b3690, 66499de, 4015093, d3e42ee; D-055 adopted). The product is in a stable state with no active arc in progress.
+Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). Word export arc complete (three commits closed: cf8df0e, 1a284af, 5c5c811; D-054 adopted). Chat attachments arc complete (five commits closed: 7928cae, 08b3690, 66499de, 4015093, d3e42ee; D-055 adopted). Workspace home revamp and Matters arc complete (29 commits closed: 60b9e3a through f47942e; D-056 through D-061 adopted). The product is in a stable state with no active arc in progress.
 
 A fresh chat session at this point opens to a project waiting for the operator's next direction. The chat should:
 
-1. Acknowledge the handoff is loaded and that the polish phase and all subsequent arcs (workspace home and rail restructure, chat page redesign, Word export, chat attachments) are closed.
+1. Acknowledge the handoff is loaded and that the polish phase and all subsequent arcs (workspace home and rail restructure, chat page redesign, Word export, chat attachments, workspace home revamp and Matters) are closed.
 2. Confirm the operator's intent: pick up the top item from docs/ROADMAP.md, kick off a new direction not on the roadmap yet, or pull a backlog item up.
-3. Default to the operator's lead. The roadmap is ordered; item 1 (Share & connector hub) is the current top priority following the chat attachments arc closure, but the operator may pivot for any reason.
+3. Default to the operator's lead. The roadmap is ordered; item 1 (Share & connector hub) is the current top priority following the workspace home and Matters arc closure, and it is what flips the home's dormant Today and Matters gates live, but the operator may pivot for any reason.
 
-The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 11) stay deferred unless a trigger fires.
+The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 4) stay deferred unless a trigger fires.
 
 The fresh chat must honor the working rules from message one. One question at a time. No bundled steps. Dual-delight standard. Build for the long term.
 

@@ -1682,3 +1682,158 @@ The schema was also kept backward-compatible during the arc itself. A breaking s
 The pre-allocation pattern is now the standard for any future chat-surface upload that needs a parent id before the parent exists. The schema's backward-compatible shape (optional message_id, nullable conversation_id) is the durable contract; tightening it to required would re-introduce the production-break risk during any future multi-stage arc that touches the chat schema. The 409 conflict codes (`conversation_id_conflict`, `message_id_conflict`) are part of the route's standard error vocabulary going forward.
 
 Shipped across commits 7928cae (server foundation accepting the client ids), 08b3690 (composer pre-allocating and sending them), 66499de (drop overlay reusing the same upload path), 4015093 (privacy disclosure on the same flow), and d3e42ee (visual correction to the affordance).
+
+## D-056 — Home identity: a value-mirror with honest empty states
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+The Stage 2b workspace home (greeting, Continue working, Recently used, Browse all) was functional but conceptually thin, and the workspace home dashboard revamp was the active roadmap item. A guiding identity was needed before composing the new home: what is the home page actually for, and what does it show when the data behind a section does not exist yet.
+
+**Decision:**
+
+The workspace home mirrors the user's actual work: their day (Today), their impact (Impact band), their matters (Matters), and their reading (Desk). It does not surface peripheral plumbing or duplicate the rail's navigation. Any section whose backing integration or data has not shipped renders an honest Connect placeholder or empty state, never dummy data presented to users as if it were real.
+
+**Reasoning:**
+
+legalOS is an AI-agent operating system for legal work; the home should make a lawyer want to open the product by reflecting their work back to them, not by listing app launchers or category tiles. Honest empty states preserve trust: a placeholder that says "not yet connected" is credible, whereas fabricated matters or meetings on a legal product's home would read as a demo prop and erode confidence. The value-mirror framing also gives every future home section a single test: does this reflect the user's work, and is its empty state honest.
+
+**Alternatives considered:**
+
+- **Rejected — A category-navigation dashboard (Departments / Knowledge / Workflows / Integrations / Help tiles).** This was attempted and reverted earlier (D-047): four of five tiles announced placeholder content and the surface read as a downgrade. The value-mirror home shows work, not navigation, and is the right shape until those categories have real content.
+- **Rejected — Seed the home with sample data so it looks full.** Dishonest on a legal product; see the honest-empty-state half of the decision.
+
+**Consequences:**
+
+The home spine is greeting, a two-column Today and Impact row, Matters, and Desk. Every present and future home section is measured against the value-mirror identity and the honest-empty-state rule. The Reading-1 gating pattern (D-057) is the mechanism that lets a section be built ahead of its data while keeping its visible state honest. Shipped across the workspace home revamp and Matters arc (commits 60b9e3a through f47942e).
+
+## D-057 — Reading-1 connected-state-gating pattern for not-yet-built integrations
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+Two home surfaces depend on integrations that have not shipped: the Today card needs calendar data and the Matters section needs CLM / matter-management data. The integration work (OAuth, providers, a connections table) belongs to the Share and connector hub arc (roadmap item 1), which is later. The question was how to build these surfaces now without either shipping dead UI or showing fake data.
+
+**Decision:**
+
+Build the full rich connected view now, fully typed and code-complete, and gate it behind a connection-check function that returns false for now. The honest Connect placeholder is the current visible state for every user; the rich view is built into the code but not displayed. No sample data reaches users, and the rich view is unreachable until the gate flips. Applied to Today (`isCalendarConnected`) and Matters (`isMattersConnected`). Named the Reading-1 pattern.
+
+**Reasoning:**
+
+Building the connected view now, against real types, means the surface lights up the moment the integration lands with no further UI work and no design debt deferred to a rushed later session. Gating on a false-returning check keeps the visible state honest (the placeholder) while the dormant view is type-checked by the compiler on every build, so it cannot silently rot. The alternative of waiting until the integration ships would compress the UI work into the integration arc; the alternative of showing the view with sample data would violate the honest-empty-state half of D-056.
+
+**Alternatives considered:**
+
+- **Rejected — Defer the connected view entirely until the integration ships.** Compresses two arcs' worth of work into one and loses the design momentum of building the view while its design is fresh.
+- **Rejected — Ship the connected view with sample data behind a flag.** Risks sample data reaching production and contradicts D-056's honest-empty-state rule.
+
+**Consequences:**
+
+Today and Matters each carry a built, typed, dormant connected view plus a visible placeholder. The Share and connector hub arc flips the gates by changing only the connection-check bodies (D-058). The pattern is the standard for any future home surface that depends on an integration not yet built.
+
+## D-058 — Typed connection-helper pattern: production signatures, stub bodies
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+The Reading-1 pattern (D-057) needs connection checks and data fetchers that exist now but return nothing until the integration ships. The shape of those functions determines how much rework the connector-hub arc will require to make the surfaces live.
+
+**Decision:**
+
+The connection checks (`isCalendarConnected(userId)`, `isMattersConnected(userId)`) and the data fetchers (`getTodaysEvents`, `getMatters`, `getMattersSummary`) carry their final production signatures now but return `false` / `[]` / `null`. Only the function bodies change when the integration ships; call sites are stable. Parameters that are unused while the body is a stub carry a targeted `eslint-disable-next-line @typescript-eslint/no-unused-vars` with a comment explaining why. No `user_integrations` (or equivalent) table is built in this arc; querying the integrations table is the connector hub arc's scope.
+
+**Reasoning:**
+
+Stable signatures mean the connector-hub arc edits bodies only, never call sites, so flipping a surface live is a localized change with no UI churn. Returning typed empties keeps the connected views compiling and renderable (the empty-connected state) without any data. The targeted eslint-disable is preferred over renaming params to `_userId`, because the project's lint config has no `argsIgnorePattern`, so an underscore would not silence the warning, and because the production signature should read with its real parameter names. Building the integrations table now would be speculative work owned by a later arc.
+
+**Alternatives considered:**
+
+- **Rejected — Omit the parameters until they are used.** Would change the signatures later and force call-site edits across the home when the integration ships.
+- **Rejected — Build the integrations table and query it now (returning no rows).** Speculative schema work that belongs to the connector hub arc; pulls scope forward with no present benefit.
+
+**Consequences:**
+
+`lib/workspace/home/calendar-connection.ts` and `lib/workspace/home/matters-connection.ts` hold the checks, the typed shapes, and the stub fetchers. The connector hub arc (roadmap item 1) makes Today and Matters live by editing those bodies to query the connections it builds.
+
+## D-059 — Productivity calculator stays localStorage for v1
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+The Impact band has four cells. Agent runs and Top agent read real `usage_events`. Hours saved and Estimated cost saved depend on the productivity calculator's task book, which is still stored in localStorage (per D-010's analytics deferral), not the database, so the server cannot read it to compute those numbers.
+
+**Decision:**
+
+Hours saved and Estimated cost saved render an honest "Setup needed" state with an admin-gated CTA to the calculator, rather than a number. Promoting the calculator's task book from localStorage to the database, so those cells show real values for everyone, is a future sub-arc (under the admin section revamp), not part of this arc.
+
+**Reasoning:**
+
+The two real-data cells earn their place now; the two calculator-backed cells cannot show a trustworthy number until the task book is server-readable, and a fabricated or per-device number would violate the honest-empty-state rule (D-056). Scoping the database promotion out of this arc keeps the home revamp focused; the promotion is genuinely adjacent to the admin and analytics work (roadmap items 2 and 17) and belongs there.
+
+**Alternatives considered:**
+
+- **Rejected — Read the localStorage task book client-side and render the numbers.** Per-device and not server-truthful; two users on two machines would see different impact numbers, and the cell would be empty on a fresh device.
+- **Rejected — Drop the two cells until the data exists.** The Setup-needed state is more honest and more useful: it tells admins exactly what to do to light the cells up.
+
+**Consequences:**
+
+The Impact band ships with two real cells and two Setup-needed cells. The database promotion of the calculator task book is tracked as future work adjacent to the admin revamp and analytics promotion (roadmap item 17, per D-010).
+
+## D-060 — No serif: Inter Tight everywhere, no font-serif token
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+During the home revamp the question of an editorial serif for headings surfaced (a common move for a "premium" feel). The project's type system uses Inter Tight for display and Inter for body, with a mono family for captions and code; there is no serif family loaded and no `font-serif` token in the theme.
+
+**Decision:**
+
+The home, and the app, use Inter Tight and Inter only. There is no serif. This is recorded so future work does not reach for a `font-serif` token that does not exist or assume a serif is available.
+
+**Reasoning:**
+
+A single sans family (with the mono accent) is the established product voice and matches the clean, modern register the product targets. Introducing a serif would mean loading another font (a real performance and consistency cost) and would fragment the type system for a stylistic flourish that the current design does not need. Recording the absence prevents a future session from writing `font-serif` (which would silently fall back to a system serif and look like a bug) or proposing a serif heading without realizing it is a net-new font decision.
+
+**Alternatives considered:**
+
+- **Rejected — Add an editorial serif for home headings.** A net-new font load and a fork in the type system for a flourish the design does not require.
+
+**Consequences:**
+
+Any future proposal for a serif is a deliberate type-system decision (new font, new token), not a quick className change. `font-serif` is not a valid token in this codebase.
+
+## D-061 — Tools section removed from the home; connection-status strip may return
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+The home briefly carried a Tools section: three "Connect" launcher cards for Slack, Mail, and Drive. Under the value-mirror identity (D-056), the question was whether a launcher for ambient apps belongs on the home at all.
+
+**Decision:**
+
+The Tools section is removed from the workspace home. Slack, Mail, and Drive are always-open ambient apps that do not need a home-page launcher, and connection management already lives in the rail's Integrations area (Connections, Marketplace). The `IntegrationsRow` and `IntegrationCard` components are retained unmounted, with retention notes, rather than deleted. A compact connection-STATUS strip ("N of M tools connected, X needs reauth") is a different concept from the removed launcher and may return to the home or onboarding once integrations are real.
+
+**Reasoning:**
+
+A launcher for apps the user already has open is plumbing, not the user's work, so it fails the value-mirror test. The status concept is distinct: it reflects the health of the user's connections (their state), which is information rather than a redundant launch button, and it only becomes meaningful once real integrations exist. Retaining the components unmounted (the same retain-don't-delete discipline applied to `ContinueWorkingSection` and `sparkline.tsx`) keeps the work recoverable without leaving dead UI mounted.
+
+**Alternatives considered:**
+
+- **Rejected — Keep the Tools launcher on the home.** Duplicates the rail's Integrations area and surfaces plumbing rather than work.
+- **Rejected — Delete the components outright.** The status-strip direction may reuse them; retaining unmounted with a note is cheap and reversible.
+
+**Consequences:**
+
+The home spine is greeting, Today and Impact, Matters, Desk. `IntegrationsRow` and `IntegrationCard` are unmounted but retained. The connection-status strip is captured as a note under the Share and connector hub roadmap item, dependent on real integrations existing first.
