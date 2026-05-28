@@ -1,3 +1,7 @@
+// RETENTION NOTE: Retained alongside integrations-row.tsx for a possible future
+// connection-status surface; not currently mounted (Tools section removed from
+// the workspace home on 2026-05-28).
+
 import Link from "next/link";
 
 type IntegrationCardProps = {

@@ -1,3 +1,13 @@
+// RETENTION NOTE: Not currently mounted on the workspace home. Removed on
+// 2026-05-28 because Slack/Mail/Drive are always-open ambient apps that don't
+// need a home-page launcher, and the home should mirror the product's core
+// value (agents, matters, impact) rather than surface peripheral integrations.
+// Retained for a possible future return as a compact connection-STATUS strip
+// (e.g. "3 of 4 tools connected, Mail needs reauth") inside the
+// Integrations/Connections surface or onboarding, which is a different concept
+// from the launcher removed here. See roadmap note. Safe to delete if that
+// never materializes.
+
 import { IntegrationCard } from "./integration-card";
 
 const CONNECTIONS_HREF = "/workspace/integrations/connections";
