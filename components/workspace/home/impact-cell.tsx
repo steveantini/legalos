@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { Sparkline } from "./sparkline";
-
 type ImpactCellBase = {
   /** Eyebrow text; rendered uppercased + tracked by the wrapper. */
   label: string;
@@ -15,8 +13,6 @@ type ImpactCellValueProps = ImpactCellBase & {
   suffix?: string;
   /** Optional change line, e.g. "+12 vs last month". */
   delta?: string;
-  /** Optional 12-point series, oldest to newest. */
-  sparkline?: number[];
 };
 
 type ImpactCellTextProps = ImpactCellBase & {
@@ -46,7 +42,7 @@ type ImpactCellProps =
 
 /**
  * One cell of the impact band. Three modes: `value` (a big number with an
- * optional unit, delta, and sparkline), `text` (a primary/secondary label
+ * optional unit and delta), `text` (a primary/secondary label
  * pair, used for Top agent), and `setup-needed` (a reduced-weight
  * placeholder with a "Set up →" link, used for cells awaiting the
  * calculator's task book). The mono caption label is shared across all
@@ -54,8 +50,8 @@ type ImpactCellProps =
  */
 export function ImpactCell(props: ImpactCellProps) {
   return (
-    <div className="px-6 py-4">
-      <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-caption">
+    <div className="px-6 py-3.5">
+      <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-caption">
         {props.label}
       </p>
       {props.mode === "value" && <ValueCell {...props} />}
@@ -65,7 +61,7 @@ export function ImpactCell(props: ImpactCellProps) {
   );
 }
 
-function ValueCell({ value, suffix, delta, sparkline }: ImpactCellValueProps) {
+function ValueCell({ value, suffix, delta }: ImpactCellValueProps) {
   return (
     <>
       <div className="mb-1.5 flex items-baseline gap-1.5">
@@ -79,11 +75,6 @@ function ValueCell({ value, suffix, delta, sparkline }: ImpactCellValueProps) {
         )}
       </div>
       {delta && <p className="text-[11.5px] font-medium text-primary">{delta}</p>}
-      {sparkline && (
-        <div className="mt-3">
-          <Sparkline values={sparkline} />
-        </div>
-      )}
     </>
   );
 }

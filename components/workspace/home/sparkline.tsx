@@ -1,3 +1,8 @@
+// RETENTION NOTE: Not currently rendered. Removed from ImpactCell when the
+// Impact band was compacted to a 2x2 half-width column (the sparkline added
+// a full element-row of height). Retained for a possible future full-width
+// or connected-state Impact view. Safe to delete if that never materializes.
+
 type SparklineProps = {
   /** Series ordered oldest to newest. */
   values: number[];

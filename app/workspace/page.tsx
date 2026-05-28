@@ -130,8 +130,8 @@ function ImpactBandSkeleton() {
         <div className="grid grid-cols-2 border-t border-hairline">
           {cellBorders.map((border, i) => (
             <div key={i} className={border}>
-              <div className="px-6 py-4">
-                <div className="mb-3 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+              <div className="px-6 py-3.5">
+                <div className="mb-2 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
                 <div className="h-8 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
               </div>
             </div>

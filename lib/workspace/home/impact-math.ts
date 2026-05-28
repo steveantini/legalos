@@ -25,8 +25,13 @@ export type TimeframeData = {
     /**
      * Run counts bucketed across the current window, oldest to newest. Length
      * is the natural granularity of the window (days this week, days this
-     * month capped at 12, months this year), so it can be 1 early in a
-     * window. The Sparkline component handles any length, including 1.
+     * month capped at 12, months this year), so it can be 1 early in a window.
+     *
+     * Currently computed but not rendered: the Impact cells were compacted to
+     * a 2x2 half-width column and the sparkline was removed (see the retention
+     * note in sparkline.tsx). Kept computed — it's cheap — so a future
+     * full-width or connected-state Impact view can render it without
+     * rebuilding the bucketing math.
      */
     sparkline: number[];
   };

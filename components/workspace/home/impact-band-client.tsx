@@ -83,7 +83,6 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
               label="Agent runs"
               value={String(current.agentRuns.current)}
               delta={runsDelta}
-              sparkline={current.agentRuns.sparkline}
             />
           </div>
           <div>
