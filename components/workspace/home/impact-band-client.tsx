@@ -24,12 +24,14 @@ type ImpactBandClientProps = {
  * arrive from the server in `data`, so toggling is instant with no fetch and
  * no loading state.
  *
- * Composition reads as a single bounded newspaper section: the heading + the
- * timeframe toggle on one row, then the four stats bounded above and below by
- * hairline rules, then the source/footer line inside the same container under
- * the bottom rule. Two cells (Agent runs, Top agent) show real data; two
- * (Hours saved, Estimated cost saved) stay "Setup needed" until the
- * calculator's task book is promoted to the database (separate sub-arc).
+ * Composition reads as a single bounded card: the section heading "Impact"
+ * sits above the container as a pure label; inside the container the timeframe
+ * toggle sits flush at the top-right, then a hairline rule, the four stats,
+ * another hairline rule, and the source/footer line. The container's own top
+ * border is the band's top edge — there is no inner top rule to double it up.
+ * Two cells (Agent runs, Top agent) show real data; two (Hours saved,
+ * Estimated cost saved) stay "Setup needed" until the calculator's task book
+ * is promoted to the database (separate sub-arc).
  *
  * Default timeframe is Week on every load; persisting the last choice is a v2
  * concern.
@@ -44,65 +46,62 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
       aria-labelledby="impact-band-heading"
       className="flex flex-col gap-5"
     >
-      <div className="flex items-center justify-between">
-        <h2
-          id="impact-band-heading"
-          className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
-        >
-          Impact
-        </h2>
-        <TimeframeToggle selected={selected} onChange={setSelected} />
-      </div>
+      <h2
+        id="impact-band-heading"
+        className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
+      >
+        Impact
+      </h2>
 
-      <div className="rounded-xl border border-border bg-paper-2 p-1">
-        <div className="border-t border-hairline">
-          <div className="grid grid-cols-4 divide-x divide-hairline">
-            <ImpactCell
-              mode="setup-needed"
-              label="Hours saved"
-              ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
-              ariaLabel="Set up hours saved tracking"
-            />
-            <ImpactCell
-              mode="setup-needed"
-              label="Estimated cost saved"
-              ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
-              ariaLabel="Set up estimated cost saved tracking"
-            />
-            <ImpactCell
-              mode="value"
-              label="Agent runs"
-              value={String(current.agentRuns.current)}
-              delta={runsDelta}
-              sparkline={current.agentRuns.sparkline}
-            />
-            <ImpactCell
-              mode="text"
-              label="Top agent"
-              primary={current.topAgent.name ?? "—"}
-              secondary={
-                current.topAgent.name
-                  ? `${current.topAgent.runsCurrent} runs ${timeframeNoun(selected)}`
-                  : `No runs yet ${timeframeNoun(selected)}`
-              }
-            />
-          </div>
+      <div className="rounded-xl border border-border bg-paper-2">
+        <div className="flex items-center justify-end px-6 py-4">
+          <TimeframeToggle selected={selected} onChange={setSelected} />
         </div>
 
-        <div className="border-t border-hairline">
-          <div className="flex items-baseline justify-between px-6 py-4">
-            <span className="text-[12px] text-caption">
-              Calculated from your role’s task book.
-            </span>
-            {isAdmin && (
-              <Link
-                href="/workspace/admin/calculator"
-                className="text-[12px] text-primary hover:underline"
-              >
-                How this is calculated ↗
-              </Link>
-            )}
-          </div>
+        <div className="grid grid-cols-4 divide-x divide-hairline border-t border-hairline">
+          <ImpactCell
+            mode="setup-needed"
+            label="Hours saved"
+            ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
+            ariaLabel="Set up hours saved tracking"
+          />
+          <ImpactCell
+            mode="setup-needed"
+            label="Estimated cost saved"
+            ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
+            ariaLabel="Set up estimated cost saved tracking"
+          />
+          <ImpactCell
+            mode="value"
+            label="Agent runs"
+            value={String(current.agentRuns.current)}
+            delta={runsDelta}
+            sparkline={current.agentRuns.sparkline}
+          />
+          <ImpactCell
+            mode="text"
+            label="Top agent"
+            primary={current.topAgent.name ?? "—"}
+            secondary={
+              current.topAgent.name
+                ? `${current.topAgent.runsCurrent} runs ${timeframeNoun(selected)}`
+                : `No runs yet ${timeframeNoun(selected)}`
+            }
+          />
+        </div>
+
+        <div className="flex items-baseline justify-between border-t border-hairline px-6 py-4">
+          <span className="text-[12px] text-caption">
+            Calculated from your role’s task book.
+          </span>
+          {isAdmin && (
+            <Link
+              href="/workspace/admin/calculator"
+              className="text-[12px] text-primary hover:underline"
+            >
+              How this is calculated ↗
+            </Link>
+          )}
         </div>
       </div>
     </section>
