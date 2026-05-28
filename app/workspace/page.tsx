@@ -6,6 +6,7 @@ import { CalendarConnectCard } from "@/components/workspace/home/calendar-connec
 import { HomeGreeting } from "@/components/workspace/home/home-greeting";
 import { ImpactBand } from "@/components/workspace/home/impact-band";
 import { IntegrationsRow } from "@/components/workspace/home/integrations-row";
+import { MattersSection } from "@/components/workspace/home/matters-section";
 import { ReadingSection } from "@/components/workspace/home/reading-section";
 import {
   getAllDepartmentsWithAccess,
@@ -88,6 +89,8 @@ export default async function WorkspacePage() {
               <ImpactBand userId={authUser.id} isAdmin={isAdmin} />
             </Suspense>
           </div>
+
+          <MattersSection userId={authUser.id} />
 
           <IntegrationsRow />
 
