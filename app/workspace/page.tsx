@@ -104,25 +104,34 @@ export default async function WorkspacePage() {
 }
 
 /**
- * Loading placeholder for the impact band — mirrors its frame (tinted
- * paper-2 container, four hairline-divided cells) with pulsing blocks so
- * the layout doesn't shift when the real data streams in.
+ * Loading placeholder for the impact band — mirrors its composition (heading
+ * row with the timeframe toggle, then a tinted paper-2 container whose four
+ * hairline-divided cells are bounded above and below by rules, with a footer
+ * line under the bottom rule) with pulsing blocks so the layout doesn't shift
+ * when the real data streams in.
  */
 function ImpactBandSkeleton() {
   return (
-    <section aria-label="Impact band loading" className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <div className="h-px w-6 bg-caption" />
-        <div className="h-3 w-32 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+    <section aria-label="Impact band loading" className="flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <div className="h-5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+        <div className="h-7 w-40 animate-pulse rounded-full bg-hairline motion-reduce:animate-none" />
       </div>
       <div className="rounded-xl border border-border bg-paper-2 p-1">
-        <div className="grid grid-cols-4 divide-x divide-hairline">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="px-6 py-5">
-              <div className="mb-3 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
-              <div className="h-10 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
-            </div>
-          ))}
+        <div className="border-t border-hairline">
+          <div className="grid grid-cols-4 divide-x divide-hairline">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="px-6 py-5">
+                <div className="mb-3 h-2.5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+                <div className="h-10 w-24 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-hairline">
+          <div className="flex items-baseline px-6 py-4">
+            <div className="h-3 w-56 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+          </div>
         </div>
       </div>
     </section>
