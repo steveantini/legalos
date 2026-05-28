@@ -29,6 +29,19 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
 };
 
 /**
+ * The breadcrumb segment label for the workspace home page.
+ *
+ * Single source of truth: this string is used both as the rendered label in
+ * ROUTE_TABLE entries AND as the lookup key in STATIC_SEGMENT_HREFS. Renaming
+ * the segment (e.g., "Home" → "Dashboard") means changing only this constant;
+ * the rendered literals and the href lookup stay in sync automatically.
+ *
+ * Stored Title-cased; the breadcrumb container's CSS lowercases it for display
+ * (per the URL-bar mental model documented on the component below).
+ */
+const HOME_SEGMENT = "Home";
+
+/**
  * Maps a breadcrumb segment string to its destination href when the
  * segment represents a real route. Segments not in this map render as
  * plain spans (scoping labels like "Departments" — no route exists).
@@ -40,7 +53,7 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
  * available from the segment string alone.
  */
 const STATIC_SEGMENT_HREFS: Record<string, string> = {
-  Workspace: "/workspace",
+  [HOME_SEGMENT]: "/workspace",
   Departments: "/workspace/departments",
   Knowledge: "/workspace/knowledge",
   Workflows: "/workspace/workflows",
@@ -94,47 +107,47 @@ type RouteEntry = {
 const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace",
-    segments: () => ["Workspace"],
+    segments: () => [HOME_SEGMENT],
   },
   {
     match: "/workspace/departments",
-    segments: () => ["Workspace", "Departments"],
+    segments: () => [HOME_SEGMENT, "Departments"],
   },
   {
     match: /^\/workspace\/departments\/([^/]+)/,
     segments: ({ captures, departments }) => {
       const slug = captures[0] ?? "";
       const dept = departments.find((d) => d.slug === slug);
-      return ["Workspace", "Departments", dept?.name ?? slug];
+      return [HOME_SEGMENT, "Departments", dept?.name ?? slug];
     },
   },
   {
     match: "/workspace/knowledge",
-    segments: () => ["Workspace", "Knowledge"],
+    segments: () => [HOME_SEGMENT, "Knowledge"],
   },
   {
     match: "/workspace/workflows",
-    segments: () => ["Workspace", "Workflows"],
+    segments: () => [HOME_SEGMENT, "Workflows"],
   },
   {
     match: "/workspace/workflows/my-workflows",
-    segments: () => ["Workspace", "Workflows", "My Workflows"],
+    segments: () => [HOME_SEGMENT, "Workflows", "My Workflows"],
   },
   {
     match: "/workspace/integrations",
-    segments: () => ["Workspace", "Integrations"],
+    segments: () => [HOME_SEGMENT, "Integrations"],
   },
   {
     match: "/workspace/integrations/connections",
-    segments: () => ["Workspace", "Integrations", "Connections"],
+    segments: () => [HOME_SEGMENT, "Integrations", "Connections"],
   },
   {
     match: "/workspace/help",
-    segments: () => ["Workspace", "Help"],
+    segments: () => [HOME_SEGMENT, "Help"],
   },
   {
     match: "/workspace/help/guides",
-    segments: () => ["Workspace", "Help", "Guides"],
+    segments: () => [HOME_SEGMENT, "Help", "Guides"],
   },
   {
     match: "/workspace/agents/new",
@@ -145,34 +158,34 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       if (deptSlug) {
         const dept = departments.find((d) => d.slug === deptSlug);
         if (dept) {
-          return ["Workspace", "Departments", dept.name, lastSegment];
+          return [HOME_SEGMENT, "Departments", dept.name, lastSegment];
         }
       }
       // Defensive fallback — the page redirects to "/" on missing
       // department slug and notFound()s on unresolvable slug, so this
       // branch shouldn't render in practice.
-      return ["Workspace", "Departments", lastSegment];
+      return [HOME_SEGMENT, "Departments", lastSegment];
     },
   },
   {
     match: "/workspace/agents/trash",
-    segments: () => ["Workspace", "Trash"],
+    segments: () => [HOME_SEGMENT, "Trash"],
   },
   {
     match: "/workspace/admin",
-    segments: () => ["Workspace", "Admin"],
+    segments: () => [HOME_SEGMENT, "Admin"],
   },
   {
     match: "/workspace/admin/users",
-    segments: () => ["Workspace", "Admin", "User Access"],
+    segments: () => [HOME_SEGMENT, "Admin", "User Access"],
   },
   {
     match: "/workspace/admin/calculator",
-    segments: () => ["Workspace", "Admin", "Productivity Calculator"],
+    segments: () => [HOME_SEGMENT, "Admin", "Productivity Calculator"],
   },
   {
     match: "/workspace/admin/metrics",
-    segments: () => ["Workspace", "Admin", "Adoption Metrics"],
+    segments: () => [HOME_SEGMENT, "Admin", "Adoption Metrics"],
   },
   {
     match: /^\/workspace\/agents\/([^/]+)\/edit/,
@@ -181,7 +194,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       const agent = agents.find((a) => a.id === agentId);
       if (agent) {
         return [
-          "Workspace",
+          HOME_SEGMENT,
           "Departments",
           agent.department_name,
           agent.name,
@@ -190,7 +203,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       }
       // Defensive fallback — RLS should prevent this branch (the
       // layout's notFound() gate runs first).
-      return ["Workspace", "Departments", "Agent", "Edit"];
+      return [HOME_SEGMENT, "Departments", "Agent", "Edit"];
     },
   },
   {
@@ -199,9 +212,9 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
       const agentId = captures[0] ?? "";
       const agent = agents.find((a) => a.id === agentId);
       if (agent) {
-        return ["Workspace", "Departments", agent.department_name, agent.name];
+        return [HOME_SEGMENT, "Departments", agent.department_name, agent.name];
       }
-      return ["Workspace", "Departments", "Agent"];
+      return [HOME_SEGMENT, "Departments", "Agent"];
     },
   },
   {
@@ -209,7 +222,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     segments: ({ captures }) => {
       const area = captures[0] ?? "";
       const label = RESOURCE_AREA_LABELS[area] ?? area;
-      return ["Workspace", label];
+      return [HOME_SEGMENT, label];
     },
   },
 ];
@@ -217,7 +230,7 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
 /**
  * Client breadcrumb island for the workspace top bar. Walks the
  * `ROUTE_TABLE` and returns the first matching entry's segments;
- * falls through to `["Workspace"]` for unrecognized paths (bare
+ * falls through to `[HOME_SEGMENT]` for unrecognized paths (bare
  * `/coming-soon`, etc.).
  *
  * The active (last) segment renders bold ink; preceding segments
@@ -313,12 +326,12 @@ function computeSegments(
       }
     }
   }
-  return ["Workspace"];
+  return [HOME_SEGMENT];
 }
 
 /**
  * Resolve a single breadcrumb segment string to its destination href,
- * or null when the segment isn't routed. Static segments (Workspace,
+ * or null when the segment isn't routed. Static segments (Home,
  * Admin, Trash, the three admin tools) come from `STATIC_SEGMENT_HREFS`;
  * dynamic segments (department names, agent names) are resolved by
  * looking the string up in the layout's pre-fetched lists.
