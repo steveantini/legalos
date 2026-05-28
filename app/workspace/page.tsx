@@ -99,13 +99,13 @@ export default async function WorkspacePage() {
 }
 
 /**
- * Loading placeholder for the impact band — mirrors its composition (the
- * "Impact" heading above a tinted paper-2 container that fills the column
- * height; inside, a top-right toggle row, then a 2x2 grid of hairline-divided
- * cells, then a footer line pinned to the bottom, each separated by a hairline
- * rule) with pulsing blocks so the layout doesn't shift when the real data
- * streams in. The h-full / flex-1 mirror keeps it equal-height with the Today
- * card in the two-column row.
+ * Loading placeholder for the impact band — mirrors its composition (a heading
+ * row pairing the "Impact" label with the timeframe toggle, above a tinted
+ * paper-2 container that fills the column height; inside, a 2x2 grid of
+ * hairline-divided cells flush at the container top, then a footer line pinned
+ * to the bottom behind a hairline rule) with pulsing blocks so the layout
+ * doesn't shift when the real data streams in. The h-full / flex-1 mirror keeps
+ * it equal-height with the Today card in the two-column row.
  */
 function ImpactBandSkeleton() {
   // Per-cell borders form the 2x2 cross divider: right + bottom on the
@@ -122,12 +122,12 @@ function ImpactBandSkeleton() {
       aria-label="Impact band loading"
       className="flex h-full flex-col gap-3.5"
     >
-      <div className="h-5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+      <div className="flex h-9 items-center justify-between">
+        <div className="h-5 w-20 animate-pulse rounded bg-hairline motion-reduce:animate-none" />
+        <div className="h-7 w-40 animate-pulse rounded-full bg-hairline motion-reduce:animate-none" />
+      </div>
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-paper-2">
-        <div className="flex items-center justify-end px-6 py-2.5">
-          <div className="h-7 w-40 animate-pulse rounded-full bg-hairline motion-reduce:animate-none" />
-        </div>
-        <div className="grid grid-cols-2 border-t border-hairline">
+        <div className="grid grid-cols-2">
           {cellBorders.map((border, i) => (
             <div key={i} className={border}>
               <div className="px-6 py-3">

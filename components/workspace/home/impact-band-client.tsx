@@ -25,12 +25,14 @@ type ImpactBandClientProps = {
  * no loading state.
  *
  * Composition reads as a single bounded card that fills its grid column: the
- * section heading "Impact" sits above the container as a pure label; inside
- * the container the timeframe toggle sits flush at the top-right, then a
- * hairline rule, the four stats in a 2x2 grid (with a hairline cross divider),
- * another hairline rule, and the source/footer line pinned to the bottom via
- * mt-auto. The container's own top border is the band's top edge — there is no
- * inner top rule to double it up.
+ * section heading row pairs the "Impact" label on the left with the timeframe
+ * toggle on the right, above the container. Inside the container the four stats
+ * fill a 2x2 grid (with a hairline cross divider) flush at the container's top
+ * edge, then a hairline rule, then the source/footer line pinned to the bottom
+ * via mt-auto. The container's own top border is the band's top edge; with the
+ * toggle on the heading row, the stats grid needs no inner top rule. Putting
+ * the toggle on the heading row matches the pattern the Matters section uses
+ * and reclaims the height the old in-container toggle row cost.
  * Two cells (Agent runs, Top agent) show real data; two (Hours saved,
  * Estimated cost saved) stay "Setup needed" until the calculator's task book
  * is promoted to the database (separate sub-arc).
@@ -48,19 +50,18 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
       aria-labelledby="impact-band-heading"
       className="flex h-full flex-col gap-3.5"
     >
-      <h2
-        id="impact-band-heading"
-        className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
-      >
-        Impact
-      </h2>
+      <div className="flex h-9 items-center justify-between">
+        <h2
+          id="impact-band-heading"
+          className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
+        >
+          Impact
+        </h2>
+        <TimeframeToggle selected={selected} onChange={setSelected} />
+      </div>
 
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-paper-2">
-        <div className="flex items-center justify-end px-6 py-2.5">
-          <TimeframeToggle selected={selected} onChange={setSelected} />
-        </div>
-
-        <div className="grid grid-cols-2 border-t border-hairline">
+        <div className="grid grid-cols-2">
           <div className="border-b border-r border-hairline">
             <ImpactCell
               mode="setup-needed"

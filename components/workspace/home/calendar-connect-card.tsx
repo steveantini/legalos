@@ -32,12 +32,14 @@ export function CalendarConnectCard() {
       aria-labelledby="today-section-heading"
       className="flex h-full flex-col gap-3.5"
     >
-      <h2
-        id="today-section-heading"
-        className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
-      >
-        Today
-      </h2>
+      <div className="flex h-9 items-center">
+        <h2
+          id="today-section-heading"
+          className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
+        >
+          Today
+        </h2>
+      </div>
 
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-5">
         <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
