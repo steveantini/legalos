@@ -1,32 +1,53 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import {
+  getTodaysEvents,
+  isCalendarConnected,
+} from "@/lib/workspace/home/calendar-connection";
+
+import { TodaySchedule } from "./today-schedule";
+
+type CalendarConnectCardProps = {
+  userId: string;
+};
 
 /**
- * Persistent "Connect your calendar" card on the workspace home, mounted
- * in the top two-column row beside the Impact band. Honest placeholder state:
- * the calendar is not yet connected, so the card says exactly that and
- * routes the Connect button to /workspace/integrations/connections, where
- * the eventual OAuth flow will live.
+ * The workspace home "Today" card, mounted in the top two-column row beside
+ * the Impact band. Its interior branches on the calendar connection gate:
  *
- * Server component — no async data in v1. When calendar OAuth ships
- * (connector hub on the roadmap), this surface becomes the day's schedule
- * view backed by real data; the card frame and placement stay put.
+ * - Not connected (always, for now): the honest "Connect your calendar"
+ *   placeholder — it says exactly that and routes the Connect button to
+ *   /workspace/integrations/connections, where the eventual OAuth flow lives.
+ * - Connected (never yet, but built): today's schedule via `TodaySchedule`.
  *
- * Visual vocabulary follows Direction A / Stage 1: rounded-xl (14px via
- * the --radius-xl scale), a border-border + bg-card frame, a mono caption
- * eyebrow, a 17px medium card title, and a muted-foreground body. The
- * 18px medium section heading ("Today") sits above the card frame, sharing
- * the unified home-section heading idiom; the card title is a plain
- * paragraph since the section already carries its <h2>. The Connect CTA
- * uses the Button primitive's `render` prop to render as a Link — Base UI's
- * polymorphism convention and this project's asChild equivalent.
+ * `isCalendarConnected` returns false until calendar OAuth ships (Share and
+ * connector hub arc, roadmap item 2), so the placeholder is the only state any
+ * user sees today; the schedule view is built and dormant behind the gate.
+ *
+ * Async server component — it awaits the connection check (and, when
+ * connected, the day's events). No Suspense boundary: the check resolves
+ * immediately today, so there is no latency to mask; a boundary can be added
+ * alongside the real provider fetch when OAuth lands.
+ *
+ * Visual vocabulary follows Direction A / Stage 1: rounded-xl (14px via the
+ * --radius-xl scale), a border-border + bg-card frame, a mono caption eyebrow,
+ * a 17px medium card title, and a muted-foreground body. The 18px medium
+ * section heading ("Today") sits above the card frame, sharing the unified
+ * home-section heading idiom; the Connect CTA uses the Button primitive's
+ * `render` prop to render as a Link — Base UI's polymorphism convention and
+ * this project's asChild equivalent.
  *
  * The card fills its grid column (h-full / flex-1) to stay equal-height with
- * the Impact band; its content is a left-aligned vertical stack (eyebrow,
- * title, value prop, Connect CTA) that stays top-anchored as the card grows.
+ * the Impact band; the frame and the "Today" heading are identical across both
+ * interior states.
  */
-export function CalendarConnectCard() {
+export async function CalendarConnectCard({
+  userId,
+}: CalendarConnectCardProps) {
+  const connected = await isCalendarConnected(userId);
+  const events = connected ? await getTodaysEvents(userId) : [];
+
   return (
     <section
       aria-labelledby="today-section-heading"
@@ -42,23 +63,29 @@ export function CalendarConnectCard() {
       </div>
 
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-5">
-        <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
-          Calendar · not yet connected
-        </p>
-        <p className="mb-1.5 text-[17px] font-medium text-foreground">
-          Connect your calendar
-        </p>
-        <p className="max-w-[56ch] text-[13px] leading-[1.45] text-muted-foreground">
-          Two clicks to wire up Google or Outlook. legalOS reads your free/busy
-          and today’s schedule. We never write to your calendar.
-        </p>
-        <Button
-          aria-label="Connect your calendar"
-          render={<Link href="/workspace/integrations/connections" />}
-          className="mt-4 self-start"
-        >
-          Connect →
-        </Button>
+        {connected ? (
+          <TodaySchedule events={events} />
+        ) : (
+          <>
+            <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
+              Calendar · not yet connected
+            </p>
+            <p className="mb-1.5 text-[17px] font-medium text-foreground">
+              Connect your calendar
+            </p>
+            <p className="max-w-[56ch] text-[13px] leading-[1.45] text-muted-foreground">
+              Two clicks to wire up Google or Outlook. legalOS reads your
+              free/busy and today’s schedule. We never write to your calendar.
+            </p>
+            <Button
+              aria-label="Connect your calendar"
+              render={<Link href="/workspace/integrations/connections" />}
+              className="mt-4 self-start"
+            >
+              Connect →
+            </Button>
+          </>
+        )}
       </div>
     </section>
   );

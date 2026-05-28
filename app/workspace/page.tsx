@@ -82,7 +82,7 @@ export default async function WorkspacePage() {
       {hasAnyAccess ? (
         <>
           <div className="grid grid-cols-2 items-stretch gap-6">
-            <CalendarConnectCard />
+            <CalendarConnectCard userId={authUser.id} />
 
             <Suspense fallback={<ImpactBandSkeleton />}>
               <ImpactBand userId={authUser.id} isAdmin={isAdmin} />
