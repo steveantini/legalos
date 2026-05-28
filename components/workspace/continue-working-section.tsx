@@ -1,3 +1,17 @@
+/**
+ * RETENTION NOTE: This component is not currently mounted on the workspace
+ * home page. It was removed from the home on 2026-05-28 because
+ * recent-conversation access duplicated the rail's one-click navigation and
+ * didn't earn its vertical space on the home.
+ *
+ * The component is retained intentionally for the future Recents panel
+ * (roadmap item 10), which will surface recent conversations in a dedicated
+ * retractable side panel rather than on the home page. The data-fetch logic
+ * and conversation-card rendering here are exactly what that panel will reuse.
+ *
+ * Do not delete without checking the Recents panel roadmap status.
+ */
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { ConversationCard } from "./conversation-card";
