@@ -65,8 +65,10 @@ export const CAPABILITY_GROUPS: ReadonlyArray<CapabilityGroup> = [
         scope: "personal",
       },
       {
+        // id stays vendor-qualified (internal); display name matches real
+        // usage ("OneDrive", not "Microsoft OneDrive").
         id: "microsoft-onedrive",
-        name: "Microsoft OneDrive",
+        name: "OneDrive",
         status: "coming-soon",
         scope: "personal",
       },
@@ -102,6 +104,23 @@ export const CAPABILITY_GROUPS: ReadonlyArray<CapabilityGroup> = [
       {
         id: "outlook-mail",
         name: "Outlook",
+        status: "coming-soon",
+        scope: "personal",
+      },
+    ],
+  },
+  {
+    id: "messaging",
+    title: "Messaging",
+    description:
+      "Conversations your agents can reference, and a place to send their output. Read and write on your approval.",
+    providers: [
+      { id: "slack", name: "Slack", status: "available", scope: "personal" },
+      {
+        // Full product name kept: "Teams" alone is ambiguous, "Microsoft
+        // Teams" is how people refer to it (unlike "OneDrive").
+        id: "microsoft-teams",
+        name: "Microsoft Teams",
         status: "coming-soon",
         scope: "personal",
       },

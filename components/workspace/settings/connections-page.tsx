@@ -10,11 +10,15 @@ import {
  * visual elements for this milestone (no OAuth, no state); they become real
  * interactive controls when the OAuth flow ships in a later milestone.
  *
- * Reads as a sibling to the settings landing and the workspace home: the same
- * canonical 44px page-title scale, the same muted tagline treatment, and the
- * same refined-row / bg-card frame idiom the Today and Matters Connect
- * placeholders established. Rendered entirely from `CAPABILITY_GROUPS`, so the
- * real data layer can replace the hardcoded providers without a UI rebuild.
+ * Reads as a sibling to the settings landing: the same canonical 44px
+ * page-title scale, the same muted tagline treatment, and the same
+ * flat-at-rest / rounded-highlight-on-hover row treatment. Capability groups
+ * are delineated by title, description, and spacing rather than box frames,
+ * so the page and the landing share one interaction language. The org row is
+ * the one principled exception to flat-at-rest: it carries a permanent subtle
+ * tint because the tint encodes admin-ownership, not decoration. Rendered
+ * entirely from `CAPABILITY_GROUPS`, so the real data layer can replace the
+ * hardcoded providers without a UI rebuild.
  *
  * The visual primitives here (capability group, refined provider row, Connect
  * affordance, org-row differentiation) become the connection-management visual
@@ -47,12 +51,23 @@ export function ConnectionsPage() {
               {group.description}
             </p>
 
-            <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
+            {/* No box frame: groups are delineated by title, description, and
+                spacing. Full-width hairlines live on these wrappers (matching
+                the settings landing); the padded row inside is the surface
+                that takes the rounded hover highlight. */}
+            <div className="mt-6">
               {group.providers.map((provider) => (
-                <ProviderRow key={provider.id} provider={provider} />
+                <div
+                  key={provider.id}
+                  className="border-b border-hairline last:border-b-0"
+                >
+                  <ProviderRow provider={provider} />
+                </div>
               ))}
               {group.orgExample ? (
-                <OrgProviderRow provider={group.orgExample} />
+                <div className="border-b border-hairline last:border-b-0">
+                  <OrgProviderRow provider={group.orgExample} />
+                </div>
               ) : null}
             </div>
           </section>
@@ -72,9 +87,9 @@ function ProviderRow({ provider }: { provider: Provider }) {
 
   return (
     <div
-      className={`flex items-center gap-4 border-b border-hairline px-5 py-4 last:border-b-0 ${
+      className={`flex items-center gap-4 px-5 py-4 ${
         available
-          ? "transition-colors duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft motion-reduce:transition-none"
+          ? "rounded-lg transition-colors duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft motion-reduce:transition-none"
           : ""
       }`}
     >
@@ -108,7 +123,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
  */
 function OrgProviderRow({ provider }: { provider: Provider }) {
   return (
-    <div className="flex items-center gap-4 border-b border-hairline bg-paper-2 px-5 py-4 last:border-b-0">
+    <div className="flex items-center gap-4 rounded-lg bg-paper-2 px-5 py-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-[15px] font-medium text-foreground">
@@ -119,7 +134,7 @@ function OrgProviderRow({ provider }: { provider: Provider }) {
           </span>
         </div>
         <p className="mt-1 text-[12px] text-muted-foreground">
-          Connected by your admin · read access
+          Connected by your admin · read access · available soon
         </p>
       </div>
     </div>
