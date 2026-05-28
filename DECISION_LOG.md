@@ -1867,3 +1867,33 @@ The three-mode architecture (workspace, settings, admin) reflects three genuinel
 - Connect CTAs throughout the app continue to point at the old `/workspace/integrations/connections` during this milestone; they will be repointed and the old route tree removed in a later milestone of this arc, allowing each milestone to land independently without breaking links.
 - The settings layout deliberately does not impose a `<main>` / width wrapper the way the admin layout does, because the coming-soon sub-pages reuse `ComingSoonContent` (a full-height centered `<main>` of its own) and a layout-level `<main>` would nest landmarks; each settings page owns its main instead.
 - Amendment (follow-up polish commit): the settings landing's LANDING CARD pattern noted above was replaced by a refined list (label, description, trailing arrow, hairline separators between rows, no card frame), and the settings rail gained a lead-line "Settings" anchor above its sub-pages to mirror the admin rail's anchoring. Cards added false weight to navigation-only content (each card was just a link to a sub-page, with no contained object to justify the frame); the refined list reads as more confident. The landing heading also moved from a one-off 22px size to the canonical page-title scale shared by the workspace home and department landings. The portability target is unchanged: this refined-list LANDING pattern is what the admin landing adopts when its own arc arrives.
+
+## D-063 — Capability-grouped Connections page with provider-agnostic visual taxonomy
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+The Connections page surfaces every supported integration provider. The architectural commitment (D-062, connector hub arc) requires provider-agnostic design: capability-grouped (File storage, Calendar, Mail), not vendor-grouped. The page's information architecture must directly embody this principle.
+
+**Decision:**
+
+The Connections page renders capability groups (File storage, Calendar, Mail, Matter management), each containing one or more providers. Providers are rows within their capability group, not standalone cards. Group titles are at workspace-section heading scale (17px font-medium); group descriptions immediately below carry the editorial voice and any group-level policy notes. Provider rows render as a refined list with consistent visual treatment regardless of vendor: no vendor logos as primary visual elements, no marketplace-grid aesthetic. Org-level providers (only Matter management for now) render with subtle visual differentiation (bg tint, "Org" badge, "Connected by your admin" status) within the same capability group personal providers would live in; they are not segregated into a separate "Org Connections" section.
+
+**Reasoning:**
+
+Lawyers don't think about their tools by vendor; they think by capability ("I need my files accessible to my agents"). Capability-grouped IA surfaces the right mental model and scales gracefully: when Microsoft OneDrive arrives, it slots into the existing File storage group without restructuring. The provider-agnostic visual treatment means the page reads as a coherent system rather than a vendor marketplace, which preserves the considered register the polish standard requires. Org connections within their capability group (vs. segregated) keep the mental model unified: a user looking at File storage sees everything that gives them file-storage capability, whether they connected it or their org did.
+
+**Alternatives considered:**
+
+- **Rejected — vendor-grouped IA (Google block, Microsoft block, and so on).** Mirrors the underlying OAuth integration model but doesn't reflect how users think about their tools; would require restructuring as cross-vendor providers arrive.
+- **Rejected — provider-card grid with prominent vendor logos.** Marketplace aesthetic; pulls the page toward shopping rather than considered professional decision-making.
+- **Rejected — separate sections for "Your connections" and "Org connections."** Conflates two different organizational principles (capability vs. ownership); creates a worse mental model than capability-first with ownership as a visual treatment within each group.
+
+**Consequences:**
+
+- The visual primitives established here (capability group structure, refined provider rows, Connect affordance treatment, org-row visual differentiation) become the connection-management visual language across the product. The Admin Connections page (a later milestone of this arc) will use the same primitives at admin scope.
+- Adding a new provider is a data-only change: a new entry in the capability group's providers array (or a new group if it is a new capability). No UI restructuring required.
+- The page is fully content-driven from a typed data structure (`lib/settings/connections-data.ts`), ready for the real data layer (a later milestone) to replace the hardcoded providers without a UI rebuild.
+- The Connect affordances are inert visual elements in this commit (non-interactive spans), so no broken navigation ships; they become real interactive controls when the OAuth flow lands.
