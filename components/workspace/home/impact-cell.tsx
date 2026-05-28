@@ -50,8 +50,8 @@ type ImpactCellProps =
  */
 export function ImpactCell(props: ImpactCellProps) {
   return (
-    <div className="px-6 py-3.5">
-      <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-caption">
+    <div className="px-6 py-3">
+      <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-caption">
         {props.label}
       </p>
       {props.mode === "value" && <ValueCell {...props} />}
@@ -65,7 +65,7 @@ function ValueCell({ value, suffix, delta }: ImpactCellValueProps) {
   return (
     <>
       <div className="mb-1.5 flex items-baseline gap-1.5">
-        <span className="text-[32px] font-normal leading-none tracking-[-0.025em] text-foreground tabular-nums">
+        <span className="text-[28px] font-normal leading-none tracking-[-0.025em] text-foreground tabular-nums">
           {value}
         </span>
         {suffix && (
@@ -82,7 +82,7 @@ function ValueCell({ value, suffix, delta }: ImpactCellValueProps) {
 function TextCell({ primary, secondary }: ImpactCellTextProps) {
   return (
     <>
-      <p className="mb-1.5 text-[22px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground">
+      <p className="mb-1.5 text-[20px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground">
         {primary}
       </p>
       {secondary && (

@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
  *
  * Visual vocabulary follows Direction A / Stage 1: rounded-xl (14px via
  * the --radius-xl scale), a border-border + bg-card frame, a mono caption
- * eyebrow, an 18px medium card title, and a muted-foreground body. The
+ * eyebrow, a 17px medium card title, and a muted-foreground body. The
  * 18px medium section heading ("Today") sits above the card frame, sharing
  * the unified home-section heading idiom; the card title is a plain
  * paragraph since the section already carries its <h2>. The Connect CTA
@@ -30,7 +30,7 @@ export function CalendarConnectCard() {
   return (
     <section
       aria-labelledby="today-section-heading"
-      className="flex h-full flex-col gap-4"
+      className="flex h-full flex-col gap-3.5"
     >
       <h2
         id="today-section-heading"
@@ -39,21 +39,21 @@ export function CalendarConnectCard() {
         Today
       </h2>
 
-      <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-6">
-        <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
+      <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-5">
+        <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
           Calendar · not yet connected
         </p>
-        <p className="mb-2 text-[18px] font-medium text-foreground">
+        <p className="mb-1.5 text-[17px] font-medium text-foreground">
           Connect your calendar
         </p>
-        <p className="max-w-[56ch] text-[14px] leading-[1.5] text-muted-foreground">
+        <p className="max-w-[56ch] text-[13px] leading-[1.45] text-muted-foreground">
           Two clicks to wire up Google or Outlook. legalOS reads your free/busy
           and today’s schedule. We never write to your calendar.
         </p>
         <Button
           aria-label="Connect your calendar"
           render={<Link href="/workspace/integrations/connections" />}
-          className="mt-6 self-start"
+          className="mt-4 self-start"
         >
           Connect →
         </Button>
