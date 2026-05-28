@@ -126,21 +126,3 @@ function ImpactBandSkeleton() {
     </section>
   );
 }
-
-function SectionSkeleton({ title }: { title: string }) {
-  return (
-    <section className="flex flex-col gap-4">
-      <h2 className="text-[15px] font-medium tracking-[-0.005em] text-foreground">
-        {title}
-      </h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-[120px] animate-pulse rounded-xl border border-border bg-muted/30 motion-reduce:animate-none"
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
