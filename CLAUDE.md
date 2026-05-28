@@ -12,6 +12,8 @@ Adoption is a first-class concern. The UI is deliberately simple, clean, modern,
 
 **Phase 2 polish phase.** Three-tier agent architecture in place (Canonical Department Agents, Claude for Legal imports, user-owned My Agents) across a 13-department launchpad behind RBAC. Native chat with prompt caching, web search, attached references, per-message markdown download, soft delete + 30-day undo, and an admin area all shipped. Polish list (16 items) is the active workstream; doc refresh (#13) and sequenced-roadmap construction (#16) are the closing items.
 
+**Near-term sequence.** After the workspace home + Matters arc (closed 2026-05-28), the planned sequence is: the Share and connector hub next (roadmap item 1), which flips the dormant Today and Matters connection gates live and makes integration status real; then a deliberate, architecture-first pass on the Admin section. The Admin pass is intentionally not ad-hoc: the goal is a pristine, complete admin architecture (all functions, roles, and surfaces thought through up front) before more admin-dependent features accrete on top of it. Recorded so the intent survives across sessions.
+
 ---
 
 ## The dual-delight standard — non-negotiable, applies to every patch
@@ -275,6 +277,14 @@ When making any product change (new feature, renamed component, new page, archit
 This is not optional. Documentation updates are part of the definition of done for every change.
 
 At the end of every phase or significant feature completion, sync generalized lessons back to the portable `claude-templates` library. Extract the universal principle, not the project-specific detail. If a new rule or convention is added to this project's CLAUDE.md, evaluate whether it belongs in the template CLAUDE.md as well.
+
+### Amortize Docs into Feature Commits
+
+Each feature commit folds in its own documentation: the CHANGELOG line and any DECISION_LOG entry the feature warrants ship in the same commit as the code. Arc close-outs then shrink to the ROADMAP reorder and the CHATBOT_HANDOFF refresh, which are small and fast. This keeps docs from going stale mid-arc and avoids concentrating the documentation cost into one slow end-of-arc commit. The earlier pattern of batching all docs into a single close-out is replaced by this amortized approach.
+
+### Pre-Draft Doc Prose Verbatim
+
+When documentation needs writing, Claude Chat writes the finished entries (the actual CHANGELOG text, the actual DECISION_LOG entries in the file's format, the actual ROADMAP edits) directly in the patch prompt. Claude Code's job is then placement and structure-matching: find the right spot, paste, match the surrounding format. Composition is Claude Chat's responsibility since it holds the context and is not the throughput bottleneck; mechanical placement and format-matching is Claude Code's. This keeps doc commits fast and low-risk.
 
 ### Session Close Protocol
 
