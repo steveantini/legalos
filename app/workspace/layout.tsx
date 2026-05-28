@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Toaster } from "@/components/ui/sonner";
 import { AdminRail } from "@/components/workspace/admin-rail";
 import { RailSwitcher } from "@/components/workspace/rail-switcher";
+import { SettingsRail } from "@/components/workspace/settings-rail";
 import { WorkspaceRail } from "@/components/workspace/workspace-rail";
 import { WorkspaceTopBar } from "@/components/workspace/workspace-top-bar";
 import {
@@ -75,6 +76,7 @@ export default async function WorkspaceLayout({
           />
         }
         adminRail={<AdminRail profile={profile} isAdmin={isAdmin} />}
+        settingsRail={<SettingsRail profile={profile} isAdmin={isAdmin} />}
       />
       <div className="grid min-h-0 grid-rows-[56px_1fr]">
         <WorkspaceTopBar departments={departments} agents={agents} />

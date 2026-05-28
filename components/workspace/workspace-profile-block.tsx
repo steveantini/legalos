@@ -25,6 +25,9 @@ import { signOut } from "@/lib/actions/auth";
  *    workspace" and routes to `/workspace`; everywhere else it reads
  *    "Admin" and routes to `/workspace/admin`. Renders as a `<Link>`
  *    via the `render` prop pattern (matches AgentCard's edit link in 11).
+ *  - **Settings** — routes to `/workspace/settings` (the settings peer
+ *    mode). Visible to every user; personal settings are not role-gated.
+ *    Sits below the admin entry and above Sign out.
  *  - **Sign out** — calls `signOut` server action via `onClick`. The
  *    action's internal `redirect("/login")` propagates through.
  *
@@ -79,6 +82,9 @@ export function WorkspaceProfileBlock({
             {adminItemLabel}
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuItem render={<Link href="/workspace/settings" />}>
+          Settings
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async (event) => {
             event.preventDefault();

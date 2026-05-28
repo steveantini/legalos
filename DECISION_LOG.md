@@ -1837,3 +1837,32 @@ A launcher for apps the user already has open is plumbing, not the user's work, 
 **Consequences:**
 
 The home spine is greeting, Today and Impact, Matters, Desk. `IntegrationsRow` and `IntegrationCard` are unmounted but retained. The connection-status strip is captured as a note under the Share and connector hub roadmap item, dependent on real integrations existing first.
+
+## D-062 — Settings as a peer mode to workspace and admin
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+The connector hub arc requires a place for users to manage their own personal connections (their Google Drive, Calendar, and similar). The codebase had no user-settings surface; the existing `/workspace/integrations/connections` route was a coming-soon stub conceptually positioned as workspace-level Integrations chrome rather than user-level settings.
+
+**Decision:**
+
+Establish a new top-level settings area at `/workspace/settings` as a peer mode to workspace and admin. Settings has its own left rail (`SettingsRail`, mirroring `AdminRail`'s chrome via the shared `rail-styles.ts` tokens), its own layout, its own landing page with cards for sub-pages, and a "Settings" entry in the profile-block dropdown. Initial sub-pages: Connections (real, building over the arc), Profile (coming soon), Display (coming soon).
+
+**Reasoning:**
+
+The three-mode architecture (workspace, settings, admin) reflects three genuinely different kinds of work: doing the actual work (workspace), managing your personal account (settings), and governing the organization (admin). Surfacing this as three peer rails uses the existing pattern (admin already replaces the workspace rail) extended consistently. Personal connection management belongs in settings, not in workspace-level chrome, because connections are personal decisions made within admin-set policy. The rail Integrations group at `/workspace/integrations` will be removed entirely in a later milestone of this arc once Connect CTAs are repointed.
+
+**Alternatives considered:**
+
+- **Rejected — adding a user-settings dropdown panel rather than a peer mode.** Considered briefly; settings needs to grow to multiple sub-pages over time, and a dropdown wouldn't scale.
+- **Rejected — building connection management directly inside the existing workspace rail.** Conflated personal account management with workspace navigation; settings deserves its own coherent surface.
+- **Rejected — using a modal or overlay for settings.** Modal patterns don't support deep linking, multi-page settings, or the polish standard this arc requires.
+
+**Consequences:**
+
+- The rail-switching architecture (`RailSwitcher`) gains a third branch; this is cheap (one server-rendered prop, one branch) and the existing drift-prevention discipline (shared tokens via `rail-styles.ts`) ensures the three rails stay visually consistent. The settings landing page establishes the LANDING CARD pattern that the admin landing will adopt in a future admin polish arc (portability principle: settings primitives port to admin when its arc arrives).
+- Connect CTAs throughout the app continue to point at the old `/workspace/integrations/connections` during this milestone; they will be repointed and the old route tree removed in a later milestone of this arc, allowing each milestone to land independently without breaking links.
+- The settings layout deliberately does not impose a `<main>` / width wrapper the way the admin layout does, because the coming-soon sub-pages reuse `ComingSoonContent` (a full-height centered `<main>` of its own) and a layout-level `<main>` would nest landmarks; each settings page owns its main instead.
