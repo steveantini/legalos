@@ -92,7 +92,7 @@ export default async function WorkspacePage() {
 
           <IntegrationsRow />
 
-          <Suspense fallback={<SectionSkeleton title="Continue working" />}>
+          <Suspense fallback={<SectionSkeleton title="Recent" />}>
             <ContinueWorkingSection userId={authUser.id} />
           </Suspense>
 
