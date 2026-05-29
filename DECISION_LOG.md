@@ -2024,3 +2024,27 @@ Live-read is the correct, most-trustworthy behavior for documents that change; s
 - The picker UI (M6b) creates gdrive_link rows; this backend resolves them, so hand-inserting a row tests the backend before the picker exists.
 - Native-format support relies on Drive export; the drive.readonly scope already permits it.
 - Only agent_attachments is Drive-ready in schema; message_attachments lacks source_type/source_metadata (migration 0007), so per-message Drive attachments need a follow-up migration (and a send-payload change). M6a did NOT add one silently; the message loader resolves uploads through the same seam and is one migration away from live message-Drive.
+
+## D-068 — Message attachments made Drive-ready (schema + send plumbing) to match agent attachments
+
+Date: 2026-05-29
+Status: Accepted
+
+**Context:**
+
+M6a delivered live Drive reads and wired both chat-route loaders, but only agent_attachments had the Drive-ready schema; message_attachments lacked source_type/source_metadata, so per-message Drive attachments could not be created. The chat composer's plus affordance is the intended natural home for attaching a Drive file to a message (M6c), which requires this surface to be Drive-ready first.
+
+**Decision:**
+
+Add source_type ('upload'|'gdrive_link', default 'upload') and source_metadata jsonb to message_attachments, mirroring agent_attachments. Extend the send payload and the chat route's message-attachment insert so a Drive-backed attachment is persisted as a gdrive_link row carrying { fileId, name, mimeType } in source_metadata, with no upload or extraction at send time (content is resolved live at run-time by the M6a resolver). Local uploads are unchanged. source_metadata standardizes on fileId+name+mimeType so the attachment chip can render name/type instantly without a Drive call.
+
+**Reasoning:**
+
+Consistency between the two attachment tables keeps the resolver and UI uniform. Storing name+mimeType at pick time serves both the user (instant chip rendering) and the maintainer (one shape read everywhere). Not uploading/extracting Drive files at send time is the essence of live-read. Default 'upload' makes the migration backfill-free and the existing path safe.
+
+**Consequences:**
+
+- The message surface now matches the agent surface; M6c's picker writes gdrive_link rows to either.
+- A migration is hand-applied (operator workflow); the upload path is safe pre-apply (additive Drive path, default upload). The message-attachment loader's SELECT is transitional-tolerant of the columns being absent (falls back to the legacy column set on Postgres 42703), so the upload path is safe even before the migration lands; that fallback retires once 0046 is confirmed applied.
+- M6c (picker UI) is unblocked.
+- Scope note: the message-attachment row insert lives in the chat route (app/api/chat/route.ts), not in lib/actions/message-attachments.ts (which only uploads + extracts local files). The Drive plumbing was added there, where the insert actually is; a Drive attachment needs no pick-time server action (no upload/extract), so message-attachments.ts is unchanged.

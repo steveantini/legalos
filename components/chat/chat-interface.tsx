@@ -579,7 +579,9 @@ export function ChatInterface({
     if (pendingAttachments.length === 1) {
       setPrivacyNoteShouldShow(false);
     }
-    if (target.status === "ready") {
+    // Only local uploads have a Storage object to purge; a Drive-backed ready
+    // attachment (M6b) carries no storagePath, so removing it is local-only.
+    if (target.status === "ready" && "storagePath" in target) {
       const formData = new FormData();
       formData.append("storage_path", target.storagePath);
       const result = await removeMessageAttachmentAction(formData);

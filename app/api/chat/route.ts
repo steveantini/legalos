@@ -71,6 +71,30 @@ export const maxDuration = 300;
 // prompt and its cost.
 const ATTACHMENT_AGGREGATE_CHAR_BUDGET = 250_000;
 
+// A per-message attachment riding the send payload. Disjoint by shape: an
+// uploaded local file carries a storage_path (re-extracted from Storage
+// server-side); a connected-Drive file carries source_type:'gdrive_link' + a
+// file id and is resolved LIVE at run-time (never uploaded or extracted at
+// send). The Drive mime_type is a free string — it may be a native Google type
+// (e.g. application/vnd.google-apps.document), exported at fetch time, so the
+// upload allowlist does not apply to it here.
+const uploadAttachmentSchema = z.object({
+  storage_path: z.string().min(1).max(1024),
+  original_filename: z.string().min(1).max(512),
+  content_type: z.enum(ALLOWED_MIME_TYPES),
+  size_bytes: z.number().int().positive().max(MAX_BYTES),
+});
+
+const driveAttachmentSchema = z.object({
+  source_type: z.literal("gdrive_link"),
+  file_id: z.string().min(1).max(512),
+  name: z.string().min(1).max(512),
+  mime_type: z.string().min(1).max(255),
+});
+
+type UploadAttachmentItem = z.infer<typeof uploadAttachmentSchema>;
+type DriveAttachmentItem = z.infer<typeof driveAttachmentSchema>;
+
 const chatRequestSchema = z.object({
   agent_id: z.string().uuid(),
   // Optional client pre-allocation (Stage 4 composer supplies it; legacy
@@ -102,14 +126,7 @@ const chatRequestSchema = z.object({
   // source). Capped at 5; the aggregate text budget is enforced after
   // extraction.
   attachments: z
-    .array(
-      z.object({
-        storage_path: z.string().min(1).max(1024),
-        original_filename: z.string().min(1).max(512),
-        content_type: z.enum(ALLOWED_MIME_TYPES),
-        size_bytes: z.number().int().positive().max(MAX_BYTES),
-      }),
-    )
+    .array(z.union([uploadAttachmentSchema, driveAttachmentSchema]))
     .max(5)
     .default([]),
 });
@@ -175,6 +192,66 @@ function escapeAttributeValue(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** A message_attachments row as the loader needs it, source-aware. */
+type MessageAttachmentRow = {
+  original_filename: string;
+  extracted_text: string | null;
+  source_type: string | null;
+  source_metadata: unknown;
+};
+
+/**
+ * Load a message's attachment rows for block assembly, tolerant of migration
+ * 0046 (the Drive columns) not yet being applied. Selects source_type +
+ * source_metadata; if those columns don't exist yet (Postgres 42703), falls
+ * back to the legacy column set and treats every row as an upload — so the
+ * upload path keeps working before the migration lands. This transitional
+ * fallback can be removed once 0046 is confirmed applied. Returns null on a hard
+ * error (the caller drops the message and returns 500).
+ */
+async function loadMessageAttachmentRows(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  messageId: string,
+): Promise<MessageAttachmentRow[] | null> {
+  const withSource = await supabase
+    .from("message_attachments")
+    .select("original_filename, extracted_text, source_type, source_metadata")
+    .eq("message_id", messageId)
+    .order("created_at", { ascending: true });
+
+  if (!withSource.error) {
+    return (withSource.data ?? []) as MessageAttachmentRow[];
+  }
+
+  if (withSource.error.code === "42703") {
+    const legacy = await supabase
+      .from("message_attachments")
+      .select("original_filename, extracted_text")
+      .eq("message_id", messageId)
+      .order("created_at", { ascending: true });
+    if (legacy.error) {
+      console.error("message_attachments fetch failed", {
+        code: legacy.error.code,
+      });
+      return null;
+    }
+    return (legacy.data ?? []).map((row) => {
+      const r = row as { original_filename: string; extracted_text: string | null };
+      return {
+        original_filename: r.original_filename,
+        extracted_text: r.extracted_text,
+        source_type: null,
+        source_metadata: null,
+      };
+    });
+  }
+
+  console.error("message_attachments fetch failed", {
+    code: withSource.error.code,
+  });
+  return null;
+}
+
 /**
  * Citation-marker drain points for the deferred-injection pipeline
  * (Session 18c addendum). Anthropic's web_search emits citations_delta
@@ -222,11 +299,22 @@ export async function POST(request: Request) {
     const { agent_id, conversation_id, message_id, user_message, attachments } =
       parsed.data;
 
-    // Validate attachment ownership up front — before any inserts — so a bad
+    // Partition by source: uploads are persisted + re-extracted from Storage as
+    // before; Drive items become gdrive_link rows resolved live at run-time. The
+    // two are disjoint by shape (uploads carry storage_path).
+    const uploadAttachments = attachments.filter(
+      (att): att is UploadAttachmentItem => "storage_path" in att,
+    );
+    const driveAttachments = attachments.filter(
+      (att): att is DriveAttachmentItem => !("storage_path" in att),
+    );
+
+    // Validate upload ownership up front — before any inserts — so a bad
     // storage_path fails fast without leaving an orphan message row. Storage
     // RLS would also block a foreign path, but the early reject is clearer and
-    // cheaper.
-    for (const att of attachments) {
+    // cheaper. Drive items have no storage_path; their access is gated at
+    // run-time by canExerciseCapability in the resolver.
+    for (const att of uploadAttachments) {
       if (att.storage_path.split("/")[0] !== user.id) {
         return errorResponse("invalid_attachment", 400);
       }
@@ -400,15 +488,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // ---- Persist message-attachment rows, then repopulate their text from
-    // the trusted Storage object. The client passed back upload metadata, but
-    // its extracted_text is never trusted: we re-read each object and re-run
-    // extraction server-side. (storage_path ownership was validated up front.)
-    if (attachments.length > 0) {
+    // ---- Persist upload-backed message-attachment rows, then repopulate their
+    // text from the trusted Storage object. The client passed back upload
+    // metadata, but its extracted_text is never trusted: we re-read each object
+    // and re-run extraction server-side. (storage_path ownership was validated
+    // up front.) This insert is byte-for-byte unchanged from before and sets no
+    // Drive columns, so it stays safe before migration 0046 is applied.
+    if (uploadAttachments.length > 0) {
       const { error: insertAttErr } = await supabase
         .from("message_attachments")
         .insert(
-          attachments.map((att) => ({
+          uploadAttachments.map((att) => ({
             message_id: canonicalMessageId,
             user_id: user.id,
             organization_id: agent.organization_id,
@@ -428,7 +518,7 @@ export async function POST(request: Request) {
         return errorResponse("internal_error", 500);
       }
 
-      for (const att of attachments) {
+      for (const att of uploadAttachments) {
         const { data: blob } = await supabase.storage
           .from("message-attachments")
           .download(att.storage_path);
@@ -445,25 +535,63 @@ export async function POST(request: Request) {
       }
     }
 
+    // ---- Persist Drive-backed message-attachment rows (M6b). No upload or
+    // extraction: the content is resolved LIVE at run-time by the resolver. The
+    // row carries source_type='gdrive_link' and { fileId, name, mimeType } in
+    // source_metadata; storage_path holds a non-null gdrive: marker (the column
+    // is NOT NULL); extracted_text stays null. This insert references the Drive
+    // columns added by migration 0046, so it only runs when the payload actually
+    // carries Drive items (which require M6c's picker), keeping uploads safe
+    // before the migration is applied.
+    if (driveAttachments.length > 0) {
+      const { error: insertDriveErr } = await supabase
+        .from("message_attachments")
+        .insert(
+          driveAttachments.map((att) => ({
+            message_id: canonicalMessageId,
+            user_id: user.id,
+            organization_id: agent.organization_id,
+            storage_path: `gdrive:${att.file_id}`,
+            original_filename: att.name,
+            content_type: att.mime_type,
+            size_bytes: 0,
+            source_type: "gdrive_link",
+            source_metadata: {
+              fileId: att.file_id,
+              name: att.name,
+              mimeType: att.mime_type,
+            },
+          })),
+        );
+      if (insertDriveErr) {
+        console.error("message_attachments drive insert failed", {
+          code: insertDriveErr.code,
+        });
+        await supabase.from("messages").delete().eq("id", canonicalMessageId);
+        return errorResponse("internal_error", 500);
+      }
+    }
+
     // ---- Load the message attachments' text + enforce the aggregate budget.
     // Soft cap checked here (not at upload) because only the send sees the full
     // set: a user may attach several small files and one large one.
     let messageAttachmentBlocks = "";
     if (attachments.length > 0) {
-      const { data: msgAttRows, error: msgAttErr } = await supabase
-        .from("message_attachments")
-        .select("original_filename, extracted_text")
-        .eq("message_id", canonicalMessageId)
-        .order("created_at", { ascending: true });
-      if (msgAttErr) {
-        console.error("message_attachments fetch failed", {
-          code: msgAttErr.code,
-        });
+      const msgAttRows = await loadMessageAttachmentRows(
+        supabase,
+        canonicalMessageId,
+      );
+      if (msgAttRows === null) {
         await supabase.from("messages").delete().eq("id", canonicalMessageId);
         return errorResponse("internal_error", 500);
       }
 
-      const totalChars = (msgAttRows ?? []).reduce(
+      // Aggregate budget over the uploads' cached text. Drive rows have null
+      // extracted_text (their content is fetched during block assembly, per
+      // file truncated to ATTACHMENT_TEXT_LIMIT), so they don't count here —
+      // matching the agent-attachment path, which also caps live content
+      // per-file rather than against this message-level aggregate.
+      const totalChars = msgAttRows.reduce(
         (sum, row) => sum + (row.extracted_text?.length ?? 0),
         0,
       );
@@ -476,18 +604,16 @@ export async function POST(request: Request) {
       }
 
       // One <attachment> block per file, through the shared resolver so the
-      // seam is uniform with the agent-attachment loader. Message attachments
-      // are always uploads today: message_attachments has no source_type column
-      // (migration 0007), so per-message Drive attachments need a migration
-      // (flagged in M6a, not added here). Empty extractions (scanned PDFs,
-      // missing objects) drop out. The filename is user-supplied inside an
-      // XML-style attribute, so it's escaped.
+      // seam is uniform with the agent-attachment loader. Uploads use their
+      // cached text (unchanged); gdrive_link rows resolve LIVE. A Drive row that
+      // can't be read becomes an unavailable block so the turn still runs. The
+      // filename is user-supplied inside an XML-style attribute, so it's escaped.
       const messageBlocks: string[] = [];
-      for (const row of msgAttRows ?? []) {
+      for (const row of msgAttRows) {
         const resolved = await resolveAttachmentText(
           {
-            sourceType: "upload",
-            sourceMetadata: null,
+            sourceType: row.source_type,
+            sourceMetadata: row.source_metadata,
             originalFilename: row.original_filename,
             cachedText: row.extracted_text,
           },
@@ -496,6 +622,10 @@ export async function POST(request: Request) {
         if (resolved.kind === "text") {
           messageBlocks.push(
             `<attachment filename="${escapeAttributeValue(row.original_filename)}">\n${resolved.text}\n</attachment>`,
+          );
+        } else if (resolved.kind === "unavailable") {
+          messageBlocks.push(
+            `<attachment filename="${escapeAttributeValue(row.original_filename)}" status="unavailable">\nThis linked Drive file could not be read (it may have been moved, deleted, or access was revoked).\n</attachment>`,
           );
         }
       }

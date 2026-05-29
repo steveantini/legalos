@@ -48,12 +48,34 @@ export type PendingAttachment =
       sizeBytes: number;
       contentType: string;
       errorCode: MessageAttachmentErrorCode;
+    }
+  | {
+      // A connected-Drive file picked into the composer (M6b plumbing; the
+      // picker that constructs these ships in M6c). Immediately "ready" — there
+      // is no client upload or extraction step, because the Drive content is
+      // fetched live server-side at run-time, not uploaded. The display fields
+      // (name + Drive mimeType) are captured at pick time so the chip renders
+      // instantly without a Drive round-trip.
+      localId: string;
+      status: "ready";
+      source: "gdrive_link";
+      filename: string;
+      sizeBytes: number; // 0 — Drive content is not measured at pick time
+      contentType: string; // the Drive mimeType (may be a native Google type)
+      fileId: string;
     };
 
 export type ReadyAttachment = Extract<PendingAttachment, { status: "ready" }>;
 
 export function isReady(p: PendingAttachment): p is ReadyAttachment {
   return p.status === "ready";
+}
+
+/** Whether a ready attachment is a Drive-backed file (vs a local upload). */
+export function isDriveAttachment(
+  p: ReadyAttachment,
+): p is Extract<ReadyAttachment, { source: "gdrive_link" }> {
+  return "source" in p && p.source === "gdrive_link";
 }
 
 export function totalSize(items: PendingAttachment[]): number {
@@ -64,21 +86,47 @@ export function countReady(items: PendingAttachment[]): number {
   return items.filter(isReady).length;
 }
 
-/**
- * The subset of pending attachments that ride a send payload (ready only).
- * Shaped to the chat route's `attachments` schema. extracted_text is
- * intentionally absent — the route re-extracts from Storage for trust.
- */
-export function toSendPayload(items: PendingAttachment[]): Array<{
+/** An uploaded local file riding the send payload (re-extracted server-side). */
+export type UploadSendItem = {
   storage_path: string;
   original_filename: string;
   content_type: AllowedMimeType;
   size_bytes: number;
-}> {
-  return items.filter(isReady).map((p) => ({
-    storage_path: p.storagePath,
-    original_filename: p.filename,
-    content_type: p.contentType,
-    size_bytes: p.sizeBytes,
-  }));
+};
+
+/** A Drive-backed file riding the send payload (resolved live server-side). */
+export type DriveSendItem = {
+  source_type: "gdrive_link";
+  file_id: string;
+  name: string;
+  mime_type: string;
+};
+
+/**
+ * The subset of pending attachments that ride a send payload (ready only).
+ * Shaped to the chat route's `attachments` schema (a union of upload and Drive
+ * items). For uploads, extracted_text is intentionally absent — the route
+ * re-extracts from Storage for trust. For Drive items, only the file id and
+ * display metadata travel; the content is fetched live at run-time, never
+ * uploaded.
+ */
+export function toSendPayload(
+  items: PendingAttachment[],
+): Array<UploadSendItem | DriveSendItem> {
+  return items.filter(isReady).map((p) => {
+    if (isDriveAttachment(p)) {
+      return {
+        source_type: "gdrive_link",
+        file_id: p.fileId,
+        name: p.filename,
+        mime_type: p.contentType,
+      };
+    }
+    return {
+      storage_path: p.storagePath,
+      original_filename: p.filename,
+      content_type: p.contentType,
+      size_bytes: p.sizeBytes,
+    };
+  });
 }
