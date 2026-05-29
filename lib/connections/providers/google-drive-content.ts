@@ -25,7 +25,13 @@ const DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files";
 // Native Google MIME → the export target MIME (which must be in the extractor
 // allowlist). Docs→DOCX and Sheets→XLSX extract cleanly; Slides has no native
 // text extractor, so PDF export is the baseline text-bearing form.
-const NATIVE_EXPORT_TARGETS: Record<string, AllowedMimeType> = {
+//
+// Exported as the single source of truth for "which native Google formats can
+// this layer resolve": the listing layer (M6c1) derives a file's isSupported
+// flag from these keys plus ALLOWED_MIME_TYPES, so the picker can never offer a
+// native file that would later come back unavailable. Read-only here — the
+// content client's behavior is unchanged.
+export const NATIVE_EXPORT_TARGETS: Record<string, AllowedMimeType> = {
   "application/vnd.google-apps.document":
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.google-apps.spreadsheet":

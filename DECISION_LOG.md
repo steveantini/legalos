@@ -2048,3 +2048,27 @@ Consistency between the two attachment tables keeps the resolver and UI uniform.
 - A migration is hand-applied (operator workflow); the upload path is safe pre-apply (additive Drive path, default upload). The message-attachment loader's SELECT is transitional-tolerant of the columns being absent (falls back to the legacy column set on Postgres 42703), so the upload path is safe even before the migration lands; that fallback retires once 0046 is confirmed applied.
 - M6c (picker UI) is unblocked.
 - Scope note: the message-attachment row insert lives in the chat route (app/api/chat/route.ts), not in lib/actions/message-attachments.ts (which only uploads + extracts local files). The Drive plumbing was added there, where the insert actually is; a Drive attachment needs no pick-time server action (no upload/extract), so message-attachments.ts is unchanged.
+
+## D-069 — Drive listing/search layer, separate from content fetch, as the picker's data source
+
+Date: 2026-05-29
+Status: Accepted
+
+**Context:**
+
+The Drive picker (M6c2) needs to discover files: recents on open, global search by name, and folder browsing with breadcrumbs. This requires Drive LIST/SEARCH/metadata capability, distinct from M6a's content fetch (which reads a single known file's bytes). The picker must only offer files that can actually be attached.
+
+**Decision:**
+
+A separate read-only listing module (list recents, search by name, list folder contents, resolve folder path) gated through canExerciseCapability and using the existing token-exercise path and drive.readonly scope. A single source-of-truth maps each file's mimeType to (a) isSupported — true only for the exact set the M6a content client can resolve (allowed binaries plus native Google Docs/Sheets/Slides via export) — and (b) a coarse iconType for the picker's glyph. Search is global; folder browsing is breadcrumb-driven. Single capped page per call for v1 (no deep pagination yet).
+
+**Reasoning:**
+
+Listing and content-fetch are genuinely different Drive operations; keeping them as sibling modules sharing auth/token/error patterns is cleaner than overloading one. Centralizing isSupported here, matched to the content client's resolvable set, guarantees the picker never offers a file that would later come back unavailable — honest-state at the point of selection. drive.readonly already covers listing/search/export, so no new scope. Global search matches how users find files by name; folder browsing is the fallback for "I know where it is." Capped single-page is sufficient for the picker experience; pagination is a later rent.
+
+**Consequences:**
+
+- M6c2 renders this layer's DriveItem results directly; the picker is presentation over a proven data source.
+- The supported-set is defined once and shared, so picker and content-fetch cannot drift on what's attachable.
+- Folder path resolution powers clickable breadcrumbs.
+- If deep folders/large folders need pagination later, it's an additive enhancement to this module.
