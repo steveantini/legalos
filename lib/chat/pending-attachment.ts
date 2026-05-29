@@ -1,4 +1,5 @@
 import type { MessageAttachmentErrorCode } from "@/lib/actions/message-attachments";
+import type { DriveIconType } from "@/lib/connections/providers/google-drive-listing";
 import type { AllowedMimeType } from "@/lib/extract/extract";
 
 /** Per-message attachment cap, enforced client-side; the chat route caps independently. */
@@ -63,6 +64,11 @@ export type PendingAttachment =
       sizeBytes: number; // 0 — Drive content is not measured at pick time
       contentType: string; // the Drive mimeType (may be a native Google type)
       fileId: string;
+      // Coarse type for the chip's glyph, captured at pick time from the
+      // DriveItem (M6c). The listing layer is the single source of truth for
+      // the mime→iconType mapping, so the chip renders the right glyph without
+      // re-deriving it client-side. Display-only — not part of the send payload.
+      iconType: DriveIconType;
     };
 
 export type ReadyAttachment = Extract<PendingAttachment, { status: "ready" }>;

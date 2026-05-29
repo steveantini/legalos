@@ -2,6 +2,10 @@
 
 import { AlertCircleIcon, FileTextIcon, Loader2Icon, XIcon } from "lucide-react";
 
+import { DriveFileIcon } from "./drive-file-icon";
+import { GoogleDriveGlyph } from "./google-drive-glyph";
+
+import { isDriveAttachment, isReady } from "@/lib/chat/pending-attachment";
 import type { PendingAttachment } from "@/lib/chat/pending-attachment";
 
 type AttachmentChipProps = {
@@ -16,14 +20,21 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * One pending-attachment chip inside the composer. Three states:
- *   - attaching: spinner + "Attaching…", no remove X (can't cancel mid-flight)
- *   - ready:     file glyph + size, remove X
- *   - failed:    alert glyph + error subtitle, remove X (durable error state)
+ * One pending-attachment chip inside the composer. States:
+ *   - attaching:   spinner + "Attaching…", no remove X (can't cancel mid-flight)
+ *   - ready upload: file glyph + size, remove X
+ *   - ready Drive:  type glyph + a quiet Drive + "live" marker, remove X. No
+ *                   size (Drive content isn't measured at pick time) and no
+ *                   upload phase — its content reads live at run-time. The
+ *                   marker distinguishes it from an uploaded file and signals it
+ *                   reflects the current version.
+ *   - failed:      alert glyph + error subtitle, remove X (durable error state)
  */
 export function AttachmentChip({ attachment, onRemove }: AttachmentChipProps) {
   const isAttaching = attachment.status === "attaching";
   const isFailed = attachment.status === "failed";
+  const drive =
+    isReady(attachment) && isDriveAttachment(attachment) ? attachment : null;
 
   return (
     <div className="inline-flex items-center gap-2 rounded-md border border-hairline bg-card px-2.5 py-1.5 text-sm">
@@ -32,6 +43,8 @@ export function AttachmentChip({ attachment, onRemove }: AttachmentChipProps) {
           <Loader2Icon className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
         ) : isFailed ? (
           <AlertCircleIcon className="size-4 text-destructive" aria-hidden />
+        ) : drive ? (
+          <DriveFileIcon iconType={drive.iconType} className="size-4" />
         ) : (
           <FileTextIcon className="size-4" aria-hidden />
         )}
@@ -41,11 +54,18 @@ export function AttachmentChip({ attachment, onRemove }: AttachmentChipProps) {
           {attachment.filename}
         </span>
         <span className="text-xs text-caption">
-          {isAttaching
-            ? "Attaching…"
-            : isFailed
-              ? errorMessageForCode(attachment.errorCode)
-              : formatBytes(attachment.sizeBytes)}
+          {isAttaching ? (
+            "Attaching…"
+          ) : isFailed ? (
+            errorMessageForCode(attachment.errorCode)
+          ) : drive ? (
+            <span className="inline-flex items-center gap-1">
+              <GoogleDriveGlyph className="size-3" />
+              live
+            </span>
+          ) : (
+            formatBytes(attachment.sizeBytes)
+          )}
         </span>
       </div>
       {!isAttaching ? (

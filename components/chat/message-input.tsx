@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 
 import { AttachButton } from "./attach-button";
 import { AttachmentPrivacyNote } from "./attachment-privacy-note";
+import { DrivePicker, type DrivePickedFile } from "./drive-picker";
 import { ModelPicker } from "./model-picker";
 import { PendingAttachmentsRow } from "./pending-attachments-row";
 import { SendButton } from "./send-button";
@@ -53,6 +54,8 @@ interface MessageInputProps {
   pendingAttachments: PendingAttachment[];
   /** Fired with the files the user picked via the attach button. */
   onAttachFiles: (files: File[]) => void;
+  /** Fired with the files the user picked from the Google Drive picker. */
+  onAttachDrive: (files: DrivePickedFile[]) => void;
   /** Fired with a pending attachment's localId to remove it before send. */
   onRemoveAttachment: (localId: string) => void;
   /**
@@ -109,10 +112,12 @@ export function MessageInput({
   focusRef,
   pendingAttachments,
   onAttachFiles,
+  onAttachDrive,
   onRemoveAttachment,
   showPrivacyNote,
 }: MessageInputProps) {
   const localRef = useRef<HTMLTextAreaElement | null>(null);
+  const [drivePickerOpen, setDrivePickerOpen] = useState(false);
 
   // Send is allowed when not streaming, no attachment is still uploading, and
   // there's something to send — typed text OR at least one ready attachment.
@@ -198,6 +203,7 @@ export function MessageInput({
                 atAttachmentCap ? "Up to 5 files per message" : null
               }
               onFilesSelected={onAttachFiles}
+              onChooseDrive={() => setDrivePickerOpen(true)}
             />
             {webSearchEnabled ? <WebSearchIndicator agentId={agentId} /> : null}
           </div>
@@ -220,6 +226,12 @@ export function MessageInput({
           </div>
         </div>
       </div>
+      <DrivePicker
+        open={drivePickerOpen}
+        onOpenChange={setDrivePickerOpen}
+        remainingSlots={MAX_ATTACHMENTS_PER_MESSAGE - pendingAttachments.length}
+        onAttach={onAttachDrive}
+      />
     </div>
   );
 }

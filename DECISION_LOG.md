@@ -2072,3 +2072,27 @@ Listing and content-fetch are genuinely different Drive operations; keeping them
 - The supported-set is defined once and shared, so picker and content-fetch cannot drift on what's attachable.
 - Folder path resolution powers clickable breadcrumbs.
 - If deep folders/large folders need pagination later, it's an additive enhancement to this module.
+
+## D-070 — Drive file picker: search-first with folder browsing, honest selection, live chip
+
+Date: 2026-05-29
+Status: Accepted
+
+**Context:**
+
+With the listing backend (M6c1) and the live-read engine (M6a) in place, users needed a way to find and attach Drive files without manual steps. Attorneys think in file names but also expect folder navigation as a fallback, so both were required.
+
+**Decision:**
+
+A picker in the chat composer's plus-button source menu. Search-first (recents on open, glob name search) with folder browsing via clickable breadcrumbs as a coexisting path on the same surface. Unsupported file types are shown but unselectable (honest-at-selection, backed by the listing layer's isSupported which matches the content client's resolvable set). A not-connected state invites connection rather than erroring. Selected files attach as live Drive attachments via the existing send plumbing; the chip renders the name instantly with a quiet live/Drive marker. Server-only listing functions are exposed to the client via server actions. Functional file-type and source icons are used (encoding meaning, consistent with the state-dot precedent). Folder browsing was built now, not deferred, as a deliberate fallback users will expect.
+
+**Reasoning:**
+
+Search matches how users recall files (by name); folder browsing is the reassuring fallback for "I know where it is", and building it now avoids a known-coming later addition. One shared list surface for recents/search/browse keeps it a single coherent tool, not two modes. Honest-at-selection (greying unsupported) prevents the attach-then-unavailable surprise. The live chip conveys the meaningful difference (current version, not a snapshot) quietly. Reusing the project's modal/menu/icon primitives keeps it native and dependency-free.
+
+**Consequences:**
+
+- The connector experience is end to end: connect Drive (settings) → pick a file (composer) → agent reads it live (run-time).
+- The picker is presentation over the proven M6c1 data source and M6b send path; little new risk beyond UI.
+- Agent-form Drive attachment (vs composer) can reuse this picker component later.
+- Pagination and scoped-in-folder search are future refinements; global search + capped pages suffice now.

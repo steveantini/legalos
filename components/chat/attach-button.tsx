@@ -1,22 +1,32 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { MonitorIcon, PlusIcon } from "lucide-react";
 import { useRef } from "react";
 
+import { GoogleDriveGlyph } from "./google-drive-glyph";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 /**
- * The composer's attach affordance: an icon-only plus trigger plus a hidden
- * multi-file input. Lives in the tools-row left slot beside the web-search
+ * The composer's attach affordance: an icon-only plus trigger that opens a
+ * source menu (local upload, Google Drive), plus a hidden multi-file input for
+ * the local path. Lives in the tools-row left slot beside the web-search
  * indicator.
  *
  * Plus (not a paperclip): a plus is the single entry point for adding context.
- * Today that's files; tomorrow it may include voice input, references, or agent
- * memory snippets. A paperclip would force a second affordance when the next
- * context type lands, breaking the destination-hub discipline D-054 set for the
- * assistant-message kebab. It also matches the AI-native composer reference set
- * (Claude.ai, Notion AI, Cursor, Linear); the paperclip belongs to the email-
- * and-Slack generation. The aria-label stays "Attach file" because that's what
- * the affordance does in Phase 1 — the plus framing is future-proofing, not a
- * rename.
+ * Today that's files from the computer or a connected Google Drive; tomorrow it
+ * may include voice input, references, or agent memory snippets. The source menu
+ * is the destination-hub discipline (D-054) applied to inputs: new sources are
+ * menu items, never new affordances in the row. It also matches the AI-native
+ * composer reference set (Claude.ai, Notion AI, Cursor, Linear); the paperclip
+ * belongs to the email- and Slack generation. The aria-label stays "Attach file"
+ * because that's what the affordance does — the plus framing is future-proofing,
+ * not a rename.
  *
  * The accept string is hardcoded here (extensions + MIME types) rather than
  * imported from lib/extract/extract.ts, because that module is `server-only`
@@ -33,19 +43,17 @@ type AttachButtonProps = {
   /** Shown as the aria-label when disabled at the cap (e.g. "Up to 5 files per message"). */
   reasonWhenDisabled: string | null;
   onFilesSelected: (files: File[]) => void;
+  /** Opens the Google Drive picker (owned by MessageInput). */
+  onChooseDrive: () => void;
 };
 
 export function AttachButton({
   disabled,
   reasonWhenDisabled,
   onFilesSelected,
+  onChooseDrive,
 }: AttachButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  function handleClick() {
-    if (disabled) return;
-    inputRef.current?.click();
-  }
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -56,17 +64,27 @@ export function AttachButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={disabled}
-        aria-label={
-          disabled && reasonWhenDisabled ? reasonWhenDisabled : "Attach file"
-        }
-        className="inline-flex items-center justify-center rounded-md p-1.5 text-caption transition-colors duration-release ease-release motion-reduce:transition-none hover:text-foreground hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <PlusIcon className="size-4" strokeWidth={2} aria-hidden />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          disabled={disabled}
+          aria-label={
+            disabled && reasonWhenDisabled ? reasonWhenDisabled : "Attach file"
+          }
+          className="inline-flex items-center justify-center rounded-md p-1.5 text-caption transition-colors duration-release ease-release motion-reduce:transition-none hover:text-foreground hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <PlusIcon className="size-4" strokeWidth={2} aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={8} className="min-w-52">
+          <DropdownMenuItem onClick={() => inputRef.current?.click()}>
+            <MonitorIcon className="size-4" aria-hidden />
+            Upload from computer
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onChooseDrive}>
+            <GoogleDriveGlyph className="size-4 text-muted-foreground" />
+            Google Drive
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <input
         ref={inputRef}
         type="file"

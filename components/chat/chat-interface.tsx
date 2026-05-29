@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AgentHeader } from "./agent-header";
 import { ChatErrorMessage } from "./chat-error-message";
+import type { DrivePickedFile } from "./drive-picker";
 import { DropOverlay } from "./drop-overlay";
 import { MessageInput } from "./message-input";
 import { MessageList } from "./message-list";
@@ -564,6 +565,36 @@ export function ChatInterface({
   }
 
   /**
+   * Add files picked from the Google Drive picker as pending attachments. Unlike
+   * uploads there is no "attaching" phase: a Drive attachment is immediately
+   * ready (its content is fetched live server-side at run-time, not uploaded),
+   * so each lands as a ready gdrive_link chip carrying only the file id and the
+   * pick-time display metadata. The picker already caps its selection to the
+   * remaining slots; this re-checks the 5-per-message cap as a backstop.
+   */
+  function handleAttachDriveFiles(files: DrivePickedFile[]) {
+    if (files.length === 0) return;
+    const remainingSlots =
+      MAX_ATTACHMENTS_PER_MESSAGE - pendingAttachments.length;
+    const toAdd = files.slice(0, Math.max(0, remainingSlots));
+    if (toAdd.length === 0) {
+      toast.error("Up to 5 files per message.");
+      return;
+    }
+    const newPending: PendingAttachment[] = toAdd.map((file) => ({
+      localId: crypto.randomUUID(),
+      status: "ready",
+      source: "gdrive_link",
+      filename: file.name,
+      sizeBytes: 0,
+      contentType: file.mimeType,
+      fileId: file.fileId,
+      iconType: file.iconType,
+    }));
+    setPendingAttachments((prev) => [...prev, ...newPending]);
+  }
+
+  /**
    * Remove a pending attachment before send. The chip vanishes immediately;
    * if the file reached Storage (ready), the object is purged. Failed chips
    * have nothing in Storage; attaching chips have no remove affordance, so
@@ -929,6 +960,7 @@ export function ChatInterface({
             focusRef={textareaRef}
             pendingAttachments={pendingAttachments}
             onAttachFiles={handleAttachFiles}
+            onAttachDrive={handleAttachDriveFiles}
             onRemoveAttachment={handleRemoveAttachment}
             showPrivacyNote={privacyNoteShouldShow}
           />
