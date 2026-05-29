@@ -116,7 +116,18 @@ export const googleDriveAdapter: ProviderAdapter = {
       }),
     });
     if (!response.ok) {
-      // Body may carry the token; never log it. Only the status is recorded.
+      // Failure path only: on a non-2xx, Google's token endpoint returns ONLY
+      // error metadata ({"error":"...","error_description":"..."}) — never a
+      // token — so the body is safe to log for diagnosis. The redirect_uri is a
+      // public URL and is logged so a mismatch is visible. We do NOT log the
+      // client secret, the authorization code, or the code verifier, and the
+      // success branch below never logs its body (which WOULD carry tokens).
+      const errorBody = await response.text();
+      console.error("google token exchange failed", {
+        status: response.status,
+        redirectUri,
+        body: errorBody,
+      });
       throw new Error(`token exchange failed: ${response.status}`);
     }
     return toTokenBundle(await response.json());
