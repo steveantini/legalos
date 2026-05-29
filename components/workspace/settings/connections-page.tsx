@@ -38,7 +38,7 @@ export function ConnectionsPage() {
         </p>
       </header>
 
-      <div className="mt-14 flex flex-col gap-10">
+      <div className="mt-10 flex flex-col gap-8">
         {CAPABILITY_GROUPS.map((group) => (
           <section key={group.id} aria-labelledby={`connections-${group.id}`}>
             <h2
@@ -55,7 +55,7 @@ export function ConnectionsPage() {
                 spacing. Full-width hairlines live on these wrappers (matching
                 the settings landing); the padded row inside is the surface
                 that takes the rounded hover highlight. */}
-            <div className="mt-6">
+            <div className="mt-4">
               {group.providers.map((provider) => (
                 <div
                   key={provider.id}
@@ -116,7 +116,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
 
   return (
     <div
-      className={`flex items-center px-5 py-3 ${
+      className={`flex items-center px-5 py-2 ${
         available
           ? "rounded-lg transition-colors duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft motion-reduce:transition-none"
           : ""
@@ -155,7 +155,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
  */
 function OrgProviderRow({ provider }: { provider: Provider }) {
   return (
-    <div className="flex items-center rounded-lg bg-paper-2 px-5 py-3">
+    <div className="flex items-center rounded-lg bg-paper-2 px-5 py-2">
       {/* Faint dot: Ironclad's honest state is "available soon". When org CLM
           integration ships and it is really connected, this becomes "solid". */}
       <StateDot variant="faint" />
