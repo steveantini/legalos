@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
+import { resolveAttachmentText } from "@/lib/connections/attachment-content";
 import { ALLOWED_MIME_TYPES, extractText } from "@/lib/extract/extract";
 import {
   streamAnthropicChat,
@@ -474,18 +475,31 @@ export async function POST(request: Request) {
         return errorResponse("attachments_too_large", 413);
       }
 
-      // One <attachment> block per file. The filename is user-supplied and sits
-      // inside an XML-style attribute, so it's escaped. Empty extractions
-      // (scanned PDFs, missing objects) drop out.
-      messageAttachmentBlocks = (msgAttRows ?? [])
-        .filter(
-          (row) => row.extracted_text && row.extracted_text.trim().length > 0,
-        )
-        .map(
-          (row) =>
-            `<attachment filename="${escapeAttributeValue(row.original_filename)}">\n${row.extracted_text}\n</attachment>`,
-        )
-        .join("\n\n");
+      // One <attachment> block per file, through the shared resolver so the
+      // seam is uniform with the agent-attachment loader. Message attachments
+      // are always uploads today: message_attachments has no source_type column
+      // (migration 0007), so per-message Drive attachments need a migration
+      // (flagged in M6a, not added here). Empty extractions (scanned PDFs,
+      // missing objects) drop out. The filename is user-supplied inside an
+      // XML-style attribute, so it's escaped.
+      const messageBlocks: string[] = [];
+      for (const row of msgAttRows ?? []) {
+        const resolved = await resolveAttachmentText(
+          {
+            sourceType: "upload",
+            sourceMetadata: null,
+            originalFilename: row.original_filename,
+            cachedText: row.extracted_text,
+          },
+          user.id,
+        );
+        if (resolved.kind === "text") {
+          messageBlocks.push(
+            `<attachment filename="${escapeAttributeValue(row.original_filename)}">\n${resolved.text}\n</attachment>`,
+          );
+        }
+      }
+      messageAttachmentBlocks = messageBlocks.join("\n\n");
     }
 
     // Current user turn: attachment blocks (if any) prepended to the typed
@@ -499,30 +513,79 @@ export async function POST(request: Request) {
       content: wrapUserMessage(userTurnBody),
     });
 
-    // ---- Load active attachments (deterministic order for prefix caching)
+    // ---- Load active attachments (deterministic order for prefix caching).
+    // Include gdrive_link rows even with null extracted_text — their content is
+    // fetched live at run-time; upload rows still require extracted_text, as
+    // before. source_type/source_metadata drive the resolver branch.
     const { data: attRows, error: attErr } = await supabase
       .from("agent_attachments")
-      .select("original_filename, extracted_text")
+      .select("original_filename, extracted_text, source_type, source_metadata")
       .eq("agent_id", agent.id)
       .is("deleted_at", null)
-      .not("extracted_text", "is", null)
+      .or("extracted_text.not.is.null,source_type.eq.gdrive_link")
       .order("created_at", { ascending: true });
     if (attErr) {
       console.error("agent_attachments fetch failed", { code: attErr.code });
       return errorResponse("internal_error", 500);
     }
 
+    // Resolve each attachment to text through the shared seam. Uploads use the
+    // cached extracted_text (unchanged); gdrive_link rows resolve LIVE via the
+    // M5 gate + Drive content client. Local (upload) and live-Drive blocks are
+    // kept separate so the cache breakpoint sits AFTER the stable local prefix
+    // only — a live Drive file changes between turns, so its content must never
+    // be served from the prefix cache (D-067). The filename is user-supplied;
+    // local upload blocks keep their existing (unescaped) form for byte-for-byte
+    // regression-freedom, and the new Drive/unavailable blocks are escaped.
+    const localAttachmentBlocks: string[] = [];
+    const driveAttachmentBlocks: string[] = [];
+    for (const att of attRows ?? []) {
+      const row = att as {
+        original_filename: string;
+        extracted_text: string | null;
+        source_type: string | null;
+        source_metadata: unknown;
+      };
+      const isDrive = row.source_type === "gdrive_link";
+      const resolved = await resolveAttachmentText(
+        {
+          sourceType: row.source_type,
+          sourceMetadata: row.source_metadata,
+          originalFilename: row.original_filename,
+          cachedText: row.extracted_text,
+        },
+        user.id,
+      );
+      if (resolved.kind === "text") {
+        const block = isDrive
+          ? `<attachment filename="${escapeAttributeValue(row.original_filename)}">\n${resolved.text}\n</attachment>`
+          : `<attachment filename="${row.original_filename}">\n${resolved.text}\n</attachment>`;
+        (isDrive ? driveAttachmentBlocks : localAttachmentBlocks).push(block);
+      } else if (resolved.kind === "unavailable") {
+        driveAttachmentBlocks.push(
+          `<attachment filename="${escapeAttributeValue(row.original_filename)}" status="unavailable">\nThis linked Drive file could not be read (it may have been moved, deleted, or access was revoked).\n</attachment>`,
+        );
+      }
+      // kind 'omit' → no block (upload with empty/failed extraction; unchanged).
+    }
+
     const systemBlocks: AnthropicSystemBlock[] = [
       { type: "text", text: buildSystemPrompt(systemPromptSnapshot) },
-      ...(attRows ?? []).map((att) => ({
-        type: "text" as const,
-        text: `<attachment filename="${att.original_filename}">\n${att.extracted_text}\n</attachment>`,
-      })),
+      ...localAttachmentBlocks.map(
+        (text): AnthropicSystemBlock => ({ type: "text", text }),
+      ),
     ];
+    // Cache breakpoint on the last STABLE block (system prompt + local uploads).
+    // With no Drive rows this is identical to before (cache on the last block).
     systemBlocks[systemBlocks.length - 1] = {
       ...systemBlocks[systemBlocks.length - 1],
       cache_control: { type: "ephemeral" },
     };
+    // Live Drive content is appended AFTER the cache breakpoint, so it is never
+    // part of the cached prefix.
+    for (const text of driveAttachmentBlocks) {
+      systemBlocks.push({ type: "text", text });
+    }
 
     // ---- Tools whitelist (web_search v1)
     const enabledTools = Array.isArray(agentRow.tools_enabled)

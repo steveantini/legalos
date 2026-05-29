@@ -1993,3 +1993,34 @@ Governance means enforcement, not necessarily a UI. Completing enforcement befor
 - When the Admin arc builds the policy editor, it writes to the same connection_policy row this enforcement layer already reads; no enforcement rework needed, only the editing surface is added.
 - Grant logic is policy-derived, so a future ceiling change (via that editor) is respected without code change.
 - The enforcement helpers fail closed: if the policy row can't be read, no category/provider is allowed and nothing is grantable, so a read failure denies rather than permits.
+
+## D-067 — Drive attachments are read live at agent run-time, via a token-exercise layer and format-aware content client
+
+Date: 2026-05-29
+Status: Accepted
+
+**Context:**
+
+Connected Drive files must be usable by agents. The chosen behavior is live-read (the agent reads the current Drive file at run-time), not a snapshot at attach time, for correctness (especially legal documents that change). The attachment content path is uniform (produce extracted_text, wrap in an <attachment> block) with a clean per-row insertion point; the schema was already Drive-ready (source_type gdrive_link, source_metadata); the M5 capability gate and OAuth token storage existed but had no consumers; there is a live user session at agent run-time.
+
+**Decision:**
+
+Resolve gdrive_link attachments live at run-time. A shared resolveAttachmentText(row, userId) branches on source_type: uploads use the existing cached/re-extracted text unchanged; gdrive_link rows call canExerciseCapability, then a token-exercise layer (read connection_secrets via service-role admin client, decrypt, refresh-on-expiry with re-encryption persisted), then a content client that fetches binaries via alt=media and exports native Google formats (Docs→DOCX, Sheets→XLSX, Slides→PDF) before the existing extractor, respecting the existing size/char caps and MIME allowlist. Unresolvable Drive attachments are surfaced as unavailable without failing the turn. Live Drive content is excluded from the cached prompt prefix.
+
+**Reasoning:**
+
+Live-read is the correct, most-trustworthy behavior for documents that change; snapshot would silently serve stale content. The single resolveAttachmentText seam keeps block assembly uniform and leaves the upload path untouched (regression-free). Supporting native Google formats via export (not just binaries) makes the integration feel complete rather than partial, which the product explicitly chose. The service-role boundary for connection_secrets is preserved (token read only after authorization, only via admin client). Graceful per-attachment failure protects the turn. Excluding live content from the prefix cache trades a little per-turn cost for correctness (never stale).
+
+**Alternatives considered:**
+
+- **Rejected — snapshot-at-attach (copy content when attached).** Simpler, but serves stale content when the Drive file changes; wrong for documents that evolve.
+- **Rejected — binaries only (no native Google formats).** Simpler, but users couldn't attach their own Google Docs, which is much of real Drive content; the integration would feel half-there.
+- **Rejected — caching live Drive content in the prefix.** Would serve stale content between turns, defeating live-read.
+
+**Consequences:**
+
+- canExerciseCapability gains its first consumer; the OAuth token primitives (decrypt, refresh) gain their first callers.
+- A gdrive_link agent attachment costs slightly more per turn than a cached local upload (re-fetched, re-extracted, uncached) — the deliberate price of always-current content.
+- The picker UI (M6b) creates gdrive_link rows; this backend resolves them, so hand-inserting a row tests the backend before the picker exists.
+- Native-format support relies on Drive export; the drive.readonly scope already permits it.
+- Only agent_attachments is Drive-ready in schema; message_attachments lacks source_type/source_metadata (migration 0007), so per-message Drive attachments need a follow-up migration (and a send-payload change). M6a did NOT add one silently; the message loader resolves uploads through the same seam and is one migration away from live message-Drive.
