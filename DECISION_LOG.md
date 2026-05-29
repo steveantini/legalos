@@ -1930,3 +1930,35 @@ The connections-plus-grants split (vs. a single overloaded table) cleanly models
 - The on-delete-cascade user references are the SSO-deprovisioning mechanism: an IdP deprovisioning a user (deleting the auth.users row, via SCIM or manual removal in a later enterprise milestone) cascades to remove their connections and grants automatically.
 - Deviation noted: the task spec listed created_by_user_id and granted_by_user_id as not-null; they ship nullable with on-delete-set-null instead, matching `agents.created_by` and avoiding a deprovisioning footgun (a not-null audit FK would either block deleting a creator or, with cascade, delete shared org connections when their creator leaves). A separate `sso_identity_ref` column was also omitted: grantee_user_id IS the SSO-resolved identity and its cascade IS the deprovisioning mechanism.
 - The migration is applied by hand in the Supabase SQL Editor (the project's standard path); the dependent helpers fail safe to "not connected" so the home never breaks even before rows exist.
+
+## D-065 — OAuth flow architecture: provider-agnostic registry, single callback, encrypted token storage
+
+Date: 2026-05-29
+Status: Accepted
+
+**Context:**
+
+Connecting a tool (Google Drive first) requires a real OAuth 2.0 authorization-code flow that obtains and stores tokens for later API calls. The architecture must be provider-agnostic (Google now; Microsoft, Slack, Box later) per the connector-hub commitment, and must handle tokens securely.
+
+**Decision:**
+
+A provider registry maps each providerId to an adapter that supplies its OAuth endpoints, scopes, and token-exchange/refresh logic. A single provider-agnostic callback route (`/api/connections/callback`) handles all providers, distinguishing them via the OAuth state parameter, rather than a per-provider callback path. Tokens are stored encrypted (application-level AES-256-GCM in a dedicated `connection_secrets` table with RLS enabled-and-forced and no policies, so only the service-role key can access it); the connections table holds only a `token_ref`. The flow is CSRF-protected via a validated state parameter (signed with HMAC, cross-checked against a sealed httpOnly cookie nonce, and bound to the initiating user id), with PKCE (S256) applied even though this is a confidential client. Google Drive uses read-only scope (`drive.readonly`), matching the default read-only policy ceiling; write scopes are deferred to the write-capability-grant feature. `access_type=offline` + `prompt=consent` obtain a refresh token.
+
+**Reasoning:**
+
+The registry + single-callback design means adding a provider is adding an adapter, with zero flow or route changes — the provider-agnostic commitment realized concretely. A single callback (vs. per-provider paths) means one redirect URI to register per environment and one place to maintain the exchange logic. Encrypted token storage with only a reference in the connections table keeps raw credentials out of normal queries and the client, satisfying the security posture. Application-level AES (vs. Supabase Vault) keeps the encryption boundary fully in our control, requires no extension, and matches the project's hand-applied migration workflow; the key lives in a server-only env var (`CONNECTION_TOKEN_ENCRYPTION_KEY`), never in the database. Read-only-first matches the policy ceiling and is the lower-risk default; write is a deliberate later grant.
+
+**Alternatives considered:**
+
+- **Rejected — Supabase native OAuth sign-in / linkIdentity.** Designed for authentication (signing into the app), not for connecting a tool to call its API with specific scopes and stored refresh tokens; awkward fit for the connector use case.
+- **Rejected — per-provider callback routes.** More routes to register and maintain; the single state-routed callback is the cleaner provider-agnostic shape.
+- **Rejected — storing tokens in the connections table.** Security risk; tokens live encrypted, referenced not stored.
+- **Rejected — Supabase Vault for token storage.** Viable, but adds an extension dependency and security-definer wrapper functions for access; application-level AES in a service-role-only table is simpler to reason about, fully under our control, and fits the hand-applied migration workflow.
+
+**Consequences:**
+
+- Adding Calendar, Gmail, Slack, Microsoft, Box is adding an adapter to the registry; the flow, callback, storage, and UI wiring are reused.
+- The encryption mechanism (the `connection_secrets` table + AES-256-GCM) is the single place token security is enforced. Rotating `CONNECTION_TOKEN_ENCRYPTION_KEY` invalidates all stored tokens (users reconnect).
+- This is the project's first use of the Supabase service-role client (`lib/supabase/admin.ts`), introduced narrowly for the policy-less `connection_secrets` table; it is `"server-only"` and must not be used to skip RLS on user-scoped tables.
+- The redirect URI is resolved from `NEXT_PUBLIC_SITE_URL` (not `VERCEL_URL`), because the per-deploy `VERCEL_URL` host is not a registered redirect URI; preview deployments cannot complete a real OAuth round-trip unless their host is also registered — the intended trade-off for one stable redirect URI per environment.
+- In Testing-status External apps Google expires refresh tokens after 7 days, but this project uses an Internal consent screen (the Workspace Cloud org was provisioned), so refresh tokens do not have that expiry — connections persist normally.

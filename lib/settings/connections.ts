@@ -68,10 +68,17 @@ export type ConnectionPolicy = {
 
 /** A provider the user has a connection to, with their granted capabilities. */
 export type ProviderConnectionState = {
+  /**
+   * The connection row id. The Connections page needs it to target a
+   * disconnect; the OAuth callback (a later milestone) is what creates the row.
+   */
+  connectionId: string;
   providerId: string;
   capabilityCategory: string;
   status: ConnectionStatus;
   capabilities: Capability[];
+  /** The connected account's display label (e.g. the email), or null. */
+  accountLabel: string | null;
 };
 
 // Shape of the grant-plus-connection embed returned by the queries below. The
@@ -81,9 +88,11 @@ export type ProviderConnectionState = {
 type GrantWithConnection = {
   capabilities: string[] | null;
   connections: {
+    id: string;
     provider_id: string;
     capability_category: string;
     status: ConnectionStatus;
+    provider_account_label: string | null;
   };
 };
 
@@ -127,7 +136,7 @@ export async function getConnectionStates(
   const { data, error } = await supabase
     .from("connection_grants")
     .select(
-      "capabilities, connections!inner(provider_id, capability_category, status)",
+      "capabilities, connections!inner(id, provider_id, capability_category, status, provider_account_label)",
     )
     .eq("grantee_user_id", userId);
 
@@ -137,9 +146,11 @@ export async function getConnectionStates(
   // but a single FK (connection_grants.connection_id) returns one object at
   // runtime, so assert through unknown to the true shape.
   return (data as unknown as GrantWithConnection[]).map((row) => ({
+    connectionId: row.connections.id,
     providerId: row.connections.provider_id,
     capabilityCategory: row.connections.capability_category,
     status: row.connections.status,
     capabilities: (row.capabilities ?? []) as Capability[],
+    accountLabel: row.connections.provider_account_label,
   }));
 }
