@@ -2,12 +2,18 @@
  * Calendar connection gate and today's-events source for the workspace home
  * "Today" card.
  *
- * Both functions carry their final production signatures so the call sites are
- * stable; only the bodies change when calendar OAuth ships under the Share and
- * connector hub arc (roadmap item 2). Until then no provider can be connected,
- * so the gate stays closed and there is nothing to fetch — the Today card
- * shows its "Connect your calendar" placeholder for every user.
+ * `isCalendarConnected` now reads real connection state from the database (the
+ * connection data model, migration 0044) via `hasActiveConnectionInCategory`.
+ * It returns false today only because no connections exist yet (OAuth ships in
+ * a later milestone), but it is reading live state, not a hardcoded false. The
+ * Today card still shows its "Connect your calendar" placeholder for every user
+ * until a real calendar connection is created.
+ *
+ * Server-only (it transitively imports the Supabase server client); imported
+ * only by server components.
  */
+
+import { hasActiveConnectionInCategory } from "@/lib/settings/connections";
 
 /**
  * One calendar event, normalized to a provider-agnostic shape the schedule
@@ -33,16 +39,12 @@ export type NormalizedEvent = {
 };
 
 /**
- * Whether `userId` has a connected calendar provider.
- *
- * Returns false until calendar OAuth ships under the Share and connector hub
- * arc (roadmap item 2). When that lands, this queries the integrations table
- * for a calendar-provider row owned by the user. The signature is the final
- * production signature; only the body changes.
+ * Whether `userId` has an active connection in the calendar capability
+ * category that they can use. Reads real connection state (returns false today
+ * because no connections exist yet).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- `userId` is the final signature; unused only while the body is the closed-gate stub.
 export async function isCalendarConnected(userId: string): Promise<boolean> {
-  return false;
+  return hasActiveConnectionInCategory(userId, "calendar");
 }
 
 /**

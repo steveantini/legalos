@@ -2,13 +2,20 @@
  * Matters connection gate, typed shapes, and data sources for the workspace
  * home "Matters" section.
  *
- * Every function carries its final production signature so the call sites are
- * stable; only the bodies change when CLM / matter-management integration
- * ships under the Share and connector hub arc (roadmap item 2). Until then no
- * provider can be connected, so the gate stays closed and there is nothing to
- * fetch — the Matters section shows its "Connect your matter management"
- * placeholder for every user.
+ * `isMattersConnected` now reads real connection state from the database (the
+ * connection data model, migration 0044) via `hasActiveConnectionInCategory`.
+ * It returns false today only because no connections exist yet; it is reading
+ * live state. `getMatters` / `getMattersSummary` stay stubs: they will fetch
+ * from the connected CLM's API once a connection exists and the provider
+ * adapter is built (a later milestone).
+ *
+ * Server-only (it transitively imports the Supabase server client). Client
+ * components must import only the *types* from this module (type imports are
+ * erased), never its runtime values, which is why the matter stage order lives
+ * in the client component that renders it rather than being exported here.
  */
+
+import { hasActiveConnectionInCategory } from "@/lib/settings/connections";
 
 /**
  * The lifecycle stages a matter/deal moves through, in order. The connected
@@ -23,15 +30,6 @@ export type MatterStage =
   | "negotiation"
   | "sign-off"
   | "closed";
-
-/** Canonical stage order, oldest to newest, for the progress indicator. */
-export const MATTER_STAGES: MatterStage[] = [
-  "draft",
-  "review",
-  "negotiation",
-  "sign-off",
-  "closed",
-];
 
 /** Mine / Team / All scope for the connected view's segmented toggle. */
 export type MattersScope = "mine" | "team" | "all";
@@ -84,16 +82,12 @@ export type ScopedMatters = {
 };
 
 /**
- * Whether `userId` has a connected CLM / matter-management provider.
- *
- * Returns false until that integration ships under the Share and connector hub
- * arc (roadmap item 2). When it lands, this queries the integrations table for
- * a matter-management provider row owned by the user. The signature is the
- * final production signature; only the body changes.
+ * Whether `userId` has an active connection in the matter-management capability
+ * category that they can use. Reads real connection state (returns false today
+ * because no connections exist yet).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- `userId` is the final signature; unused only while the body is the closed-gate stub.
 export async function isMattersConnected(userId: string): Promise<boolean> {
-  return false;
+  return hasActiveConnectionInCategory(userId, "matter-management");
 }
 
 /**

@@ -3,13 +3,26 @@
 import { useState } from "react";
 
 import {
-  MATTER_STAGES,
   type Matter,
   type MatterStage,
   type MattersScope,
   type MattersSummary,
   type ScopedMatters,
 } from "@/lib/workspace/home/matters-connection";
+
+/**
+ * Canonical matter stage order, oldest to newest, for the progress indicator.
+ * Lives here (the only consumer) rather than in matters-connection.ts: that
+ * module is now server-only, and this client component can import only its
+ * erased types, not a runtime value.
+ */
+const MATTER_STAGES: MatterStage[] = [
+  "draft",
+  "review",
+  "negotiation",
+  "sign-off",
+  "closed",
+];
 
 /** Matter rows beyond this count collapse behind the "View all" footer link. */
 const VISIBLE_LIMIT = 5;

@@ -1899,3 +1899,34 @@ Lawyers don't think about their tools by vendor; they think by capability ("I ne
 - The Connect affordances are inert visual elements in this commit (non-interactive spans), so no broken navigation ships; they become real interactive controls when the OAuth flow lands.
 - Amendment (follow-up polish commit): the connection-management visual language is now flat editorial rows with a rounded highlight on hover (consistent with the settings landing), not framed boxes. The permanent rounded-xl bg-card group frames were removed; capability groups are delineated by typography and spacing. The org row's permanent subtle tint is retained as a meaningful ownership signal and is the one principled exception to flat-at-rest (the tint encodes admin-ownership, not decoration). Also in the same commit: "Microsoft OneDrive" display name shortened to "OneDrive" to match real usage, a Messaging capability group (Slack, Microsoft Teams) was added, and the org-example status was made honest ("available soon", since no matter-management integration is built yet).
 - Amendment (spatial polish commit): the settings pages (landing and Connections) are left-justified to match the department pages' left-aligned spatial language (content anchored at the body's left margin, capped at a single-column max-width, not centered). Connection provider rows gained a grounding state-dot in a fixed-width left column, a new connection-management visual primitive: hollow slate ring = available/not-connected, solid slate = connected (built, activates with real connections), faint filled = coming-soon. The dot encodes state visually (provider-agnostic, aria-hidden, with the text status line as the accessible source of truth) and is consistent with the Matters activity-dot and the rail brand-dot.
+
+## D-064 — Connection data model: connections + grants + policy, extensible capabilities
+
+Date: 2026-05-28
+Status: Accepted
+
+**Context:**
+
+The connector hub arc requires a data model for connections that supports both personal and org-level scope, separate read/write (and future) capabilities, super-admin governance, and an SSO-deprovisioning foundation. The model must scale to the later automation vision (matters auto-routing from a CLM, agents triggering on inbound events) without a teardown.
+
+**Decision:**
+
+Three tables. `connections` holds the provider link (provider id, capability category, scope personal/org, owner, token reference, status); it never holds raw OAuth tokens (a `token_ref` points to an encrypted secrets store wired in a later milestone). `connection_grants` holds who can use a connection and with what capabilities, as an extensible-but-validated text array (allowed set read/write now, extended later by altering a CHECK constraint, not migrating data). `connection_policy` is a super-admin-governed singleton holding allowed categories, allowed providers, and the default capability ceiling (seeded read-only). RLS enforces: users see and manage only their own personal connections; org connections are visible to granted users; only super admins create or modify org connections and policy. Deprovisioning cascades via on-delete-cascade on the user references (deleting a user removes their connections and grants), which is the SSO-deprovisioning foundation. The two audit columns (created_by, granted_by) use on-delete-set-null and are nullable, matching the existing `agents.created_by` pattern, so deprovisioning a creator does not block deletion or destroy shared org connections.
+
+**Reasoning:**
+
+The connections-plus-grants split (vs. a single overloaded table) cleanly models the org-level case (one connection, many users granted at varying capabilities) and is the shape the future routing layer wants (a routing rule references connection + user + capability). The capabilities array (vs. a read/write/read_write enum) was chosen deliberately because the automation futures introduce real capabilities beyond read/write (trigger, route, notify); the array absorbs these as new validated values without a column migration. Building the policy table now (UI in a later milestone) keeps the data model complete in one commit and gives the helpers a real policy to read. Tokens never live in the connections table for security; the `token_ref` seam is ready for the encrypted store wired with OAuth. RLS reuses the project's existing helpers and style (`current_user_role()`, security-definer cross-table helpers like `has_department_access`), so the security model stays consistent and reviewable; cross-table checks (owns_connection, has_connection_grant) are security-definer to avoid policy recursion between connections and connection_grants.
+
+**Alternatives considered:**
+
+- **Rejected — single connections table with a scope column and no grants table.** Breaks down on the org case (one connection, many users at different capabilities cannot be a single row); would require overloading or row duplication.
+- **Rejected — capabilities as a read/write/read_write enum.** Tighter now but forces a migration each time the automation layer introduces a new capability; the later vision makes those capabilities a near-certainty, so the array avoids a known-coming teardown.
+- **Rejected — storing OAuth tokens directly in the connections table.** Security risk; tokens must live in an encrypted store with stricter access, referenced (not stored) by the connections table.
+
+**Consequences:**
+
+- The data model is complete and scalable in one commit; OAuth (a later milestone) populates connections and grants, flipping the dormant UI and gates to real state with no schema change.
+- The capabilities CHECK constraint is the single place to extend when automation capabilities arrive (alter the allowed set; no data migration).
+- The on-delete-cascade user references are the SSO-deprovisioning mechanism: an IdP deprovisioning a user (deleting the auth.users row, via SCIM or manual removal in a later enterprise milestone) cascades to remove their connections and grants automatically.
+- Deviation noted: the task spec listed created_by_user_id and granted_by_user_id as not-null; they ship nullable with on-delete-set-null instead, matching `agents.created_by` and avoiding a deprovisioning footgun (a not-null audit FK would either block deleting a creator or, with cascade, delete shared org connections when their creator leaves). A separate `sso_identity_ref` column was also omitted: grantee_user_id IS the SSO-resolved identity and its cascade IS the deprovisioning mechanism.
+- The migration is applied by hand in the Supabase SQL Editor (the project's standard path); the dependent helpers fail safe to "not connected" so the home never breaks even before rows exist.
