@@ -15,6 +15,7 @@ import {
   sealOAuthCookie,
   signState,
 } from "@/lib/connections/crypto";
+import { isConnectionAllowed } from "@/lib/connections/policy";
 import { getAdapter } from "@/lib/connections/providers/registry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -61,20 +62,10 @@ export async function GET(request: Request) {
     return backToConnections("unsupported_provider");
   }
 
-  // ---- Policy gate. Any authenticated user may read the singleton policy
-  //      (RLS connection_policy_read_authenticated). A provider or category the
-  //      org has not allowed is rejected before the flow starts.
-  const { data: policy } = await supabase
-    .from("connection_policy")
-    .select("allowed_categories, allowed_providers")
-    .eq("id", 1)
-    .maybeSingle();
-  const allowedCategories = (policy?.allowed_categories ?? []) as string[];
-  const allowedProviders = (policy?.allowed_providers ?? []) as string[];
-  if (
-    !allowedCategories.includes(adapter.capabilityCategory) ||
-    !allowedProviders.includes(adapter.providerId)
-  ) {
+  // ---- Policy gate, through the shared enforcement helper (one source of
+  //      truth; the callback re-checks the same way). A provider or category the
+  //      org policy does not allow is rejected before OAuth starts.
+  if (!(await isConnectionAllowed(adapter.providerId, adapter.capabilityCategory))) {
     return backToConnections("not_allowed");
   }
 

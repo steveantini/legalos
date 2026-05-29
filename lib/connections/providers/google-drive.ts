@@ -29,8 +29,13 @@ const SCOPES = [
   "openid",
   "email",
   "profile",
-  // Read-only Drive access. Write (drive.file / drive) is deferred to the
-  // write-capability-grant feature and must not be requested for a read connection.
+  // The OAuth scope must follow the capability the policy grants. This read
+  // connection grants the 'read' capability (constrained to the policy ceiling
+  // in the callback), so it requests the read-only Drive scope. When the ceiling
+  // permits 'write' (the write-capability-grant feature), the adapter must also
+  // request a write scope (drive.file or drive) for connections that grant
+  // write — scope and granted capability stay aligned. Do NOT request write
+  // scope for a read connection.
   "https://www.googleapis.com/auth/drive.readonly",
 ];
 

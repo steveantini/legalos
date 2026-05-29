@@ -16,8 +16,13 @@ import {
   openOAuthCookie,
   verifyState,
 } from "@/lib/connections/crypto";
+import {
+  constrainCapabilitiesToCeiling,
+  isConnectionAllowed,
+} from "@/lib/connections/policy";
 import { getAdapter } from "@/lib/connections/providers/registry";
 import type { TokenBundle } from "@/lib/connections/providers/types";
+import type { Capability } from "@/lib/settings/connections";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -97,6 +102,29 @@ export async function GET(request: Request) {
   const adapter = getAdapter(state.p);
   if (!adapter) return finish({ error: "unsupported_provider" });
 
+  // ---- Policy re-check (defense in depth). The initiate route already gated
+  //      this, but re-verifying here means a stale or replayed callback can
+  //      never create a connection the policy forbids — both ends enforce the
+  //      same shared rule.
+  if (!(await isConnectionAllowed(adapter.providerId, adapter.capabilityCategory))) {
+    return finish({ error: "not_allowed" });
+  }
+
+  // ---- Capabilities to grant, DERIVED from policy rather than hardcoded. This
+  //      read connection requests ['read'] (write is deferred to the
+  //      write-capability-grant feature); constraining to the ceiling means the
+  //      grant can never exceed policy, and a future ceiling change is respected
+  //      without touching this code. If the ceiling grants nothing, the
+  //      connection would be useless and is effectively forbidden — reject
+  //      before exchanging the code, so no rows or tokens are created.
+  const requestedCapabilities: Capability[] = ["read"];
+  const grantCapabilities = await constrainCapabilitiesToCeiling(
+    requestedCapabilities,
+  );
+  if (grantCapabilities.length === 0) {
+    return finish({ error: "not_allowed" });
+  }
+
   // ---- Exchange the authorization code for tokens.
   let bundle: TokenBundle;
   try {
@@ -160,12 +188,13 @@ export async function GET(request: Request) {
     return finish({ error: "store" });
   }
 
-  // ---- Create the read-capability grant (owner self-grant). Read-only matches
-  //      drive.readonly and the policy ceiling.
+  // ---- Create the owner self-grant with the policy-derived capabilities
+  //      computed above (read-only today, matching drive.readonly and the
+  //      ceiling — but sourced from policy, not hardcoded).
   const { error: grantError } = await supabase.from("connection_grants").insert({
     connection_id: connection.id,
     grantee_user_id: user.id,
-    capabilities: ["read"],
+    capabilities: grantCapabilities,
     granted_by_user_id: user.id,
   });
 

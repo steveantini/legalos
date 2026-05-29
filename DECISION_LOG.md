@@ -1962,3 +1962,34 @@ The registry + single-callback design means adding a provider is adding an adapt
 - This is the project's first use of the Supabase service-role client (`lib/supabase/admin.ts`), introduced narrowly for the policy-less `connection_secrets` table; it is `"server-only"` and must not be used to skip RLS on user-scoped tables.
 - The redirect URI is resolved from `NEXT_PUBLIC_SITE_URL` (not `VERCEL_URL`), because the per-deploy `VERCEL_URL` host is not a registered redirect URI; preview deployments cannot complete a real OAuth round-trip unless their host is also registered — the intended trade-off for one stable redirect URI per environment.
 - In Testing-status External apps Google expires refresh tokens after 7 days, but this project uses an Internal consent screen (the Workspace Cloud org was provisioned), so refresh tokens do not have that expiry — connections persist normally.
+
+## D-066 — Connection policy enforced in a shared layer; admin editing UI deferred to the Admin arc
+
+Date: 2026-05-29
+Status: Accepted
+
+**Context:**
+
+The connector hub's architectural principle is that a capability must be governed before it is exercised. The connection_policy table (allowed categories/providers, capability ceiling) existed from M3, with enforcement partially present in the initiate route. M6 will let agents exercise connection capabilities (reading Drive files), so policy enforcement had to be complete and consistent before that. Separately, the admin information architecture is unresolved and is being deliberately deferred to a dedicated Admin arc.
+
+**Decision:**
+
+Consolidate policy enforcement into a single shared server-side module (lib/connections/policy.ts) used by every connection operation: the initiate route gates on allowed category/provider, the callback constrains granted capabilities to the policy ceiling (policy-derived, not hardcoded), and a canExerciseCapability gate is provided for capability-exercise paths (M6) to check live policy plus grant. Do NOT build an admin UI to edit the policy in this arc. The policy remains at its seeded defaults (all current categories/providers allowed, read-only ceiling) and is changed directly in the database if needed, until the future Admin arc designs the admin surface and IA properly.
+
+**Reasoning:**
+
+Governance means enforcement, not necessarily a UI. Completing enforcement before M6 satisfies the govern-before-exercise principle without prematurely inventing admin structure that the Admin arc will redesign. The current admin section is an acknowledged placeholder; building a policy editor onto it now would create IA that gets torn up later. A single shared enforcement module prevents drift (every path enforces identically) and gives M6 and future providers one contract to call. Live policy checks (not just grant-time) mean tightening policy later constrains existing grants, which is the correct security posture. Application-layer enforcement plus M3's RLS is defense in depth.
+
+**Alternatives considered:**
+
+- **Rejected — build a minimal admin policy-editing page now.** Would invent admin IA while the admin structure is explicitly undecided; the editor belongs in the Admin arc where the surface is designed fresh.
+- **Rejected — defer enforcement to M6.** Would exercise capabilities before governance is complete (the govern-before-exercise anti-pattern); enforcement must precede exercise.
+- **Rejected — enforce only via RLS.** RLS is a backstop but doesn't express category/provider/ceiling policy cleanly; application-layer policy enforcement is the right primary layer, RLS the defense-in-depth backstop.
+
+**Consequences:**
+
+- M6 calls canExerciseCapability and inherits complete, consistent governance.
+- Changing the policy before the Admin arc means editing the connection_policy row directly; acceptable for the current single-operator reality, and the seeded defaults are sensible.
+- When the Admin arc builds the policy editor, it writes to the same connection_policy row this enforcement layer already reads; no enforcement rework needed, only the editing surface is added.
+- Grant logic is policy-derived, so a future ceiling change (via that editor) is respected without code change.
+- The enforcement helpers fail closed: if the policy row can't be read, no category/provider is allowed and nothing is grantable, so a read failure denies rather than permits.
