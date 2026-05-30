@@ -300,6 +300,30 @@ Patterns established:
 
 Two decision-log entries were adopted during the arc: D-052 (Return-to-send keyboard contract, reversing the Session 17b ⌘+Return decision) and D-053 (concentric-circles brand-scarcity principle). Full commit-by-commit detail is in CHANGELOG.md.
 
+## Arc: Share & connector hub (CLOSED)
+
+The connector hub is SHIPPED. This arc built the workspace-level connections foundation and the first provider end to end (Google Drive), then wired live Drive reads into agents and a Drive file picker into the chat composer. Decisions D-062 through D-072 were adopted across the arc.
+
+What shipped:
+
+- **Settings as a peer mode** to workspace and admin (D-062). A capability-grouped Connections page (D-063) with a provider-agnostic visual taxonomy.
+- **Connection data model** (D-064): `connections` + `connection_grants` + `connection_policy` tables, with RLS, extensible across capabilities. Migration 0044. Migration 0045 added `connection_secrets`. Migration 0046 made `message_attachments` Drive-ready (schema + send plumbing) to match agent attachments (D-068).
+- **Google Drive OAuth** end to end (D-065): a provider-agnostic provider registry plus a Drive adapter, a single provider-agnostic callback at `/api/connections/callback`, and encrypted tokens in `connection_secrets` via app-level AES-256-GCM. A token-exercise layer refreshes on expiry.
+- **Connection policy enforcement** in a shared layer (D-066): `canExerciseCapability`, govern-before-exercise. The admin editing UI to edit allowed categories / providers and the capability ceiling is DEFERRED to the Admin polish arc; until it ships, the single `connection_policy` row is edited directly in the database.
+- **Live Drive reads in agents** (D-067): `resolveAttachmentText` reads the file at the current version at agent run-time, with native-format export (Docs to DOCX, Sheets to XLSX, Slides to PDF) via a format-aware content client.
+- **The Drive file picker in the chat composer** (D-069 listing/search layer, D-070 picker): search plus folder browse, opening to recents, with skeleton-on-open loading and a skeleton-to-content cross-fade.
+- **Routing cleanup** (D-071): retired the legacy `/workspace/integrations` route in favor of `/workspace/settings/connections` as the canonical connections home, with a redirect for old links.
+
+CRITICAL fact for any future session: the M4b OAuth `invalid_client` failure was RESOLVED. The cause was a stale / mismatched client secret; the fix was generating a fresh client secret in Google Cloud for the same OAuth client and setting it in Vercel. Drive connects and reads live successfully in production. Any older reference to `invalid_client` is HISTORICAL, not current.
+
+Google Cloud setup: a Workspace Cloud org was provisioned. The OAuth consent screen is Internal (no verification friction, no 7-day refresh-token expiry). Scope is `drive.readonly`. Env vars `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `CONNECTION_TOKEN_ENCRYPTION_KEY`, and `NEXT_PUBLIC_SITE_URL` are set in Vercel and in `.env.local`.
+
+Migration workflow reminder: migrations are applied BY HAND in the Supabase SQL Editor (the repo is intentionally unlinked; never `supabase db push`). Migrations 0044, 0045, and 0046 are all applied and verified live.
+
+Strict A held the entire arc: no admin pages were modified. The Admin polish arc is the deferred next follow-up (roadmap item 1).
+
+Deferred connector follow-ups (tracked on the roadmap, not lost): the agent-form Drive picker (reuses the composer picker; depends on the agent edit page rendering `gdrive_link` attachments gracefully first); the admin connection-policy editing UI (Admin polish arc); Calendar and Gmail connectors (each a new provider adapter reusing the OAuth flow, single callback, token-exercise layer, and listing layer; the home's dormant Today and Matters views light up when these land; the Calendar / Gmail / Slack Connect CTAs on the Connections page are currently inert); and Drive picker refinements (pagination and scoped-in-folder search).
+
 ## Arc: Workspace home revamp and Matters (CLOSED)
 
 A 29-commit arc (60b9e3a through f47942e) reshaping the workspace home from a launcher into a value-mirror of the user's actual work, with honest empty states. The home now answers a single identity question: it reflects what the product is for (agents, matters, impact, your day), not peripheral plumbing or rail-duplicating navigation (D-056).
@@ -337,6 +361,9 @@ For the fresh chat to know where things live:
 - `app/workspace/page.tsx` — the workspace home composition (greeting, Today and Impact row, Matters, Desk)
 - `components/workspace/home/` — home section components: home-greeting, calendar-connect-card + today-schedule (the Today card and its dormant schedule view), impact-band + impact-band-client + impact-cell + timeframe-toggle, matters-section + matters-connected (the Matters placeholder and its dormant rich view), reading-section; retained unmounted: integrations-row, integration-card, continue-working-section, sparkline
 - `lib/workspace/home/` — home data and gates: impact-math (usage_events queries), calendar-connection (isCalendarConnected, getTodaysEvents, NormalizedEvent), matters-connection (isMattersConnected, getMatters, getMattersSummary, Matter, MattersSummary)
+- `/workspace/settings/connections` — the Connections page (Settings peer mode, capability-grouped); `/api/connections/callback` — the single provider-agnostic OAuth callback (both are confirmed routes; the legacy `/workspace/integrations` route was retired, D-071)
+- The connector layer (the connections lib domain): provider registry + Google Drive adapter, the token-exercise layer (refresh-on-expiry), encrypted-secret storage (AES-256-GCM into connection_secrets), the policy enforcement layer (canExerciseCapability, govern-before-exercise), the Drive listing/search layer, and the live-read content client (resolveAttachmentText, native-format export Docs to DOCX / Sheets to XLSX / Slides to PDF)
+- The Drive file picker in the chat composer (`components/chat/`): search + folder browse, skeleton-on-open loading with cross-fade
 - `lib/auth/access.ts` — the project's primary cache-wrapped access layer
 - `lib/agents/source.ts` — `parseSourceOrigin`, `getSourceDisplayLabel` for C4L attribution
 - `lib/preferences/keys.ts` — user-preferences key registry; `deptCollapsedSectionsKey`, `CollapsedSectionsValue`
@@ -351,9 +378,12 @@ For the fresh chat to know where things live:
 
 ## Migration history summary
 
-Current HEAD on main: 0042. All 42 migrations applied to the live Supabase database (0042 applied by the operator via the dashboard SQL editor during the Workspace arc's Stage 2b, the project's standard migration-application path). Seed file maintained in sync via per-migration updates (most recently in commit 94ddcc0 for polish #7).
+Current HEAD on main: 0046. All migrations applied to the live Supabase database via the dashboard SQL editor (the project's standard migration-application path; the repo is intentionally unlinked, so never `supabase db push`). 0044/0045/0046 (the connector arc) are all applied and verified live. Seed file maintained in sync via per-migration updates (most recently in commit 94ddcc0 for polish #7).
 
 Recent migrations of note:
+- 0044 — connections + connection_grants + connection_policy tables (connector arc data model)
+- 0045 — connection_secrets table (encrypted OAuth tokens)
+- 0046 — message_attachments made Drive-ready (schema + send plumbing)
 - 0025 — user_preferences table
 - 0028 — M&A renamed to Corporate (slug + name)
 - 0029 — Corporate description scope expansion
@@ -372,13 +402,15 @@ See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. 
 
 ## How a fresh chat opens
 
-Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). Word export arc complete (three commits closed: cf8df0e, 1a284af, 5c5c811; D-054 adopted). Chat attachments arc complete (five commits closed: 7928cae, 08b3690, 66499de, 4015093, d3e42ee; D-055 adopted). Workspace home revamp and Matters arc complete (29 commits closed: 60b9e3a through f47942e; D-056 through D-061 adopted). The product is in a stable state with no active arc in progress.
+Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). Word export arc complete (three commits closed: cf8df0e, 1a284af, 5c5c811; D-054 adopted). Chat attachments arc complete (five commits closed: 7928cae, 08b3690, 66499de, 4015093, d3e42ee; D-055 adopted). Workspace home revamp and Matters arc complete (29 commits closed: 60b9e3a through f47942e; D-056 through D-061 adopted). Share & connector hub arc complete (Settings peer mode, Connections page, connections / connection_grants / connection_policy data model, Google Drive OAuth end to end, live Drive reads in agents, the Drive file picker in the composer; migrations 0044/0045/0046 applied and verified live; D-062 through D-072 adopted). The product is in a stable state with no active arc in progress.
 
 A fresh chat session at this point opens to a project waiting for the operator's next direction. The chat should:
 
-1. Acknowledge the handoff is loaded and that the polish phase and all subsequent arcs (workspace home and rail restructure, chat page redesign, Word export, chat attachments, workspace home revamp and Matters) are closed.
+1. Acknowledge the handoff is loaded and that the polish phase and all subsequent arcs (workspace home and rail restructure, chat page redesign, Word export, chat attachments, workspace home revamp and Matters, Share & connector hub) are closed.
 2. Confirm the operator's intent: pick up the top item from docs/ROADMAP.md, kick off a new direction not on the roadmap yet, or pull a backlog item up.
-3. Default to the operator's lead. The roadmap is ordered; item 1 (Share & connector hub) is the current top priority following the workspace home and Matters arc closure, and it is what flips the home's dormant Today and Matters gates live, but the operator may pivot for any reason.
+3. Default to the operator's lead. The roadmap is ordered; item 1 (Admin polish arc) is the current top priority following the connector hub closure. It is the deliberately deferred, architecture-first pass on Admin: design the admin information architecture fresh, bring the placeholder admin pages to the polish standard, build the admin connection-policy editing UI (deferred from the connector arc per D-066), and adopt the settings primitives. The operator may pivot for any reason.
+
+Important standing fact for any future session: the connector arc's `invalid_client` OAuth failure was RESOLVED (stale client secret, fixed with a fresh secret in Google Cloud and Vercel). Drive connects and reads live in production. Any older `invalid_client` reference is HISTORICAL.
 
 The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 4) stay deferred unless a trigger fires.
 

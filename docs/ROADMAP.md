@@ -8,30 +8,32 @@ Items shipped from this roadmap get removed; items added get inserted at the app
 
 ---
 
-## 1. Share & connector hub for per-message export and send-to destinations
+## 1. Admin polish arc (admin information architecture, designed fresh)
 
-Per-message Word (.docx) export ships today via the kebab destination hub on the chat message action row (D-054). The hub is designed to absorb additional destinations as items, using the "Export to" / "Send to" verb convention:
+The connector hub arc shipped (Settings as a peer mode, the capability-grouped Connections page, the connections/grants/policy data model with RLS, Google Drive OAuth end to end, policy enforcement, live Drive reads in agents, and the Drive file picker with search and folder browsing; D-062 through D-072). The deferred Admin work is now the next major arc, and it is deliberately architecture-first.
 
-- Export to: Word (shipped), Google Docs, Excel, PDF.
-- Send to: Slack, Gmail, Outlook, Apple Mail, Messages / SMS, Box.
+The admin information architecture is undecided and gets designed fresh: all admin functions, roles, and surfaces thought through up front before more admin-dependent features accrete on top. The existing admin pages (Productivity Calculator, Adoption Metrics, User Access) are placeholder-quality and get brought up to the polish standard in this arc.
 
-Most destinations depend on the Connections infrastructure landing, which this item now owns: workspace-level OAuth connections to Google, Slack, Gmail/Outlook, Box, and similar; the kebab menu reads connected services and renders matching items. Phase 1 destinations that don't require a connection (PDF rendered locally, mailto: links for native email) can ship ahead of the Connections work.
+The admin connection-policy editing UI lives here (deferred from the connector arc per D-066): policy enforcement shipped, but the super-admin UI to edit the policy (allowed categories, allowed providers, the capability ceiling) is built in this arc, where the admin IA is designed fresh. Until then the `connection_policy` row is edited directly in the database.
 
-Connected-drive uploads for chat attachments also live here. Phase 1 of the chat-attachments arc shipped local-desktop uploads to the chat composer (a "+" affordance, drag-and-drop, attachment chips, and an inline privacy disclosure); Phase 2, connected-drive attachments, now has Google Drive shipped end to end (connect Drive in settings, then the composer's plus-button source menu opens a search-and-browse picker that attaches files read live at run-time, D-065 through D-070). Box and Dropbox reuse the same picker and listing layer by adding a provider adapter. Connector-hub cleanup (M7) and a docs refresh (M8) close out the Drive sub-arc.
-
-Full-conversation export (multi-message stitched into one document) is the natural second feature of this arc, likely as a kebab item at the conversation level (chat header) rather than per-message. Per D-054 it stays deferred until the hub ships its second destination.
-
-This item also flips the workspace home's dormant connected-state gates live. The Today card (calendar) and the Matters section (CLM / matter management) ship their full connected views behind connection checks that return false today (the Reading-1 pattern, D-057, via the typed connection helpers in D-058); the OAuth and integration work here is what sets `isCalendarConnected` and `isMattersConnected` true, at which point those views render real data with no further UI work. The integration connection-STATUS concept may also return to the home at that point as a compact strip ("N of M tools connected, X needs reauth"), distinct from the Slack/Mail/Drive launcher removed from the home in the workspace home arc (D-061); low priority, and dependent on real connections existing first.
-
-## 2. Admin section full revamp
-
-Three sub-areas surface here, each substantial enough to be its own multi-stage effort:
+Three sub-areas surface within this arc, each substantial enough to be its own multi-stage effort:
 
 - Admin analytics: comprehensive admin dashboards, metrics, reporting (relates to roadmap item 17; analytics promotion to Supabase is a prerequisite).
 - Evaluations / testing: some form of agent evaluation, A-B testing, or quality measurement surface for admins to assess agent performance.
 - Scalable department configuration: admin tooling to manage departments at scale (faster than the per-row admin UI, possibly bulk operations, possibly a different data model for department configuration).
 
-Likely absorbs the admin-config-surface and matter-workspace-management backlog items when this work starts. Treat as its own multi-stage arc when ready. Scope conversation needed before any engineering starts.
+Admin adopts the settings primitives (the portability principle): the refined-list landing, the considered register, the left-justified layout, flat-at-rest rows with hover-highlight, grounding state-dots, and the network-backed-UI loading standard (skeleton-on-open plus cross-fade). Likely absorbs the admin-config-surface and matter-workspace-management backlog items when this work starts. Scope conversation needed before any engineering starts.
+
+## 2. Connector follow-ups (deferred from the connector hub arc)
+
+Tracked so they are not lost; each builds on the connector infrastructure shipped in the connector hub arc.
+
+- Agent-form Drive picker: the Drive picker shipped in the chat composer (message attachments) only. Adding it to the agent form (agent attachments) reuses the same picker component. Dependency to clear first: the agent EDIT page must render `gdrive_link` agent attachments gracefully in its attachment display. Today's rendering predates Drive attachments, and a `gdrive_link` agent attachment is only creatable by hand-insert; once the agent-form picker exists, real ones will appear and the edit page must display them without error.
+- Admin connection-policy editing UI: the super-admin surface to edit the connection policy, built in the Admin polish arc (item 1) where the admin IA is designed. Until then the `connection_policy` row is edited directly in the database.
+- Calendar and Gmail connectors: each is a new provider adapter reusing the existing OAuth flow, the single provider-agnostic callback, the token-exercise layer, and (for a picker) the listing layer. The home's Today (calendar) and Matters connected-state views are dormant behind `isCalendarConnected` / `isMattersConnected`, ready to light up when those connectors ship. The Calendar, Gmail, and Slack Connect CTAs on the Connections page are inert today (no adapter yet). A compact connection-status strip on the home (D-061) is a possible later addition once multiple connectors exist.
+- Drive picker refinements: pagination and scoped-in-folder search (the picker uses single capped pages plus global search today); additive enhancements if needed.
+
+The remaining Share destinations from the original connector item stay tracked here: per-message Export to (Google Docs, Excel, PDF) and Send to (Slack, Gmail, Outlook, Apple Mail, Messages / SMS, Box) via the kebab destination hub (D-054), and full-conversation export as a conversation-level kebab item (deferred per D-054 until the hub ships its second destination). Most destinations depend on the connector infrastructure now shipped; PDF (rendered locally) and mailto: links can ship without a connection.
 
 ## 3. Skill library surface (C4L pattern #5)
 
@@ -53,7 +55,7 @@ Comprehensive product audit from a maintainer-delight standpoint. Likely candida
 
 The three rail groups currently route to coming-soon placeholders for most leaves: Knowledge (Research, Vault, Sources), Workflows (My Workflows, Template Library), and Integrations (Connections, Marketplace). Each leaf is its own product surface and at least one is a multi-stage arc in its own right. The full build-out is likely multiple separate arcs, sequenced by which leaves earn priority first.
 
-Template Library overlaps with item 11 (Template Library concept definition), which calls out the same surface; the two items merge when this work starts. Connections under Integrations overlaps with item 1 (Share & connector hub) — the workspace-level OAuth infrastructure built for item 1 powers the Connections surface here. Sources under Knowledge may overlap with the citation work from the Word export arc.
+Template Library overlaps with item 11 (Template Library concept definition), which calls out the same surface; the two items merge when this work starts. Connections under Integrations overlaps with the now-shipped connector hub — the workspace-level OAuth infrastructure it built powers the Connections surface here. Sources under Knowledge may overlap with the citation work from the Word export arc.
 
 Scope conversation needed before any engineering starts. The work is large enough that picking one leaf to ship first (rather than building all seven sub-surfaces in parallel) is the right discipline.
 

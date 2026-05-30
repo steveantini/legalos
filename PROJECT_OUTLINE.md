@@ -23,6 +23,7 @@ The app supports two types of agents:
                     │  Browser (Next.js client)  │
                     │  - Launchpad UI            │
                     │  - Chat UI                 │
+                    │  - Settings (Connections)  │
                     │  - Admin dashboard         │
                     └──────────────┬─────────────┘
                                    │
@@ -52,6 +53,7 @@ The app supports two types of agents:
 2. **Row-Level Security is the last line of defense.** Even if the frontend is compromised, the database enforces access control.
 3. **Agents and departments are data, not code.** Adding a new agent or department is a database insert, not a deploy.
 4. **One codebase, multi-tenant-ready.** Every relevant table carries `organization_id` from day one, even though we serve one organization for now.
+5. **Three peer surfaces: workspace, settings, admin.** Settings is a real peer mode alongside the workspace product surface and the admin area (D-062). Its first surface is Connections (`/workspace/settings/connections`), the home of the connector hub: the connections / connection_grants / connection_policy data model, Google Drive OAuth (provider registry, a single provider-agnostic callback at `/api/connections/callback`, encrypted tokens), live Drive reads in agents, and the Drive file picker. The legacy `/workspace/integrations` route was retired in its favor (D-071).
 
 ---
 
@@ -112,6 +114,9 @@ Department access is independent of role. A user has zero or more rows in the `u
 | `usage_events` cache columns (`cache_creation_tokens`, `cache_read_tokens`) | shipped — populated by prompt caching wiring | 0007 / 0011 |
 | `agents` extensions (`is_template`, `forked_from_agent_id`, `tools_enabled` JSONB, `default_output_format`, `deleted_at`) | shipped — soft delete with 30-day undo lives on `deleted_at`. `agents.created_by` already existed from 0001 and is reused. | 0006 |
 | `analytics_events` | **deferred** — Phase 2 commitment carried into the post-polish backlog per D-010 | — |
+| `connections` / `connection_grants` / `connection_policy` | shipped — workspace connector data model (per-user connections, capability grants, a single org policy row), RLS on each (D-064) | 0044 |
+| `connection_secrets` | shipped — encrypted OAuth tokens (app-level AES-256-GCM), RLS (D-065) | 0045 |
+| `message_attachments` (Drive-ready) | shipped — extended for connected-drive attachments (schema + send plumbing) to match agent attachments (D-068) | 0046 |
 
 ---
 

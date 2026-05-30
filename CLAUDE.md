@@ -137,6 +137,11 @@ User → Launchpad page → Click card → Navigate to `/agents/[id]` → Chat U
 - **Error handling:** server actions and route handlers return discriminated unions `{ ok: true, data } | { ok: false, error }`. Never throw across trust boundaries.
 - **Validation:** Zod schemas for all user input, all API request bodies, all env vars. Schema definitions live next to the code that uses them.
 - **Async:** `async/await` only. No bare promise chains in application code.
+- **`"use server"` files export only async functions.** A `"use server"` module must NOT export types, especially re-export specifiers like `export type { ImportedName }`. Next's server-action transform turns such exports into runtime references to erased types, throwing a `ReferenceError` when the action bundle is evaluated on dispatch (POST). This passes `tsc` and `next build` and fails only at runtime. Types belong in non-`"use server"` modules; import them from their source. (Recorded as D-072.)
+
+### Network-backed UI loading standard
+
+Any surface that opens and then fetches data (pickers, panels, modals, lists, anything with a round-trip) must render its full chrome plus skeleton placeholders IMMEDIATELY on open: zero blank frames, no delay-then-appear. Then cross-fade the real content into the same layout the skeletons held, with no layout shift. Never gate the initial paint on the fetch, and never animate content sliding in after the wait (it reads as a snap). When UI feels janky or snappy, the loading SEQUENCE is usually the cause, not the animation curve. Use the project's real motion tokens and honor `prefers-reduced-motion`. (Learned on the Drive picker: the fix was loading choreography, not easing.)
 
 ### SQL (Supabase)
 
