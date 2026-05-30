@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Drive picker polish: the file list now eases in smoothly instead of snapping when the picker opens or the view changes, and a "Recents" home crumb in the breadcrumb returns you to the default recents view from any depth of folder browsing, so browsing is a round-trip rather than a one-way path.**
+
 - **Google Drive file picker: the chat composer's plus button now offers Google Drive as a source.** A focused picker opens to your recent files, with global search by name and folder browsing via clickable breadcrumbs. Unsupported file types are shown but not selectable, so you can only attach files that will work. If Drive is not connected, the picker shows a calm prompt to connect. Selected files attach as live Drive attachments (a glyph, the name, and a quiet "live" marker), read at the current version when the agent runs. No more manual steps; the connector experience is now end to end, from connecting Drive to an agent reading your live files. Adopted D-070.
 
 - **Drive listing and search backend: a read-only Drive listing layer powers file discovery for the upcoming picker.** It lists recent files, searches across Drive by name, browses folder contents (subfolders and files), and resolves folder paths for breadcrumb navigation, all gated through the connection capability check and the existing read-only scope. File types are flagged as attachable or not, matching exactly what the content layer can resolve, so the picker can grey out unsupported files honestly. No UI yet; the picker ships next. Adopted D-069.

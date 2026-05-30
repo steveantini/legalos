@@ -235,11 +235,30 @@ export function DrivePicker({
   const atCap = selected.length >= remainingSlots;
   const showBreadcrumb = !searching && baseRequest.kind === "folder";
 
+  // Identity of the currently-shown view. Keying the list wrapper on this eases
+  // the content in on each meaningful change (open, folder navigation, search
+  // results arriving, returning home) instead of snapping. It stays stable
+  // across keystrokes while a search is still loading, so the skeleton doesn't
+  // re-animate on every character.
+  const viewKey = searching
+    ? `search:${searchSettled ? trimmedQuery : "loading"}`
+    : `${baseRequest.kind}:${
+        baseRequest.kind === "folder" ? baseRequest.folderId : ""
+      }:${baseSettled ? "ready" : "loading"}`;
+
   // Navigate into a folder (event-handler path): record the request and leave
   // search; the load effect fetches it.
   function navigateToFolder(folderId: string) {
     setQuery("");
     setBaseRequest({ kind: "folder", folderId });
+  }
+
+  // Return to the default recents view from any browse depth (the leading
+  // "Recents" breadcrumb crumb). Recents — recently-modified files across all
+  // folders — is a distinct home base from the My Drive root folder listing.
+  function backToRecents() {
+    setQuery("");
+    setBaseRequest({ kind: "recents" });
   }
 
   // Reset to a clean recents view on close (an event-handler path, not an
@@ -322,7 +341,11 @@ export function DrivePicker({
 
           {/* Breadcrumb (folder browsing) or a quiet path into root browsing. */}
           {showBreadcrumb ? (
-            <Breadcrumb crumbs={crumbs} onNavigate={navigateToFolder} />
+            <Breadcrumb
+              crumbs={crumbs}
+              onNavigate={navigateToFolder}
+              onHome={backToRecents}
+            />
           ) : !searching ? (
             <button
               type="button"
@@ -335,35 +358,44 @@ export function DrivePicker({
           ) : null}
         </div>
 
-        {/* List surface. */}
+        {/* List surface. The inner wrapper is keyed by the current view, so its
+            content eases in (a quick fade plus a slight settle) on open and on
+            every view change rather than snapping. duration-press (150ms) is the
+            project's in-range quick-timing token; ease-soft is its soft ease-out,
+            the same pairing used for hover/settle elsewhere. Reduced motion off. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-          {error === "not_authorized" ? (
-            <ConnectPrompt onNavigate={() => handleOpenChange(false)} />
-          ) : status === "loading" ? (
-            <SkeletonRows />
-          ) : status === "error" ? (
-            <ErrorState onRetry={retry} />
-          ) : items.length === 0 ? (
-            <EmptyState searching={searching} />
-          ) : (
-            <ul className="flex flex-col">
-              {items.map((item) => (
-                <DriveRow
-                  key={item.id}
-                  item={item}
-                  selected={isSelected(item)}
-                  selectable={!item.isFolder && item.isSupported}
-                  disabledByCap={
-                    !item.isFolder &&
-                    item.isSupported &&
-                    atCap &&
-                    !isSelected(item)
-                  }
-                  onClick={() => handleRowClick(item)}
-                />
-              ))}
-            </ul>
-          )}
+          <div
+            key={viewKey}
+            className="animate-in fade-in slide-in-from-top-1 duration-press ease-soft motion-reduce:animate-none"
+          >
+            {error === "not_authorized" ? (
+              <ConnectPrompt onNavigate={() => handleOpenChange(false)} />
+            ) : status === "loading" ? (
+              <SkeletonRows />
+            ) : status === "error" ? (
+              <ErrorState onRetry={retry} />
+            ) : items.length === 0 ? (
+              <EmptyState searching={searching} />
+            ) : (
+              <ul className="flex flex-col">
+                {items.map((item) => (
+                  <DriveRow
+                    key={item.id}
+                    item={item}
+                    selected={isSelected(item)}
+                    selectable={!item.isFolder && item.isSupported}
+                    disabledByCap={
+                      !item.isFolder &&
+                      item.isSupported &&
+                      atCap &&
+                      !isSelected(item)
+                    }
+                    onClick={() => handleRowClick(item)}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* Footer: selection count + Attach. */}
@@ -393,16 +425,33 @@ export function DrivePicker({
 function Breadcrumb({
   crumbs,
   onNavigate,
+  onHome,
 }: {
   crumbs: DriveCrumb[];
   onNavigate: (folderId: string) => void;
+  onHome: () => void;
 }) {
-  if (crumbs.length === 0) return null;
   return (
     <nav
       aria-label="Folder path"
       className="mt-2 flex flex-wrap items-center gap-0.5 text-xs text-muted-foreground"
     >
+      {/* Always-present home anchor: returns to the default recents view from
+          any browse depth (kept visible even while a folder's path loads), which
+          makes browsing a round-trip. Distinct from the My Drive root-folder
+          crumb that follows it. */}
+      <span className="inline-flex items-center gap-0.5">
+        <button
+          type="button"
+          onClick={onHome}
+          className="max-w-[14ch] truncate rounded px-1 py-0.5 transition-colors duration-release ease-release motion-reduce:transition-none hover:text-foreground hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Recents
+        </button>
+        {crumbs.length > 0 ? (
+          <ChevronRightIcon className="size-3 shrink-0" aria-hidden />
+        ) : null}
+      </span>
       {crumbs.map((crumb, i) => {
         const isLast = i === crumbs.length - 1;
         return (
