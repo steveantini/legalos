@@ -71,7 +71,7 @@ export async function MattersSection({ userId }: MattersSectionProps) {
             </p>
             <Button
               aria-label="Connect your matter management"
-              render={<Link href="/workspace/integrations/connections" />}
+              render={<Link href="/workspace/settings/connections" />}
               className="mt-4 self-start"
             >
               Connect →

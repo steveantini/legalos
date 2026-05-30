@@ -18,7 +18,7 @@ type CalendarConnectCardProps = {
  *
  * - Not connected (always, for now): the honest "Connect your calendar"
  *   placeholder — it says exactly that and routes the Connect button to
- *   /workspace/integrations/connections, where the eventual OAuth flow lives.
+ *   /workspace/settings/connections, where the eventual OAuth flow lives.
  * - Connected (never yet, but built): today's schedule via `TodaySchedule`.
  *
  * `isCalendarConnected` returns false until calendar OAuth ships (Share and
@@ -79,7 +79,7 @@ export async function CalendarConnectCard({
             </p>
             <Button
               aria-label="Connect your calendar"
-              render={<Link href="/workspace/integrations/connections" />}
+              render={<Link href="/workspace/settings/connections" />}
               className="mt-4 self-start"
             >
               Connect →

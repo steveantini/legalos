@@ -70,8 +70,8 @@ type RailGroup = {
  * `/workspace/coming-soon/<slug>` for surfaces that haven't been built
  * yet.
  *
- * Session 31 introduced the four-category structure (Knowledge /
- * Workflows / Integrations / Help); the multi-leaf shape was added in
+ * Session 31 introduced a multi-category structure (Knowledge /
+ * Workflows / Help; Integrations was retired in M7, D-071); the multi-leaf shape was added in
  * the follow-up so the rail can express each category's intended
  * subsurface layout even before those subsurfaces ship. Knowledge has
  * three planned leaves (Research / Vault / Sources, per the Session 32
@@ -116,19 +116,6 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
         href: "/workspace/workflows/my-workflows",
       },
       { label: "Template Library", slug: "workflows-templates" },
-    ],
-  },
-  {
-    caption: "Integrations",
-    landingHref: "/workspace/integrations",
-    groupKey: "integrations",
-    leaves: [
-      {
-        label: "Connections",
-        slug: "integrations",
-        href: "/workspace/integrations/connections",
-      },
-      { label: "Marketplace", slug: "integrations-marketplace" },
     ],
   },
   {
@@ -257,7 +244,7 @@ export async function WorkspaceRail({
         </CollapsibleRailGroup>
       ) : null}
 
-      {/* Resource groups (Knowledge / Workflows / Integrations / Help).
+      {/* Resource groups (Knowledge / Workflows / Help).
           Each renders a mono-caps caption + one or more leaves; each
           leaf links to its real route when `leaf.href` is set,
           otherwise falls back to a coming-soon page for that slug.

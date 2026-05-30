@@ -1,6 +1,23 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    // The legacy /workspace/integrations surface was retired in the connector
+    // hub arc (M7, D-071); connections now live at /workspace/settings/connections.
+    // These 308s catch any bookmarked or stale links to the old paths.
+    return [
+      {
+        source: "/workspace/integrations",
+        destination: "/workspace/settings/connections",
+        permanent: true,
+      },
+      {
+        source: "/workspace/integrations/:path*",
+        destination: "/workspace/settings/connections",
+        permanent: true,
+      },
+    ];
+  },
   // PDF extraction is now `unpdf` (lib/extract/pdf.ts). It ships a
   // serverless-tuned PDF.js build with no native dependencies and no
   // dynamic requires, so no externalize is needed.

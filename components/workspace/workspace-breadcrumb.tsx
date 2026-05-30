@@ -57,7 +57,6 @@ const STATIC_SEGMENT_HREFS: Record<string, string> = {
   Departments: "/workspace/departments",
   Knowledge: "/workspace/knowledge",
   Workflows: "/workspace/workflows",
-  Integrations: "/workspace/integrations",
   Help: "/workspace/help",
   Settings: "/workspace/settings",
   Admin: "/workspace/admin",
@@ -133,14 +132,6 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace/workflows/my-workflows",
     segments: () => [HOME_SEGMENT, "Workflows", "My Workflows"],
-  },
-  {
-    match: "/workspace/integrations",
-    segments: () => [HOME_SEGMENT, "Integrations"],
-  },
-  {
-    match: "/workspace/integrations/connections",
-    segments: () => [HOME_SEGMENT, "Integrations", "Connections"],
   },
   {
     match: "/workspace/help",

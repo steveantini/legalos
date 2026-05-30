@@ -2096,3 +2096,27 @@ Search matches how users recall files (by name); folder browsing is the reassuri
 - The picker is presentation over the proven M6c1 data source and M6b send path; little new risk beyond UI.
 - Agent-form Drive attachment (vs composer) can reuse this picker component later.
 - Pagination and scoped-in-folder search are future refinements; global search + capped pages suffice now.
+
+## D-071 — Retired the legacy integrations route in favor of settings/connections
+
+Date: 2026-05-30
+Status: Accepted
+
+**Context:**
+
+D-062 established /workspace/settings as the connections home and noted the old /workspace/integrations surface and rail group would be removed once the new location was complete and Connect CTAs repointed. With the connector hub built and proven (M1-M6), that time arrived.
+
+**Decision:**
+
+Removed the /workspace/integrations route tree (the Integrations and Connections coming-soon stubs) and the rail Integrations resource group, repointed all Connect CTAs (home Today card, Matters section) to /workspace/settings/connections, removed the dead breadcrumb entries, and added a redirect from the old paths to the new canonical location. The two retained-unmounted home Tools components (IntegrationsRow, IntegrationCard from D-061) were deleted as well, being unused dead code that still referenced the old path.
+
+**Reasoning:**
+
+The new location is the real, working connections home; the old surface was a placeholder retained only so arc milestones could land without breaking links. Keeping it now would be a redundant, confusing second entry point. The redirect preserves any bookmarked links defensively. A connection-status strip, if it ever returns (D-061), is a different concept and would be rebuilt fresh, so the dormant components carried no value worth their cruft.
+
+**Consequences:**
+
+- /workspace/settings/connections is the single canonical connections surface; the old path 308-redirects to it.
+- The workspace rail's resource groups are now Knowledge / Workflows / Help; connections live in Settings, governed (eventually) in Admin.
+- The `integrations` key on RailGroupsCollapsedValue is now unused but harmless (an optional persisted-pref field); left in place.
+- Closes the routing-migration thread opened in D-062.
