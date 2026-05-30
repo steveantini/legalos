@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Drive picker polish: the file list now eases in smoothly instead of snapping when the picker opens or the view changes, and a "Recents" home crumb in the breadcrumb returns you to the default recents view from any depth of folder browsing, so browsing is a round-trip rather than a one-way path.**
+- **Drive picker polish: the picker now opens instantly with its full frame and placeholder rows already in place, then resolves your files in with a smooth skeleton-to-content cross-fade rather than waiting and snapping (the same on opening a folder or searching). A "Recents" home crumb in the breadcrumb returns you to the default recents view from any depth of folder browsing, so browsing is a round-trip rather than a one-way path.**
 
 - **Google Drive file picker: the chat composer's plus button now offers Google Drive as a source.** A focused picker opens to your recent files, with global search by name and folder browsing via clickable breadcrumbs. Unsupported file types are shown but not selectable, so you can only attach files that will work. If Drive is not connected, the picker shows a calm prompt to connect. Selected files attach as live Drive attachments (a glyph, the name, and a quiet "live" marker), read at the current version when the agent runs. No more manual steps; the connector experience is now end to end, from connecting Drive to an agent reading your live files. Adopted D-070.
 

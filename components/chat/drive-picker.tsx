@@ -235,16 +235,14 @@ export function DrivePicker({
   const atCap = selected.length >= remainingSlots;
   const showBreadcrumb = !searching && baseRequest.kind === "folder";
 
-  // Identity of the currently-shown view. Keying the list wrapper on this eases
-  // the content in on each meaningful change (open, folder navigation, search
-  // results arriving, returning home) instead of snapping. It stays stable
-  // across keystrokes while a search is still loading, so the skeleton doesn't
-  // re-animate on every character.
-  const viewKey = searching
-    ? `search:${searchSettled ? trimmedQuery : "loading"}`
-    : `${baseRequest.kind}:${
-        baseRequest.kind === "folder" ? baseRequest.folderId : ""
-      }:${baseSettled ? "ready" : "loading"}`;
+  // Whether the list is mid-fetch. Drives the skeleton/content cross-fade in the
+  // render: the skeleton overlay shows from the first frame on open and holds
+  // through the network wait, then fades out as the resolved content fades in.
+  // Folder navigation and in-flight searches re-enter this loading state, so
+  // they resolve with the same choreography. It stays true across keystrokes
+  // while a search has yet to settle, so the skeleton holds steadily rather than
+  // re-triggering per character.
+  const isLoading = status === "loading";
 
   // Navigate into a folder (event-handler path): record the request and leave
   // search; the load effect fetches it.
@@ -314,6 +312,36 @@ export function DrivePicker({
     }
   }
 
+  // The resolved (settled) list content: connect prompt, error, empty, or rows.
+  // Rendered only once the fetch settles; the skeleton overlay covers the wait.
+  function renderResolvedList() {
+    if (error === "not_authorized") {
+      return <ConnectPrompt onNavigate={() => handleOpenChange(false)} />;
+    }
+    if (status === "error") {
+      return <ErrorState onRetry={retry} />;
+    }
+    if (items.length === 0) {
+      return <EmptyState searching={searching} />;
+    }
+    return (
+      <ul className="flex flex-col">
+        {items.map((item) => (
+          <DriveRow
+            key={item.id}
+            item={item}
+            selected={isSelected(item)}
+            selectable={!item.isFolder && item.isSupported}
+            disabledByCap={
+              !item.isFolder && item.isSupported && atCap && !isSelected(item)
+            }
+            onClick={() => handleRowClick(item)}
+          />
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[min(80vh,40rem)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
@@ -358,43 +386,34 @@ export function DrivePicker({
           ) : null}
         </div>
 
-        {/* List surface. The inner wrapper is keyed by the current view, so its
-            content eases in (a quick fade plus a slight settle) on open and on
-            every view change rather than snapping. duration-press (150ms) is the
-            project's in-range quick-timing token; ease-soft is its soft ease-out,
-            the same pairing used for hover/settle elsewhere. Reduced motion off. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        {/* List surface — instant chrome with a skeleton overlay present from the
+            first frame and held through the Drive fetch, then cross-fading to the
+            resolved content in the same space: no slide, no layout shift, no
+            blank. The skeleton is absolutely overlaid so it never dictates the
+            resolved content's height; both layers fade over duration-press with
+            ease-soft. Reduced motion swaps instantly. */}
+        <div
+          aria-busy={isLoading}
+          className="relative min-h-0 grow basis-80 overflow-y-auto px-2 py-2"
+        >
+          {/* Resolved content — normal flow, so it defines the scroll height. */}
           <div
-            key={viewKey}
-            className="animate-in fade-in slide-in-from-top-1 duration-press ease-soft motion-reduce:animate-none"
-          >
-            {error === "not_authorized" ? (
-              <ConnectPrompt onNavigate={() => handleOpenChange(false)} />
-            ) : status === "loading" ? (
-              <SkeletonRows />
-            ) : status === "error" ? (
-              <ErrorState onRetry={retry} />
-            ) : items.length === 0 ? (
-              <EmptyState searching={searching} />
-            ) : (
-              <ul className="flex flex-col">
-                {items.map((item) => (
-                  <DriveRow
-                    key={item.id}
-                    item={item}
-                    selected={isSelected(item)}
-                    selectable={!item.isFolder && item.isSupported}
-                    disabledByCap={
-                      !item.isFolder &&
-                      item.isSupported &&
-                      atCap &&
-                      !isSelected(item)
-                    }
-                    onClick={() => handleRowClick(item)}
-                  />
-                ))}
-              </ul>
+            className={cn(
+              "transition-opacity duration-press ease-soft motion-reduce:transition-none",
+              isLoading ? "pointer-events-none opacity-0" : "opacity-100",
             )}
+          >
+            {isLoading ? null : renderResolvedList()}
+          </div>
+          {/* Skeleton overlay — absolute, so it never shifts the resolved layout. */}
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-0 px-2 py-2 transition-opacity duration-press ease-soft motion-reduce:transition-none",
+              isLoading ? "opacity-100" : "opacity-0",
+            )}
+          >
+            <SkeletonRows />
           </div>
         </div>
 
