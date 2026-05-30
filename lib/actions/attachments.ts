@@ -11,9 +11,6 @@ import {
 } from "./_attachment-shared";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-// Re-export so existing consumers (e.g. agent-attachments-section.tsx) keep
-// importing AttachmentMetadata from this module unchanged.
-export type { AttachmentMetadata };
 
 /**
  * Server actions for permanent agent attachments (architecture §3).

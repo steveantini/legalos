@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Fixed a server error that prevented saving agents: a "use server" module re-exported a type, which Next's server-action transform turned into a runtime reference to an erased type, throwing a ReferenceError on every agent-save POST (latent since the chat-attachments foundation landed). Types are now imported from their source module so server-action files export only async functions; swept the codebase for the same pattern.**
+
 - **Routing cleanup: retired the old /workspace/integrations surface now that /workspace/settings/connections is the canonical connections home. Removed the integrations route tree and the rail Integrations group, repointed every Connect call-to-action to the settings connections page, cleaned up the breadcrumb entries, and added a redirect so any old links resolve to the new location.**
 
 - **Drive picker polish: the picker now opens instantly with its full frame and placeholder rows already in place, then resolves your files in with a smooth skeleton-to-content cross-fade rather than waiting and snapping (the same on opening a folder or searching). A "Recents" home crumb in the breadcrumb returns you to the default recents view from any depth of folder browsing, so browsing is a round-trip rather than a one-way path.**

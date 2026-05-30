@@ -18,8 +18,8 @@ import {
   removeAttachmentAction,
   removeAttachmentDraftAction,
   uploadAttachmentDraftAction,
-  type AttachmentMetadata,
 } from "@/lib/actions/attachments";
+import type { AttachmentMetadata } from "@/lib/actions/_attachment-shared";
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_ATTACHMENTS = 5;

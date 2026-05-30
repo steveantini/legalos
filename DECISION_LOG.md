@@ -2120,3 +2120,24 @@ The new location is the real, working connections home; the old surface was a pl
 - The workspace rail's resource groups are now Knowledge / Workflows / Help; connections live in Settings, governed (eventually) in Admin.
 - The `integrations` key on RailGroupsCollapsedValue is now unused but harmless (an optional persisted-pref field); left in place.
 - Closes the routing-migration thread opened in D-062.
+
+## D-072 — "use server" files export only async functions; types live in non-"use server" modules
+
+Date: 2026-05-30
+Status: Accepted
+
+**Context:**
+
+Saving an agent 500'd in production with `ReferenceError: AttachmentMetadata is not defined` on every agent (page GET fine, save POST failed). Root cause: `lib/actions/attachments.ts` (a `"use server"` module) re-exported a type with `export type { AttachmentMetadata };`. Next's server-action transform builds a runtime export registry for `"use server"` modules; the bare re-export of an imported binding was emitted as a runtime reference to a name that only ever existed as an erased type, so evaluating the action bundle on dispatch threw. tsc and `next build` both pass because the construct is valid TypeScript and the failure is runtime-only (the action is never dispatched during build). Introduced with the chat-attachments shared foundation (7928cae), latent until a save was attempted. Not an M7 regression.
+
+**Decision:**
+
+A `"use server"` module must export ONLY async functions. Types belong in a non-`"use server"` module (here `_attachment-shared.ts`, which is `server-only`); consumers import the type from there. Removed the re-export from `attachments.ts` and repointed `agent-attachments-section.tsx` to import the type from `_attachment-shared.ts`.
+
+The bug class is specifically the bare re-export of an imported binding — `export type { X }` — in a `"use server"` file. A local type-alias declaration in such a file (`export type X = {...}`, including `export type Y = ImportedType`) is fully erased and emits no runtime binding, so it is safe; the codebase sweep confirmed those remaining cases (admin-users, agent-details, departments, message-attachments) are local declarations, not re-export specifiers.
+
+**Consequences:**
+
+- Agent create/save and agent-attachment add/remove POSTs no longer throw at module-eval time.
+- Guardrail recorded so a future `export type { … }` (or any non-function export) is not reintroduced into a `"use server"` file.
+- tsc/build cannot catch this class (runtime-only); the check is the convention plus the sweep done here.
