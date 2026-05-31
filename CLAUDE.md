@@ -40,6 +40,22 @@ Shortcuts are forbidden. Build for the long term, every time.
 
 ---
 
+## Autonomy default (operator preference)
+
+Proceed without asking. When requirements leave a detail open, choose what a top-line team would do (per the dual-delight standard above), state the choice in your response, and keep going. Do not ask the operator about anything that has a sensible default or that you can verify from the code yourself, and do not use clarifying-question prompts for defaultable decisions.
+
+Stop and ask ONLY when:
+
+1. there is a genuine contradiction in the instructions you cannot resolve,
+2. you find a serious bug, data-loss, or security risk, or
+3. an action is irreversible or outward-facing in a way that is not already authorized.
+
+Even in those cases, prefer flagging the issue in your written reply over blocking, unless proceeding would be destructive.
+
+**Routine end-of-task git is pre-authorized.** The standard commit and `git push origin main` that patch prompts specify (including the post-push deploy/READY verification) are expected and do not require a stop. Only a *surprising or destructive* outward action (force-push, history rewrite, deleting a remote branch, touching another repo or production data, anything beyond the routine push the prompt asked for) warrants confirmation first.
+
+---
+
 ## Architecture
 
 ### Tech Stack
