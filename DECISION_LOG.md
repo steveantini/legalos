@@ -2164,3 +2164,11 @@ Auto-balanced order-preserving flow stays polished as content changes with zero 
 - Adding a group or provider re-flows automatically; no placement code changes, no stretching.
 - The org row's ownership signal shifts from background tint to its badge/status (since all rows now share the fill).
 - The layout pattern is a candidate for extraction into a shared helper when the admin arc adopts it. The split logic already lives in a portable primitive (`lib/layout/balanced-columns.ts`).
+
+**Amendment (2026-05-31) — superseded by a responsive top-aligned grid:**
+
+The balanced-height split was the wrong model. It optimized for equal column heights, but the actual goal was groups aligning on shared ROW lines. Two independent column stacks let the second group in each column start at a different vertical position (Calendar vs Messaging looked "off"), because each stack flowed independently. The fix is a true CSS grid (`grid-cols-1` collapsing up to `lg:grid-cols-2`, `align-items: start`): groups render in meaningful source order and flow left-to-right, top-to-bottom, and items in the same grid row share that row's top line for free, at their natural height with no stretching (ragged bottoms are intentional whitespace). This is both simpler (no balancing math) and correct (row alignment, not column-height balance).
+
+Column count is capped at 2, within the settings family's shared `max-w-3xl` (768px) reading width — the most these rows fit without overflow at that width. A third column was declined: it would require widening Connections past the 768px that Profile, Display, and the settings landing all use, and the settings area's spatial coherence (a standard that also ports to the admin arc) outweighs one extra column on one page.
+
+`balancedOrderedSplit` was retired and `lib/layout/balanced-columns.ts` deleted (this page was its only consumer). The portable pattern for the admin arc's multi-group surfaces is now the GRID model — responsive N-up (currently 2), order-preserving, top-aligned, natural-height, collapsing to a single column — not the balanced split. The rest of the original decision (calm rest fill, hover-deepen on actionable rows only, dots, fonts, content, org-row treatment) stands unchanged.

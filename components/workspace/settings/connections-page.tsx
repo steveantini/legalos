@@ -6,7 +6,6 @@ import {
 import { requireAuthUser } from "@/lib/auth/access";
 import { disconnectConnectionAction } from "@/lib/actions/connections";
 import { isConnectable } from "@/lib/connections/providers/registry";
-import { balancedOrderedSplit } from "@/lib/layout/balanced-columns";
 import {
   getConnectionStates,
   type ProviderConnectionState,
@@ -63,18 +62,6 @@ export async function ConnectionsPage({
 
   const errorMessage = statusError ? ERROR_MESSAGES[statusError] : undefined;
 
-  // Lay the groups into two columns via an order-preserving balanced split
-  // (D-073): the split point is derived from each group's estimated height, so
-  // adding a group or provider re-flows automatically with no hand-tuning, and
-  // the meaningful order (File storage, Calendar, Mail, Messaging, Matter
-  // management) is read down column one then down column two. Height estimate:
-  // a base for the title + description, plus one unit per rendered row (each
-  // personal provider, plus the org example if present).
-  const [leftGroups, rightGroups] = balancedOrderedSplit(
-    CAPABILITY_GROUPS,
-    (group) => 2 + group.providers.length + (group.orgExample ? 1 : 0),
-  );
-
   return (
     <main className="w-full max-w-3xl">
       <header>
@@ -96,33 +83,28 @@ export async function ConnectionsPage({
         </p>
       ) : null}
 
-      {/* Two columns when there's width, a single stack when narrow. Grid items
-          are top-aligned (items-start) and content-height, so nothing
-          stretches: a shorter column simply ends higher, and the trailing
-          whitespace is correct. `gap-8` is both the 32px gutter between columns
-          and the 32px seam between the two stacks when they collapse into one,
-          matching the inter-group rhythm inside each column. Breaks to two
-          columns at `lg` (1024px), where the rail + page padding still leave
-          each column comfortably wide; below that it's a clean single stack. */}
-      <div className="mt-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
-        <div className="flex flex-col gap-8">
-          {leftGroups.map((group) => (
-            <CapabilityGroupSection
-              key={group.id}
-              group={group}
-              connectionByProvider={connectionByProvider}
-            />
-          ))}
-        </div>
-        <div className="flex flex-col gap-8">
-          {rightGroups.map((group) => (
-            <CapabilityGroupSection
-              key={group.id}
-              group={group}
-              connectionByProvider={connectionByProvider}
-            />
-          ))}
-        </div>
+      {/* Responsive top-aligned grid (D-073). Groups render in their meaningful
+          source order and flow left-to-right, top-to-bottom; `items-start` makes
+          every group in a grid row share that row's top line while keeping its
+          natural height (a shorter group leaves whitespace below itself rather
+          than stretching to match the row's tallest group). This is what gives
+          the clean shared row lines a pair of independent column stacks could
+          not. The max column count is intentionally 2: it's the most these rows
+          fit at the settings family's shared `max-w-3xl` (768px) reading width,
+          which keeps Connections spatially consistent with the other settings
+          pages. Bump `lg:grid-cols-2` to add columns only if a wider width is
+          ever adopted. Collapses to a single stack below `lg` (1024px), where
+          the rail + page padding would otherwise crowd two columns. `gap-x-8`
+          keeps the 32px gutter; `gap-y-10` gives grid rows a clear vertical
+          rhythm given the ragged bottoms. */}
+      <div className="mt-10 grid grid-cols-1 items-start gap-x-8 gap-y-10 lg:grid-cols-2">
+        {CAPABILITY_GROUPS.map((group) => (
+          <CapabilityGroupSection
+            key={group.id}
+            group={group}
+            connectionByProvider={connectionByProvider}
+          />
+        ))}
       </div>
     </main>
   );
