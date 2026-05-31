@@ -2204,3 +2204,28 @@ The two-job spine gives admin a legible purpose a legal leader recognizes (prove
 - The existing admin pages (calculator, metrics, user-access) retire per-page as their replacements ship; for now they stay reachable at their routes but are unlinked from the new rail and landing (the integrations-cleanup pattern). The unused `AdminCard` landing component was removed.
 - Admin is now 896px, consistent with settings. The family width is lifted to one shared source, `SECTION_CONTENT_MAX_WIDTH` (`lib/workspace/layout.ts`), which `SETTINGS_PAGE_MAX_WIDTH` now derives from, so settings and admin cannot drift.
 - The admin nav is data-driven (`lib/admin/nav.ts`), mirroring settings; both the rail and the landing render from it.
+
+## D-075 — Filled rows are the landing standard (supersedes flat-hairline landings); admin left-justified
+
+Date: 2026-05-31
+Status: Accepted
+
+**Context:**
+
+The A1 admin landing used the filled calm-fill row treatment, while the settings landing still used an older flat-hairline treatment, and the admin landing and sub-pages were centered while the rest of the product is left-justified. Two inconsistencies to reconcile.
+
+**Decision:**
+
+Filled rows (the calm-fill, hover-deepen row language) are the standard for landing pages; the settings landing adopts it to match the admin landing, and the earlier flat-hairline landing treatment is retired. On a landing, every row is a navigation target, so every row hover-deepens (unlike Connections, where only actionable rows do). The admin landing and all four sub-page stubs are left-justified to match the settings surfaces. Both landings render the identical row treatment via a shared component (`components/workspace/landing-row.tsx`) so they cannot drift.
+
+The shared standard is the filled-tile-with-hairline language (the same the Connections page uses): a calm `bg-paper-2` rest fill that deepens to `bg-secondary` on hover, with a hairline divider on the wrapper. Settings keeps its hairline dividers; the change there is flat-rest → filled-rest, not the removal of hairlines (removing them from settings while admin kept them would make the two non-identical, defeating the goal). Left-justification is achieved the same way settings does it — `w-full max-w-4xl` with no `mx-auto` — applied once at the admin layout so the landing and all four stubs left-anchor together.
+
+**Reasoning:**
+
+One coherent row language across landings (and consistent with the Connections rows) reads more considered than two different treatments. The operator preferred the filled treatment over flat-hairline when seen in practice. Left-justification is the established product-wide treatment; admin conforms. This supersedes the earlier "navigation stays light / landings are flat" note: in practice the filled treatment was preferred.
+
+**Consequences:**
+
+- Settings and Admin landings share one filled, left-justified row language through the single `LandingRow` component (lifted on the second consumer).
+- Future landings use the filled row standard.
+- The flat-hairline landing treatment is retired; the settings landing's earlier active-press micro-interaction is dropped in favor of the shared treatment.

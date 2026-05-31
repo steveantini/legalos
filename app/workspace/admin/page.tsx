@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { LandingRow } from "@/components/workspace/landing-row";
 import { ADMIN_NAV_GROUPS } from "@/lib/admin/nav";
 import { captionLabel } from "@/lib/workspace/rail-styles";
 
@@ -9,13 +8,11 @@ import { captionLabel } from "@/lib/workspace/rail-styles";
  * consumes, so the rail and the landing teach the identical mental model:
  * admin's two jobs, GOVERN the use and MEASURE the value (D-074).
  *
- * Mirrors the settings landing's refined-list pattern (label + editorial
- * description + trailing arrow, hairline-divided rows) rather than a card grid:
- * four purposeful areas read calmer as a grouped list than as cards. The rows
- * carry the Connections row language — a calm `bg-paper-2` fill at rest with a
- * one-shade hover-deepen to `bg-secondary`, since every row is actionable (it
- * navigates to its area). Section captions reuse the rail's `captionLabel`
- * token so the landing and rail share vocabulary visually.
+ * Refined-list landing rather than a card grid: four purposeful areas read
+ * calmer as a grouped list. Rows render through the shared `LandingRow`
+ * (the filled landing standard, D-075) — the same component the settings
+ * landing uses, so the two cannot drift. Section captions reuse the rail's
+ * `captionLabel` token so the landing and rail share vocabulary visually.
  *
  * The width and the `<main>` come from the admin layout (896px, the section
  * family width); this page renders a fragment inside it.
@@ -42,33 +39,14 @@ export default function AdminLandingPage() {
               {group.caption}
             </h2>
 
-            {/* Hairlines live on the wrappers (full-width editorial dividers);
-                the padded Link inside is the calm filled surface that deepens
-                one shade on hover. */}
             <div>
               {group.items.map((item) => (
-                <div
+                <LandingRow
                   key={item.href}
-                  className="border-b border-hairline last:border-b-0"
-                >
-                  <Link
-                    href={item.href}
-                    className="group flex items-center gap-6 rounded-lg bg-paper-2 px-5 py-5 transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
-                  >
-                    <span className="w-[170px] shrink-0 text-[17px] font-medium text-foreground">
-                      {item.label}
-                    </span>
-                    <span className="flex-1 text-[13.5px] leading-[1.5] text-caption">
-                      {item.description}
-                    </span>
-                    <span
-                      aria-hidden
-                      className="ml-auto shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
-                    >
-                      →
-                    </span>
-                  </Link>
-                </div>
+                  label={item.label}
+                  description={item.description}
+                  href={item.href}
+                />
               ))}
             </div>
           </section>

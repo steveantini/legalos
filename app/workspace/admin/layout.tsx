@@ -13,6 +13,11 @@ import { SECTION_CONTENT_MAX_WIDTH } from "@/lib/workspace/layout";
  * users) render comfortably at 896px until their per-area replacements
  * ship in A2–A5.
  *
+ * Left-anchored (`w-full max-w-4xl`, no `mx-auto`) to match the settings
+ * surfaces (D-075): every section page in the product left-justifies
+ * against the rail rather than centering. This anchors the admin landing
+ * and all four area stubs in one place.
+ *
  * Unlike the settings layout, this one owns the `<main>` for the whole
  * section, so admin pages render as fragments inside it (the four
  * coming-soon area stubs use `AdminComingSoon`, which renders no main of
@@ -29,6 +34,6 @@ export default async function AdminLayout({
   await requireAdminUser();
 
   return (
-    <main className={`mx-auto ${SECTION_CONTENT_MAX_WIDTH}`}>{children}</main>
+    <main className={`w-full ${SECTION_CONTENT_MAX_WIDTH}`}>{children}</main>
   );
 }

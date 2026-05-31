@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { LandingRow } from "@/components/workspace/landing-row";
 import { SETTINGS_PAGE_MAX_WIDTH } from "@/lib/settings/layout";
 import { SETTINGS_NAV_ITEMS } from "@/lib/settings/nav";
 
@@ -16,15 +16,13 @@ export const metadata: Metadata = {
  * sub-page is one entry there and both surfaces update.
  *
  * Refined-list LANDING pattern: each sub-page is one row (the whole row
- * is the link), showing the label, its description, and a trailing arrow,
- * with hairline rules between rows and a subtle background lift on hover.
- * No card frames and no per-row background at rest: the sub-pages are
- * navigation destinations, not contained objects, so card chrome would
- * add false weight. No icons (the no-decorative-icons discipline).
- *
- * This is the settings/admin LANDING pattern. When the Admin polish arc
- * arrives it replaces Admin's current card grid with this refined list
- * (portability principle); Admin is not modified in this arc.
+ * is the link), showing the label, its description, and a trailing arrow.
+ * Rows render through the shared `LandingRow` — the filled landing standard
+ * (D-075): a calm `bg-paper-2` fill at rest that deepens to `bg-secondary`
+ * on hover, with a hairline divider on the wrapper. No card frames and no
+ * icons (the no-decorative-icons discipline). This treatment is shared with
+ * the admin landing through the one component, so the two cannot drift; it
+ * supersedes the earlier flat-at-rest rows.
  *
  * Heading and subline use the canonical page-title idiom shared by the
  * workspace home greeting and the department header (44px / 400 /
@@ -43,34 +41,17 @@ export default function SettingsLandingPage() {
         </p>
       </header>
 
-      {/* Hairlines live on the outer wrappers so they read as full-width
-          editorial dividers; the padded Link inside is the interactive
-          surface, so hover/focus/active highlights inset their content
-          (px-5) gracefully on both edges including past the trailing arrow. */}
+      {/* Filled landing rows via the shared `LandingRow` (D-075): the same
+          treatment the admin landing uses, so the two landings share one row
+          language. */}
       <div className="mt-12">
         {SETTINGS_NAV_ITEMS.map((item) => (
-          <div
+          <LandingRow
             key={item.href}
-            className="border-b border-hairline last:border-b-0"
-          >
-            <Link
-              href={item.href}
-              className="group flex items-center gap-6 rounded-lg px-5 py-5 transition-[background-color,transform] duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.99] active:duration-press active:ease-spring motion-reduce:transition-none"
-            >
-              <span className="w-[140px] shrink-0 text-[17px] font-medium text-foreground">
-                {item.label}
-              </span>
-              <span className="flex-1 text-[13.5px] leading-[1.5] text-caption">
-                {item.description}
-              </span>
-              <span
-                aria-hidden
-                className="ml-auto shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
-              >
-                →
-              </span>
-            </Link>
-          </div>
+            label={item.label}
+            description={item.description}
+            href={item.href}
+          />
         ))}
       </div>
     </main>
