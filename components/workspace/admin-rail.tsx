@@ -26,10 +26,12 @@ import { WorkspaceProfileBlock } from "./workspace-profile-block";
  * same brand-mark-as-link, same `WorkspaceNavLink` primitive for active
  * state, same `WorkspaceProfileBlock` at the bottom. The admin rail
  * differs only in the middle: a single top-line "Admin" link plus
- * `ADMIN_NAV_GROUPS` mapped to captioned groups (Access / Insights /
- * Value as of v1). Adding a new admin tool is a one-line edit to
- * `lib/admin/nav.ts`; both this rail and the admin landing cards pick
- * it up automatically.
+ * `ADMIN_NAV_GROUPS` mapped to captioned groups. As of the Admin polish
+ * arc (D-074) the captions are admin's two jobs — GOVERN (People, Policy
+ * & access) and MEASURE (Insights, Evals) — so the rail itself teaches
+ * the mental model. Adding or moving an area is a one-line edit to
+ * `lib/admin/nav.ts`; both this rail and the admin landing pick it up
+ * automatically.
  *
  * Does NOT receive `departments` or `agents` props — admin nav has no
  * department- or agent-aware active resolution. The breadcrumb still

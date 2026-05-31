@@ -2180,3 +2180,27 @@ The settings-family shared reading width was increased from 768px (`max-w-3xl`) 
 The width is encoded once as `SETTINGS_PAGE_MAX_WIDTH` (`lib/settings/layout.ts`), consumed by both settings reading pages (the landing and Connections), so the "all settings pages share one width" contract can't silently drift. It is not in `app/workspace/settings/layout.tsx` because that layout intentionally imposes no `<main>` wrapper (the coming-soon Profile/Display stubs own their own centered `<main>`); those stubs are not reading pages and do not consume the width.
 
 Separately, Connections now reserves a consistent title+tagline header height (`min-h-[2lh]` on the tagline — two of the element's own line-heights, type-scale-tracking, not a pixel guess) so provider rows start at the same vertical offset in every group and align across the whole grid, not only at the group tops, regardless of whether a tagline runs one line or two. Assumes a two-line tagline maximum (one-value change to `3lh` if that ever changes).
+
+## D-074 — Admin information architecture: the two-job spine, four areas
+
+Date: 2026-05-31
+Status: Accepted
+
+**Context:**
+
+The admin section was placeholder-quality with an ad hoc structure. Opening the Admin polish arc, the IA was designed fresh around who the super-admin is (a legal leader who must justify and govern the tool) and what admin is for.
+
+**Decision:**
+
+Admin is organized around two jobs, GOVERN the use and MEASURE the value, made visible in both the rail (lead-line "Admin" anchor + two captioned groups) and the landing (grouped refined list). Four areas: People and Policy & access under GOVERN; Insights and Evals under MEASURE. A1 builds the shell (rail, landing, four coming-soon stubs); each area is built in a later milestone (Policy & access first, as its enforcement already shipped). Admin adopts the settings primitives (lead-line rail anchor, refined-list landing, the calm-rest/hover-deepen row language, the responsive top-aligned grid where useful, the 896px family width) and reconciles its width from 1024px to 896px. People and Policy are kept distinct (per-person/frequent vs org-wide/rare, different rhythms); Insights merges analytics and ROI as one section two lenses; audit log and data/retention fold into People/Policy rather than becoming separate destinations.
+
+**Reasoning:**
+
+The two-job spine gives admin a legible purpose a legal leader recognizes (prove it was worth it; keep it safe). Four purposeful areas earn their place; merging where rhythms match and splitting where they differ avoids both a junk drawer and artificial fragmentation. Building on the settings primitives makes admin instantly coherent with the product and is the portability principle paying off. Shell-first lets the structure be felt before functionality, and sequences the ready-contract feature (Policy & access, whose enforcement shipped in the connector arc) first.
+
+**Consequences:**
+
+- The four areas are coming-soon stubs after A1; later milestones build them (A2 Policy & access, A3 People, A4 Insights, A5 Evals; audit/retention fold in; docs close-out).
+- The existing admin pages (calculator, metrics, user-access) retire per-page as their replacements ship; for now they stay reachable at their routes but are unlinked from the new rail and landing (the integrations-cleanup pattern). The unused `AdminCard` landing component was removed.
+- Admin is now 896px, consistent with settings. The family width is lifted to one shared source, `SECTION_CONTENT_MAX_WIDTH` (`lib/workspace/layout.ts`), which `SETTINGS_PAGE_MAX_WIDTH` now derives from, so settings and admin cannot drift.
+- The admin nav is data-driven (`lib/admin/nav.ts`), mirroring settings; both the rail and the landing render from it.

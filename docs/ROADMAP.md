@@ -22,7 +22,11 @@ Three sub-areas surface within this arc, each substantial enough to be its own m
 - Evaluations / testing: some form of agent evaluation, A-B testing, or quality measurement surface for admins to assess agent performance.
 - Scalable department configuration: admin tooling to manage departments at scale (faster than the per-row admin UI, possibly bulk operations, possibly a different data model for department configuration).
 
-Admin adopts the settings primitives (the portability principle): the refined-list landing, the considered register, the left-justified layout, flat-at-rest rows with hover-highlight, grounding state-dots, and the network-backed-UI loading standard (skeleton-on-open plus cross-fade). Likely absorbs the admin-config-surface and matter-workspace-management backlog items when this work starts. Scope conversation needed before any engineering starts.
+Admin adopts the settings primitives (the portability principle): the refined-list landing, the considered register, the left-justified layout, flat-at-rest rows with hover-highlight, grounding state-dots, and the network-backed-UI loading standard (skeleton-on-open plus cross-fade). Likely absorbs the admin-config-surface and matter-workspace-management backlog items when this work starts.
+
+The IA is now decided (D-074): admin's two jobs, govern the use and measure the value, with four areas, People and Policy & access under govern, Insights and Evals under measure.
+
+**A1 (shell) shipped (2026-05-31):** the admin rail (lead-line "Admin" + the govern/measure captioned groups), the refined landing introducing each area, and four coming-soon area stubs, with admin reconciled to the 896px settings-family width. No area functionality yet. Remaining milestones build each area: **A2 Policy & access** (the deferred connection-policy editing UI, sequenced first since its enforcement already shipped), **A3 People**, **A4 Insights** (absorbing today's Adoption Metrics and Productivity Calculator), **A5 Evals**; audit log and data/retention fold into People/Policy; then a docs close-out. The existing admin pages (Productivity Calculator, Adoption Metrics, User Access) stay reachable at their routes but unlinked from the new rail, retiring per-area as their replacements ship.
 
 ## 2. Connector follow-ups (deferred from the connector hub arc)
 

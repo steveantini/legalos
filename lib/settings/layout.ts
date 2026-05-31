@@ -1,3 +1,5 @@
+import { SECTION_CONTENT_MAX_WIDTH } from "@/lib/workspace/layout";
+
 /**
  * Shared layout tokens for the settings family of pages.
  *
@@ -21,5 +23,10 @@
  * wide for a settings reading column; 896px is the deliberate middle that fits
  * two columns comfortably while keeping one consistent family width. Recorded in
  * DECISION_LOG D-073.
+ *
+ * As of D-074 the value is shared with admin via `SECTION_CONTENT_MAX_WIDTH`
+ * (`lib/workspace/layout.ts`): settings and admin are one section family at one
+ * width. This alias is kept for the existing settings consumers and the
+ * documented name; it now derives from the shared source so the two can't drift.
  */
-export const SETTINGS_PAGE_MAX_WIDTH = "max-w-4xl";
+export const SETTINGS_PAGE_MAX_WIDTH = SECTION_CONTENT_MAX_WIDTH;
