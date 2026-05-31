@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { SETTINGS_PAGE_MAX_WIDTH } from "@/lib/settings/layout";
 import { SETTINGS_NAV_ITEMS } from "@/lib/settings/nav";
 
 export const metadata: Metadata = {
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
  */
 export default function SettingsLandingPage() {
   return (
-    <main className="w-full max-w-3xl">
+    <main className={`w-full ${SETTINGS_PAGE_MAX_WIDTH}`}>
       <header>
         <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
           Settings

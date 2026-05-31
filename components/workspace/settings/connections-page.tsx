@@ -10,6 +10,7 @@ import {
   getConnectionStates,
   type ProviderConnectionState,
 } from "@/lib/settings/connections";
+import { SETTINGS_PAGE_MAX_WIDTH } from "@/lib/settings/layout";
 
 /**
  * The settings Connections page. Capability-grouped (File storage, Calendar,
@@ -63,7 +64,7 @@ export async function ConnectionsPage({
   const errorMessage = statusError ? ERROR_MESSAGES[statusError] : undefined;
 
   return (
-    <main className="w-full max-w-3xl">
+    <main className={`w-full ${SETTINGS_PAGE_MAX_WIDTH}`}>
       <header>
         <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
           Connections
@@ -89,11 +90,12 @@ export async function ConnectionsPage({
           natural height (a shorter group leaves whitespace below itself rather
           than stretching to match the row's tallest group). This is what gives
           the clean shared row lines a pair of independent column stacks could
-          not. The max column count is intentionally 2: it's the most these rows
-          fit at the settings family's shared `max-w-3xl` (768px) reading width,
-          which keeps Connections spatially consistent with the other settings
-          pages. Bump `lg:grid-cols-2` to add columns only if a wider width is
-          ever adopted. Collapses to a single stack below `lg` (1024px), where
+          not. The max column count is intentionally 2, which sits comfortably
+          at the settings family's shared reading width (`SETTINGS_PAGE_MAX_WIDTH`,
+          896px), giving each column ~430px while keeping Connections spatially
+          consistent with the other settings pages. Bump `lg:grid-cols-2` to add
+          columns only if a wider width is ever adopted. Collapses to a single
+          stack below `lg` (1024px), where
           the rail + page padding would otherwise crowd two columns. `gap-x-8`
           keeps the 32px gutter; `gap-y-10` gives grid rows a clear vertical
           rhythm given the ragged bottoms. */}
@@ -130,7 +132,16 @@ function CapabilityGroupSection({
       >
         {group.title}
       </h2>
-      <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
+      {/* Reserve two lines for the tagline (`2lh` = two of this element's own
+          line-heights, so it tracks the type scale rather than a brittle pixel
+          guess). Group titles are always one line, so fixing the tagline's
+          height to its two-line maximum makes every group's header block the
+          same height — and thus the provider rows start at the same vertical
+          offset and align across the whole grid, not just at the group tops
+          (e.g. Gmail and Slack share a line even though Mail's tagline is one
+          line and Messaging's wraps to two). Bump to `3lh` only if a tagline
+          ever needs three lines. */}
+      <p className="mt-1.5 min-h-[2lh] max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
         {group.description}
       </p>
 
