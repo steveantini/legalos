@@ -477,6 +477,33 @@ export const isCurrentUserOrgAdmin = cache(async (): Promise<boolean> => {
 });
 
 /**
+ * Returns true only for `super_admin`.
+ *
+ * Mirrors the write RLS on `public.connection_policy`
+ * (`connection_policy_super_admin_write`, migration 0044), which admits
+ * super_admin only — not org_admin or dept_admin. Use this to gate the
+ * connection-policy editor (the Policy & access admin area) and its save
+ * action, so the app-layer gate matches the DB-layer one (mirror-RLS, D-041):
+ * an org_admin who can reach the admin section sees the policy read only and
+ * cannot save, rather than being shown controls whose writes RLS rejects.
+ */
+export const isCurrentUserSuperAdmin = cache(async (): Promise<boolean> => {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return profile?.role === "super_admin";
+});
+
+/**
  * Slim user row for the admin User access page (Session 29). The page
  * lists every user in the caller's organization; this is the projection
  * threaded through the client list component.

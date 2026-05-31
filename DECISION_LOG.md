@@ -2229,3 +2229,28 @@ One coherent row language across landings (and consistent with the Connections r
 - Settings and Admin landings share one filled, left-justified row language through the single `LandingRow` component (lifted on the second consumer).
 - Future landings use the filled row standard.
 - The flat-hairline landing treatment is retired; the settings landing's earlier active-press micro-interaction is dropped in favor of the shared treatment.
+
+## D-076 — Connection-policy editor (Policy & access, A2): category-level editing, derived providers, super-admin only
+
+Date: 2026-05-31
+Status: Accepted
+
+**Context:**
+
+The connection policy (allowed categories/providers, capability ceiling) shipped with live enforcement in the connector arc but no editing UI; it was changed directly in the database (D-066 deferred the editor). A2 builds it. The investigation established the contract: a global singleton, an org-wide single-dimension ceiling, two independently-editable arrays that can drift, super-admin-only write RLS, and no super-admin helper.
+
+**Decision:**
+
+The Policy & access page presents two governance decisions. (1) A single global capability ceiling as a trust statement: read only (the safe default) or read and write. (2) Allowed connection categories as toggles; `allowed_providers` is derived server-side from the allowed categories plus the registry (`deriveAllowedProviders`), never edited directly and never trusted from the client, so the two arrays cannot drift into the stranded-provider state. Editing is super-admin only, gated by a net-new `isCurrentUserSuperAdmin()` that mirrors the write RLS (D-041 mirror-RLS); other admins see the policy read only. The page distinguishes a read failure from a genuinely empty policy (it reads the row directly and treats `error || data === null` as load-failure → a calm error state) so the fail-closed deny-all sentinel from `getConnectionPolicy` is never shown as real state. The ceiling is presented as one org-wide control because the backend is org-wide single-dimension; per-category ceilings are a possible future schema change, out of scope.
+
+**Reasoning:**
+
+Category-level editing with derived providers makes coherence structural (the UI cannot create a contradictory policy) and gives the super-admin a simple mental model (think in kinds of connections, not providers). One global trust statement is more comprehensible for a legal leader than per-category ceilings and matches the backend. Super-admin-only matches the highest-stakes governance and the shipped RLS; read-only for other admins is honest transparency without granting change. This closes D-066.
+
+**Consequences:**
+
+- The policy is editable in-product; direct-DB edits are no longer needed.
+- `isCurrentUserSuperAdmin()` now exists for super-admin-gated surfaces.
+- `allowed_providers` is always coherent with `allowed_categories` by construction (`lib/connections/policy-derivation.ts`).
+- Default model (net-new backend) and new-user-defaults (with People) are separate later milestones (A2b, A3).
+- Per-category ceiling remains a possible future enhancement.

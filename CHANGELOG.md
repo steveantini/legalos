@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Policy & access editor: super admins can now set the organization's connection policy from the admin area, the most any connection is allowed to do (read only, or read and write) and which kinds of connections are permitted.** Read only is the safe default. Changes are reserved to super admins; other admins see the policy read only. This replaces editing the policy directly in the database and is enforced live by the connection layer built earlier.
+
 - **Reconciled the Settings and Admin landings: the admin landing and its sub-pages are now left-justified to match the rest of the product, and the settings landing adopts the same filled row treatment the admin landing uses, so both landings share one row language.** Filled landing rows (calm fill, hover-deepen) are now the landing standard.
 
 - **Admin shell: the admin section is rebuilt as a polished peer mode organized around its two jobs, govern the use and measure the value.** A new rail anchors on "Admin" with two captioned groups, govern (People, Policy & access) and measure (Insights, Evals), and a refined landing introduces each area, so the navigation itself teaches how admin is organized. The four areas are coming-soon for now, built out in the milestones that follow; admin now shares the 896px reading width of the rest of settings.

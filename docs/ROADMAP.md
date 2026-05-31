@@ -26,7 +26,11 @@ Admin adopts the settings primitives (the portability principle): the refined-li
 
 The IA is now decided (D-074): admin's two jobs, govern the use and measure the value, with four areas, People and Policy & access under govern, Insights and Evals under measure.
 
-**A1 (shell) shipped (2026-05-31):** the admin rail (lead-line "Admin" + the govern/measure captioned groups), the refined landing introducing each area, and four coming-soon area stubs, with admin reconciled to the 896px settings-family width. No area functionality yet. Remaining milestones build each area: **A2 Policy & access** (the deferred connection-policy editing UI, sequenced first since its enforcement already shipped), **A3 People**, **A4 Insights** (absorbing today's Adoption Metrics and Productivity Calculator), **A5 Evals**; audit log and data/retention fold into People/Policy; then a docs close-out. The existing admin pages (Productivity Calculator, Adoption Metrics, User Access) stay reachable at their routes but unlinked from the new rail, retiring per-area as their replacements ship.
+**A1 (shell) shipped (2026-05-31):** the admin rail (lead-line "Admin" + the govern/measure captioned groups), the refined landing introducing each area, and four coming-soon area stubs, with admin reconciled to the 896px settings-family width.
+
+**A2 (Policy & access editor) shipped (2026-05-31):** the super-admin UI to edit the org's connection policy (the capability ceiling as a read-only / read-and-write trust statement, and allowed connection categories with providers derived server-side), gated to super admins via a net-new `isCurrentUserSuperAdmin()`; other admins see it read only. Closes D-066 (the deferred connection-policy editing UI); the policy no longer needs direct-DB edits. See D-076.
+
+Remaining milestones build each area: **A2b** the org-level default model (net-new backend, deferred from A2), **A3 People**, **A4 Insights** (absorbing today's Adoption Metrics and Productivity Calculator), **A5 Evals**; audit log, data/retention, and new-user defaults fold into People/Policy; then a docs close-out. The existing admin pages (Productivity Calculator, Adoption Metrics, User Access) stay reachable at their routes but unlinked from the new rail, retiring per-area as their replacements ship.
 
 ## 2. Connector follow-ups (deferred from the connector hub arc)
 
