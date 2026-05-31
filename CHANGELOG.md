@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Connections page redesign: capability groups now lay out in two auto-balanced columns (preserving their meaningful order, collapsing to one column on narrow screens) with content-height rows that never stretch.** Every provider row carries a calm lighter fill at rest, with a subtle hover-deepen on actionable rows; the state dots and fonts are unchanged. The org row now shares the common fill, with its badge and status carrying the ownership distinction. The order-preserving auto-balanced column layout is a pattern intended to port to the admin areas.
+
 - **Fixed a server error that prevented saving agents: a "use server" module re-exported a type, which Next's server-action transform turned into a runtime reference to an erased type, throwing a ReferenceError on every agent-save POST (latent since the chat-attachments foundation landed). Types are now imported from their source module so server-action files export only async functions; swept the codebase for the same pattern.**
 
 - **Routing cleanup: retired the old /workspace/integrations surface now that /workspace/settings/connections is the canonical connections home. Removed the integrations route tree and the rail Integrations group, repointed every Connect call-to-action to the settings connections page, cleaned up the breadcrumb entries, and added a redirect so any old links resolve to the new location.**

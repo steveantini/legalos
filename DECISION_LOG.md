@@ -2141,3 +2141,26 @@ The bug class is specifically the bare re-export of an imported binding — `exp
 - Agent create/save and agent-attachment add/remove POSTs no longer throw at module-eval time.
 - Guardrail recorded so a future `export type { … }` (or any non-function export) is not reintroduced into a `"use server"` file.
 - tsc/build cannot catch this class (runtime-only); the check is the convention plus the sweep done here.
+
+## D-073 — Order-preserving auto-balanced two-column layout for capability groups (portable to admin)
+
+Date: 2026-05-31
+Status: Accepted
+
+**Context:**
+
+The Connections page moved to two columns for better use of width. A hand-placed split (specific groups in specific columns) would require manual re-balancing every time a group or provider is added, and could cause rows to stretch to fill uneven columns. The pattern will also be needed for the upcoming admin multi-group surfaces.
+
+**Decision:**
+
+Lay capability groups into two columns via an auto-balanced flow that preserves their meaningful order (not hand-placed), with content-height, top-aligned rows that never stretch (a shorter column simply ends higher; trailing whitespace is acceptable), collapsing to a single column on narrow viewports. Order is prioritized over perfect height-balance. All provider rows carry a uniform calm lighter fill at rest, with a subtle hover-deepen on actionable rows only; dots and fonts unchanged; the org row shares the common fill with its badge/status carrying ownership.
+
+**Reasoning:**
+
+Auto-balanced order-preserving flow stays polished as content changes with zero hand-tuning, avoiding the maintenance trap of hardcoded column placement. Content-height top-aligned rows eliminate the stretching failure mode. A uniform calm rest fill reads more pleasingly than mixed flat/tinted rows; the subtle hover-deepen is near-zero maintenance (adjusting an existing hover) and quietly distinguishes actionable from inert on top of the dots. The layout is built as a reusable pattern because the admin arc's multi-group surfaces need the same behavior (portability principle).
+
+**Consequences:**
+
+- Adding a group or provider re-flows automatically; no placement code changes, no stretching.
+- The org row's ownership signal shifts from background tint to its badge/status (since all rows now share the fill).
+- The layout pattern is a candidate for extraction into a shared helper when the admin arc adopts it. The split logic already lives in a portable primitive (`lib/layout/balanced-columns.ts`).

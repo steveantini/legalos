@@ -1,10 +1,12 @@
 import {
   CAPABILITY_GROUPS,
+  type CapabilityGroup,
   type Provider,
 } from "@/lib/settings/connections-data";
 import { requireAuthUser } from "@/lib/auth/access";
 import { disconnectConnectionAction } from "@/lib/actions/connections";
 import { isConnectable } from "@/lib/connections/providers/registry";
+import { balancedOrderedSplit } from "@/lib/layout/balanced-columns";
 import {
   getConnectionStates,
   type ProviderConnectionState,
@@ -61,6 +63,18 @@ export async function ConnectionsPage({
 
   const errorMessage = statusError ? ERROR_MESSAGES[statusError] : undefined;
 
+  // Lay the groups into two columns via an order-preserving balanced split
+  // (D-073): the split point is derived from each group's estimated height, so
+  // adding a group or provider re-flows automatically with no hand-tuning, and
+  // the meaningful order (File storage, Calendar, Mail, Messaging, Matter
+  // management) is read down column one then down column two. Height estimate:
+  // a base for the title + description, plus one unit per rendered row (each
+  // personal provider, plus the org example if present).
+  const [leftGroups, rightGroups] = balancedOrderedSplit(
+    CAPABILITY_GROUPS,
+    (group) => 2 + group.providers.length + (group.orgExample ? 1 : 0),
+  );
+
   return (
     <main className="w-full max-w-3xl">
       <header>
@@ -82,45 +96,84 @@ export async function ConnectionsPage({
         </p>
       ) : null}
 
-      <div className="mt-10 flex flex-col gap-8">
-        {CAPABILITY_GROUPS.map((group) => (
-          <section key={group.id} aria-labelledby={`connections-${group.id}`}>
-            <h2
-              id={`connections-${group.id}`}
-              className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
-            >
-              {group.title}
-            </h2>
-            <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
-              {group.description}
-            </p>
-
-            {/* No box frame: groups are delineated by title, description, and
-                spacing. Full-width hairlines live on these wrappers (matching
-                the settings landing); the padded row inside is the surface
-                that takes the rounded hover highlight. */}
-            <div className="mt-4">
-              {group.providers.map((provider) => (
-                <div
-                  key={provider.id}
-                  className="border-b border-hairline last:border-b-0"
-                >
-                  <ProviderRow
-                    provider={provider}
-                    connection={connectionByProvider.get(provider.id) ?? null}
-                  />
-                </div>
-              ))}
-              {group.orgExample ? (
-                <div className="border-b border-hairline last:border-b-0">
-                  <OrgProviderRow provider={group.orgExample} />
-                </div>
-              ) : null}
-            </div>
-          </section>
-        ))}
+      {/* Two columns when there's width, a single stack when narrow. Grid items
+          are top-aligned (items-start) and content-height, so nothing
+          stretches: a shorter column simply ends higher, and the trailing
+          whitespace is correct. `gap-8` is both the 32px gutter between columns
+          and the 32px seam between the two stacks when they collapse into one,
+          matching the inter-group rhythm inside each column. Breaks to two
+          columns at `lg` (1024px), where the rail + page padding still leave
+          each column comfortably wide; below that it's a clean single stack. */}
+      <div className="mt-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+        <div className="flex flex-col gap-8">
+          {leftGroups.map((group) => (
+            <CapabilityGroupSection
+              key={group.id}
+              group={group}
+              connectionByProvider={connectionByProvider}
+            />
+          ))}
+        </div>
+        <div className="flex flex-col gap-8">
+          {rightGroups.map((group) => (
+            <CapabilityGroupSection
+              key={group.id}
+              group={group}
+              connectionByProvider={connectionByProvider}
+            />
+          ))}
+        </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * One capability group: title, description, and its provider rows (plus the
+ * optional org example). Extracted so the two-column layout can map it into
+ * either column without duplicating the markup.
+ */
+function CapabilityGroupSection({
+  group,
+  connectionByProvider,
+}: {
+  group: CapabilityGroup;
+  connectionByProvider: Map<string, ProviderConnectionState>;
+}) {
+  return (
+    <section aria-labelledby={`connections-${group.id}`}>
+      <h2
+        id={`connections-${group.id}`}
+        className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
+      >
+        {group.title}
+      </h2>
+      <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
+        {group.description}
+      </p>
+
+      {/* No box frame: groups are delineated by title, description, and
+          spacing. Full-width hairlines live on these wrappers (matching the
+          settings landing); the padded row inside is the filled surface. */}
+      <div className="mt-4">
+        {group.providers.map((provider) => (
+          <div
+            key={provider.id}
+            className="border-b border-hairline last:border-b-0"
+          >
+            <ProviderRow
+              provider={provider}
+              connection={connectionByProvider.get(provider.id) ?? null}
+            />
+          </div>
+        ))}
+        {group.orgExample ? (
+          <div className="border-b border-hairline last:border-b-0">
+            <OrgProviderRow provider={group.orgExample} />
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -180,12 +233,18 @@ function ProviderRow({
   // is actually connectable only once an OAuth adapter is registered for it.
   const connectable = provider.status === "available" && isConnectable(provider.id);
   const isConnected = connection !== null;
+  // Actionable rows (a connected row with a Disconnect, or a connectable row
+  // with a Connect) respond to the pointer; coming-soon rows are inert.
+  const isActionable = isConnected || connectable;
 
   return (
     <div
-      className={`flex items-center px-5 py-2 ${
-        connectable
-          ? "rounded-lg transition-colors duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft motion-reduce:transition-none"
+      // Calm lighter fill at rest on every row (paper-2). Actionable rows
+      // deepen one subtle shade on hover (to stone/secondary) using the shared
+      // hover motion tokens; coming-soon rows stay flat.
+      className={`flex items-center rounded-lg bg-paper-2 px-5 py-2 ${
+        isActionable
+          ? "transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft motion-reduce:transition-none"
           : ""
       }`}
     >
@@ -240,9 +299,11 @@ function ProviderRow({
 
 /**
  * The org-level provider row: an admin-connected resource the user cannot act
- * on. Visually differentiated from personal providers by a subtle bg tint and
- * an "Org" badge, and informational only (no affordance, no hover). Static
- * example until real CLM integration ships.
+ * on. Now that every row carries the common calm fill, the background no longer
+ * sets it apart; the "Org" badge and the "Connected by your admin" status line
+ * carry the ownership distinction (D-073). Informational only: no affordance,
+ * and no hover-deepen (it is inert, unlike the actionable personal rows).
+ * Static example until real CLM integration ships.
  */
 function OrgProviderRow({ provider }: { provider: Provider }) {
   return (
