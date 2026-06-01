@@ -2425,3 +2425,26 @@ The two tables' identical spine makes a unified feed the natural, superior UX. S
 - Future audit-recording gaps (Policy & access edits, connection grant/revoke, invitation lifecycle, agent/department changes) are flagged for a future audit-coverage arc.
 - Pagination/merge may move to a UNION view/keyset cursor at scale; a multi-tenant composite index is a future optimization.
 - This capstones the GOVERN side (govern the use + see what was done); the admin arc closes out next (A7).
+
+## D-084 — Admin arc close-out (A7): GOVERN complete, MEASURE intentionally deferred
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+The admin arc (D-074 IA through D-083 audit log) is complete on its GOVERN side and deliberately stops short on its MEASURE side. This entry records the close-out and, importantly, why the MEASURE deferrals are deliberate rather than unfinished, so a future session does not mistake parked work for a gap to fill blind.
+
+**Decision:**
+
+Close the admin arc with the GOVERN side complete (Policy & access A2/A2b, People A3a/A3b/A3c, Audit log A6) and the MEASURE side deferred: Insights A4a shipped as a functional placeholder pending a delight pass; the Insights cost/ROI lens A4b is deferred pending the business-model decision (managed vs bring-your-own-model, which determines whether recorded cost is the customer's spend or legalOS's margin); Evals A5 is deferred as an open design question ("what is an eval for a non-engineer?"). A7 itself is docs-only: reconcile the roadmap/decisions/changelog and refresh the handoff so the honest state and every deferred arc survive.
+
+**Reasoning:**
+
+The GOVERN surfaces are fully supported by existing data and are business-model-independent, so they ship now. The MEASURE deferrals are each gated on something real (a pricing-model decision, a delight pass, a design conversation) and are worse if forced early on an assumption that may prove wrong. Recording the deferral rationale in the decision log keeps it articulable for trust/security contexts and prevents a future session from reconstructing or relitigating it.
+
+**Consequences:**
+
+- The GOVERN side is the durable, demoable governance story; MEASURE returns deliberately.
+- The Connections phase (models-as-a-connection, notify-and-approve lifecycle, model-retirement handling) is the natural next major arc; the business-model arc follows it and gates A4b.
+- The parked invite-email sending-domain item and the standing security-transparency lens are captured in ROADMAP.md and the handoff, not lost.

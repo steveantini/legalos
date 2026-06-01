@@ -10,6 +10,40 @@ Repo: `/Users/stevenantini/Projects/legalos`. Sibling repos used as reference ma
 - `/Users/stevenantini/Projects/claude-for-legal` (Anthropic's open-source Claude for Legal — the source of C4L agents imported into legalOS)
 - `/Users/stevenantini/Projects/project-kindred` (an earlier reference codebase)
 
+## Current state (admin arc close-out — read this first)
+
+This section is the current honest state as of the admin arc close-out (A7). The historical record (polish phase, prior arcs, key files) follows below and remains accurate; read this first so the current state is not reconstructed from the history.
+
+### Where the product is
+
+The admin section's GOVERN side is COMPLETE: Policy & access (capability ceiling, allowed connection categories, org default model, super-admin governance), People (roster, role editor, soft-deactivation, invitation), and the Audit log (a read-only People-activity feed). All sensitive mutations use three-layer enforcement (honest UI, server-action re-check, a DB trigger/RLS as the authoritative guard), mirror-RLS (D-041), and honest-state throughout. The connector hub and Connections settings page were completed earlier (Drive picker with folder browse, the loading-choreography standard, the two-column-then-grid Connections layout, the 896px settings/admin width standard).
+
+### Model state
+
+Claude Opus 4.8 (anthropic/claude-opus-4-8) is the flagship and the system/org default, on a single canonical models source (lib/llm/models.ts) that all pricing/validation/display/pickers derive from, the future plug-in point for models-as-a-connection. The full agent-form picker lists 5 models (Opus 4.8/4.7/4.6, Sonnet 4.6, Haiku 4.5); the composer quick-pick is 3 (Opus 4.8, Sonnet 4.6, Haiku 4.5). Existing agents were swept to Opus 4.8 by a one-time operator SQL update. Models can be ADDED but NOT retired until model-retirement handling is built (see deferred).
+
+### What's deferred and why (nothing here is unfinished by accident)
+
+- Insights cost + ROI lens (A4b): gated on the business-model decision, recorded cost (cost_micro_usd in usage_events) is the customer's cost under bring-your-own-model but legalOS's margin under managed pricing, so an honest cost/ROI view needs the pricing model decided first; also needs the Productivity Calculator's ROI assumptions moved from localStorage to org storage.
+- Insights usage lens (A4a): shipped as a functional placeholder (demoable via a sample-data toggle), pending a deliberate delight pass.
+- Evals (A5): the deepest open design question ("what is an eval for a non-engineer?"); deferred for a real design conversation.
+- Connections phase (next major arc): models-as-a-connection (Anthropic first; available models derive from connected providers); discovery automation via the provider Models API; notify-and-approve lifecycle (new models / C4L capabilities never auto-enable, the super admin is notified and activates on approval, LOCKED); C4L reframed as a connection; the API-vs-CLI-vs-MCP connection-mechanism question; model-retirement handling (graceful fallback and/or flag-and-choose; operator leans option 2/3; prerequisite before curating the model list down).
+- Business model & pricing (major arc after Connections, gates A4b): managed vs bring-your-own-model vs both; four pricing layers (platform/model/usage/services); don't hard-bake margins (inference ~10x/yr cheaper); reasoning-model use offsets token savings.
+- Audit coverage expansion: event-log the unaudited governance actions (Policy & access edits, connection grant/revoke, invitation lifecycle, agent/department changes).
+- Security/governance transparency: a standing lens, make each governance decision articulable for trust/security docs; the DECISION_LOG is the raw material.
+
+### Parked operational item
+
+Invitation (A3c) works in code but cannot SEND real invites until a verified sending domain is set up in Resend and the Supabase custom-SMTP sender is changed from onboarding@resend.dev to an address on that domain. No legalOS domain exists yet; testing is deferred. For a demo, drive it on the operator's own account, or get a domain. This is a Supabase/Resend config step, not an app bug. (A future session should treat this as parked; do not grant the over-permissioned Supabase MCP authorization a prior session requested.)
+
+### Testing caveat
+
+Several People features (role editor, deactivation) cannot be fully exercised solo because the org has a single super admin and the last-active-super-admin protections correctly block self-actions. Full testing arrives once a second user exists (which needs the invite-email domain, or a manually-provisioned second account).
+
+### How the work runs (process)
+
+Three-actor pattern: Claude Chat writes patch prompts; the operator pastes them to Claude Code (CC); the operator pastes CC's reports back. CC works autonomously (autonomy mode set) and applies the end-of-task commit + push without asking. Migrations are applied BY HAND by the operator in the Supabase SQL Editor (the repo is unlinked; CC never runs db push), and security-critical migrations are applied BEFORE the dependent feature is used. Credentials/secrets are never pasted in chat, the operator enters them directly into Vercel/Supabase/.env. Docs are amortized into each feature commit. Prod auto-deploys from origin/main to the canonical Vercel domain; the operator reviews in prod.
+
 ## The three actors
 
 Work happens across three actors:
@@ -373,14 +407,20 @@ For the fresh chat to know where things live:
 - `lib/actions/user-preferences.ts` — preference get/set server actions
 - `scripts/import-c4l-plugin.ts` — the C4L import script (operator runs manually)
 - `docs/C4L_DEFERRED_SKILLS.md` — authoritative reference for every C4L skill audited, where it landed, and why
-- `supabase/migrations/` — all schema changes; current HEAD is 0042
+- `supabase/migrations/` — all schema changes; current HEAD is 0050
 - `supabase/seed/0001_org_and_departments.sql` — canonical post-migrations state; comment header documents the four-group taxonomy
+- `app/workspace/admin/` — the admin section: People, Policy & access, Audit log (Govern); Insights, Evals (Measure). `lib/admin/nav.ts` is the single nav source feeding the admin rail and landing.
+- `lib/workspace/admin/insights/` (org-wide usage math + sample fixture) and `lib/workspace/admin/audit/` (the unified role/status audit feed) — the MEASURE/GOVERN data modules added in the admin arc.
 
 ## Migration history summary
 
-Current HEAD on main: 0046. All migrations applied to the live Supabase database via the dashboard SQL editor (the project's standard migration-application path; the repo is intentionally unlinked, so never `supabase db push`). 0044/0045/0046 (the connector arc) are all applied and verified live. Seed file maintained in sync via per-migration updates (most recently in commit 94ddcc0 for polish #7).
+Current HEAD on main: 0050. All migrations applied to the live Supabase database via the dashboard SQL editor (the project's standard migration-application path; the repo is intentionally unlinked, so never `supabase db push`). The admin-arc migrations (0047/0048/0049/0050) are applied and verified live. Seed file maintained in sync via per-migration updates (most recently in commit 94ddcc0 for polish #7).
 
 Recent migrations of note:
+- 0047 — organizations.default_model (A2b org default model)
+- 0048 — role_change_enforcement trigger + role_change_audit table (A3a; tightened role-mutation RLS, closed a privilege-escalation hole)
+- 0049 — user_deactivation trigger + user_status_audit table (A3b; also tightened the A3a last-super-admin count to require active status)
+- 0050 — invitations table + invite-aware ensure_user_provisioned (A3c)
 - 0044 — connections + connection_grants + connection_policy tables (connector arc data model)
 - 0045 — connection_secrets table (encrypted OAuth tokens)
 - 0046 — message_attachments made Drive-ready (schema + send plumbing)
@@ -402,17 +442,20 @@ See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. 
 
 ## How a fresh chat opens
 
-Polish phase complete (items #1 through #17 all closed). Workspace home and rail restructure arc complete (six stages closed). Chat page redesign arc complete (eleven commits closed). Word export arc complete (three commits closed: cf8df0e, 1a284af, 5c5c811; D-054 adopted). Chat attachments arc complete (five commits closed: 7928cae, 08b3690, 66499de, 4015093, d3e42ee; D-055 adopted). Workspace home revamp and Matters arc complete (29 commits closed: 60b9e3a through f47942e; D-056 through D-061 adopted). Share & connector hub arc complete (Settings peer mode, Connections page, connections / connection_grants / connection_policy data model, Google Drive OAuth end to end, live Drive reads in agents, the Drive file picker in the composer; migrations 0044/0045/0046 applied and verified live; D-062 through D-072 adopted). The product is in a stable state with no active arc in progress.
+The admin arc is CLOSED (A7). Its GOVERN side is complete (Policy & access, People, Audit log) and its MEASURE side is intentionally deferred (Insights A4a a functional placeholder pending a delight pass; A4b deferred pending the business model; Evals A5 deferred as an open design question). See the "Current state" section at the top of this file for the full honest state, and docs/ROADMAP.md for the ordered next work. All prior arcs remain closed: the polish phase, workspace home and rail restructure, chat page redesign, Word export, chat attachments, workspace home revamp and Matters, and the Share & connector hub. The product is in a stable state with no active arc in progress.
 
 A fresh chat session at this point opens to a project waiting for the operator's next direction. The chat should:
 
-1. Acknowledge the handoff is loaded and that the polish phase and all subsequent arcs (workspace home and rail restructure, chat page redesign, Word export, chat attachments, workspace home revamp and Matters, Share & connector hub) are closed.
-2. Confirm the operator's intent: pick up the top item from docs/ROADMAP.md, kick off a new direction not on the roadmap yet, or pull a backlog item up.
-3. Default to the operator's lead. The roadmap is ordered; item 1 (Admin polish arc) is the current top priority following the connector hub closure. It is the deliberately deferred, architecture-first pass on Admin: design the admin information architecture fresh, bring the placeholder admin pages to the polish standard, build the admin connection-policy editing UI (deferred from the connector arc per D-066), and adopt the settings primitives. The operator may pivot for any reason.
+1. Acknowledge the handoff is loaded, that the admin arc is closed (GOVERN complete, MEASURE deferred), and that the current state and deferred items are captured in the "Current state" section above.
+2. Confirm the operator's intent: pick up a deferred arc (the Connections phase with models-as-a-connection is the natural next major arc, and it gates the business-model arc which gates the Insights cost/ROI lens), kick off a new direction, or take a MEASURE delight/design pass (Insights A4a polish, or Evals A5 design).
+3. Default to the operator's lead. Do NOT resurface the parked invite-email-domain item as if it were a bug, and do NOT request the over-permissioned Supabase MCP authorization (it was correctly declined).
 
-Important standing fact for any future session: the connector arc's `invalid_client` OAuth failure was RESOLVED (stale client secret, fixed with a fresh secret in Google Cloud and Vercel). Drive connects and reads live in production. Any older `invalid_client` reference is HISTORICAL.
+Standing facts for any future session:
+- The connector arc's `invalid_client` OAuth failure was RESOLVED (stale client secret, fixed with a fresh secret in Google Cloud and Vercel). Drive connects and reads live in production. Any older `invalid_client` reference is HISTORICAL.
+- Invitation works in code; real sends are PARKED pending a sending domain (Resend + Supabase SMTP sender), not an app bug. See the "Parked operational item" above.
+- Models can be added but not retired until model-retirement handling ships (Connections phase).
 
-The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins (roadmap item 4) stay deferred unless a trigger fires.
+The roadmap at docs/ROADMAP.md is the authoritative source for "what's next." Reordering it is normal work. Per D-051, the out-of-scope C4L plugins stay deferred unless a trigger fires.
 
 The fresh chat must honor the working rules from message one. One question at a time. No bundled steps. Dual-delight standard. Build for the long term.
 
