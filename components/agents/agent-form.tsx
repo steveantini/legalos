@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentFormResult } from "@/lib/actions/agents";
 import { modelDisplayName } from "@/lib/llm/model-label";
+import { MODELS } from "@/lib/llm/models";
 
 type ExistingAttachment = {
   attachmentId: string;
@@ -30,29 +31,15 @@ type ExistingAttachment = {
 };
 
 /**
- * Models the bounded model dropdown is allowed to render. Kept in step
- * with MODEL_PRICING server-side; misalignment fails server validation.
- * The Zod schema in the server action is the trust boundary — this list
- * is UX, not a security gate.
+ * The full model picker's options, derived from the canonical models source
+ * (lib/llm/models.ts) in its display order (flagship first). The Zod schema in
+ * the server action validates against the same source, so this list is UX, not
+ * a security gate, and can never drift from what the server accepts.
  */
-const MODEL_OPTIONS: { value: string; helper: string }[] = [
-  {
-    value: "anthropic/claude-sonnet-4-6",
-    helper: "Fast, cost-effective. Good default for most tasks.",
-  },
-  {
-    value: "anthropic/claude-opus-4-7",
-    helper: "Slower, more capable. Best for hard reasoning.",
-  },
-  {
-    value: "anthropic/claude-opus-4-6",
-    helper: "Previous Opus generation. Use only if a workflow requires it.",
-  },
-  {
-    value: "anthropic/claude-haiku-4-5-20251001",
-    helper: "Fastest, cheapest. Good for simple tasks at high volume.",
-  },
-];
+const MODEL_OPTIONS = MODELS.map((model) => ({
+  value: model.id,
+  helper: model.helper,
+}));
 
 interface AgentFormDefaults {
   name: string;

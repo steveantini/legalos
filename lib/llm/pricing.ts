@@ -1,40 +1,35 @@
 /**
  * Per-model cost rates in USD per 1,000,000 tokens, keyed on the
- * vendor-prefixed model id (e.g. 'anthropic/claude-sonnet-4-6'). Current as
- * of April 2026 — updating rates is a code change. Multi-vendor sibling
- * adapters (OpenAI, Google) ship in Phase 6 per D-025; this table grows
- * vendor-prefixed rows as those adapters land. The file lives at
- * lib/llm/pricing.ts (vendor-agnostic) rather than under a vendor folder
- * so a single import covers every supported model.
+ * vendor-prefixed model id (e.g. 'anthropic/claude-sonnet-4-6'). The rates
+ * themselves live on each entry in the canonical models source
+ * (lib/llm/models.ts); this map is derived from it so pricing, validation, and
+ * the pickers can never carry a different model set. Updating a rate (or adding
+ * a model) is a one-place edit in models.ts.
  *
  * Cache rates: Anthropic's 5-minute ephemeral prompt cache charges
  * 1.25× the base input rate on the cache-write turn and 0.1× on
  * cache-read turns. The break-even is one cache-read turn after the
  * write — any conversation longer than two turns saves money. Multi-
  * vendor caching is per-adapter (OpenAI auto-caches, Gemini differs);
- * each vendor's row carries its own rates.
+ * each vendor's entry carries its own rates.
  *
- * NOTE on Opus 4.7 tokenization: Anthropic introduced a new tokenizer with
- * Opus 4.7 that can produce up to ~35% more tokens for the same source text
- * vs. older models. Real cost per request can vary noticeably even at the
- * same listed rate. usage_events.tokens_in / tokens_out are the source of
- * truth for billed cost — never estimate cost from character counts or
- * pre-tokenizer rules of thumb.
+ * NOTE on Opus-generation tokenization: Anthropic introduced a new tokenizer
+ * with Opus 4.7 (carried forward to Opus 4.8) that can produce up to ~35% more
+ * tokens for the same source text vs. older models. Real cost per request can
+ * vary noticeably even at the same listed rate. usage_events.tokens_in /
+ * tokens_out are the source of truth for billed cost — never estimate cost from
+ * character counts or pre-tokenizer rules of thumb.
  */
 
-export type ModelPricing = {
-  inputPerMillion: number;
-  outputPerMillion: number;
-  cacheWritePerMillion: number;
-  cacheReadPerMillion: number;
-};
+import { MODELS } from "@/lib/llm/models";
 
-export const MODEL_PRICING: Record<string, ModelPricing> = {
-  "anthropic/claude-opus-4-7":            { inputPerMillion: 5, outputPerMillion: 25, cacheWritePerMillion: 6.25, cacheReadPerMillion: 0.5 },
-  "anthropic/claude-opus-4-6":            { inputPerMillion: 5, outputPerMillion: 25, cacheWritePerMillion: 6.25, cacheReadPerMillion: 0.5 },
-  "anthropic/claude-sonnet-4-6":          { inputPerMillion: 3, outputPerMillion: 15, cacheWritePerMillion: 3.75, cacheReadPerMillion: 0.3 },
-  "anthropic/claude-haiku-4-5-20251001":  { inputPerMillion: 1, outputPerMillion: 5,  cacheWritePerMillion: 1.25, cacheReadPerMillion: 0.1 },
-};
+// Re-exported for callers that import the pricing shape from here; the type is
+// defined on the canonical models source.
+export type { ModelPricing } from "@/lib/llm/models";
+
+export const MODEL_PRICING = Object.fromEntries(
+  MODELS.map((model) => [model.id, model.pricing]),
+) as Record<string, (typeof MODELS)[number]["pricing"]>;
 
 /**
  * Anthropic's web search tool: $10 per 1,000 searches, model-agnostic

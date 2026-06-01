@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { updateAgentModelAction } from "@/lib/actions/agents";
 import { modelDisplayName, modelDisplayNameShort } from "@/lib/llm/model-label";
+import { COMPOSER_MODEL_IDS } from "@/lib/llm/models";
 
 interface ModelPickerProps {
   agentId: string;
@@ -27,12 +28,14 @@ interface ModelPickerProps {
  * refreshes via `revalidatePath('/workspace/agents/<id>')` after each
  * successful change.
  *
- * Three-model dropdown by design (D-030 surprise (3): the composer
- * surfaces the common-case picks; the niche `claude-opus-4-6` entry
- * stays reachable through the full edit form). The trigger label is
- * read-through — it shows the agent's current model even if it's
- * outside the three-option list, so a power user who picked opus-4-6
- * via the form sees their actual current model in the trigger.
+ * Three-model quick-pick by design (D-030 surprise (3)): the composer
+ * surfaces one-per-tier common-case picks (flagship / balanced / fast),
+ * derived from the canonical models source's `inComposerQuickPick` flag —
+ * today Opus 4.8, Sonnet 4.6, and Haiku 4.5. The off-pick Opus generations
+ * (4.7, 4.6) stay reachable through the full edit form. The trigger label is
+ * read-through — it shows the agent's current model even if it's outside the
+ * quick-pick, so a power user who picked Opus 4.7 via the form sees their
+ * actual current model in the trigger.
  *
  * Optimistic update: trigger label flips immediately on selection,
  * action runs in a transition, label reverts on action failure with a
@@ -51,11 +54,7 @@ interface ModelPickerProps {
  * Trigger shows the full model name; the menu items stay short-form
  * (`modelDisplayNameShort`) — a descriptive trigger over a compact list.
  */
-const COMPOSER_MODEL_OPTIONS: ReadonlyArray<string> = [
-  "anthropic/claude-sonnet-4-6",
-  "anthropic/claude-opus-4-7",
-  "anthropic/claude-haiku-4-5-20251001",
-];
+const COMPOSER_MODEL_OPTIONS: ReadonlyArray<string> = COMPOSER_MODEL_IDS;
 
 export function ModelPicker({ agentId, initialModel }: ModelPickerProps) {
   const [model, setModel] = useState(initialModel);

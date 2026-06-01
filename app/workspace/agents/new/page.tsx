@@ -9,9 +9,11 @@ import {
 } from "@/lib/actions/agents";
 import {
   getDepartmentIfAccessible,
+  getOrganizationDefaultModel,
   isCurrentUserOrgAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
+import { DEFAULT_MODEL_FALLBACK, isSupportedModel } from "@/lib/llm/models";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface PageProps {
@@ -74,12 +76,23 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
     }
   }
 
+  // Agent-create model precedence: a fork inherits the template's model (set in
+  // the fork branch below); otherwise a fresh agent starts on the org's default
+  // model, and if none is configured (or it's no longer a supported id) on the
+  // canonical fallback. This precedence is create-time only — it never touches
+  // the run path, where a conversation keeps its frozen model snapshot.
+  const orgDefaultModel = await getOrganizationDefaultModel();
+  const blankCreateModel =
+    orgDefaultModel && isSupportedModel(orgDefaultModel)
+      ? orgDefaultModel
+      : DEFAULT_MODEL_FALLBACK;
+
   let forkedFromAgent: { id: string; name: string } | null = null;
   let defaults = {
     name: "",
     description: "",
     systemPrompt: "",
-    model: "anthropic/claude-sonnet-4-6",
+    model: blankCreateModel,
     toolsEnabled: [] as string[],
   };
 

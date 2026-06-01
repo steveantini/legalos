@@ -2277,3 +2277,28 @@ A stable, complete switcher reads as deliberate and orients the user (a map of t
 - The menu is identical everywhere; the "Settings while in Settings" redundancy is gone.
 - Modes are defined once; adding a future mode is one edit consumed by both the rail-switcher and the profile menu.
 - The "Back to workspace" binary toggle is replaced by an explicit Workspace entry.
+
+## D-078 — Org default model on the organizations row (super-admin), canonical models source, Opus 4.8 as new flagship default
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+The only default model was a hardcoded literal scattered across several files, and the model list was duplicated in four convention-synced places. A2b adds a configurable org default model, consolidates the list, and adds the newly released Claude Opus 4.8 as the flagship default. Future direction: models as a connection.
+
+**Decision:**
+
+Org default model = `default_model` on the organizations row (org-scoped, app-level validated for forward-compat with connection-derived models), super-admin edited in Policy & access (read-only for other admins). It slots into agent-CREATE precedence (template, then org default, then the canonical fallback constant) and never the run path (snapshots immutable). All scattered model lists are consolidated into one canonical models source (ids, display names, pricing, composer-subset flag) feeding validation and every picker; this is the future models-as-a-connection plug-in point. Opus 4.8 (`anthropic/claude-opus-4-8`) is added as the flagship and the new default, joining the composer's three-model quick-pick (Opus 4.8, Sonnet 4.6, Haiku 4.5; older Opus versions remain in the full form picker). Sonnet and Haiku versions are unchanged; a model-lineup refresh is a separate future task.
+
+**Reasoning:**
+
+Org-scoped storage and app-level validation keep the multi-tenant and model-agnostic postures honest. Super-admin gating matches the surface and the cost/governance nature (Opus costs ~1.7x Sonnet; the default is a deliberate, configurable choice). Create-time-only precedence preserves snapshot immutability. Consolidation removes convention-only duplication and makes adding a model (like Opus 4.8) a one-place edit and the future connection-derived source a single swap.
+
+**Consequences:**
+
+- An org default model is configurable; Opus 4.8 is the new system default; the hardcoded Sonnet literal becomes the canonical fallback constant (now Opus 4.8).
+- One canonical models source feeds validation, display, both pickers, and the editor.
+- Models-as-a-connection plugs into this source later.
+- Default model affects new agents only; existing agents and conversations unchanged.
+- A future model-lineup refresh (newer Sonnet/Haiku, deprecations) is tracked separately.

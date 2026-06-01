@@ -1,3 +1,5 @@
+import { MODEL_BY_ID } from "@/lib/llm/models";
+
 /**
  * Strip the vendor prefix from a stored model id for display.
  *
@@ -31,32 +33,16 @@ export function modelLabel(model: string | null): string {
  * Unknown ids fall through to modelLabel() — better to surface the raw
  * stripped id than render a placeholder; users who picked an off-list
  * model via the form should still see what they have.
+ *
+ * Names come from the canonical models source (lib/llm/models.ts), so the
+ * pickers, validation, and these labels can never carry different model sets.
  */
-const MODEL_DISPLAY_NAMES: Record<string, { full: string; short: string }> = {
-  "anthropic/claude-sonnet-4-6": {
-    full: "Claude Sonnet 4.6",
-    short: "Sonnet 4.6",
-  },
-  "anthropic/claude-opus-4-7": {
-    full: "Claude Opus 4.7",
-    short: "Opus 4.7",
-  },
-  "anthropic/claude-opus-4-6": {
-    full: "Claude Opus 4.6",
-    short: "Opus 4.6",
-  },
-  "anthropic/claude-haiku-4-5-20251001": {
-    full: "Claude Haiku 4.5",
-    short: "Haiku 4.5",
-  },
-};
-
 export function modelDisplayName(model: string | null): string {
   if (!model) return "";
-  return MODEL_DISPLAY_NAMES[model]?.full ?? modelLabel(model);
+  return MODEL_BY_ID[model]?.displayName ?? modelLabel(model);
 }
 
 export function modelDisplayNameShort(model: string | null): string {
   if (!model) return "";
-  return MODEL_DISPLAY_NAMES[model]?.short ?? modelLabel(model);
+  return MODEL_BY_ID[model]?.shortDisplayName ?? modelLabel(model);
 }

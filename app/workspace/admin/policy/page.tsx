@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 
+import { DefaultModelEditor } from "@/components/admin/policy/default-model-editor";
 import { PolicyEditor } from "@/components/admin/policy/policy-editor";
-import { isCurrentUserSuperAdmin } from "@/lib/auth/access";
+import {
+  getOrganizationDefaultModel,
+  isCurrentUserSuperAdmin,
+} from "@/lib/auth/access";
 import { CAPABILITY_GROUPS } from "@/lib/settings/connections-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -39,6 +43,10 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 
 export default async function AdminPolicyPage() {
   const canEdit = await isCurrentUserSuperAdmin();
+
+  // The org default model lives on the organizations row, independent of the
+  // connection policy, so it loads and renders even if the policy read fails.
+  const orgDefaultModel = await getOrganizationDefaultModel();
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -93,6 +101,8 @@ export default async function AdminPolicyPage() {
           canEdit={canEdit}
         />
       )}
+
+      <DefaultModelEditor currentModelId={orgDefaultModel} canEdit={canEdit} />
     </>
   );
 }

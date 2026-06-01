@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { isCurrentUserOrgAdmin } from "@/lib/auth/access";
-import { MODEL_PRICING } from "@/lib/llm/pricing";
+import { SUPPORTED_MODEL_IDS } from "@/lib/llm/models";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -20,11 +20,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * 30 days remain in the DB until a future cron job hard-deletes them.
  */
 
-const SUPPORTED_MODELS = Object.keys(MODEL_PRICING) as [string, ...string[]];
+const SUPPORTED_MODELS = SUPPORTED_MODEL_IDS as [string, ...string[]];
 
 /**
- * Zod schema for the create-agent form. Bounded fields (`model`) match
- * MODEL_PRICING so an unsupported id can't make it past validation. Free
+ * Zod schema for the create-agent form. Bounded fields (`model`) match the
+ * canonical models source so an unsupported id can't make it past validation. Free
  * fields (name, description, system_prompt) are length-bounded; the
  * backstop CHECK constraints in 0001 / 0006 / 0009 catch anything that
  * slips past.

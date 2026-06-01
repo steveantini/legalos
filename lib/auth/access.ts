@@ -592,6 +592,41 @@ export async function getOrganizationDefaults(): Promise<string[]> {
 }
 
 /**
+ * Returns the organization's configured default model id (the model new agents
+ * start with), or null if none is set. Reads `organizations.default_model`,
+ * RLS-scoped to the caller's own org (`organizations_read_own`, migration 0001),
+ * so any authenticated member can read it.
+ *
+ * Tolerates the column being absent: this milestone's migration is hand-applied
+ * after deploy, so there is a window where the deployed code queries a column
+ * that does not exist yet. A read error (including Postgres 42703 undefined_column)
+ * resolves to null, and every caller falls back to DEFAULT_MODEL_FALLBACK — the
+ * read can never block agent creation, whether or not the migration has landed.
+ * Once the migration is applied this simply returns the saved value.
+ */
+export async function getOrganizationDefaultModel(): Promise<string | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("default_model")
+    .maybeSingle();
+
+  if (error) {
+    // 42703 = undefined_column: expected before the migration is applied. Any
+    // other read failure also falls back to the canonical default rather than
+    // blocking; log the unexpected ones (no PII — code only).
+    if (error.code !== "42703") {
+      console.error("getOrganizationDefaultModel read failed", {
+        code: error.code,
+      });
+    }
+    return null;
+  }
+
+  return ((data?.default_model as string | null) ?? null) || null;
+}
+
+/**
  * Gate for admin routes. Redirects unauthenticated users to /login via
  * `requireAuthUser()`; for authenticated-but-not-admin users, calls
  * `notFound()` rather than redirecting — the 404 avoids leaking the
