@@ -7,6 +7,7 @@ import { z } from "zod";
 import { isEmailAllowed } from "@/lib/auth/allowlist";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/lib/url/safe-next";
+import { resolveSiteUrl } from "@/lib/url/site-url";
 
 /**
  * httpOnly cookie carrying the email the user just submitted, so the
@@ -27,24 +28,6 @@ const magicLinkSchema = z.object({
   email: z.string().email().max(254),
   next: z.string().optional(),
 });
-
-/**
- * Resolution order for the magic-link callback URL:
- *   1. NEXT_PUBLIC_SITE_URL — set explicitly in Vercel Production for
- *      the canonical prod URL.
- *   2. VERCEL_URL — auto-injected on every Vercel runtime (Production
- *      + Preview), unique per deploy. Lets preview branches self-test
- *      magic-link login without hardcoding URLs.
- *   3. http://localhost:3000 — local dev fallback.
- */
-function resolveSiteUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000")
-  );
-}
 
 /**
  * Send a passwordless magic-link email. Best-effort: errors are
@@ -106,7 +89,7 @@ export async function signInWithMagicLink(formData: FormData) {
     redirect("/login?error=invalid-email");
   }
 
-  if (!isEmailAllowed(parsed.data.email)) {
+  if (!(await isEmailAllowed(parsed.data.email))) {
     redirect("/login?error=access-denied");
   }
 
@@ -150,7 +133,7 @@ export async function resendMagicLink(formData: FormData) {
     redirect("/login");
   }
 
-  if (!isEmailAllowed(parsed.data.email)) {
+  if (!(await isEmailAllowed(parsed.data.email))) {
     redirect("/login?error=access-denied");
   }
 

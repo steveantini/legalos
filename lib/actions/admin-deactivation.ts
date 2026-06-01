@@ -137,7 +137,6 @@ export async function setUserActiveAction(
   // 7. Revalidate People (the roster) and the workspace shell (the target's
   // access changes immediately).
   revalidatePath("/workspace/admin/people");
-  revalidatePath("/workspace/admin/users");
   revalidatePath("/workspace");
   return { ok: true };
 }

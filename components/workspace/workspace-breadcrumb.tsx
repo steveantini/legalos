@@ -66,8 +66,8 @@ const STATIC_SEGMENT_HREFS: Record<string, string> = {
   Insights: "/workspace/admin/insights",
   Evals: "/workspace/admin/evals",
   // Legacy admin tools — reachable at their routes until retired per-area in
-  // A2–A5, no longer linked from the new admin rail or landing.
-  "User Access": "/workspace/admin/users",
+  // A2–A5, no longer linked from the new admin rail or landing. (The old User
+  // Access page retired in A3c; People at /workspace/admin/people supersedes it.)
   "Adoption Metrics": "/workspace/admin/metrics",
   "Productivity Calculator": "/workspace/admin/calculator",
   Edit: "",
@@ -188,10 +188,6 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace/admin/evals",
     segments: () => [HOME_SEGMENT, "Admin", "Evals"],
-  },
-  {
-    match: "/workspace/admin/users",
-    segments: () => [HOME_SEGMENT, "Admin", "User Access"],
   },
   {
     match: "/workspace/admin/calculator",

@@ -34,11 +34,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  *     backend-security.md).
  *   - Return a discriminated-union result matching
  *     `lib/actions/departments.ts`'s shape.
- *   - revalidatePath('/workspace/admin/people') and the legacy
- *     '/workspace/admin/users' so both admin surfaces re-render with
- *     fresh server data (People is the A3 replacement; the old Users
- *     page stays reachable until People fully supersedes it). Grant /
- *     revoke also revalidate '/workspace' so the user's rail + landing
+ *   - revalidatePath('/workspace/admin/people') so the People surface
+ *     re-renders with fresh server data (the old Users page retired in
+ *     A3c; People is the sole surface). Grant / revoke also revalidate
+ *     '/workspace' so the user's rail + landing
  *     reflect the change on their next request.
  */
 
@@ -158,7 +157,6 @@ export async function grantDepartmentAccessAction(
   }
 
   revalidatePath("/workspace/admin/people");
-  revalidatePath("/workspace/admin/users");
   revalidatePath("/workspace");
   revalidatePath("/workspace/departments");
   return { ok: true };
@@ -196,7 +194,6 @@ export async function revokeDepartmentAccessAction(
   }
 
   revalidatePath("/workspace/admin/people");
-  revalidatePath("/workspace/admin/users");
   revalidatePath("/workspace");
   revalidatePath("/workspace/departments");
   return { ok: true };
@@ -242,7 +239,6 @@ export async function addDefaultDepartmentAction(
   }
 
   revalidatePath("/workspace/admin/people");
-  revalidatePath("/workspace/admin/users");
   return { ok: true };
 }
 
@@ -269,6 +265,5 @@ export async function removeDefaultDepartmentAction(
   }
 
   revalidatePath("/workspace/admin/people");
-  revalidatePath("/workspace/admin/users");
   return { ok: true };
 }

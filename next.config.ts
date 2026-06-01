@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
         destination: "/workspace/settings/connections",
         permanent: true,
       },
+      // The old admin Users page retired in A3c; People supersedes it. This 308
+      // catches any bookmarked or stale links to the old path.
+      {
+        source: "/workspace/admin/users",
+        destination: "/workspace/admin/people",
+        permanent: true,
+      },
     ];
   },
   // PDF extraction is now `unpdf` (lib/extract/pdf.ts). It ships a

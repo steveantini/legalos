@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=invalid-link`);
   }
 
-  if (!isEmailAllowed(email)) {
+  if (!(await isEmailAllowed(email))) {
     // Clear the session that was just created so the redirect target
     // (and the proxy's authed-on-/login guard) sees an unauthenticated
     // request.

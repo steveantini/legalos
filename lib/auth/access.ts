@@ -592,6 +592,82 @@ export async function getOrganizationDefaults(): Promise<string[]> {
 }
 
 /**
+ * A pending invitation as the People page presents it. `invited_by_name` is the
+ * inviter's display name (full name, else email), resolved separately so the
+ * read doesn't depend on a PostgREST FK-embed hint. `effective_status` is
+ * computed: a pending invite past its `expires_at` reads as "expired" (no cron
+ * flips the column; the gate already treats an expired pending as inadmissible).
+ */
+export interface OrgInvitation {
+  id: string;
+  email: string;
+  role: "super_admin" | "org_admin" | "user";
+  department_ids: string[];
+  expires_at: string;
+  created_at: string;
+  invited_by_name: string | null;
+  effective_status: "pending" | "expired";
+}
+
+/**
+ * Returns the org's pending invitations (newest first), org-admin gated. Only
+ * `status='pending'` rows are returned — accepted invites appear in the roster,
+ * revoked ones are gone. Tolerates the `invitations` table being absent before
+ * the A3c migration is applied (returns []). RLS (`invitations_admin_read`,
+ * migration 0050) scopes the read to the caller's org.
+ */
+export async function getOrgInvitations(): Promise<OrgInvitation[]> {
+  if (!(await isCurrentUserOrgAdmin())) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("invitations")
+    .select("id, email, role, department_ids, expires_at, created_at, invited_by_user_id")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  if (error || !data || data.length === 0) return [];
+
+  // Resolve inviter display names in one extra query (no FK-embed dependency).
+  const inviterIds = Array.from(
+    new Set(
+      data
+        .map((r) => r.invited_by_user_id as string | null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const nameById = new Map<string, string>();
+  if (inviterIds.length > 0) {
+    const { data: inviters } = await supabase
+      .from("users")
+      .select("id, full_name, email")
+      .in("id", inviterIds);
+    for (const u of inviters ?? []) {
+      nameById.set(
+        u.id as string,
+        ((u.full_name as string | null)?.trim() || (u.email as string)) ?? "",
+      );
+    }
+  }
+
+  const now = Date.now();
+  return data.map((r) => {
+    const expiresAt = r.expires_at as string;
+    const expired = new Date(expiresAt).getTime() <= now;
+    return {
+      id: r.id as string,
+      email: r.email as string,
+      role: r.role as OrgInvitation["role"],
+      department_ids: (r.department_ids as string[] | null) ?? [],
+      expires_at: expiresAt,
+      created_at: r.created_at as string,
+      invited_by_name:
+        nameById.get(r.invited_by_user_id as string) ?? null,
+      effective_status: expired ? "expired" : "pending",
+    };
+  });
+}
+
+/**
  * Returns the organization's configured default model id (the model new agents
  * start with), or null if none is set. Reads `organizations.default_model`,
  * RLS-scoped to the caller's own org (`organizations_read_own`, migration 0001),

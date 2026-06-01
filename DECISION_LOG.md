@@ -2352,3 +2352,28 @@ Soft-over-hard keeps deprovisioning safe and reversible and avoids the prohibite
 - The last-active-super-admin guard protects against lockout; the A3a count is corrected for active status.
 - user_status_audit accrues alongside role_change_audit, both surfaced in A6.
 - A3c (invitation) completes People; the old Users page retires after it. Full multi-user testing of deactivation arrives with A3c.
+
+## D-081 — Invitation flow via Supabase auth email, seamless acceptance, DB-backed gate (A3c) — People complete
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+People could manage roster, roles (A3a), and deactivation (A3b) but had no way to add a person except the env-allowlist + magic-link auto-provision as role='user'. A3c adds invitation and completes People. The app sends no email; the service-role client and Supabase auth email already exist.
+
+**Decision:**
+
+Admins invite by email with a chosen role and departments, gated by the escalation rule (org_admin: user/org_admin; super_admin required for super_admin). The invite is sent via the service-role auth.admin.inviteUserByEmail (Supabase's existing email path, no new email infrastructure). Acceptance is seamless: ensure_user_provisioned consumes a matching pending invitation on first sign-in, provisioning the chosen role+departments and marking the invite accepted, with no separate accept step; escalation safety is enforced at invite creation (the role is validated then, since acceptance writes users.role via INSERT, which the 0048 role trigger does not guard). The env allowlist is replaced by a DB-backed async gate that admits an email if it has a pending/accepted invitation OR already belongs to an existing user, with the env list kept as a transitional safety hatch and no fail-closed-on-unset, so the owner and existing users are never locked out. Pending invites are managed (resend/revoke/expiry) on People, with the same gating. The old admin Users page is retired (People is the sole implementation, with a 308 redirect).
+
+**Reasoning:**
+
+Riding Supabase auth email avoids standing up email infrastructure for the MVP (a branded sender is a deferred polish). Seamless acceptance is the delightful user path (click, sign in, done) and is idempotent/automatic via existing provisioning. DB-gate-primary with an existing-user clause and env hatch is the safe-over-tidy choice that cannot lock out the owner. Creation-time role validation plus the invitation-role trigger keep invited roles within the escalation rule. Completing People lets the old Users page retire, removing the deliberate temporary duplication from A3a.
+
+**Consequences:**
+
+- People is complete (roster, roles, deactivation, defaults, invitation); the old Users page is retired with a redirect.
+- Access is invitation-governed; the owner/existing users always admitted; env allowlist demoted to a safety hatch.
+- A second user can now exist, making the A3a role editor and A3b deactivation fully testable.
+- A branded custom invite sender and a Supabase SMTP config for volume are deferred ops/polish, not blocking.
+- Invitation lifecycle events can join the A6 audit log later.

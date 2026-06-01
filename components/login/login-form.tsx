@@ -3,7 +3,15 @@
 import { useFormStatus } from "react-dom";
 
 import { signInWithMagicLink } from "@/app/(public)/login/actions";
-import { ACCESS_REJECTION_MESSAGE } from "@/lib/auth/allowlist";
+
+/**
+ * The "not invited / not allowed" rejection copy. Kept here (a client surface)
+ * rather than imported from the gate module (`lib/auth/allowlist.ts`), which is
+ * server-only since it reads the database via the service-role client. Calm and
+ * non-revealing: it does not disclose whether the email exists or was invited.
+ */
+const ACCESS_REJECTION_MESSAGE =
+  "legalOS is invite-only. Reach out to your administrator for access.";
 
 /**
  * Login form state (Session 23).

@@ -153,7 +153,6 @@ export async function updateUserRoleAction(
   // 7. Revalidate People (the roster) and the workspace shell (the target's
   // admin access and the rail/profile mode switcher depend on their role).
   revalidatePath("/workspace/admin/people");
-  revalidatePath("/workspace/admin/users");
   revalidatePath("/workspace");
   return { ok: true };
 }
