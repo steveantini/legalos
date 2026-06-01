@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Profile menu is now a consistent mode switcher: from anywhere it shows the same set, Workspace, Settings, Admin (for admins), and Sign out, with the mode you are in marked as current.** Previously it changed depending on where you were and could offer the page you were already on. The profile menu and the rail now determine the current mode from one shared source so they cannot drift.
+
 - **Policy & access editor: super admins can now set the organization's connection policy from the admin area, the most any connection is allowed to do (read only, or read and write) and which kinds of connections are permitted.** Read only is the safe default. Changes are reserved to super admins; other admins see the policy read only. This replaces editing the policy directly in the database and is enforced live by the connection layer built earlier.
 
 - **Reconciled the Settings and Admin landings: the admin landing and its sub-pages are now left-justified to match the rest of the product, and the settings landing adopts the same filled row treatment the admin landing uses, so both landings share one row language.** Filled landing rows (calm fill, hover-deepen) are now the landing standard.

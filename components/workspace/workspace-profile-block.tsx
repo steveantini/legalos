@@ -7,9 +7,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/lib/actions/auth";
+import { MODES, getCurrentMode } from "@/lib/workspace/modes";
 
 /**
  * Profile block at the bottom of the workspace rail. Visually preserves
@@ -18,23 +20,17 @@ import { signOut } from "@/lib/actions/auth";
  * outer `<div>` for a `<DropdownMenuTrigger>` so the whole block is
  * keyboard-clickable and opens an account menu above the rail.
  *
- * Menu items:
- *  - **Admin / Back to workspace** — conditional on `isAdmin`. Label
- *    and href flip based on whether the current pathname is under
- *    `/workspace/admin`: in admin mode the entry reads "Back to
- *    workspace" and routes to `/workspace`; everywhere else it reads
- *    "Admin" and routes to `/workspace/admin`. Renders as a `<Link>`
- *    via the `render` prop pattern (matches AgentCard's edit link in 11).
- *  - **Settings** — routes to `/workspace/settings` (the settings peer
- *    mode). Visible to every user; personal settings are not role-gated.
- *    Sits below the admin entry and above Sign out.
- *  - **Sign out** — calls `signOut` server action via `onClick`. The
- *    action's internal `redirect("/login")` propagates through.
+ * The menu is a consistent mode switcher (D-077): it shows the same set
+ * everywhere — Workspace, Settings, Admin (admins only), then Sign out —
+ * with the current mode shown but marked non-clickable (the disabled
+ * treatment) so it reads as "you are here" rather than being omitted. The
+ * mode list and the current-mode determination both come from the shared
+ * `lib/workspace/modes.ts` source, the same one the rail-switcher uses, so
+ * the menu and the rail cannot drift. Admin is gated on `isAdmin` (derived
+ * upstream in `app/workspace/layout.tsx` via `isCurrentUserAdmin`).
  *
- * Sign-out and the mode-aware admin entry both gain visibility from the
- * workspace chrome after the legacy MainNav was retired in 14. `isAdmin`
- * derivation lives upstream in `app/workspace/layout.tsx`; the mode-
- * aware label/href is computed client-side here via `usePathname`.
+ * Sign out calls the `signOut` server action via `onClick`; its internal
+ * `redirect("/login")` propagates through. Behavior unchanged.
  */
 export function WorkspaceProfileBlock({
   initials,
@@ -48,9 +44,8 @@ export function WorkspaceProfileBlock({
   isAdmin: boolean;
 }) {
   const pathname = usePathname();
-  const isAdminMode = pathname.startsWith("/workspace/admin");
-  const adminItemLabel = isAdminMode ? "Back to workspace" : "Admin";
-  const adminItemHref = isAdminMode ? "/workspace" : "/workspace/admin";
+  const currentMode = getCurrentMode(pathname);
+  const modes = MODES.filter((mode) => isAdmin || !mode.adminGated);
 
   return (
     <DropdownMenu>
@@ -77,14 +72,19 @@ export function WorkspaceProfileBlock({
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top">
-        {isAdmin ? (
-          <DropdownMenuItem render={<Link href={adminItemHref} />}>
-            {adminItemLabel}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem render={<Link href="/workspace/settings" />}>
-          Settings
-        </DropdownMenuItem>
+        {modes.map((mode) =>
+          mode.key === currentMode ? (
+            // The current mode: shown but non-clickable ("you are here").
+            <DropdownMenuItem key={mode.key} disabled aria-current="true">
+              {mode.label}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem key={mode.key} render={<Link href={mode.href} />}>
+              {mode.label}
+            </DropdownMenuItem>
+          ),
+        )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={async (event) => {
             event.preventDefault();

@@ -2254,3 +2254,26 @@ Category-level editing with derived providers makes coherence structural (the UI
 - `allowed_providers` is always coherent with `allowed_categories` by construction (`lib/connections/policy-derivation.ts`).
 - Default model (net-new backend) and new-user-defaults (with People) are separate later milestones (A2b, A3).
 - Per-category ceiling remains a possible future enhancement.
+
+## D-077 — Profile menu as a consistent mode switcher from one shared modes source
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+The profile menu modeled only a binary admin/not-admin state, so Workspace and Settings rendered the same menu (offering "Settings" while in Settings) with no current-mode marker, and the rail-switcher independently re-derived modes from pathname prefixes — two places duplicating the same logic.
+
+**Decision:**
+
+The profile menu is a consistent mode switcher showing the same set everywhere (Workspace, Settings, Admin for admins, Sign out) with the current mode shown but marked non-clickable (the disabled treatment). Both the profile menu and the rail-switcher derive modes and current-mode from one shared modes source (`lib/workspace/modes.ts`), with admin/settings prefixes tested before the workspace default. Admin is gated on `isCurrentUserAdmin` (any admin who can reach the admin section).
+
+**Reasoning:**
+
+A stable, complete switcher reads as deliberate and orients the user (a map of the product's areas) rather than a context-dependent grab-bag; marking the current mode is more consistent than omitting it. One shared modes source removes the duplicated prefix logic and prevents the rail and menu from drifting (lift-on-second-consumer).
+
+**Consequences:**
+
+- The menu is identical everywhere; the "Settings while in Settings" redundancy is gone.
+- Modes are defined once; adding a future mode is one edit consumed by both the rail-switcher and the profile menu.
+- The "Back to workspace" binary toggle is replaced by an explicit Workspace entry.
