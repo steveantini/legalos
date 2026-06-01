@@ -2327,3 +2327,28 @@ The least-privilege/no-escalation convention is the industry standard for securi
 - A role-change audit trail accrues, surfaced later in A6.
 - The old users page is retired at the end of the People sub-arc (after A3c).
 - A3b makes is_active load-bearing for soft-deactivation; A3c adds invitation.
+
+## D-080 — Soft user deactivation, request-layer enforced and audited (A3b)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+Deprovisioning was hard-delete-only (destructive, prohibited, orphans agents); users.is_active existed but was inert. A3b makes deactivation a reversible soft block.
+
+**Decision:**
+
+Deactivation flips users.is_active and nothing else (no cascade, fully reversible; agents, connections, grants, conversations, audit all intact; grants left untouched and made dormant only by the access block). Enforcement is request-layer, not RLS: the proxy blocks a deactivated user on their next request (mid-session cutoff across pages, APIs, actions), the auth callback rejects new sessions for deactivated existing users (beside the allowlist rejection), and the workspace layout adds a page guard. RLS weaving was deliberately not done (the proxy chokepoint is sufficient; weaving is_active into the security-definer helpers is more invasive and redundant). Gating mirrors the A3a escalation rule (org_admin deactivates user/org_admin; only super_admin deactivates a super_admin); the last ACTIVE super_admin cannot be deactivated and self-deactivation is confirmed, enforced in UI, action, and a sibling enforce_user_deactivation trigger. The A3a role trigger's last-super-admin count was tightened to also require is_active, so a deactivated super_admin no longer counts as lockout protection. Every activation/deactivation is recorded to user_status_audit (trigger-written, viewer in A6).
+
+**Reasoning:**
+
+Soft-over-hard keeps deprovisioning safe and reversible and avoids the prohibited destructive path; legal orgs also need retention. The proxy is a guaranteed per-request chokepoint, so a request-layer block gives an immediate, complete cutoff without the invasiveness of RLS-weaving. Mirroring A3a's rule and protections keeps the people-governance model consistent and articulable. Auditing deactivation from day one continues the security-transparency posture.
+
+**Consequences:**
+
+- Users can be deactivated/reactivated safely in-product; no hard-delete path is introduced.
+- is_active is now load-bearing (proxy, callback, layout).
+- The last-active-super-admin guard protects against lockout; the A3a count is corrected for active status.
+- user_status_audit accrues alongside role_change_audit, both surfaced in A6.
+- A3c (invitation) completes People; the old Users page retires after it. Full multi-user testing of deactivation arrives with A3c.

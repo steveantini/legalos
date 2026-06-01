@@ -49,5 +49,21 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=access-denied`);
   }
 
+  // Deactivated-user gate (A3b): reject a returning user whose account has been
+  // deactivated, so they cannot establish a new session. Only blocks an EXISTING
+  // deactivated row — a brand-new user has no `public.users` row yet (it is
+  // created active by provisioning on the next request), so a null row is not a
+  // block. The proxy enforces the same on every subsequent request; this stops
+  // session creation up front. Beside the allowlist rejection above by design.
+  const { data: profile } = await supabase
+    .from("users")
+    .select("is_active")
+    .eq("id", data.user!.id)
+    .maybeSingle();
+  if (profile?.is_active === false) {
+    await supabase.auth.signOut();
+    return NextResponse.redirect(`${origin}/login?error=deactivated`);
+  }
+
   return NextResponse.redirect(`${origin}${next}`);
 }

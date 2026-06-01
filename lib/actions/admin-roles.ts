@@ -107,25 +107,31 @@ export async function updateUserRoleAction(
     }
   }
 
-  // 5. Last-super-admin lockout protection (re-checked server-side regardless of
-  // any client confirmation). A demotion away from super_admin is refused when
-  // this is the org's only remaining super_admin.
+  // 5. Last-active-super-admin lockout protection (re-checked server-side
+  // regardless of any client confirmation). A demotion away from super_admin is
+  // refused when no OTHER active super_admin remains. This mirrors the role
+  // trigger's tightened count (migration 0049) exactly: count the org's active
+  // super admins excluding the target, and refuse when that is zero. The
+  // `is_active` filter is the A3b coupling fix — a deactivated super_admin does
+  // not count as a protector against org lockout.
   if (currentRole === "super_admin" && new_role !== "super_admin") {
     const { count, error: countError } = await supabase
       .from("users")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", actorProfile.organization_id)
-      .eq("role", "super_admin");
+      .eq("role", "super_admin")
+      .eq("is_active", true)
+      .neq("id", target_user_id);
     if (countError) {
       console.error("updateUserRoleAction super-admin count failed", {
         code: countError.code,
       });
       return { ok: false, error: "Could not change the role. Try again." };
     }
-    if ((count ?? 0) <= 1) {
+    if ((count ?? 0) === 0) {
       return {
         ok: false,
-        error: "Your organization must keep at least one super admin.",
+        error: "Your organization must keep at least one active super admin.",
       };
     }
   }

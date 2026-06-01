@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { setUserActiveAction } from "@/lib/actions/admin-deactivation";
 import { updateUserRoleAction } from "@/lib/actions/admin-roles";
 import {
   grantDepartmentAccessAction,
@@ -64,22 +65,26 @@ function formatJoined(iso: string): string {
 }
 
 /**
- * One person's row in the People roster (A3a). Disclosure pattern: the collapsed
- * header shows name / email / current role / joined date; expanding reveals the
- * org-role editor and the department-access chips.
+ * One person's row in the People roster (A3a + A3b). Disclosure pattern: the
+ * collapsed header shows name / email / current role / joined date (plus an
+ * "Inactive" marker for deactivated users); expanding reveals the org-role
+ * editor, the department-access chips, and the account-status control.
  *
- * The role editor enforces the escalation rule honestly in the UI (the server
- * action and the database trigger are the real guards):
- *   - A super_admin actor can set any of the three roles.
- *   - An org_admin actor can set only user / org_admin, and cannot edit a user
- *     who is currently super_admin (shown read-only with a quiet reason).
- *   - The org's last super_admin cannot be demoted (shown read-only with a
- *     reason), for every actor.
- *   - A super_admin demoting THEMSELVES confirms first via a dialog.
+ * The role editor and the deactivate control both enforce the escalation rule
+ * honestly in the UI (the server action and the database trigger are the real
+ * guards):
+ *   - A super_admin actor can set any role and deactivate/reactivate anyone.
+ *   - An org_admin actor can set only user / org_admin and cannot edit OR change
+ *     the status of a user who is currently super_admin (shown read-only with a
+ *     quiet reason).
+ *   - The org's last ACTIVE super_admin cannot be demoted or deactivated (shown
+ *     read-only / disabled with a reason), for every actor.
+ *   - A super_admin demoting OR deactivating THEMSELVES confirms first via a
+ *     dialog.
  *
  * Department access still grants at role='user' (dept_admin assignment is out of
- * A3a scope). Both the role and access controls use the optimistic
- * useTransition + toast idiom, reverting on server rejection.
+ * scope). Every control uses the optimistic useTransition + toast idiom,
+ * reverting on server rejection.
  */
 export function PersonRow({
   person,
@@ -87,7 +92,7 @@ export function PersonRow({
   initialAccessIds,
   actorRole,
   actorUserId,
-  isOnlySuperAdmin,
+  isOnlyActiveSuperAdmin,
 }: {
   person: OrgUser;
   allDepartments: RosterDepartment[];
@@ -95,8 +100,13 @@ export function PersonRow({
   /** The viewing admin's org role (the page is gated to org/super admins). */
   actorRole: "super_admin" | "org_admin";
   actorUserId: string;
-  /** True when THIS person is the org's only super_admin (lockout guard). */
-  isOnlySuperAdmin: boolean;
+  /**
+   * True when THIS person is the org's only ACTIVE super_admin — the lockout
+   * guard shared by the role editor (can't demote) and the status control
+   * (can't deactivate). Active-aware so a deactivated super_admin never counts
+   * as a protector (migration 0049 coupling fix).
+   */
+  isOnlyActiveSuperAdmin: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -104,6 +114,11 @@ export function PersonRow({
   const [role, setRole] = useState<OrgRole>(person.role);
   const [rolePending, startRoleTransition] = useTransition();
   const [confirmRole, setConfirmRole] = useState<OrgRole | null>(null);
+
+  // Account-status state.
+  const [active, setActive] = useState<boolean>(person.is_active);
+  const [statusPending, startStatusTransition] = useTransition();
+  const [confirmSelfDeactivate, setConfirmSelfDeactivate] = useState(false);
 
   // Department-access state.
   const [accessPending, startAccessTransition] = useTransition();
@@ -115,12 +130,12 @@ export function PersonRow({
   const showEmailLine = Boolean(person.full_name?.trim());
 
   // Editability of the role control, per the escalation rule.
-  const lockedAsLastSuperAdmin = isOnlySuperAdmin && role === "super_admin";
+  const lockedAsLastSuperAdmin = isOnlyActiveSuperAdmin && role === "super_admin";
   const orgAdminCannotEditSuper =
     actorRole === "org_admin" && role === "super_admin";
   const roleEditable = !lockedAsLastSuperAdmin && !orgAdminCannotEditSuper;
   const roleReadOnlyReason = lockedAsLastSuperAdmin
-    ? "Your organization needs at least one super admin, so this role can’t be changed."
+    ? "Your organization needs at least one active super admin, so this role can’t be changed."
     : orgAdminCannotEditSuper
       ? "Only a super admin can change a super admin’s role."
       : null;
@@ -130,6 +145,44 @@ export function PersonRow({
     actorRole === "super_admin"
       ? ["user", "org_admin", "super_admin"]
       : ["user", "org_admin"];
+
+  // Account-status control, governed by the same separation of duties: an
+  // org_admin cannot change a super_admin's status; the last active super_admin
+  // cannot be deactivated.
+  const orgAdminCannotManageSuper =
+    actorRole === "org_admin" && role === "super_admin";
+  const statusManageable = !orgAdminCannotManageSuper;
+  const deactivateLocked = isOnlyActiveSuperAdmin;
+  const statusReadOnlyReason = orgAdminCannotManageSuper
+    ? "Only a super admin can change a super admin’s status."
+    : null;
+
+  function applyStatusChange(nextActive: boolean) {
+    const previousActive = active;
+    setActive(nextActive);
+    startStatusTransition(async () => {
+      const formData = new FormData();
+      formData.set("target_user_id", person.id);
+      formData.set("active", nextActive ? "true" : "false");
+      const result = await setUserActiveAction(formData);
+      if (!result.ok) {
+        setActive(previousActive);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(nextActive ? "Account reactivated." : "Account deactivated.");
+    });
+  }
+
+  function onDeactivateClick() {
+    if (!statusManageable || statusPending || deactivateLocked) return;
+    // Self-deactivation confirms first (the actor is signing themselves out).
+    if (actorUserId === person.id) {
+      setConfirmSelfDeactivate(true);
+      return;
+    }
+    applyStatusChange(false);
+  }
 
   function applyRoleChange(nextRole: OrgRole) {
     const previousRole = role;
@@ -203,7 +256,11 @@ export function PersonRow({
           <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground" />
         )}
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-medium text-foreground">
+          <p
+            className={`truncate text-[15px] font-medium ${
+              active ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
             {displayName}
           </p>
           {showEmailLine ? (
@@ -212,8 +269,15 @@ export function PersonRow({
             </p>
           ) : null}
         </div>
-        <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-          {ROLE_LABEL[role]}
+        <span className="flex items-center justify-end gap-2">
+          {!active ? (
+            <span className="rounded-full border border-hairline-strong px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-caption">
+              Inactive
+            </span>
+          ) : null}
+          <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+            {ROLE_LABEL[role]}
+          </span>
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-caption tabular-nums">
           {formatJoined(person.created_at)}
@@ -324,6 +388,53 @@ export function PersonRow({
               })}
             </div>
           </div>
+
+          {/* Account status (deactivate / reactivate) */}
+          <div>
+            <p className="text-[13px] font-medium text-foreground">
+              Account status
+            </p>
+            <p className="mt-0.5 max-w-[70ch] text-[12px] leading-[1.5] text-muted-foreground">
+              {active
+                ? "This person can sign in and use the workspace."
+                : "This person is deactivated and can’t sign in. Their agents, connections, and history are kept and return when you reactivate them."}
+            </p>
+            <div className="mt-3">
+              {statusManageable ? (
+                active ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={statusPending || deactivateLocked}
+                      onClick={onDeactivateClick}
+                    >
+                      Deactivate
+                    </Button>
+                    {deactivateLocked ? (
+                      <p className="mt-2 text-[12px] leading-[1.5] text-caption">
+                        Your organization needs at least one active super admin,
+                        so this account can’t be deactivated.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={statusPending}
+                    onClick={() => applyStatusChange(true)}
+                  >
+                    Reactivate
+                  </Button>
+                )
+              ) : (
+                <p className="text-[12px] leading-[1.5] text-caption">
+                  {statusReadOnlyReason}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -366,6 +477,45 @@ export function PersonRow({
               disabled={rolePending}
             >
               Change my role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Self-deactivation confirmation. Only opens when the actor deactivates
+          their own account; the last-active-super-admin case is disabled above. */}
+      <Dialog
+        open={confirmSelfDeactivate}
+        onOpenChange={(open) => {
+          if (!open) setConfirmSelfDeactivate(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deactivate your own account?</DialogTitle>
+            <DialogDescription>
+              You’ll be signed out and lose access to the workspace immediately.
+              Nothing is deleted, your agents, connections, and history are kept,
+              and another admin can reactivate your account to restore access.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmSelfDeactivate(false)}
+              disabled={statusPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmSelfDeactivate(false);
+                applyStatusChange(false);
+              }}
+              disabled={statusPending}
+            >
+              Deactivate my account
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -75,7 +75,9 @@ export default async function AdminPeoplePage() {
     bucket.push(r.department_id);
   }
 
-  const superAdminCount = users.filter((u) => u.role === "super_admin").length;
+  const activeSuperAdminCount = users.filter(
+    (u) => u.role === "super_admin" && u.is_active,
+  ).length;
 
   return (
     <>
@@ -103,7 +105,7 @@ export default async function AdminPeoplePage() {
           accessByUser={accessByUser}
           actorRole={actorRole}
           actorUserId={user.id}
-          superAdminCount={superAdminCount}
+          activeSuperAdminCount={activeSuperAdminCount}
         />
         <PeopleDefaultDepartments
           allDepartments={allDepartments}

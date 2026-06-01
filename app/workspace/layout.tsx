@@ -49,9 +49,12 @@ export default async function WorkspaceLayout({
   const authUser = await requireAuthUser();
   const profile = await getCurrentUserProfile();
 
-  if (!profile) {
-    // Defensive: proxy provisioning may have raced. Send to login so
-    // the next sign-in re-runs ensure_user_provisioned.
+  if (!profile || profile.is_active === false) {
+    // Defensive page guard (A3b). A null profile means proxy provisioning may
+    // have raced; an inactive profile means the user was deactivated. The proxy
+    // is the real per-request cutoff (and signs a deactivated user out); this is
+    // belt-and-suspenders for the page render. Send to /login either way — the
+    // proxy attaches the deactivated reason on the user's next request.
     redirect("/login");
   }
 

@@ -25,8 +25,17 @@ const PUBLIC_PATHS = ["/login", "/auth"];
  *    preserving the requested path as `?next=<path>` so the user lands
  *    back where they were going after sign-in. The value is validated
  *    via safeNextPath (same-origin relative only) before being appended.
- * 3. Authenticated requests call `ensure_user_provisioned()` so the user
- *    has a `public.users` row. The RPC is idempotent and best effort;
+ * 3. Deactivated users (A3b): an authenticated user whose `public.users`
+ *    row has `is_active = false` is signed out and bounced to /login with
+ *    `?error=deactivated`. This is the mid-session cutoff — it runs on every
+ *    request (pages, API routes, server-action POSTs), so deactivation takes
+ *    effect on the user's very next request without waiting for re-login. A
+ *    user with no row yet (brand-new, not provisioned) is NOT blocked: no row
+ *    is not the same as inactive, and provisioning creates them active. The
+ *    sign-out clears the session so the redirect to /login can't loop back
+ *    through the authed-on-/login bounce below.
+ * 4. Authenticated, active requests call `ensure_user_provisioned()` so the
+ *    user has a `public.users` row. The RPC is idempotent and best effort;
  *    failures are logged but never block the request.
  *
  * CRITICAL: returning anything other than `getSupabaseResponse()` (or an
@@ -63,6 +72,32 @@ export async function proxy(request: NextRequest) {
       response.cookies.set(cookie);
     }
     return response;
+  }
+
+  // Deactivated-user cutoff (A3b). Runs before the authed-on-/login bounce so
+  // a blocked user is signed out and lands on /login, not redirected back to
+  // /workspace into a loop. A missing row (maybeSingle → null) means the user
+  // is not provisioned yet and is treated as active-by-default (no block).
+  if (user) {
+    const { data: status } = await supabase
+      .from("users")
+      .select("is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (status?.is_active === false) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      url.searchParams.set("error", "deactivated");
+      const response = NextResponse.redirect(url);
+      // Carry the (sign-out-cleared) cookies so the session is actually
+      // dropped; otherwise the next request would still look authenticated.
+      for (const cookie of getSupabaseResponse().cookies.getAll()) {
+        response.cookies.set(cookie);
+      }
+      return response;
+    }
   }
 
   // Authed users hitting /login go straight to /workspace — they don't

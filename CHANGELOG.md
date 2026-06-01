@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **User deactivation (People): admins can now deactivate and reactivate a person from the roster. Deactivation is a reversible soft block, it removes the person's access immediately on their next request and at sign-in, but destroys nothing: their agents, connections, and history remain intact and return on reactivation. The same least-privilege rules apply (an organization admin cannot deactivate a super admin, and the last active super admin cannot be deactivated), and every activation and deactivation is recorded for audit.**
+
 - **People (admin): the People area replaces the old users page with the team roster, where super admins can change a person's role and manage department access. Role changes follow a strict least-privilege rule: only a super admin can grant the super admin role, an organization admin can manage regular and organization-admin roles only, and the system will not let you remove your organization's last super admin. Every role change is recorded for audit. The new-user default departments setting moved here too.**
 
 - **Default model in Policy & access, and Claude Opus 4.8 added as the new flagship default. Super admins can now set the model new agents start with, from the models available to the organization; Opus 4.8 is the new default (it sets only the starting point for new agents, existing agents and running conversations are unchanged). The product's model list was consolidated into one canonical source that every model picker and the validation layer share, which is where future connected model providers will plug in. Opus 4.8 also joins the quick model picker in the composer.**

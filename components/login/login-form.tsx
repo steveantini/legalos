@@ -51,7 +51,9 @@ export function LoginForm({ error, next }: LoginFormProps) {
         ? "This sign-in link has expired or is invalid. Enter your email to get a new one."
         : error === "access-denied"
           ? ACCESS_REJECTION_MESSAGE
-          : null;
+          : error === "deactivated"
+            ? "Your account is inactive. Contact your administrator to restore access."
+            : null;
 
   return (
     <>
