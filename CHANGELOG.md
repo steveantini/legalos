@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **People (admin): the People area replaces the old users page with the team roster, where super admins can change a person's role and manage department access. Role changes follow a strict least-privilege rule: only a super admin can grant the super admin role, an organization admin can manage regular and organization-admin roles only, and the system will not let you remove your organization's last super admin. Every role change is recorded for audit. The new-user default departments setting moved here too.**
+
 - **Default model in Policy & access, and Claude Opus 4.8 added as the new flagship default. Super admins can now set the model new agents start with, from the models available to the organization; Opus 4.8 is the new default (it sets only the starting point for new agents, existing agents and running conversations are unchanged). The product's model list was consolidated into one canonical source that every model picker and the validation layer share, which is where future connected model providers will plug in. Opus 4.8 also joins the quick model picker in the composer.**
 
 - **Profile menu is now a consistent mode switcher: from anywhere it shows the same set, Workspace, Settings, Admin (for admins), and Sign out, with the mode you are in marked as current.** Previously it changed depending on where you were and could offer the page you were already on. The profile menu and the rail now determine the current mode from one shared source so they cannot drift.

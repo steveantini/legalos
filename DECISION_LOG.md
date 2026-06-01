@@ -2302,3 +2302,28 @@ Org-scoped storage and app-level validation keep the multi-tenant and model-agno
 - Models-as-a-connection plugs into this source later.
 - Default model affects new agents only; existing agents and conversations unchanged.
 - A future model-lineup refresh (newer Sonnet/Haiku, deprecations) is tracked separately.
+
+## D-079 — People role editor with least-privilege role-escalation rule, tightened RLS, and role-change audit (A3a)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+The old users page could edit department access but not org roles (SQL-only), and the role-mutation RLS (users_org_admin_manage) was FOR ALL with no guard, so any org_admin could grant super_admin or demote one. Adding a role editor (the People area) makes that hole live, so A3a closes it. The role-assignment model follows the security-serious convention (least privilege, no self-escalation, separation of duties, lockout protection, audit).
+
+**Decision:**
+
+People replaces the users page's roster + access + defaults and adds an org-role editor governed by: a super_admin may set any role; an org_admin may manage user↔org_admin only and may not grant super_admin or modify a super_admin; the last super_admin cannot be demoted/removed (org-lockout protection); self-demotion requires confirmation. The rule is enforced in three layers (UI mirrors it honestly; the server action re-checks; a tightened RLS/trigger enforces it at the DB so no crafted request can escalate). Every role change is recorded to a role_change_audit table now (the audit-log UI is later, A6) because role changes are the highest-stakes mutation. The default-departments editor migrates into People (stays org_admin). Soft-deactivation (A3b) and invitation (A3c) are separate milestones; dept_admin assignment remains out of scope.
+
+**Reasoning:**
+
+The least-privilege/no-escalation convention is the industry standard for security-serious tools and is also the clearly-articulable model for customer security reviews. Enforcing in three layers (mirror-RLS, D-041) means the UI is honest and the database is the real guard. The DB layer is a BEFORE UPDATE trigger rather than pure RLS because the rule is value-comparison logic (actor role vs OLD.role vs NEW.role, plus a last-super-admin sibling count) that RLS WITH CHECK cannot express; the existing RLS is kept as the coarse who-may-write gate and the trigger adds the transition guard (and also closes a self-update role hole). The trigger writes the audit row so every committed change is captured exactly once, including direct SQL, before the viewer exists. Recording the audit from day one means the trail exists before the viewer does. Soft-deactivation over hard-deletion (A3b) keeps deprovisioning safe and reversible.
+
+**Consequences:**
+
+- Org roles are editable in-product under a safe rule; the SQL-only role change is retired.
+- The privilege-escalation hole in users_org_admin_manage is closed.
+- A role-change audit trail accrues, surfaced later in A6.
+- The old users page is retired at the end of the People sub-arc (after A3c).
+- A3b makes is_active load-bearing for soft-deactivation; A3c adds invitation.
