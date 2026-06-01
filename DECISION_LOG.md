@@ -2377,3 +2377,27 @@ Riding Supabase auth email avoids standing up email infrastructure for the MVP (
 - A second user can now exist, making the A3a role editor and A3b deactivation fully testable.
 - A branded custom invite sender and a Supabase SMTP config for volume are deferred ops/polish, not blocking.
 - Invitation lifecycle events can join the A6 audit log later.
+
+## D-082 — Insights usage/adoption lens (A4a), measured from usage_events; cost/ROI deferred to A4b pending the business model
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+Insights is the first MEASURE area, serving Job C (run the operation + justify the spend). The investigation found usage_events is a fully-attributed, server-side ledger with measured activity (and cost), sliceable by user/agent/model/department/time, with a proven query pattern (impact-math.ts). Time-saved/ROI is not measured (only modeled from assumptions), and crucially the MEANING of cost depends on an unmade business-model decision (managed vs bring-your-own-model).
+
+**Decision:**
+
+A4a builds the MEASURED usage/adoption lens only — activity and trends by user, agent, model, and department (department via the agent, the clean rollup, since user-to-department is many-to-many), over calendar-anchored time windows, generalizing impact-math.ts to org-wide via the admin-read RLS. Cost and ROI/value are DEFERRED to A4b because cost_micro_usd means the customer's spend under bring-your-own-model but legalOS's internal margin under managed pricing, so an honest cost/ROI lens requires the business-model decision first (a new roadmap arc after Connections). A demo sample-data toggle (transient client state, clearly labeled) lets the experience be shown before real usage exists. Gating is org_admin (reporting, not a security control). JS-side aggregation is retained at current volume with a noted path to SQL-side aggregation if an org grows busy.
+
+**Reasoning:**
+
+The usage lens is meaningful and honest regardless of business model and is fully supported by existing data, so it ships now; the cost/ROI lens is gated on a strategic pricing decision and is deferred rather than built on an assumption that may prove wrong. Measured-vs-modeled and measured-vs-business-model-dependent are kept cleanly separated (the honest-state discipline).
+
+**Consequences:**
+
+- A real, demoable usage/adoption view ships now, business-model-independent.
+- A4b (cost + ROI) is gated on the business-model arc (managed vs BYO pricing) and the org billing dimension it implies.
+- The sample-data toggle supports demos; the old metrics/calculator pages stay reachable-but-unlinked until Insights fully covers their intent (after A4b).
+- Heavy org-wide aggregation may later move to SQL-side; HEAD counts already scale.
