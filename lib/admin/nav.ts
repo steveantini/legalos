@@ -45,6 +45,12 @@ export const ADMIN_NAV_GROUPS: ReadonlyArray<AdminNavGroup> = [
         description:
           "What’s connected, who can use it, and the defaults everyone starts with.",
       },
+      {
+        label: "Audit log",
+        href: "/workspace/admin/audit",
+        description:
+          "A record of role changes and account activity across your team.",
+      },
     ],
   },
   {

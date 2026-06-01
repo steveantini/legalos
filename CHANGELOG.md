@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Audit log (admin): a new audit log under Govern shows your organization's people activity in one chronological feed, who changed whose role (and from what to what) and who deactivated or reactivated whom, with names resolved and changes made directly in the database shown honestly as system changes. It is read-only and covers role and account-status changes today; broader governance auditing will follow.**
+
 - **Insights (admin): a new Insights area shows how your organization is using legalOS, measured from real activity, total agent runs and how usage is trending, broken down by agent, department, model, and person, over the time window you choose. A sample-data toggle lets you preview the experience before real usage accrues. This is the usage and adoption view; a cost and value view follows.**
 
 - **Invitations (People): admins can now invite a person by email and choose their role and department access up front. The invite is sent through the same email path as sign-in, and when the person clicks it and signs in they are set up automatically with the role and access you chose, no separate acceptance step. Access is now governed by invitations (and existing accounts) rather than a static list, so only invited or existing people can sign in, and the owner is never locked out. Pending invitations can be resent or revoked, and the same least-privilege rule applies (only a super admin can invite a super admin). This completes the People area; the old users page is retired.**

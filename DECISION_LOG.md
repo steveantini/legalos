@@ -2401,3 +2401,27 @@ The usage lens is meaningful and honest regardless of business model and is full
 - A4b (cost + ROI) is gated on the business-model arc (managed vs BYO pricing) and the org billing dimension it implies.
 - The sample-data toggle supports demos; the old metrics/calculator pages stay reachable-but-unlinked until Insights fully covers their intent (after A4b).
 - Heavy org-wide aggregation may later move to SQL-side; HEAD counts already scale.
+
+## D-083 — Audit-log viewer (A6) — unified People activity feed over the existing audit tables
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+The People work (A3a/A3b) has been recording role changes and account-status changes to two trigger-written, append-only, admin-read tables (role_change_audit, user_status_audit) with the plan to surface them. A6 is the read-only viewer and the capstone of the GOVERN side. No other governance events are event-logged today.
+
+**Decision:**
+
+A6 presents the two audit tables as ONE chronological feed with a per-row event type (role change / status change), org-admin gated (matching the tables' RLS), at a new route under the Govern nav group. User ids are resolved to friendly names via the established batched lookup; null actor/target (deleted user or direct-SQL change) render as "the system" / "a former member" — which also honestly reveals out-of-app changes. Initial render is server-fetched; pagination is most-recent-N with load-more (a UNION view / keyset cursor is noted as a future enhancement, not built). No new audit recording and no migration: A6 surfaces only what exists. The viewer is framed honestly as people/role/status activity, not a complete audit; Policy & access edits, connection grant/revoke, invitation lifecycle, and agent/department changes are NOT event-logged and are recorded as future audit gaps.
+
+**Reasoning:**
+
+The two tables' identical spine makes a unified feed the natural, superior UX. Surfacing the trail closes the loop opened when recording began and turns it into governance transparency (and a security-questionnaire asset). Honest framing avoids implying completeness. Deferring the broader audit-recording gaps keeps A6 scoped while capturing them so they are not lost.
+
+**Consequences:**
+
+- The role/status audit trail is now visible to admins in one place.
+- Future audit-recording gaps (Policy & access edits, connection grant/revoke, invitation lifecycle, agent/department changes) are flagged for a future audit-coverage arc.
+- Pagination/merge may move to a UNION view/keyset cursor at scale; a multi-tenant composite index is a future optimization.
+- This capstones the GOVERN side (govern the use + see what was done); the admin arc closes out next (A7).
