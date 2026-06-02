@@ -147,6 +147,19 @@ C4L placement (decided):
 - Storage (build-time note, not now): the per-org content-provider enablement state needs an org-scoped store designed for MULTIPLE providers from the start (e.g. a content_provider_settings table keyed by org + provider, or org JSONB), like default_model is org-scoped. Settle at build time.
 - A dedicated top-level "Content" admin area (separate from Policy & access) is DEFERRED until there are enough content features to justify it; for now Content is a section within Policy & access.
 
+**Discovery automation (flag 4) — decided principles (build deferred, riding the platform-owner tier):**
+
+- Universal shape: detect an upstream change -> the authority that OWNS the thing reviews it -> explicit choice to apply -> audited. NEVER auto-apply (notify-and-approve, generalized).
+- DETECTION IS MANUAL-TRIGGER near-term (the key refinement): the platform owner presses a "check for updates" button that runs the discovery queries ON DEMAND (against the provider Models API; against the C4L GitHub repo), reports what has changed, and offers the choice to act. This deliberately AVOIDS the net-new scheduled-task infrastructure (no cron, webhooks, or background jobs in v1), a button running a query on click is a fraction of the work and proves the valuable part (the detection logic) first. Scheduled/webhook automation is a DEFERRED later enhancement ("if you tire of pressing the button"), not v1.
+- Two-stage, authority-matches-ownership:
+  - PLATFORM OWNER discovers and decides what to OFFER (add a newly-released model to the platform model/connector CATALOG; ship a new C4L content version) via the manual-check button. This is the platform-tier action.
+  - CUSTOMER super admin separately decides what to ENABLE for their org (a newly-available catalog model -> the tenant-side notify-and-approve in Policy & access). Two authorities, two stages: platform governs what's OFFERED, customer governs what's ENABLED.
+- The core deliverable is the DETECTION LOGIC (the queries that correctly determine "what's new" from the Models API and the C4L repo); the trigger is just a button for now. A general NOTIFICATION PRIMITIVE (the system surfacing a pending item to an authority, which does not exist today; the audit tables record events but nothing notifies) is a recognized foundational prerequisite for any future PUSH/scheduled notify-and-approve, built when first needed and designed generally.
+- Detection-value asymmetry (rationale): automation's value is surfacing what you would NOT otherwise know. For C4L (the owner authors the repo) the owner already knows changes happened, so manual-check suffices indefinitely; for MODEL releases (a provider authors them) detection genuinely adds value (you don't know when Anthropic ships a model), so model discovery is the stronger candidate for eventual scheduled automation.
+- BUILD STAGING: flag #4 rides its dependencies, model discovery builds with/after models-as-a-connection; C4L discovery builds with the platform-owner tier (where the owner's manual-check button and the catalog live). Not a standalone near-term build; lock the principles now.
+
+This completes the Connections-phase flag decisions (flags 1-4 all decided).
+
 Tracked so they are not lost; each builds on the connector infrastructure shipped in the connector hub arc.
 
 - Agent-form Drive picker: the Drive picker shipped in the chat composer (message attachments) only. Adding it to the agent form (agent attachments) reuses the same picker component. Dependency to clear first: the agent EDIT page must render `gdrive_link` agent attachments gracefully in its attachment display. Today's rendering predates Drive attachments, and a `gdrive_link` agent attachment is only creatable by hand-insert; once the agent-form picker exists, real ones will appear and the edit page must display them without error.
