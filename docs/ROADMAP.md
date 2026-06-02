@@ -66,6 +66,28 @@ Remaining MEASURE-side work, all intentionally deferred: **A4a delight pass** (t
 
 Decide the pricing model before the Insights cost/ROI lens can be honest. Options: **managed** (we bring the models: platform + model + usage, tiered or marked-up), **bring-your-own-model** (the customer pays their own provider; we charge platform + support), or **both** (an emerging dominant pattern that fits the legal persona spectrum from solo to enterprise). Four pricing layers to decide which to expose: platform, model, usage, services. Cautions: inference costs decline roughly 10x/year, so build to be re-priced and don't hard-bake margins; heavier reasoning-model use offsets cheaper per-token rates. **Gates A4b:** `cost_micro_usd` is the customer's cost under BYO but legalOS's margin under managed, so the org needs a net-new business-model/billing dimension (BYO vs managed + plan price) before the ROI/cost lens is meaningful. Tightly coupled to the Connections "models as a connection" work (item 2), hence sequenced right after it.
 
+## 1b. Platform-owner administration tier (major arc, after Connections + business model)
+
+A SEPARATE administration tier ABOVE customer super_admins, with CROSS-TENANT scope, for legalOS-the-vendor (not a customer governing their own org). Distinct from everything built so far (Policy & access, People, audit log, the customer super_admin = all TENANT administration: a customer governing their own org). The platform tier is legalOS governing the whole platform across all customers, often a separate surface/console.
+
+Three pillars:
+
+1. **Customer/tenant management** — all customer orgs and all users from a 60,000-foot view; tenant lifecycle (provision/suspend/offboard); support tooling (incl. support impersonation, heavily audited).
+2. **Commercial** — billing & subscriptions (this is where the business-model pricing decision is IMPLEMENTED and metered), account management, plan/entitlement management (what each tier unlocks).
+3. **Platform operations** — cross-customer PRODUCT ANALYTICS for customer success/adoption (the platform cousin of tenant Insights/A4a; same `usage_events` data, cross-tenant scope, audience = legalOS for customer success/churn/adoption); C4L CONTENT MANAGEMENT (the legalOS-owner "ship this content version" approval + cross-org propagation; the C4L model in section 2 lands here); platform-wide model/connector CATALOG governance (which providers/models exist as OPTIONS platform-wide, where a new provider adapter is added and made available, vs. a customer ENABLING one at the tenant level); platform health/ops; cross-tenant security/audit (feeds the trust story).
+
+Net-new concepts this introduces:
+
+- Platform-STAFF identity — accounts not tied to any one customer org (a tier above per-org super_admins).
+- DELIBERATE cross-org access — this INVERTS the org-scoped-RLS-everywhere safety the whole product is built on (a customer can only see their org). Platform admin is the one place ALLOWED to cross org boundaries, so it must be the most heavily gated and audited capability, and must be articulable in the trust story (legalOS-staff access to customer data is restricted, audited, scoped).
+- A separate platform surface/console.
+
+Tenant/platform SYMMETRY to design for: several capabilities have a tenant version (built) AND a platform version (future), Insights (their usage / all-customer usage), governance (their policy / platform options catalog), audit (their org's events / cross-tenant). Where possible share the underlying data/queries (e.g. `usage_events` powering both, scoped differently) rather than building twice.
+
+Evals stays TENANT-level (customers evaluate their own agents, since customers drive agent content); C4L-content quality is the platform-level cousin.
+
+Coupling: tightly tied to the business-model arc (billing implements the pricing model). Sequencing chain: Connections (models-as-a-connection) → business model (decide pricing) → platform tier (billing + the rest) → also unblocks A4b (the tenant cost/ROI lens).
+
 ## 2. Connector follow-ups (deferred from the connector hub arc)
 
 ### Connections phase — framing (from the opening investigation)
@@ -105,6 +127,16 @@ These two foundational decisions were settled in design discussion. They are dur
 - STRICT TRUST BOUNDARY (the security correction, non-negotiable for privileged legal data): "trusted" means ONLY (a) first-party official servers on a legalOS-curated, vetted allowlist, OR (b) customer-self-hosted endpoints the customer configures. ARBITRARY THIRD-PARTY / COMMUNITY MCP SERVERS NEVER CONNECT, the system permits no code path to connect an untrusted server. (Rationale: MCP's security maturity lags its adoption, many community servers carry CVEs, path-traversal, and tool-poisoning risk where malicious tool metadata can mislead an agent; unacceptable for privileged data.)
 - ALL MCP connections are GOVERNED by notify-and-approve (the same discipline as models): the trusted allowlist is curated by legalOS and opt-in per org (the super admin approves which trusted servers their org enables); self-hosted endpoints are admin-configured/approved. Nothing connects without explicit admin vetting.
 - Pairs with self-hosted MODELS for maximal data sovereignty: a firm can run its own model AND its own MCP servers so privileged data never leaves its environment.
+
+**C4L (Claude for Legal) — decided model (flag 3):**
+
+- C4L is a CONTENT LIBRARY, not a connection (it flows inward from the vendor; "connection" language is reserved for things the customer connects outward to). It is vendor-owned content legalOS ships.
+- Default-ON as a value-add; the customer super admin has an OFF switch (so the C4L section stops appearing on their department pages). The customer's control is binary (library on/off), NOT version-by-version.
+- NOT real-time/live-synced. Updates are deliberate events.
+- Governance authority = legalOS (the owner of the content), NOT the customer super admin, because governance authority matches OWNERSHIP. The customer owns their data/models/tools (so they govern those connections); legalOS owns C4L content (so legalOS decides what ships). Forcing customer-side version approval onto vendor-owned content would be a category error. This avoids customer version fragmentation (a support/quality problem for vendor content).
+- The notify-and-approve discipline still applies, but the APPROVER is the legalOS owner (internal), not the customer, a different authority matched to ownership.
+- BUILD STAGING: lock the model now; stage the build. Near-term (single-tenant), C4L stays a deliberate operator-managed content set (cleaned up from the manual import script, default-on with the off-switch). The full platform-owner approval + cross-org propagation to all customers is DEFERRED to the platform-owner tier (below), since cross-org propagation is theoretical while single-tenant.
+- C4L-content QUALITY monitoring (is the content legalOS ships performing well across customers?) is a PLATFORM-level concern (legalOS's content, legalOS's quality bar), distinct from customer Evals (tenant-level: customers evaluate THEIR OWN agents). Do not merge the two.
 
 Tracked so they are not lost; each builds on the connector infrastructure shipped in the connector hub arc.
 
