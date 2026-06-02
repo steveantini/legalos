@@ -16,6 +16,7 @@ import {
   openSecretJson,
   verifyState,
 } from "@/lib/connections/crypto";
+import { listMcpServerTools } from "@/lib/connections/mcp/client";
 import {
   completeMcpAuthorization,
   type McpCookiePayload,
@@ -211,6 +212,39 @@ export async function GET(request: Request) {
     await admin.from("connection_secrets").delete().eq("id", secretId);
     console.error("mcp connection insert failed", { server: serverId });
     return finish({ error: "store" });
+  }
+
+  // ---- Best-effort: discover the server's tool catalog with the just-exchanged
+  //      access token and store it on the connection (flag 2b-iii). The
+  //      connection is ALREADY active; a discovery failure (unreachable, timeout,
+  //      the column being absent pre-migration) must NOT fail it —
+  //      connected-but-tools-unknown is a valid honest state (mirrors the
+  //      best-effort account-label fetch in the OAuth callback). Errors log codes
+  //      only (the McpClientError reason), never the token.
+  try {
+    const tools = await listMcpServerTools({
+      serverUrl,
+      accessToken: bundle.accessToken,
+    });
+    const { error: toolsError } = await admin
+      .from("connections")
+      .update({ discovered_tools: tools })
+      .eq("id", (connection as { id: string }).id);
+    if (toolsError) {
+      console.error("mcp tool catalog store skipped", {
+        server: serverId,
+        code: toolsError.code,
+      });
+    }
+  } catch (err) {
+    const reason =
+      err && typeof err === "object" && "reason" in err
+        ? (err as { reason?: string }).reason
+        : undefined;
+    console.error("mcp tool discovery failed; connected without catalog", {
+      server: serverId,
+      reason,
+    });
   }
 
   return finish({ connected: serverId });

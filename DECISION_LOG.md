@@ -2669,3 +2669,25 @@ Self-hosted is the customer's data-sovereignty escape hatch (their own server, t
 - Self-hosted pairs with self-hosted models for the maximal data-sovereignty story (own model + own MCP servers; privileged data never leaves the customer's environment).
 
 **Trust/architecture note (security-architecture doc):** the two trusted MCP tiers are partitioned in code; trust is derived (registry-wins, then self-hosted-path, else untrusted) and carried in tamper-proof signed state, so an untrusted server can never become first-party and the customer's own server is trusted only as self-hosted under super-admin authority. Extended the MCP trust claim in docs/SECURITY_ARCHITECTURE.md with the self-hosted tier and the partition guarantee.
+
+## D-094 — Discover and store the MCP tool catalog at connect (flag 2b-iii)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+With both trusted MCP tiers connecting (2b-ii), a connected server should show what tools it offers. The connect flow has the access token and server URL in scope; the 2b-i client can list tools.
+
+**Decision:**
+
+At the end of a successful MCP connect (both tiers), best-effort call listMcpServerTools with the just-exchanged token and store the returned catalog in a new nullable jsonb column connections.discovered_tools. Discovery failing does not fail the connection (connected-but-tools-unknown is a valid honest state, mirroring best-effort account-label fetch); the catalog can be discovered later. The catalog is stored at connect (read instantly for display, no per-render network call) rather than re-fetched live or normalized into a child table; refreshing it is an explicit future action, and the stored catalog is the substrate flag 4 (discovery) compares against. A read helper exposes the connection's identity, DERIVED trust tier (never stored-as-authority), status, and catalog for the connector UI (2c).
+
+**Reasoning:**
+
+Storing at connect makes display instant and offline-safe and avoids coupling rendering to server reachability; best-effort discovery keeps a momentary tools/list failure from blocking a valid connection; jsonb fits "the catalog is a property of the connection" without over-normalizing; and the stored-at-connect catalog is exactly what later discovery/refresh compares against. Deriving trust on read upholds the trusted-only guarantee (no stored trust read as authority).
+
+**Consequences:**
+
+- A connected MCP server shows its tools; 2c renders this; Phase 2 assembles/executes these tools in the agent loop.
+- The stored catalog is the seam for a future explicit "refresh tools" action and flag 4 discovery.
