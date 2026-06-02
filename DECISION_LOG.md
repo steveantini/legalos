@@ -2576,3 +2576,25 @@ For privileged legal data, the trust boundary must be a guarantee enforced in th
 - A consolidated security-architecture document now champions this and the platform's other trust guarantees as articulable claims.
 
 **Trust/architecture note:** this is a centerpiece trust claim — legalOS supports MCP but only first-party-vetted or customer-self-hosted servers can ever connect, enforced in code, derived not stored, narrowable not wideable. Captured in docs/SECURITY_ARCHITECTURE.md.
+
+## D-090 — The MCP client capability (flag 2b-i)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+Flag 2 Phase 1 needs the ability to talk to a remote MCP server (handshake, list tools, later call tools). There was no MCP client capability in the codebase. 2b is decomposed into the client (2b-i), the OAuth 2.1 connect/auth flow (2b-ii), and tools/list-at-connect + storage (2b-iii); 2b-i builds the client in isolation.
+
+**Decision:**
+
+Added the standard @modelcontextprotocol/sdk (1.29.0) and a thin server-side MCP client module that, given a server URL and an optional bearer token, opens a Streamable HTTP connection, performs the MCP handshake, lists the server's tools, and maps them to the McpToolDescriptor type defined in 2a. A tools/call wrapper is defined for later (2b-iii/Phase 2) but unused here. The module handles connection/handshake/timeout errors cleanly without leaking tokens and always disposes the connection. It is fully isolated: nothing imports it yet; no connect flow, OAuth, chat route, UI, or schema change. The optional token parameter is the seam where 2b-ii's OAuth token attaches. (One minimal reconciliation: McpToolDescriptor.description became optional to match the SDK's Tool shape, where description may be absent.)
+
+**Reasoning:**
+
+Building the client capability in isolation, against the real SDK API (read before writing), de-risks the net-new MCP integration before wiring it into the connect flow. Accepting an optional token now means the OAuth flow (2b-ii) plugs in without reshaping the client. Keeping it off the chat route preserves Phase 1's full isolation from the hot path.
+
+**Consequences:**
+
+- legalOS can list a trusted MCP server's tools; 2b-ii adds the OAuth 2.1 connect/auth flow and the trust-gated connection creation; 2b-iii stores discovered tools and shows the connection connected; Phase 2 adds agent tool-use.
+- The standard MCP SDK is now a dependency.

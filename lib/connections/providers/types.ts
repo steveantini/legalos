@@ -185,8 +185,12 @@ export type McpTrustTier = "first_party" | "self_hosted" | "untrusted";
 export type McpToolDescriptor = {
   /** The tool name the model calls (e.g. 'create_document'). */
   name: string;
-  /** Human-readable description the model sees. */
-  description: string;
+  /**
+   * Human-readable description the model sees. OPTIONAL to match the MCP SDK's
+   * tools/list output, where a tool's description may be absent (reconciled in
+   * 2b-i against @modelcontextprotocol/sdk's Tool shape).
+   */
+  description?: string;
   /** The tool's JSON Schema input shape (validated by the MCP client in 2b). */
   inputSchema: unknown;
 };
