@@ -2598,3 +2598,25 @@ Building the client capability in isolation, against the real SDK API (read befo
 
 - legalOS can list a trusted MCP server's tools; 2b-ii adds the OAuth 2.1 connect/auth flow and the trust-gated connection creation; 2b-iii stores discovered tools and shows the connection connected; Phase 2 adds agent tool-use.
 - The standard MCP SDK is now a dependency.
+
+## D-091 — Generalize token-refresh dispatch by connection kind (flag 2b-ii-1)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+tokens.ts hardcoded the Google Drive adapter's refresh, so the credential-refresh path was Drive-specific. MCP connections (built next) refresh differently (the SDK's refreshAuthorization against the discovered auth server, with our stored client info), so refresh must dispatch on the connection's kind. This is the first, behavior-neutral step of the MCP OAuth flow (2b-ii), done in isolation because it touches the live refresh path.
+
+**Decision:**
+
+getUsableAccessToken now resolves the refresh strategy from the connection's kind: OAuth-kind connections resolve their adapter via the registry and refresh exactly as before (Drive unchanged); MCP-kind refresh is a marked placeholder until 2b-ii-2 (unreachable today, since no MCP connection can exist before the connect flow is built). The surrounding decrypt/expiry/re-encrypt logic is unchanged; only the single hardcoded refresh call became a kind-dispatched strategy, which also resolves the prior coupling where Drive's adapter was hardcoded rather than resolved via the registry.
+
+**Reasoning:**
+
+Generalizing the dispatch in isolation, behavior-neutral for the live Drive path, de-risks the refresh path before MCP refresh rides on it. The control-plane principle holds: refresh stays in our path, writing tokens back to our encrypted store; the SDK (in 2b-ii-2) is only the protocol mechanism for the MCP branch.
+
+**Consequences:**
+
+- Refresh routes correctly per connection kind; MCP refresh slots into its branch in 2b-ii-2 (the SDK's refreshAuthorization, secrets stored by us).
+- Drive and all existing OAuth connections refresh exactly as before.

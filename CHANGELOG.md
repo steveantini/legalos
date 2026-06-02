@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Connection token refresh is now resolved per connection type, so different kinds of connections can refresh their credentials in their own correct way. Existing connections behave exactly as before; this prepares the ground for MCP server connections.**
+
 - **MCP client (foundation): added the ability to connect to a Model Context Protocol server and discover the tools it offers, using the standard MCP SDK. This is an isolated capability with nothing wired to it yet; the connection flow that uses it follows.**
 
 - **MCP foundation and trust boundary: the connection architecture now recognizes MCP servers as a connection kind, and the trusted-server boundary is established in code first: only first-party official servers on a built-in allowlist, or servers a customer hosts themselves, can ever connect, and that boundary can only be narrowed by an organization, never widened. No servers connect yet (that follows); this lays the trusted foundation. Also adds a consolidated security architecture document gathering the platform's trust guarantees.**

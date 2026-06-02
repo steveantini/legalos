@@ -4,7 +4,7 @@ import {
   decryptTokenBundle,
   encryptTokenBundle,
 } from "@/lib/connections/crypto";
-import { googleDriveAdapter } from "@/lib/connections/providers/google-drive";
+import { getAdapter } from "@/lib/connections/providers/registry";
 import type { TokenBundle } from "@/lib/connections/providers/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -86,11 +86,48 @@ export async function getUsableAccessToken(
     throw new TokenUnavailableError(connectionId, "no_refresh_token");
   }
 
+  // Resolve the refresh STRATEGY from this connection's kind (2b-ii-1). The
+  // connection row carries the provider id and capability category; the OAuth
+  // registry resolves an oauth-kind connection's adapter. This read runs only on
+  // the expired-token path, so the valid-token fast path above is untouched.
+  const { data: connRow } = await admin
+    .from("connections")
+    .select("provider_id, capability_category")
+    .eq("id", connectionId)
+    .maybeSingle();
+  const providerId = (connRow as { provider_id?: string } | null)?.provider_id;
+  const category = (connRow as { capability_category?: string } | null)
+    ?.capability_category;
+  const adapter = providerId ? getAdapter(providerId) : null;
+
   let refreshed: TokenBundle;
-  try {
-    // The adapter preserves the existing refresh token if Google omits one.
-    refreshed = await googleDriveAdapter.refreshAccessToken(bundle.refreshToken);
-  } catch {
+  if (adapter && adapter.kind === "oauth") {
+    // OAuth-kind refresh (Google Drive today, and any future OAuth provider):
+    // resolve the adapter via the registry and refresh exactly as before. For
+    // Drive this is byte-for-byte equivalent to the previous hardcoded call —
+    // the registry returns the same googleDriveAdapter for 'google-drive'. The
+    // adapter preserves the existing refresh token if the provider omits one.
+    try {
+      refreshed = await adapter.refreshAccessToken(bundle.refreshToken);
+    } catch {
+      await markConnectionError(admin, connectionId);
+      throw new TokenUnavailableError(connectionId, "refresh_failed");
+    }
+  } else if (category === "mcp") {
+    // MCP-kind refresh lands here in 2b-ii-2: the SDK's refreshAuthorization
+    // against the discovered authorization server, using our stored client info,
+    // re-encrypted into our own connection_secrets (the control-plane principle —
+    // the SDK is the protocol mechanism, custody stays ours). Unreachable today:
+    // no MCP connection can exist before the MCP connect flow is built. The clear
+    // throw guards against a future ordering mistake.
+    throw new Error(
+      "MCP token refresh is not yet implemented (flag 2b-ii-2). " +
+        "No MCP connection should exist before the MCP connect flow ships.",
+    );
+  } else {
+    // No known refresh strategy for this connection's provider. Today this is
+    // unreachable (the only OAuth connection is Drive, which resolves above);
+    // fail closed rather than silently returning a stale token.
     await markConnectionError(admin, connectionId);
     throw new TokenUnavailableError(connectionId, "refresh_failed");
   }
