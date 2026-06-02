@@ -217,6 +217,72 @@ export async function switchToManaged(
 }
 
 /**
+ * Switch the org back to its OWN key for a vendor in one click, without
+ * re-entering it — the non-destructive return trip that the retained key
+ * (switchToManaged keeps it) exists for. Flips credential_source back to 'byo'
+ * ONLY when a retained key still exists (the connection has a token_ref AND the
+ * secret is present); otherwise it returns a friendly error asking for a key, so
+ * the resolver can never find a 'byo' row with no usable secret. Returns the
+ * masked hint on success.
+ */
+export async function switchToBYO(
+  vendor: string,
+): Promise<ModelConnectionResult> {
+  if (!(await isCurrentUserSuperAdmin())) {
+    return { ok: false, error: "You don't have permission to do that." };
+  }
+  if (!getModelAdapter(vendor)) {
+    return { ok: false, error: "That model provider isn't available." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("connections")
+    .select("id, token_ref, provider_account_label")
+    .eq("scope", "org")
+    .is("owner_user_id", null)
+    .eq("provider_id", vendor)
+    .eq("capability_category", "models")
+    .eq("status", "active")
+    .maybeSingle();
+
+  const row = existing as {
+    id: string;
+    token_ref: string | null;
+    provider_account_label: string | null;
+  } | null;
+  const noKeyError =
+    "There’s no saved key to switch back to. Enter an Anthropic key to use your own.";
+  if (!row || !row.token_ref) {
+    return { ok: false, error: noKeyError };
+  }
+
+  // Confirm the retained secret actually exists before flipping, so the resolver
+  // never resolves a 'byo' row whose secret was removed out from under it.
+  const admin = createSupabaseAdminClient();
+  const { data: secret, error: secretError } = await admin
+    .from("connection_secrets")
+    .select("id")
+    .eq("id", row.token_ref)
+    .maybeSingle();
+  if (secretError || !secret) {
+    return { ok: false, error: noKeyError };
+  }
+
+  const { error } = await supabase
+    .from("connections")
+    .update({ credential_source: "byo" })
+    .eq("id", row.id);
+  if (error) {
+    console.error("switch to byo failed", { vendor, code: error.code });
+    return { ok: false, error: "Could not switch to your key. Try again." };
+  }
+
+  revalidatePath("/workspace/admin/policy");
+  return { ok: true, maskedHint: row.provider_account_label ?? undefined };
+}
+
+/**
  * Forget the org's BYO key for a vendor entirely: delete the connection row and
  * its stored secret (destructive). Mirrors the all-or-nothing discipline.
  * Idempotent: a no-op if there is no model connection for the vendor.

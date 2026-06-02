@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import {
   clearBYOModelKey,
   setBYOModelKey,
+  switchToBYO,
   switchToManaged,
 } from "@/lib/actions/model-connection";
 import type { OrgModelConnectionState } from "@/lib/connections/model-connection-state";
@@ -168,6 +169,22 @@ function AnthropicCard({
     });
   }
 
+  function handleSwitchToBYO() {
+    if (pending) return;
+    startTransition(async () => {
+      const result = await switchToBYO(ANTHROPIC_VENDOR);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setSaved({
+        credentialSource: "byo",
+        maskedHint: result.maskedHint ?? maskedHint,
+      });
+      toast.success("Switched back to your Anthropic key.");
+    });
+  }
+
   function handleRemove() {
     if (pending) return;
     startTransition(async () => {
@@ -207,7 +224,7 @@ function AnthropicCard({
         <p className="mt-1 text-[12.5px] leading-[1.5] text-caption">
           A saved Anthropic key ending {maskedHint.replace(/^…/, "")} is kept for
           your organization.
-          {canEdit ? " Bring your own key to use it again, or remove it." : ""}
+          {canEdit ? " Switch back to it anytime, or remove it." : ""}
         </p>
       ) : null}
 
@@ -256,30 +273,50 @@ function AnthropicCard({
                   Remove key
                 </Button>
               </>
-            ) : (
+            ) : hasStoredKey ? (
+              // Managed, but the org's key is still retained — offer a one-click
+              // switch back (no re-entry), plus replace and remove.
               <>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  onClick={handleSwitchToBYO}
+                  disabled={pending}
+                >
+                  Use your key again
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={openEntry}
                   disabled={pending}
                 >
-                  Bring your own key
+                  Replace key
                 </Button>
-                {hasStoredKey ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => setRemoveOpen(true)}
-                    disabled={pending}
-                  >
-                    Remove saved key
-                  </Button>
-                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setRemoveOpen(true)}
+                  disabled={pending}
+                >
+                  Remove saved key
+                </Button>
               </>
+            ) : (
+              // Managed with no retained key — entry flow (a new key required).
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={openEntry}
+                disabled={pending}
+              >
+                Bring your own key
+              </Button>
             )}
           </div>
         )
