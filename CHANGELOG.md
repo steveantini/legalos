@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Connection architecture: the connector contract is now organized by connection kind, so the platform can support more than OAuth data sources (model providers and others) on one foundation. This is an internal refactor with no change to how existing connections work.**
+
 - **Audit log (admin): a new audit log under Govern shows your organization's people activity in one chronological feed, who changed whose role (and from what to what) and who deactivated or reactivated whom, with names resolved and changes made directly in the database shown honestly as system changes. It is read-only and covers role and account-status changes today; broader governance auditing will follow.**
 
 - **Insights (admin): a new Insights area shows how your organization is using legalOS, measured from real activity, total agent runs and how usage is trending, broken down by agent, department, model, and person, over the time window you choose. A sample-data toggle lets you preview the experience before real usage accrues. This is the usage and adoption view; a cost and value view follows.**

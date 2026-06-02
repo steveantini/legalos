@@ -75,6 +75,7 @@ function toTokenBundle(json: {
 }
 
 export const googleDriveAdapter: ProviderAdapter = {
+  kind: "oauth",
   providerId: "google-drive",
   capabilityCategory: "file-storage",
   scopes: SCOPES,

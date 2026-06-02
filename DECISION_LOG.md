@@ -2448,3 +2448,28 @@ The GOVERN surfaces are fully supported by existing data and are business-model-
 - The GOVERN side is the durable, demoable governance story; MEASURE returns deliberately.
 - The Connections phase (models-as-a-connection, notify-and-approve lifecycle, model-retirement handling) is the natural next major arc; the business-model arc follows it and gates A4b.
 - The parked invite-email sending-domain item and the standing security-transparency lens are captured in ROADMAP.md and the handoff, not lost.
+
+## D-085 — Generalize the connection adapter contract to a discriminated union by kind (flag 1a)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+The connector was built solely for OAuth data sources (the ProviderAdapter contract is OAuth-shaped). Models-as-a-connection (and later MCP, etc.) require the abstraction to host non-OAuth connection kinds. The investigation confirmed only providerId and capabilityCategory are provider-agnostic; all other members are OAuth-specific; and the contract broadens cleanly with no behavior change.
+
+**Decision:**
+
+ProviderAdapter becomes a discriminated union on a `kind` field. The provider-agnostic members (providerId, capabilityCategory) form a common base; the OAuth-specific fields and methods (and TokenBundle) live under kind:'oauth'. Google Drive becomes kind:'oauth'. The registry types against the union; the OAuth connect/callback routes narrow on kind (rejecting non-OAuth kinds) before touching OAuth members. No model kind is added in 1a — this step only makes the abstraction kind-aware with zero behavior change, the foundation the model-provider kind (1b) rides on.
+
+**Reasoning:**
+
+Doing the generalization in isolation, behavior-neutral, de-risks the riskiest area (the connector and, downstream, the chat path) by separating "the abstraction now supports kinds" from "a new kind works." A discriminated union is the idiomatic, type-safe way to host multiple connection mechanisms on one registry, and the OAuth-kind guard makes the routes correctly future-proof.
+
+**Consequences:**
+
+- The connection abstraction can host non-OAuth kinds (model providers next, MCP later) on one foundation.
+- Drive and all current connection behavior are unchanged (the guard is never triggered today).
+- 1b adds the managed model-provider kind and reworks the chat-route credential seam; 1c adds BYO keys; 1d the UI.
+
+**Trust/architecture note (for the security-transparency lens / future trust docs):** the connector foundation is a single, kind-aware abstraction — one consistent, auditable connection model across data sources, model providers, and (later) MCP — rather than bolted-on per-type integrations. Supports the "one coherent, governable connection foundation" story.

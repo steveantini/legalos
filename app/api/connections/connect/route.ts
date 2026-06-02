@@ -58,7 +58,12 @@ export async function GET(request: Request) {
   const providerId =
     new URL(request.url).searchParams.get("provider")?.trim() ?? "";
   const adapter = getAdapter(providerId);
-  if (!adapter) {
+  // Only OAuth-kind adapters are connectable through this flow. A missing
+  // adapter and a non-OAuth kind (e.g. a future model-provider adapter) take the
+  // same unsupported-provider path before any OAuth member is touched. Drive is
+  // oauth-kind, so this is never hit today; the guard also narrows the union so
+  // the OAuth fields below are type-safe.
+  if (!adapter || adapter.kind !== "oauth") {
     return backToConnections("unsupported_provider");
   }
 

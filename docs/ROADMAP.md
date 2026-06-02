@@ -105,6 +105,17 @@ Findings that shape the work:
 
 Suggested opening for the next session: the connection-abstraction design conversation (how to support non-OAuth connection types), since models-as-a-connection, MCP, and C4L all depend on it. Then models-as-a-connection (Anthropic first) as the first concrete build, which leads into the Business model & pricing arc, which unblocks A4b.
 
+### Connections phase — BUILD (models-as-a-connection)
+
+The phase's first concrete build, models-as-a-connection, is decomposed into four behavior-staged steps:
+
+- **1a — generalize the adapter contract (SHIPPED, D-085).** The connector ProviderAdapter is now a discriminated union on a `kind` field, so the registry can host non-OAuth connection kinds (model providers next, MCP later) on one foundation. The OAuth-specific fields/methods moved under `kind: 'oauth'`; Google Drive is an oauth-kind adapter; the OAuth connect/callback routes narrow on kind before touching OAuth members. Pure abstraction refactor, zero behavior change, no schema change.
+- **1b — Anthropic as a managed model connection (next).** Add the `kind: 'model'` variant and rewire the chat route's credential seam (the single `createAnthropicClient()` env-key read) to resolve the credential through the connection, still landing on the platform key in managed mode. No behavior change.
+- **1c — BYO customer key.** A customer-supplied key stored in the existing connection_secrets AES-256-GCM substrate (a sibling encryptApiKey), resolved at call time per the org's credential-source mode.
+- **1d — the connector UI.** The two-axes-legible model-connector surface (which provider / whose key), provider-uniform, models flowing in after the connection is configured.
+
+Then models-as-a-connection leads into the Business model & pricing arc (above), which unblocks A4b.
+
 ### Connections phase — decided architecture (flags 1 & 2)
 
 These two foundational decisions were settled in design discussion. They are durable; the build follows them.

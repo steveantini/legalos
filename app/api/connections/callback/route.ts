@@ -99,8 +99,14 @@ export async function GET(request: Request) {
   if (!constantTimeEqual(state.n, cookie.nonce)) return finish({ error: "state" });
   if (state.u !== user.id) return finish({ error: "state" });
 
+  // Only OAuth-kind adapters complete through this callback. A missing adapter
+  // and a non-OAuth kind take the same unsupported-provider path before any
+  // OAuth member is touched. Drive is oauth-kind, so this is never hit today;
+  // the guard also narrows the union so the OAuth members below are type-safe.
   const adapter = getAdapter(state.p);
-  if (!adapter) return finish({ error: "unsupported_provider" });
+  if (!adapter || adapter.kind !== "oauth") {
+    return finish({ error: "unsupported_provider" });
+  }
 
   // ---- Policy re-check (defense in depth). The initiate route already gated
   //      this, but re-verifying here means a stale or replayed callback can
