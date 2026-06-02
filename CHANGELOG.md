@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Model connection settings (admin): a new model connection control in Policy & access lets a super admin choose between legalOS managed models and bringing your organization's own model provider key. Anthropic is available now (Google, OpenAI, and self-hosted are coming soon, shown the same way so the experience is consistent across providers). Your key is checked before it is saved, shown afterward only as a masked hint, and you can switch between your own key and the managed default without losing it. This completes models as a connection.**
+
 - **Bring your own model key (foundation): an organization can now store its own encrypted model-provider API key, and the platform uses that key for the organization's agents instead of the managed one. The key is validated before it is saved, stored encrypted, never shown again (only a masked hint), and an organization can switch between its own key and the managed default without losing the stored key. This is the backend; the setup screen follows.**
 
 - **Model connections (foundation): models are now resolved through a model-provider connection layer rather than a hardcoded platform key. For now this changes nothing you can see, the platform continues to use its managed Anthropic access, but it is the foundation that will let an organization bring its own model key next.**

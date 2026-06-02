@@ -2524,3 +2524,28 @@ Governing models separately from data-source connections keeps the policy vocabu
 - base_url is ready for self-hosted; the connector UI (1d) builds the Policy & access control over these actions.
 
 **Trust/architecture note (security-transparency lens):** an organization's model key is validated before storage, encrypted at rest (AES-256-GCM, service-role-only), never returned to the client or logged, and shown only as a masked hint — per-organization credential isolation for bring-your-own-model. A clean trust-page claim.
+
+## D-088 — Model connector UI in Policy & access (flag 1d) — models-as-a-connection complete
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+1a-1c built the model-connection foundation (kind-based abstraction, managed resolver, BYO backend). 1d is the configuration surface and the showcase "agnostic model connector."
+
+**Decision:**
+
+A model-connection control on Policy & access, super-admin-interactive and read-only for other admins, built on two legible axes — which provider (a provider-uniform grid: Anthropic available; Google, OpenAI, self-hosted coming soon) and whose credentials (managed vs bring-your-own-key for Anthropic). The Anthropic card surfaces the current state, a validate-before-store key entry with delightful validating→success/friendly-error feedback (a bad key is never stored), a non-destructive managed↔BYO switch (the stored key is retained), and replace/remove (remove is confirmed). The key is write-only in the UI (never re-displayed), shown only as a masked hint, never logged. Anthropic's fixed endpoint means no base-URL field (that surfaces for self-hosted later). Coming-soon providers use the same card shape (provider-uniform) in an honest coming-soon state. The org model-connection state is read service-side for the page (the org connection is grant-less and super-admin-read-only under RLS, so any admin can be shown the state). Reactivating a retained key after a switch to managed is by re-entry (validate-and-replace) given 1c's three actions; a one-line reactivate action is a possible later convenience.
+
+**Reasoning:**
+
+Two-axes-legible + provider-uniform makes the abstraction visible and the experience consistent across providers (the "agnostic" feel). Validate-before-store is a real delight and trust moment. Non-destructive switching avoids the delete-and-re-enter clumsiness. Write-only key handling and masked hints uphold the credential-isolation trust posture in the UI.
+
+**Consequences:**
+
+- Models-as-a-connection is complete and usable: an org can bring its own Anthropic key or use managed, configured in-product.
+- The provider grid is the seam future providers (Google, OpenAI, self-hosted) light up into; self-hosted will surface the base-URL field.
+- BYO is now fully testable through the UI (paste key, chat, confirm usage on the org's account).
+
+**Trust/architecture note (security-transparency lens):** in the UI, an org's model key is validated before saving, shown only as a masked hint, never re-displayed or logged, and switchable without loss — completing the per-organization credential-isolation story end to end (backend + surface).
