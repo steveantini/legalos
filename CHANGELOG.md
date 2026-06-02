@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Refined the model connection card: the active-key status (which key your organization is on) now reads at a glance as a status with a state indicator, and the card's action buttons share one consistent hover, focus, and pressed treatment.**
+
 - **Model connection: switching between your own key and the managed default is now fully non-destructive in both directions. After switching to managed while keeping your key, you can switch back to your own key with one click, no re-entry.**
 
 - **Model connection settings (admin): a new model connection control in Policy & access lets a super admin choose between legalOS managed models and bringing your organization's own model provider key. Anthropic is available now (Google, OpenAI, and self-hosted are coming soon, shown the same way so the experience is consistent across providers). Your key is checked before it is saved, shown afterward only as a masked hint, and you can switch between your own key and the managed default without losing it. This completes models as a connection.**

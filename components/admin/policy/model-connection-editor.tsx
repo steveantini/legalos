@@ -20,6 +20,7 @@ import {
   switchToManaged,
 } from "@/lib/actions/model-connection";
 import type { OrgModelConnectionState } from "@/lib/connections/model-connection-state";
+import { cn } from "@/lib/utils";
 
 /**
  * The model connection control (admin Policy & access, flag 1d) — the "agnostic
@@ -214,12 +215,23 @@ function AnthropicCard({
         <StatusPill isByo={isByo} maskedHint={maskedHint} />
       </div>
 
-      {/* Current state line. */}
-      <p className="mt-4 text-[13px] leading-[1.5] text-foreground">
-        {isByo
-          ? "Using your organization’s Anthropic key."
-          : "Using legalOS managed models."}
-      </p>
+      {/* Active-credential status — the most important state on the card, read at
+          a glance. A small dot ties to the header pill: ink (foreground) when on
+          the org's own key, muted when on the managed default. */}
+      <div className="mt-4 flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            isByo ? "bg-foreground" : "bg-muted-foreground",
+          )}
+        />
+        <p className="text-[13.5px] font-medium leading-[1.5] text-foreground">
+          {isByo
+            ? "Using your organization’s Anthropic key"
+            : "Using legalOS managed models"}
+        </p>
+      </div>
       {!isByo && hasStoredKey && maskedHint ? (
         <p className="mt-1 text-[12.5px] leading-[1.5] text-caption">
           A saved Anthropic key ending {maskedHint.replace(/^…/, "")} is kept for
@@ -255,7 +267,7 @@ function AnthropicCard({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={openEntry}
                   disabled={pending}
@@ -264,9 +276,9 @@ function AnthropicCard({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="text-destructive hover:text-destructive"
                   onClick={() => setRemoveOpen(true)}
                   disabled={pending}
                 >
@@ -288,7 +300,7 @@ function AnthropicCard({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={openEntry}
                   disabled={pending}
@@ -297,9 +309,9 @@ function AnthropicCard({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="text-destructive hover:text-destructive"
                   onClick={() => setRemoveOpen(true)}
                   disabled={pending}
                 >
