@@ -22,6 +22,11 @@ import "server-only";
 /** The single provider-agnostic OAuth callback path. */
 export const CONNECTIONS_CALLBACK_PATH = "/api/connections/callback";
 
+/** The MCP-connection OAuth 2.1 callback path (flag 2b-ii-2), distinct from the
+ * data-source OAuth callback so the two flows never share a route. It sits under
+ * CONNECTIONS_PATH_PREFIX, so the same path-scoped state cookie reaches it. */
+export const CONNECTIONS_MCP_CALLBACK_PATH = "/api/connections/mcp/callback";
+
 /** Path prefix the OAuth state cookie is scoped to (covers connect + callback). */
 export const CONNECTIONS_PATH_PREFIX = "/api/connections";
 
@@ -38,6 +43,11 @@ export function resolveAppBaseUrl(): string {
 /** The exact callback URL registered with the OAuth provider for this environment. */
 export function connectionsCallbackUrl(): string {
   return `${resolveAppBaseUrl()}${CONNECTIONS_CALLBACK_PATH}`;
+}
+
+/** The MCP-connection OAuth 2.1 callback URL (the redirect_uri for the MCP flow). */
+export function mcpConnectionsCallbackUrl(): string {
+  return `${resolveAppBaseUrl()}${CONNECTIONS_MCP_CALLBACK_PATH}`;
 }
 
 /** Absolute URL of the Connections page, optionally with a status query param. */

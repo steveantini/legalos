@@ -4,6 +4,10 @@ import {
   decryptTokenBundle,
   encryptTokenBundle,
 } from "@/lib/connections/crypto";
+import {
+  refreshMcpToken,
+  type McpStoredSecret,
+} from "@/lib/connections/mcp/auth";
 import { getAdapter } from "@/lib/connections/providers/registry";
 import type { TokenBundle } from "@/lib/connections/providers/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -114,16 +118,31 @@ export async function getUsableAccessToken(
       throw new TokenUnavailableError(connectionId, "refresh_failed");
     }
   } else if (category === "mcp") {
-    // MCP-kind refresh lands here in 2b-ii-2: the SDK's refreshAuthorization
-    // against the discovered authorization server, using our stored client info,
-    // re-encrypted into our own connection_secrets (the control-plane principle —
-    // the SDK is the protocol mechanism, custody stays ours). Unreachable today:
-    // no MCP connection can exist before the MCP connect flow is built. The clear
-    // throw guards against a future ordering mistake.
-    throw new Error(
-      "MCP token refresh is not yet implemented (flag 2b-ii-2). " +
-        "No MCP connection should exist before the MCP connect flow ships.",
-    );
+    // MCP-kind refresh (2b-ii-2). The stored secret is a TokenBundle plus the
+    // sidecar refresh needs — the registered-client info and the server URL (the
+    // MCP connect flow stored both in this single encrypted row). Refresh through
+    // the SDK over the org's stored client info, then re-encrypt the FULL secret
+    // (sidecar preserved) into our store. Custody stays ours; the SDK is only the
+    // protocol call. `bundle.refreshToken` is non-null here (guarded above).
+    const stored = bundle as unknown as McpStoredSecret;
+    try {
+      const newBundle = await refreshMcpToken({
+        serverUrl: stored.mcpServerUrl,
+        clientInformation: stored.mcpClientInformation,
+        refreshToken: bundle.refreshToken,
+      });
+      const mcpRefreshed: McpStoredSecret = {
+        ...newBundle,
+        mcpClientInformation: stored.mcpClientInformation,
+        mcpServerUrl: stored.mcpServerUrl,
+      };
+      // Carries the sidecar; encryptTokenBundle serializes the whole object, so
+      // the client info and server URL survive the re-encrypt for the next refresh.
+      refreshed = mcpRefreshed;
+    } catch {
+      await markConnectionError(admin, connectionId);
+      throw new TokenUnavailableError(connectionId, "refresh_failed");
+    }
   } else {
     // No known refresh strategy for this connection's provider. Today this is
     // unreachable (the only OAuth connection is Drive, which resolves above);

@@ -2620,3 +2620,28 @@ Generalizing the dispatch in isolation, behavior-neutral for the live Drive path
 
 - Refresh routes correctly per connection kind; MCP refresh slots into its branch in 2b-ii-2 (the SDK's refreshAuthorization, secrets stored by us).
 - Drive and all existing OAuth connections refresh exactly as before.
+
+## D-092 — First-party MCP connect/auth flow with legalOS-owned credential custody (flag 2b-ii-2)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+Flag 2 Phase 1 needs to authenticate to trusted first-party MCP servers under the locked control-plane principle (legalOS owns credential custody; the MCP SDK is a protocol library). The investigation confirmed the SDK exposes OAuth 2.1 as discrete step-functions that return every secret to the caller, enabling Option A (we orchestrate via our routes, the SDK does the protocol, we store the secrets).
+
+**Decision:**
+
+Added an mcp-kind server adapter whose auth operations are discovery-backed (the SDK's discoverOAuthProtectedResourceMetadata / discoverAuthorizationServerMetadata resolve the real endpoints, registerClient performs RFC 7591 dynamic registration when no static client exists) and an MCP branch in the connect/callback routes that runs startAuthorization → exchangeAuthorization, storing the resulting OAuth tokens AND the registered-client credentials in our encrypted connection_secrets (custody ours; the SDK never holds them). The trusted-server boundary is enforced at two points (isTrustedFirstPartyServer at initiate, deriveMcpTrustTier must be first_party at callback), mirroring the existing two-point connection gate, so an untrusted server creates nothing. MCP refresh (the 2b-ii-1 placeholder) is filled with the SDK's refreshAuthorization, re-encrypting into our store. MCP connections are org-scoped, super-admin-gated, and grant-less. The RFC 8707 resource/audience param is passed where supported, leaving the seam for the future customer-IdP / audience-bound case. First-party only; the self-hosted partitioned path is 2b-ii-3; tools/list-at-connect is 2b-iii. The OAuth-2.0 Drive flow is untouched/behavior-neutral.
+
+**Reasoning:**
+
+Using the SDK's discrete step-functions (which return secrets to us) over our own orchestration keeps the most of our audited routes/crypto/tokens machinery and keeps every credential in our encrypted, governed, revocable substrate, the control-plane principle and the differentiator a regulated legal buyer requires. Discovery-backed endpoints (vs hardcoded) are what MCP requires and what makes the adapter generic across trusted servers. Two-point trust enforcement makes the trusted-only guarantee un-bypassable at the connect path. Building to the SDK's typed contract makes the flow correct by construction; live proof is deferred to when a real server exists.
+
+**Consequences:**
+
+- legalOS can authenticate trusted first-party MCP servers with full credential custody; 2b-ii-3 adds the self-hosted path; 2b-iii lists+stores the server's tools and shows it connected; 2c the UI; Phase 2 the agent tool-use loop.
+- Credential custody (tokens + client registration) is entirely ours; the SDK is a protocol library, never the custodian, an articulable trust claim (added to the security-architecture narrative).
+- The resource/audience seam is open for the future customer-IdP / audience-bound-token model.
+
+**Trust/architecture note (security-architecture doc):** legalOS authenticates MCP servers via the open OAuth 2.1 standard but retains custody of every credential in its own encrypted, service-role-only vault, refreshed and revocable through its own path; the protocol library never holds the credentials; only allowlisted trusted servers can connect, enforced at both ends of the flow. Added to docs/SECURITY_ARCHITECTURE.md.

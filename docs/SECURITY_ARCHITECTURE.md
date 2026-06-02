@@ -171,6 +171,27 @@ many community servers carry known vulnerabilities and tool-poisoning risk — t
 boundary is what makes MCP safe to offer to holders of privileged legal data.)
 (DECISION_LOG D-089, flag 2a.)
 
+### 9a. MCP credential custody (the protocol library never holds your credentials)
+
+**Claim.** When legalOS connects to a trusted MCP server, it authenticates using
+the open OAuth 2.1 standard, but it keeps custody of every credential itself: the
+access token and the client registration are stored in legalOS's own encrypted,
+service-role-only vault, refreshed and revocable through legalOS's own path. The
+MCP protocol library performs the protocol; it never holds your credentials.
+
+**Architectural basis.** The MCP SDK is used purely as a protocol library: its
+discrete OAuth 2.1 step-functions (authorization-server discovery, dynamic client
+registration, authorization, token exchange, refresh) each return their secret to
+legalOS, which encrypts and stores it in the same AES-256-GCM, service-role-only
+`connection_secrets` substrate as every other credential (claim 3) — the SDK
+never persists a token. Discovery resolves the real endpoints (rather than
+hard-coding them), the trusted-server allowlist is enforced at both the start and
+the completion of the flow (claim 9), and refresh runs through legalOS's own
+token path, so credentials remain governed and revocable. The audience-binding
+seam (RFC 8707 resource indicators) is in place for a future model where tokens
+come from the customer's own identity provider, bound to a single server.
+(DECISION_LOG D-092, flag 2b-ii-2.)
+
 ### 10. The data-sovereignty story
 
 **Claim.** An organization can run legalOS so that its privileged data never

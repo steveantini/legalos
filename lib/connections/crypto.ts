@@ -42,6 +42,11 @@ const IV_BYTES = 12;
 /** Name of the short-lived httpOnly cookie that carries the sealed flow state. */
 export const OAUTH_STATE_COOKIE = "legalos_oauth_state";
 
+/** Distinct cookie for the MCP OAuth 2.1 flow (flag 2b-ii-2), so it never shares
+ * the data-source OAuth cookie. It carries the nonce, PKCE verifier, AND the
+ * registered-client info the callback needs to complete the exchange. */
+export const OAUTH_STATE_COOKIE_MCP = "legalos_mcp_oauth_state";
+
 /** The signed contents of the OAuth `state` query parameter. */
 export type OAuthStatePayload = {
   /** providerId, e.g. "google-drive". */
@@ -172,6 +177,26 @@ export function sealOAuthCookie(payload: OAuthCookiePayload): string {
 export function openOAuthCookie(raw: string): OAuthCookiePayload | null {
   try {
     return JSON.parse(decrypt(raw)) as OAuthCookiePayload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Seal an arbitrary JSON-serializable value into the same AES-256-GCM ciphertext
+ * format (flag 2b-ii-2). Used for the MCP flow's sealed cookie, which carries the
+ * nonce, PKCE verifier, and the registered-client info (including a possible
+ * client_secret) the callback needs — all encrypted with our key, httpOnly, and
+ * short-lived. A structural superset of sealOAuthCookie's payload.
+ */
+export function sealSecretJson(value: unknown): string {
+  return encrypt(JSON.stringify(value));
+}
+
+/** Open a value sealed by {@link sealSecretJson}, or null if absent/tampered. */
+export function openSecretJson<T>(raw: string): T | null {
+  try {
+    return JSON.parse(decrypt(raw)) as T;
   } catch {
     return null;
   }
