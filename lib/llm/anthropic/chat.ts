@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ModelCredential } from "@/lib/connections/providers/types";
+
 import { createAnthropicClient } from "./client";
 
 /**
@@ -88,6 +90,12 @@ export type StreamAnthropicChatArgs = {
   /** Bare Anthropic model id (e.g. 'claude-sonnet-4-6'), no vendor prefix. */
   model: string;
   /**
+   * The resolved model credential (from the chat-route resolver). The streaming
+   * layer is credential-source-agnostic: it constructs the client from whatever
+   * the resolver returned (the managed platform key today, a BYO key later).
+   */
+  credential: ModelCredential;
+  /**
    * System content as an array of text blocks. The caller composes the
    * preamble + agent prompt + attached references and places a single
    * cache_control marker on the last block to enable prefix caching.
@@ -124,7 +132,7 @@ export type StreamAnthropicChatResult = {
 export function streamAnthropicChat(
   args: StreamAnthropicChatArgs,
 ): StreamAnthropicChatResult {
-  const anthropic = createAnthropicClient();
+  const anthropic = createAnthropicClient(args.credential);
   const stream = anthropic.messages.stream({
     model: args.model,
     max_tokens: args.maxTokens,

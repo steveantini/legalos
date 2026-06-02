@@ -3,7 +3,7 @@ import "server-only";
 import type {
   BuildAuthorizationUrlParams,
   ExchangeCodeParams,
-  ProviderAdapter,
+  OAuthProviderAdapter,
   TokenBundle,
 } from "@/lib/connections/providers/types";
 
@@ -74,7 +74,7 @@ function toTokenBundle(json: {
   };
 }
 
-export const googleDriveAdapter: ProviderAdapter = {
+export const googleDriveAdapter: OAuthProviderAdapter = {
   kind: "oauth",
   providerId: "google-drive",
   capabilityCategory: "file-storage",

@@ -110,11 +110,13 @@ Suggested opening for the next session: the connection-abstraction design conver
 The phase's first concrete build, models-as-a-connection, is decomposed into four behavior-staged steps:
 
 - **1a — generalize the adapter contract (SHIPPED, D-085).** The connector ProviderAdapter is now a discriminated union on a `kind` field, so the registry can host non-OAuth connection kinds (model providers next, MCP later) on one foundation. The OAuth-specific fields/methods moved under `kind: 'oauth'`; Google Drive is an oauth-kind adapter; the OAuth connect/callback routes narrow on kind before touching OAuth members. Pure abstraction refactor, zero behavior change, no schema change.
-- **1b — Anthropic as a managed model connection (next).** Add the `kind: 'model'` variant and rewire the chat route's credential seam (the single `createAnthropicClient()` env-key read) to resolve the credential through the connection, still landing on the platform key in managed mode. No behavior change.
-- **1c — BYO customer key.** A customer-supplied key stored in the existing connection_secrets AES-256-GCM substrate (a sibling encryptApiKey), resolved at call time per the org's credential-source mode.
+- **1b — Anthropic as a managed model connection (SHIPPED, D-086).** Added the `kind: 'model'` adapter variant and the Anthropic model adapter, and rewired the chat route's credential seam (the single `createAnthropicClient()` env-key read) through a server-side resolver. The route resolves the credential with the org/user/vendor context in scope and passes it down; in managed mode the resolver returns the same platform Anthropic key, so chat behavior is identical. The single platform-key read is centralized in the resolver; an unknown vendor does not resolve to Anthropic credentials. No schema, category, stored key, or UI in this step. No behavior change.
+- **1c — BYO customer key (next).** The model-connection schema/category, a customer-supplied key stored in the existing connection_secrets AES-256-GCM substrate (a sibling encryptApiKey), the resolver's BYO branch (decrypt the org's stored key, resolved by the same function 1b introduced), and an optional configurable endpoint (self-hosted, populating the resolver's already-defined baseURL).
 - **1d — the connector UI.** The two-axes-legible model-connector surface (which provider / whose key), provider-uniform, models flowing in after the connection is configured.
 
 Then models-as-a-connection leads into the Business model & pricing arc (above), which unblocks A4b.
+
+Go-live proof-out (after flags 1-4): connect real services on the operator's own instance — BYO Anthropic (exercising the call-time credential-resolution path end to end), and Google Drive / Mail / Calendar via MCP if Google offers official first-party servers, else via the existing OAuth path.
 
 ### Connections phase — decided architecture (flags 1 & 2)
 

@@ -2473,3 +2473,28 @@ Doing the generalization in isolation, behavior-neutral, de-risks the riskiest a
 - 1b adds the managed model-provider kind and reworks the chat-route credential seam; 1c adds BYO keys; 1d the UI.
 
 **Trust/architecture note (for the security-transparency lens / future trust docs):** the connector foundation is a single, kind-aware abstraction — one consistent, auditable connection model across data sources, model providers, and (later) MCP — rather than bolted-on per-type integrations. Supports the "one coherent, governable connection foundation" story.
+
+## D-086 — Managed Anthropic model connection and the chat-route credential resolver (flag 1b)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+Building models-as-a-connection on the 1a kind-based abstraction. The chat route read the platform ANTHROPIC_API_KEY directly in one place (createAnthropicClient). To support managed and (next) bring-your-own-key model access uniformly, credential resolution must go through a resolver rather than a direct env read. The investigation confirmed a single key-read site and a single caller chain, so the hot-path rework is isolated.
+
+**Decision:**
+
+Added a kind:'model' adapter variant (the model-provider connection kind) and an Anthropic model adapter. Introduced a server-side credential resolver that the chat route calls with the org/user/vendor context already in scope; in managed mode it returns the platform ANTHROPIC_API_KEY, so chat behavior is identical. The single platform-key read moved into the resolver (still exactly one place). The resolver's return type includes an optional baseURL (for future self-hosted) and is structured so bring-your-own-key (1c) adds a clean branch (decrypt the org's stored key) without further hot-path change. No schema, category, stored row, or BYO logic in 1b — those land in 1c where BYO needs them. An unknown vendor does not resolve to Anthropic credentials (no future foot-gun). (Broadening the adapter union also re-typed the Google Drive adapter as its specific OAuthProviderAdapter variant so the existing OAuth-only token-refresh usage compiles against the now-two-member union; tokens.ts itself is unchanged.)
+
+**Reasoning:**
+
+Isolating the hot-path credential rework as a behavior-neutral step (managed lands on the same key) de-risks the riskiest surface before adding the new capability (BYO) on top. Resolving in the route (where org/user context lives) and passing the credential down keeps the streaming layer credential-source-agnostic. Deferring schema/category/row work to 1c keeps 1b minimal and the resolution path provable in isolation.
+
+**Consequences:**
+
+- Model credentials resolve through one seam that both managed and (next) BYO flow through; chat is unchanged today.
+- 1c adds BYO: a stored, encrypted per-org model key (reusing the connection_secrets AES substrate) resolved by the same function, plus the model-connection schema/category and an optional configurable endpoint (self-hosted).
+- The single platform-key read is centralized in the resolver.
+
+**Trust/architecture note (security-transparency lens):** model credentials are resolved through a single, centralized, server-side seam — the foundation for per-organization credential isolation (bring-your-own-key) and for the managed-vs-BYO model that the business-model arc will price. Supports the credential-handling trust story.

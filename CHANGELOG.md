@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Model connections (foundation): models are now resolved through a model-provider connection layer rather than a hardcoded platform key. For now this changes nothing you can see, the platform continues to use its managed Anthropic access, but it is the foundation that will let an organization bring its own model key next.**
+
 - **Connection architecture: the connector contract is now organized by connection kind, so the platform can support more than OAuth data sources (model providers and others) on one foundation. This is an internal refactor with no change to how existing connections work.**
 
 - **Audit log (admin): a new audit log under Govern shows your organization's people activity in one chronological feed, who changed whose role (and from what to what) and who deactivated or reactivated whom, with names resolved and changes made directly in the database shown honestly as system changes. It is read-only and covers role and account-status changes today; broader governance auditing will follow.**

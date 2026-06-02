@@ -23,6 +23,7 @@ import {
   type ChatToolCall,
 } from "@/lib/llm/anthropic/stream";
 import type { MessageRole, NativeAgent } from "@/lib/llm/anthropic/types";
+import { resolveModelCredential } from "@/lib/llm/model-credential";
 import { parseModelId } from "@/lib/llm/parse-model-id";
 import { computeCostMicroUsd } from "@/lib/llm/pricing";
 import { checkChatRateLimit } from "@/lib/llm/rate-limit";
@@ -823,8 +824,21 @@ export async function POST(request: Request) {
 
           switch (vendor) {
             case "anthropic": {
+              // Resolve the model credential through the single seam (D-086),
+              // with the org/user/vendor context in scope here. In managed mode
+              // this returns the platform ANTHROPIC_API_KEY, so the constructed
+              // client — and the stream — is identical to before; 1c adds the
+              // bring-your-own-key branch behind the same call. Resolving inside
+              // this try means a resolution failure surfaces as a stream error,
+              // exactly as a missing key did when the read lived in the client.
+              const credential = await resolveModelCredential({
+                organizationId: agent.organization_id,
+                userId: user.id,
+                vendor,
+              });
               const r = streamAnthropicChat({
                 model: vendorModelName,
+                credential,
                 systemBlocks,
                 messages: apiMessages,
                 maxTokens: 4096,

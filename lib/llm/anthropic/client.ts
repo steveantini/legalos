@@ -2,6 +2,8 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 
+import type { ModelCredential } from "@/lib/connections/providers/types";
+
 /**
  * Server-only Anthropic client factory.
  *
@@ -12,18 +14,17 @@ import Anthropic from "@anthropic-ai/sdk";
  * Next.js build fail if a client component ever imports from this module
  * (or anything that imports from it).
  *
- * The SDK reads ANTHROPIC_API_KEY from the environment automatically; we
- * also pass `apiKey` explicitly so a missing env var fails fast with a
- * clear server-side error instead of a confusing 401 from Anthropic.
+ * The key is no longer read here: the caller resolves a {@link ModelCredential}
+ * through the credential resolver (lib/llm/model-credential.ts) and passes it
+ * in, so the single platform-key read lives in one place (the resolver, D-086).
+ * In managed mode the resolved key is the platform `ANTHROPIC_API_KEY`, so the
+ * constructed client is identical to before. `baseURL` is passed through when
+ * the credential carries one (future self-hosted/BYO, 1c); managed mode leaves
+ * it unset, so the SDK uses its default endpoint.
  */
-export function createAnthropicClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not set. Configure it in .env.local for local " +
-        "dev and in Vercel Production/Preview env vars for deploys. See " +
-        "SETUP.md and DECISION_LOG.md D-008.",
-    );
-  }
-  return new Anthropic({ apiKey });
+export function createAnthropicClient(credential: ModelCredential): Anthropic {
+  return new Anthropic({
+    apiKey: credential.apiKey,
+    ...(credential.baseURL ? { baseURL: credential.baseURL } : {}),
+  });
 }

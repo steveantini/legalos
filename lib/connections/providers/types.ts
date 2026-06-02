@@ -101,10 +101,54 @@ export type OAuthProviderAdapter = ConnectionAdapterBase & {
 };
 
 /**
- * A connection adapter, discriminated by `kind`. Today the union has a single
- * member (OAuth); a future model-provider kind (flag 1b) extends it with a
- * `kind: 'model'` variant, and MCP and others follow. Consumers narrow on
- * `kind` to reach a variant's members — the OAuth routes reject any non-'oauth'
- * kind before touching OAuth members.
+ * A credential resolved for an inference call: the API key and, for self-hosted
+ * providers later, an optional base URL that overrides the provider's default
+ * endpoint. This is the shape the chat route's credential resolver returns and
+ * the inference-client constructor consumes. In managed mode (1b) `baseURL` is
+ * left undefined (Anthropic uses the SDK default endpoint); bring-your-own-key
+ * and self-hosted (1c) populate it.
  */
-export type ProviderAdapter = OAuthProviderAdapter;
+export type ModelCredential = {
+  /** The provider API key used to authenticate inference calls. */
+  apiKey: string;
+  /** Override the provider's default API endpoint (self-hosted/BYO, 1c); unset in managed mode. */
+  baseURL?: string;
+};
+
+/**
+ * The model-provider connection kind: a provider whose models the product runs
+ * for inference (Anthropic today; Google, OpenAI, self-hosted later). Unlike the
+ * OAuth kind, a model provider authenticates by API key resolved PER ORG (a
+ * managed platform key today, or bring-your-own next — 1c), not an OAuth flow,
+ * so it is never connected through the OAuth connect/callback routes and lives
+ * in its own registry keyed by vendor.
+ *
+ * For a model provider, `providerId` IS the vendor segment of a model id
+ * (parseModelId, e.g. 'anthropic'); it keys both the chat-route dispatcher and
+ * the credential resolver. `capabilityCategory` is a descriptive label here, NOT
+ * yet a governed connection-policy category (that, with the schema and stored
+ * connection rows, lands in 1c).
+ *
+ * The variant is forward-looking: `listModels` is where a later step sources the
+ * available-models list from the provider rather than the static models.ts
+ * array. It is OPTIONAL and unused in 1b — models still come from models.ts; the
+ * Anthropic adapter does not implement it yet. Inference-client construction
+ * stays in the provider's server-only module (lib/llm/anthropic for Anthropic),
+ * driven by the resolved ModelCredential; a future refactor may fold it onto the
+ * adapter once a second provider exists.
+ */
+export type ModelProviderAdapter = ConnectionAdapterBase & {
+  kind: "model";
+  /** List the models this provider offers for a credential. Forward-looking; not called in 1b. */
+  listModels?(credential: ModelCredential): Promise<string[]>;
+};
+
+/**
+ * A connection adapter, discriminated by `kind`. The union holds two kinds: the
+ * OAuth data-source kind (`kind: 'oauth'`) and the model-provider kind
+ * (`kind: 'model'`, flag 1b); MCP and others follow. Consumers narrow on `kind`
+ * to reach a variant's members — the OAuth routes reject any non-'oauth' kind
+ * before touching OAuth members, and model providers are looked up in their own
+ * vendor-keyed registry, never through the OAuth flow.
+ */
+export type ProviderAdapter = OAuthProviderAdapter | ModelProviderAdapter;
