@@ -56,6 +56,12 @@ Remaining MEASURE-side work, all intentionally deferred: **A4a delight pass** (t
 
 **Security/governance transparency (standing lens, not a discrete arc):** design every governance/security decision to be cleanly articulable for landing-page / trust-center / FAQ / security-questionnaire use, and lean toward the more-explainable option at forks. The DECISION_LOG is the accumulating raw material (the three-layer enforcement, mirror-RLS, least-privilege escalation, last-super-admin lockout, request-layer deactivation, owner-protected gate, and audit trail are already written up there in customer-articulable form). This is a lens applied to all future work, not a milestone.
 
+**Security/trust as a marketing asset (for the future landing-page / trust-center / decision-maker / security-questionnaire content):**
+
+- The MCP trust posture (decided in the Connections phase, flag 2) is a differentiated, plainly-articulable claim most competitors will not make: "legalOS supports MCP, but only first-party official servers we've vetted or servers you host yourself ever connect to your data, never arbitrary third-party servers, enforced in the architecture." It lets legalOS claim BOTH forward-looking/standards-based AND uncompromisingly safe-with-privileged-data, a combination most tools cannot credibly claim.
+- The data-sovereignty story (own model + own MCP servers, nothing leaves your walls) is a powerful legal-specific differentiator.
+- These join the accumulating security narrative (raw material in the DECISION_LOG): least-privilege roles (no self-escalation, separation of duties, last-admin protection); soft-deactivation over hard-deletion; encrypted key/token storage (AES-256-GCM, service-role-only, never in model context); three-layer enforcement on sensitive mutations; full privileged-action audit trail (plus the planned audit-coverage expansion); notify-and-approve governance (nothing auto-enables).
+
 ## 1a. Business model & pricing (new major arc, after Connections — gates A4b)
 
 Decide the pricing model before the Insights cost/ROI lens can be honest. Options: **managed** (we bring the models: platform + model + usage, tiered or marked-up), **bring-your-own-model** (the customer pays their own provider; we charge platform + support), or **both** (an emerging dominant pattern that fits the legal persona spectrum from solo to enterprise). Four pricing layers to decide which to expose: platform, model, usage, services. Cautions: inference costs decline roughly 10x/year, so build to be re-priced and don't hard-bake margins; heavier reasoning-model use offsets cheaper per-token rates. **Gates A4b:** `cost_micro_usd` is the customer's cost under BYO but legalOS's margin under managed, so the org needs a net-new business-model/billing dimension (BYO vs managed + plan price) before the ROI/cost lens is meaningful. Tightly coupled to the Connections "models as a connection" work (item 2), hence sequenced right after it.
@@ -76,6 +82,29 @@ Findings that shape the work:
 - Governance: notify-and-approve (LOCKED) maps onto a new "approved models" set the connection-derived list is filtered through, governed in Policy & access (which extends cleanly as a surface, but has no pending/approved-model concept and no notification primitive today, both net-new).
 
 Suggested opening for the next session: the connection-abstraction design conversation (how to support non-OAuth connection types), since models-as-a-connection, MCP, and C4L all depend on it. Then models-as-a-connection (Anthropic first) as the first concrete build, which leads into the Business model & pricing arc, which unblocks A4b.
+
+### Connections phase — decided architecture (flags 1 & 2)
+
+These two foundational decisions were settled in design discussion. They are durable; the build follows them.
+
+**Models-as-a-connection (flag 1) — decided architecture:**
+
+- A model provider is a new NON-OAuth connection kind, built within a GENERALIZED connection abstraction (the existing OAuth-data-source connector becomes one kind among several). The phase's foundational move is generalizing the connection abstraction to host multiple connection kinds.
+- Two ORTHOGONAL axes, kept independent: (1) which provider (an interchangeable provider ADAPTER, Anthropic first; Google, OpenAI, self-hosted as future adapters), and (2) whose credentials (a CREDENTIAL SOURCE: "managed" = legalOS platform key, customer never sees it; "BYO" = customer-supplied key stored in the existing connection_secrets AES-256-GCM substrate). The chat route resolves the credential at CALL TIME based on the org's mode, replacing the always-on ANTHROPIC_API_KEY read. Orthogonality means every combination (managed-Anthropic, BYO-Anthropic, BYO-OpenAI, BYO-self-hosted) works without special-casing.
+- Mechanism is KEY-BASED, not OAuth (OAuth is for data sources; model providers authenticate by API key) and not MCP (MCP is a separate kind for tools, not the model mechanism).
+- A CONFIGURABLE ENDPOINT / base-URL dimension is baked in from the start (Anthropic's is fixed; self-hosted's is customer-supplied), so self-hosted (open-weight models the customer runs on their own infrastructure, behind a typically OpenAI-compatible endpoint) slots in later with no retrofit. Self-hosted is BYO-only by definition.
+- The models.ts canonical source (A2b) is the clean seam: its source swaps from a hardcoded array to "models the connected provider's adapter reports," while all ~8 consumers keep deriving from it. Surrounding work (the real ~80%): per-org call-time key resolution; the abstraction generalization; PRICING HAS NO DISCOVERY SOURCE (a discovered model has no price, pricing must be entered/configured); and the per-model notify-and-approve governance dimension.
+- Provider lineup: Anthropic AVAILABLE now (Opus, Sonnet, Haiku, top model per tier); COMING SOON in order: Google, OpenAI, self-hosted.
+- UX principle: the "best agnostic model connector", two-axes-legible (which provider / whose key as two clear choices), provider-uniform (every provider the same card/flow/model-reveal), models flow in after the connection is configured. Build against the frontend-design skill.
+- Proof-out: BYO-Anthropic on the operator's own instance, to exercise the harder call-time credential-resolution path end to end.
+
+**MCP (flag 2) — decided architecture and trust posture:**
+
+- MCP is a FIRST-CLASS connection kind, built into the generalized abstraction from the start (capability built in, per requirement and the industry's clear consolidation on MCP as the open standard for AI tool integration, Linux Foundation / AAIF governed, backed by Anthropic/OpenAI/Google).
+- MCP is PREFERRED for TRUSTED tool/data sources (the maintenance/standardization win: update one server, all agents inherit; capability discovery at connect time), with BESPOKE adapters as the fallback for sources lacking a good trusted MCP server. Performance is neutral (MCP adds a thin hop; it is not faster, chosen for maintenance/standardization, not speed).
+- STRICT TRUST BOUNDARY (the security correction, non-negotiable for privileged legal data): "trusted" means ONLY (a) first-party official servers on a legalOS-curated, vetted allowlist, OR (b) customer-self-hosted endpoints the customer configures. ARBITRARY THIRD-PARTY / COMMUNITY MCP SERVERS NEVER CONNECT, the system permits no code path to connect an untrusted server. (Rationale: MCP's security maturity lags its adoption, many community servers carry CVEs, path-traversal, and tool-poisoning risk where malicious tool metadata can mislead an agent; unacceptable for privileged data.)
+- ALL MCP connections are GOVERNED by notify-and-approve (the same discipline as models): the trusted allowlist is curated by legalOS and opt-in per org (the super admin approves which trusted servers their org enables); self-hosted endpoints are admin-configured/approved. Nothing connects without explicit admin vetting.
+- Pairs with self-hosted MODELS for maximal data sovereignty: a firm can run its own model AND its own MCP servers so privileged data never leaves its environment.
 
 Tracked so they are not lost; each builds on the connector infrastructure shipped in the connector hub arc.
 
