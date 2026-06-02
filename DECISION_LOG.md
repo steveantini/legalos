@@ -2551,3 +2551,28 @@ Two-axes-legible + provider-uniform makes the abstraction visible and the experi
 **Trust/architecture note (security-transparency lens):** in the UI, an org's model key is validated before saving, shown only as a masked hint, never re-displayed or logged, and switchable without loss — completing the per-organization credential-isolation story end to end (backend + surface).
 
 **Follow-up (switchToBYO):** 1d shipped with switchToManaged but no inverse, so returning to a retained key required re-entry. Added switchToBYO to complete the non-destructive round-trip the credential_source column was designed for: a super-admin-gated action that flips credential_source back to 'byo' in one click, but only when a retained key still exists (the connection has a token_ref and the secret is present), otherwise it asks for a key — so the resolver never finds a 'byo' row with no usable secret. The connector UI shows a one-click "Use your key again" when a key is retained in managed state, and the full entry flow only when none is. The managed↔BYO switch is now fully non-destructive both directions, no resolver/schema change.
+
+## D-089 — The MCP connection kind and the un-bypassable trusted-server boundary (flag 2a)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+Flag 2 adds MCP as a connection kind for privileged legal data, under a locked trusted-only rule (first-party official allowlist or customer-self-hosted; never arbitrary third-party servers). 2a establishes the kind and the trust boundary as code before any connect capability exists, so the guarantee precedes the capability.
+
+**Decision:**
+
+Added kind:'mcp' to the connection adapter union and a code-level trusted-MCP registry that is the hard ceiling on connectable servers. Trust is DERIVED from this registry, never stored-as-authority: a server is first_party iff it is a registered allowlist entry, self_hosted iff via the partitioned customer-endpoint path, otherwise untrusted and unconnectable — there is no representable state where an untrusted server appears trusted. The code allowlist can only be widened by a reviewed deploy; per-org policy (built later) can only narrow it, never widen. The check is designed for both connect-initiate and callback (defense-in-depth), mirroring the existing OAuth gate. 2a is additive and behavior-neutral: no MCP client, connect flow, network, chat route, or schema change yet.
+
+**Reasoning:**
+
+For privileged legal data, the trust boundary must be a guarantee enforced in the architecture, not a guideline. Deriving trust from code (never from data) means no bug, drift, admin action, or tampering can make an untrusted server appear connectable. Establishing the boundary as pure structure before the connect capability (2b) means there is never a window where an untrusted connection is possible. Code-as-hard-ceiling with DB-only-narrowing matches the existing registry/policy architecture (the code registry is the universe, policy selects a subset).
+
+**Consequences:**
+
+- The abstraction can host MCP connections; 2b builds the OAuth 2.1 connect flow + MCP client + tools/list at connect; 2c the connector UI + per-org narrowing; Phase 2 the agent tool-use loop.
+- The trusted-only guarantee is real code from the outset; untrusted servers are unrepresentable as connectable.
+- A consolidated security-architecture document now champions this and the platform's other trust guarantees as articulable claims.
+
+**Trust/architecture note:** this is a centerpiece trust claim — legalOS supports MCP but only first-party-vetted or customer-self-hosted servers can ever connect, enforced in code, derived not stored, narrowable not wideable. Captured in docs/SECURITY_ARCHITECTURE.md.

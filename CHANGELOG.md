@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP foundation and trust boundary: the connection architecture now recognizes MCP servers as a connection kind, and the trusted-server boundary is established in code first: only first-party official servers on a built-in allowlist, or servers a customer hosts themselves, can ever connect, and that boundary can only be narrowed by an organization, never widened. No servers connect yet (that follows); this lays the trusted foundation. Also adds a consolidated security architecture document gathering the platform's trust guarantees.**
+
 - **Refined the model connection card: the active-key status (which key your organization is on) now reads at a glance as a status with a state indicator, and the card's action buttons share one consistent hover, focus, and pressed treatment.**
 
 - **Model connection: switching between your own key and the managed default is now fully non-destructive in both directions. After switching to managed while keeping your key, you can switch back to your own key with one click, no re-entry.**

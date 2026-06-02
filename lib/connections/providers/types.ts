@@ -161,11 +161,87 @@ export type ModelProviderAdapter = ConnectionAdapterBase & {
 };
 
 /**
- * A connection adapter, discriminated by `kind`. The union holds two kinds: the
- * OAuth data-source kind (`kind: 'oauth'`) and the model-provider kind
- * (`kind: 'model'`, flag 1b); MCP and others follow. Consumers narrow on `kind`
- * to reach a variant's members — the OAuth routes reject any non-'oauth' kind
- * before touching OAuth members, and model providers are looked up in their own
- * vendor-keyed registry, never through the OAuth flow.
+ * The trust tier of an MCP server, DERIVED (never stored as authority, D-089):
+ *
+ *   - 'first_party' — an official server registered in the code-level
+ *     trusted-MCP registry (the hard ceiling allowlist).
+ *   - 'self_hosted' — a customer-supplied endpoint connected through the
+ *     partitioned self-hosted path (the customer owns the server).
+ *   - 'untrusted'   — anything else. UNCONNECTABLE. There is no code path to
+ *     connect an untrusted server; it is unrepresentable as connectable.
+ *
+ * Trust is computed from the registry + the connect path by deriveMcpTrustTier
+ * (lib/connections/providers/mcp-registry.ts), never read as truth from a row,
+ * so no database state can make an untrusted server appear trusted.
  */
-export type ProviderAdapter = OAuthProviderAdapter | ModelProviderAdapter;
+export type McpTrustTier = "first_party" | "self_hosted" | "untrusted";
+
+/**
+ * One tool an MCP server exposes, as returned by the server's `tools/list` at
+ * connect time (2b populates this; 2a only defines the shape). `inputSchema` is
+ * the tool's JSON Schema, kept as `unknown` here so this types-only module stays
+ * free of an MCP SDK dependency; the MCP client (2b) validates it.
+ */
+export type McpToolDescriptor = {
+  /** The tool name the model calls (e.g. 'create_document'). */
+  name: string;
+  /** Human-readable description the model sees. */
+  description: string;
+  /** The tool's JSON Schema input shape (validated by the MCP client in 2b). */
+  inputSchema: unknown;
+};
+
+/**
+ * The MCP connection kind (flag 2): a Model Context Protocol server whose tools
+ * an agent can call (Phase 2). Unlike OAuth data sources and model providers, an
+ * MCP server is a TRUSTED-ONLY connection — only a first-party server registered
+ * in the code-level trusted-MCP registry, or a customer-self-hosted endpoint via
+ * the partitioned self-hosted path, can ever connect (D-089). The trust boundary
+ * is enforced in code and derived from the registry, never stored.
+ *
+ * Forward-looking shape (2a defines it; later steps implement):
+ *   - `serverId`            — stable identity; keys the trusted-MCP registry.
+ *     (For an MCP adapter, providerId mirrors serverId so the connections row's
+ *     provider_id carries the server identity.)
+ *   - `discoveryBaseUrl`    — the server's base URL / OAuth discovery origin for
+ *     first-party servers; for self-hosted the customer supplies it (stored in
+ *     connections.base_url, added in 1c). Remote MCP uses OAuth 2.1 with
+ *     discovery-backed endpoints, reusing the PKCE/TokenBundle substrate (2b).
+ *   - `listTools`           — fetch the server's tools/list given an access token
+ *     (2b implements; 2a leaves it optional/undefined — no MCP client yet).
+ *
+ * Not connectable in 2a: there is no MCP connect flow yet (the OAuth routes
+ * reject non-'oauth' kinds, 1a). 2b builds the MCP connect path; 2c the UI;
+ * Phase 2 the agent tool-use loop.
+ */
+export type McpServerAdapter = ConnectionAdapterBase & {
+  kind: "mcp";
+  /** Stable server identity; keys the trusted-MCP registry. providerId mirrors this. */
+  serverId: string;
+  /**
+   * The server's base URL / OAuth discovery origin. For first-party servers this
+   * is the registry-known origin; for self-hosted the customer supplies it. May
+   * be a to-be-confirmed placeholder for first-party entries until 2b finalizes
+   * the official endpoints. NEVER a basis for trust — trust is the registry.
+   */
+  discoveryBaseUrl: string;
+  /**
+   * Fetch the server's tools/list for an access token. Forward-looking; the MCP
+   * client that implements it lands in 2b. Undefined in 2a (no network yet).
+   */
+  listTools?(accessToken: string): Promise<McpToolDescriptor[]>;
+};
+
+/**
+ * A connection adapter, discriminated by `kind`. The union holds three kinds: the
+ * OAuth data-source kind (`kind: 'oauth'`), the model-provider kind
+ * (`kind: 'model'`, flag 1b), and the MCP server kind (`kind: 'mcp'`, flag 2).
+ * Consumers narrow on `kind` to reach a variant's members — the OAuth routes
+ * reject any non-'oauth' kind before touching OAuth members; model providers and
+ * MCP servers are looked up in their own registries (vendor-keyed for models,
+ * the trusted-MCP registry for MCP), never through the OAuth flow.
+ */
+export type ProviderAdapter =
+  | OAuthProviderAdapter
+  | ModelProviderAdapter
+  | McpServerAdapter;
