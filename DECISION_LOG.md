@@ -2498,3 +2498,29 @@ Isolating the hot-path credential rework as a behavior-neutral step (managed lan
 - The single platform-key read is centralized in the resolver.
 
 **Trust/architecture note (security-transparency lens):** model credentials are resolved through a single, centralized, server-side seam — the foundation for per-organization credential isolation (bring-your-own-key) and for the managed-vs-BYO model that the business-model arc will price. Supports the credential-handling trust story.
+
+## D-087 — Bring-your-own-key model connection backend (flag 1c)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+On the 1b resolver seam, 1c adds per-org bring-your-own-key model credentials. The investigation confirmed the connections schema fits a model connection with no column CHECK violated, org writes are already super-admin-gated, the crypto substrate takes a trivial key sibling, and grant-less service-role resolution is the natural fit.
+
+**Decision:**
+
+A BYO model connection is an org-scoped connections row (provider_id=vendor, capability_category='models', owner_user_id null, token_ref → an encrypted key in connection_secrets), governed as its own Policy & access control rather than through the data-source connection_policy gate (models are the engine, not a governed data surface; the read/write ceiling does not apply). Managed-vs-BYO is an explicit credential_source column (managed|byo) so an org can switch non-destructively without losing its stored key. A nullable base_url column is added now for future self-hosted. A unique partial index guarantees at most one active org model connection per vendor, making resolution deterministic. Model connections are grant-less and resolved via the service-role client (an org grant-less connection is super-admin-read-only under RLS, and the secret decrypt is service-role anyway). A key is validated against the provider before storing (cheap auth check) and only a masked hint is retained for display; the key lives only in encrypted connection_secrets, never returned or logged. The crypto adds a thin encryptApiKey/decryptApiKey sibling; model keys do not use the OAuth refresh path. The resolver's BYO branch uses the org's key when present, else managed, and tolerates the feature being absent so chat never breaks.
+
+**Reasoning:**
+
+Governing models separately from data-source connections keeps the policy vocabulary clean and matches where model governance already lives. An explicit credential_source enables a non-destructive managed↔BYO switch (a better UX than delete-and-re-enter) and is the natural billing distinction for the future business-model arc. Validate-before-store prevents saving a broken key. Grant-less service-role resolution matches "the whole org uses the org's key" and the RLS reality. Adding base_url now avoids a second migration for self-hosted.
+
+**Consequences:**
+
+- An org can bring its own model key (validated, encrypted, masked) and switch managed↔BYO without losing it.
+- The chat route resolves the org's key when configured, else the platform key; managed orgs are unaffected.
+- credential_source is the seam the business-model arc will meter (managed vs BYO pricing).
+- base_url is ready for self-hosted; the connector UI (1d) builds the Policy & access control over these actions.
+
+**Trust/architecture note (security-transparency lens):** an organization's model key is validated before storage, encrypted at rest (AES-256-GCM, service-role-only), never returned to the client or logged, and shown only as a masked hint — per-organization credential isolation for bring-your-own-model. A clean trust-page claim.

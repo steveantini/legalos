@@ -116,6 +116,15 @@ export type ModelCredential = {
 };
 
 /**
+ * The result of validating a model credential against its provider (a cheap auth
+ * check before a key is stored). On failure, `error` is a friendly, safe message
+ * — it never carries the raw provider error or the key.
+ */
+export type CredentialValidationResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
  * The model-provider connection kind: a provider whose models the product runs
  * for inference (Anthropic today; Google, OpenAI, self-hosted later). Unlike the
  * OAuth kind, a model provider authenticates by API key resolved PER ORG (a
@@ -139,6 +148,14 @@ export type ModelCredential = {
  */
 export type ModelProviderAdapter = ConnectionAdapterBase & {
   kind: "model";
+  /**
+   * Validate a credential against the provider with a cheap auth check, before a
+   * bring-your-own key is stored (1c). Returns a friendly result; never leaks the
+   * raw provider error or the key.
+   */
+  validateCredential(
+    credential: ModelCredential,
+  ): Promise<CredentialValidationResult>;
   /** List the models this provider offers for a credential. Forward-looking; not called in 1b. */
   listModels?(credential: ModelCredential): Promise<string[]>;
 };

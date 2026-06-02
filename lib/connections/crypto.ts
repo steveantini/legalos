@@ -114,6 +114,21 @@ export function decryptTokenBundle(ciphertext: string): TokenBundle {
   return JSON.parse(decrypt(ciphertext)) as TokenBundle;
 }
 
+/**
+ * Encrypt a bring-your-own model-provider API key into the opaque string stored
+ * in connection_secrets (D-087). A model key is a single opaque string with no
+ * refresh token or expiry, so it is encrypted directly — NOT wrapped in the
+ * TokenBundle JSON and NOT subject to the OAuth refresh path (tokens.ts).
+ */
+export function encryptApiKey(key: string): string {
+  return encrypt(key);
+}
+
+/** Decrypt a stored model-provider API key (read-and-return; no refresh logic). */
+export function decryptApiKey(ciphertext: string): string {
+  return decrypt(ciphertext);
+}
+
 /** A URL-safe random token (base64url). Used for the state nonce and PKCE verifier. */
 export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString("base64url");

@@ -1,7 +1,9 @@
 import "server-only";
 
+import { decryptApiKey } from "@/lib/connections/crypto";
 import { getModelAdapter } from "@/lib/connections/providers/model-registry";
 import type { ModelCredential } from "@/lib/connections/providers/types";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * The chat-route credential resolver (flag 1b, D-086).
@@ -41,9 +43,15 @@ export async function resolveModelCredential(params: {
     throw new Error(`No model provider registered for vendor "${vendor}"`);
   }
 
-  // 2. (1c) BYO branch slots in here: look up the org's model connection for
-  //    this vendor and, if present, decrypt its stored key from connection_
-  //    secrets and return it (+ baseURL). organizationId/userId feed that lookup.
+  // 2. Bring-your-own-key branch (1c, D-087). If the org has an active BYO model
+  //    connection for this vendor, use its stored key (+ optional base URL)
+  //    instead of the platform key. The read is service-role: a grant-less org
+  //    connection is super-admin-read-only under RLS, and the secret lives in the
+  //    service-role-only connection_secrets table. The lookup is tolerant of the
+  //    feature being absent (pre-migration columns, a query error, or no row) and
+  //    falls through to managed, so chat is never interrupted.
+  const byo = await resolveByoCredential(vendor);
+  if (byo) return byo;
 
   // 3. Managed mode: the platform key for the vendor.
   switch (vendor) {
@@ -59,8 +67,69 @@ export async function resolveModelCredential(params: {
       return { apiKey };
     }
     default:
-      // A registered provider with no managed platform key is BYO-only; until
-      // the 1c BYO branch exists there is nothing to resolve.
+      // A registered provider with no managed platform key is BYO-only. The BYO
+      // branch above already ran and found nothing, so there is no credential to
+      // resolve for this vendor.
       throw new Error(`No managed credential available for vendor "${vendor}"`);
+  }
+}
+
+/**
+ * Resolve a bring-your-own model credential for a vendor, or null if the org has
+ * no active BYO model connection for it (or the feature is not yet available).
+ *
+ * Service-role throughout: the org model connection is grant-less and thus
+ * super-admin-read-only under RLS, and connection_secrets is service-role-only.
+ * Fully tolerant — any failure (pre-migration columns, a query error, a missing
+ * secret, a decrypt failure) returns null so the caller falls back to the managed
+ * platform key and chat is never interrupted. The key is never logged or
+ * returned anywhere but in the ModelCredential handed to the client factory.
+ */
+async function resolveByoCredential(
+  vendor: string,
+): Promise<ModelCredential | null> {
+  try {
+    const admin = createSupabaseAdminClient();
+
+    // The active org BYO model connection for this vendor. The unique partial
+    // index (migration 0051) guarantees at most one active org model connection
+    // per vendor, so this is deterministic.
+    const { data: connection, error: connectionError } = await admin
+      .from("connections")
+      .select("token_ref, base_url")
+      .eq("scope", "org")
+      .is("owner_user_id", null)
+      .eq("provider_id", vendor)
+      .eq("capability_category", "models")
+      .eq("status", "active")
+      .eq("credential_source", "byo")
+      .limit(1)
+      .maybeSingle();
+    if (connectionError || !connection) return null;
+
+    const row = connection as { token_ref: string | null; base_url: string | null };
+    if (!row.token_ref) return null;
+
+    const { data: secret, error: secretError } = await admin
+      .from("connection_secrets")
+      .select("ciphertext")
+      .eq("id", row.token_ref)
+      .maybeSingle();
+    if (secretError || !secret) return null;
+
+    const apiKey = decryptApiKey((secret as { ciphertext: string }).ciphertext);
+    return { apiKey, ...(row.base_url ? { baseURL: row.base_url } : {}) };
+  } catch (err) {
+    // Pre-migration (unknown column) or any transient failure: fall back to
+    // managed. Log only an error code, never the key or the row.
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? (err as { code?: string }).code
+        : undefined;
+    console.error(
+      "byo model credential resolution failed; falling back to managed",
+      { vendor, code },
+    );
+    return null;
   }
 }
