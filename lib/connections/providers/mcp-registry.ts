@@ -111,6 +111,29 @@ export const TRUSTED_FIRST_PARTY_SERVER_IDS = Object.keys(
   TRUSTED_FIRST_PARTY_SERVERS,
 );
 
+// ---------------------------------------------------------------------------
+// Self-hosted server identity (the second trusted tier, flag 2b-ii-3).
+// ---------------------------------------------------------------------------
+// A self-hosted MCP connection is a customer-supplied server the customer runs.
+// Its server id is the customer URL's origin under a reserved prefix that NO
+// first-party registry id uses (registry ids are 'google-*-mcp'), so the two id
+// namespaces are disjoint and can never collide or be mistaken for one another.
+// The prefix is the in-band marker of "came through the self-hosted path"; trust
+// is still DERIVED (deriveMcpTrustTier), never read from a stored value.
+
+/** The reserved prefix for self-hosted server ids; disjoint from every registry id. */
+export const SELF_HOSTED_SERVER_ID_PREFIX = "self-hosted:";
+
+/** The stable self-hosted server id for a customer URL's origin. */
+export function selfHostedServerId(origin: string): string {
+  return `${SELF_HOSTED_SERVER_ID_PREFIX}${origin}`;
+}
+
+/** Whether a server id is a self-hosted id (vs a first-party registry id). */
+export function isSelfHostedServerId(serverId: string): boolean {
+  return serverId.startsWith(SELF_HOSTED_SERVER_ID_PREFIX);
+}
+
 /**
  * Derive an MCP server's trust tier — the ONLY place trust is decided, computed
  * from the code registry plus the connect path, NEVER read from stored data

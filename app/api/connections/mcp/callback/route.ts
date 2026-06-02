@@ -24,24 +24,32 @@ import {
 import {
   deriveMcpTrustTier,
   getTrustedMcpServer,
+  isSelfHostedServerId,
+  isTrustedFirstPartyServer,
+  selfHostedServerId,
 } from "@/lib/connections/providers/mcp-registry";
 import { isCurrentUserSuperAdmin } from "@/lib/auth/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * Complete the OAuth 2.1 flow for a trusted first-party MCP server (flag 2b-ii-2).
+ * Complete the OAuth 2.1 flow for a trusted MCP server — the SHARED callback for
+ * both trusted tiers: first-party (2b-ii-2) and self-hosted (2b-ii-3).
  *
  * GET /api/connections/mcp/callback?code=...&state=...   (or ?error=... on denial)
  *
- * TRUST GATE point 2 (D-089): trust is RE-DERIVED from the verified state's
- * server id (`deriveMcpTrustTier(serverId, isSelfHostedPath=false)` must be
- * `first_party`) before any token is created, so a forged or replayed callback
- * for an untrusted server creates nothing. Custody stays ours: the exchanged
- * tokens AND the registered-client info are encrypted into our connection_secrets
- * (one row, the client_secret never plaintext, service-role only). The connection
- * is org-scoped (super-admin-gated by RLS), grant-less (org-wide, like models),
- * and all-or-nothing (the secret is rolled back if the connection insert fails).
+ * TRUST GATE point 2 (D-089): the server id comes from the verified, signed state.
+ * Its NAMESPACE selects the tier (a first-party registry id vs a self-hosted
+ * 'self-hosted:<origin>' id), and trust is then RE-DERIVED (deriveMcpTrustTier,
+ * registry-wins) and must equal the namespace's tier and never 'untrusted', before
+ * any token is created. Because the id is signed and trust is derived (never read
+ * from a stored value), a forged or replayed callback cannot flip a self-hosted
+ * flow to first-party, cannot smuggle an untrusted server across, and creates
+ * nothing for any unknown id. Custody stays ours: the exchanged tokens AND the
+ * registered-client info are encrypted into our connection_secrets (one row, the
+ * client_secret never plaintext, service-role only). The connection is org-scoped
+ * (super-admin-gated by RLS), grant-less (org-wide, like models), and
+ * all-or-nothing (the secret is rolled back if the connection insert fails).
  */
 
 export const runtime = "nodejs";
@@ -93,13 +101,50 @@ export async function GET(request: Request) {
 
   const serverId = state.p;
 
-  // ---- TRUST GATE (point 2): re-derive trust from the server id. First-party
-  //      only here (self-hosted is 2b-ii-3); anything else creates nothing.
-  if (deriveMcpTrustTier(serverId, false) !== "first_party") {
+  // ---- Resolve the server URL, display label, and EXPECTED trust tier from the
+  //      server-id NAMESPACE. The two namespaces are disjoint: a first-party
+  //      registry id, or a self-hosted 'self-hosted:<origin>' id (2b-ii-3). This
+  //      is the partition — a first-party flow yields a first_party connection, a
+  //      self-hosted flow a self_hosted one, and neither can cross because the id
+  //      lives in the signed (tamper-proof) state.
+  let serverUrl: string;
+  let displayLabel: string;
+  let expectedTier: "first_party" | "self_hosted";
+
+  if (isTrustedFirstPartyServer(serverId)) {
+    const entry = getTrustedMcpServer(serverId);
+    if (!entry) return finish({ error: "unsupported_server" });
+    serverUrl = entry.discoveryBaseUrl;
+    displayLabel = entry.displayName;
+    expectedTier = "first_party";
+  } else if (isSelfHostedServerId(serverId)) {
+    // Self-hosted: the URL rides in the sealed (encrypted) cookie. Cross-check
+    // that its origin matches the signed server id, so a mismatched URL cannot
+    // ride a self-hosted id.
+    if (!cookie.serverUrl) return finish({ error: "state" });
+    let originMatches = false;
+    try {
+      originMatches =
+        selfHostedServerId(new URL(cookie.serverUrl).origin) === serverId;
+    } catch {
+      originMatches = false;
+    }
+    if (!originMatches) return finish({ error: "state" });
+    serverUrl = cookie.serverUrl;
+    displayLabel = new URL(cookie.serverUrl).origin;
+    expectedTier = "self_hosted";
+  } else {
+    // Unknown id namespace — neither first-party nor self-hosted. Creates nothing.
     return finish({ error: "unsupported_server" });
   }
-  const entry = getTrustedMcpServer(serverId);
-  if (!entry) {
+
+  // ---- TRUST GATE (point 2): trust is DERIVED, never read from a stored value
+  //      (D-089). Re-derive from the signed server id and require it to equal the
+  //      tier the namespace implies, and never 'untrusted'. Because the id is in
+  //      the signed state and trust derivation is registry-wins, a tamperer cannot
+  //      flip a self-hosted flow to first_party or connect an untrusted server.
+  const tier = deriveMcpTrustTier(serverId, isSelfHostedServerId(serverId));
+  if (tier === "untrusted" || tier !== expectedTier) {
     return finish({ error: "unsupported_server" });
   }
 
@@ -108,7 +153,7 @@ export async function GET(request: Request) {
   let bundle;
   try {
     bundle = await completeMcpAuthorization({
-      serverUrl: entry.discoveryBaseUrl,
+      serverUrl,
       clientInformation: cookie.clientInformation,
       authorizationCode: code,
       codeVerifier: cookie.verifier,
@@ -124,7 +169,7 @@ export async function GET(request: Request) {
   const storedSecret: McpStoredSecret = {
     ...bundle,
     mcpClientInformation: cookie.clientInformation,
-    mcpServerUrl: entry.discoveryBaseUrl,
+    mcpServerUrl: serverUrl,
   };
   const admin = createSupabaseAdminClient();
   let secretId: string;
@@ -144,7 +189,7 @@ export async function GET(request: Request) {
   // ---- Create the org-scoped MCP connection row (super-admin via RLS). MCP
   //      connections are grant-less (org-wide, like model connections), so no
   //      connection_grants row is written. base_url is the server URL
-  //      (informational; trust is the registry, not the URL).
+  //      (informational; trust is DERIVED from the id, not read from the URL).
   const { data: connection, error: connectionError } = await supabase
     .from("connections")
     .insert({
@@ -155,8 +200,8 @@ export async function GET(request: Request) {
       created_by_user_id: user.id,
       token_ref: secretId,
       status: "active",
-      base_url: entry.discoveryBaseUrl,
-      provider_account_label: entry.displayName,
+      base_url: serverUrl,
+      provider_account_label: displayLabel,
     })
     .select("id")
     .single();

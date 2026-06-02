@@ -2645,3 +2645,27 @@ Using the SDK's discrete step-functions (which return secrets to us) over our ow
 - The resource/audience seam is open for the future customer-IdP / audience-bound-token model.
 
 **Trust/architecture note (security-architecture doc):** legalOS authenticates MCP servers via the open OAuth 2.1 standard but retains custody of every credential in its own encrypted, service-role-only vault, refreshed and revocable through its own path; the protocol library never holds the credentials; only allowlisted trusted servers can connect, enforced at both ends of the flow. Added to docs/SECURITY_ARCHITECTURE.md.
+
+## D-093 — The self-hosted MCP partitioned path (flag 2b-ii-3)
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+The trusted-only MCP rule permits exactly two tiers: first-party allowlisted (2b-ii-2) and customer-self-hosted. 2b-ii-3 adds the self-hosted tier — the customer's own MCP server, trusted because they own the infrastructure — partitioned from the first-party path so neither can be mistaken for the other.
+
+**Decision:**
+
+A self-hosted MCP connection is a super-admin-supplied https server URL (scope:'org'), with a self-hosted server identity that cannot collide with a first-party registry id, and trust tier 'self_hosted' derived from the path (deriveMcpTrustTier(serverId, isSelfHostedPath=true)) — never registry membership. The self-hosted flag and URL travel inside the signed state, so the callback re-derives the identical tier and the two paths cannot cross: a tamperer cannot flip self-hosted to first-party, an untrusted URL has no first-party entry (not in the registry) and via the self-hosted path only ever becomes self_hosted (the customer's own, super-admin-authorized), and trust is always derived (registry-wins), never read from a stored value. The flow reuses the 2b-ii-2 discovery-backed OAuth machinery against the customer's server, storing tokens and client info in our encrypted substrate (custody ours). Grant-less, org-scoped, super-admin-gated. First-party behavior is unchanged.
+
+**Reasoning:**
+
+Self-hosted is the customer's data-sovereignty escape hatch (their own server, their walls). Partitioning the two trusted tiers in code, with the tier carried in tamper-proof signed state and derived (never stored), keeps the trusted-only guarantee un-bypassable: there is no path by which an untrusted server becomes first_party, and the customer's own server is trusted only as self_hosted under super-admin authority. Reusing the 2b-ii-2 machinery keeps custody ours and avoids duplicating the auth flow.
+
+**Consequences:**
+
+- Both trusted tiers (first-party official, customer-self-hosted) can now connect, completing the trusted-only connect story; 2b-iii lists+stores the server's tools and shows connected; 2c the UI; Phase 2 the agent tool-use loop.
+- Self-hosted pairs with self-hosted models for the maximal data-sovereignty story (own model + own MCP servers; privileged data never leaves the customer's environment).
+
+**Trust/architecture note (security-architecture doc):** the two trusted MCP tiers are partitioned in code; trust is derived (registry-wins, then self-hosted-path, else untrusted) and carried in tamper-proof signed state, so an untrusted server can never become first-party and the customer's own server is trusted only as self-hosted under super-admin authority. Extended the MCP trust claim in docs/SECURITY_ARCHITECTURE.md with the self-hosted tier and the partition guarantee.

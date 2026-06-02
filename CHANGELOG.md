@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Self-hosted MCP connections: an organization can connect its own self-hosted MCP server, trusted because the organization runs it, kept on a completely separate path from the first-party allowlist so the two can never be confused. As with first-party servers, every credential is stored in our own encrypted vault and the connection is governed by a super admin. This completes the two trusted ways to connect an MCP server: first-party official, or your own.**
+
 - **MCP server connections (first-party): legalOS can now authenticate to a trusted first-party MCP server using the open OAuth 2.1 standard, with every credential, the access token and the client registration, stored in our own encrypted vault and refreshed through our own controlled path. The MCP protocol library handles the protocol; it never holds your credentials. Only servers on the built-in trusted allowlist can connect, checked at both the start and the completion of the flow. Connecting your own self-hosted server, and showing the available tools, follow next.**
 
 - **Connection token refresh is now resolved per connection type, so different kinds of connections can refresh their credentials in their own correct way. Existing connections behave exactly as before; this prepares the ground for MCP server connections.**

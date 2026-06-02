@@ -75,6 +75,14 @@ export type McpCookiePayload = {
   nonce: string;
   verifier: string;
   clientInformation: OAuthClientInformationFull;
+  /**
+   * The customer server URL for a SELF-HOSTED connection (flag 2b-ii-3). Present
+   * only for the self-hosted path, where the callback has no registry entry to
+   * read the URL from; carried in the sealed (encrypted, tamper-proof) cookie and
+   * cross-checked against the signed server id's origin. Absent for first-party,
+   * which reads the URL from the registry.
+   */
+  serverUrl?: string;
 };
 
 /** Map the SDK's OAuthTokens to our TokenBundle, preserving the prior refresh token if the server omits one (as Drive does). */

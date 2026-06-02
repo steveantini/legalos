@@ -171,6 +171,18 @@ many community servers carry known vulnerabilities and tool-poisoning risk — t
 boundary is what makes MCP safe to offer to holders of privileged legal data.)
 (DECISION_LOG D-089, flag 2a.)
 
+There are exactly two trusted tiers, and they are **partitioned in code** so neither
+can be mistaken for the other: a first-party server (a code-registry entry) and a
+**self-hosted** server (a customer-supplied URL the organization runs, trusted
+because the customer owns the infrastructure, super-admin-authorized). The two use
+disjoint server-id namespaces (a registry id vs a reserved `self-hosted:<origin>`
+id), the tier marker rides inside the **signed, tamper-proof** state, and trust is
+**derived** on every check (registry membership wins; otherwise the self-hosted
+path yields the self-hosted tier; otherwise untrusted). So a tamperer cannot flip a
+self-hosted flow to first-party, an untrusted URL has no first-party entry and via
+the self-hosted path only ever becomes self-hosted under super-admin authority, and
+no unknown server becomes connectable. (DECISION_LOG D-093, flag 2b-ii-3.)
+
 ### 9a. MCP credential custody (the protocol library never holds your credentials)
 
 **Claim.** When legalOS connects to a trusted MCP server, it authenticates using
