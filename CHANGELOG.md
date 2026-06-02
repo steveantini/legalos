@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP connections (admin): a new MCP connections control in Policy & access lets a super admin connect trusted MCP servers, either first-party official servers legalOS has vetted, or the organization's own self-hosted server, and see each connected server with its trust level and the tools it offers. The trust posture is visible by design: only vetted first-party servers or your own self-hosted server can connect, never arbitrary third-party servers. This completes the MCP connection experience; agents using these tools follows.**
+
 - **MCP tool discovery: when an MCP server is connected, legalOS now discovers and records the tools that server offers, so a connected server shows what it can do. Discovery is best-effort, if it doesn't come back, the connection still succeeds and the tools can be discovered later. The tools are recorded for display now; agents using them follows in the next phase.**
 
 - **Self-hosted MCP connections: an organization can connect its own self-hosted MCP server, trusted because the organization runs it, kept on a completely separate path from the first-party allowlist so the two can never be confused. As with first-party servers, every credential is stored in our own encrypted vault and the connection is governed by a super admin. This completes the two trusted ways to connect an MCP server: first-party official, or your own.**

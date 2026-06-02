@@ -4,8 +4,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import {
+  adminPolicyPageUrl,
   CONNECTIONS_PATH_PREFIX,
-  connectionsPageUrl,
   mcpConnectionsCallbackUrl,
   resolveAppBaseUrl,
 } from "@/lib/connections/base-url";
@@ -58,7 +58,7 @@ export const runtime = "nodejs";
 const STATE_COOKIE_CLEAR = { path: CONNECTIONS_PATH_PREFIX, maxAge: 0 };
 
 function finish(query: { error?: string; connected?: string }) {
-  const response = NextResponse.redirect(connectionsPageUrl(query));
+  const response = NextResponse.redirect(adminPolicyPageUrl(query));
   response.cookies.set(OAUTH_STATE_COOKIE_MCP, "", STATE_COOKIE_CLEAR);
   return response;
 }

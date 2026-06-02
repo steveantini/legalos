@@ -111,6 +111,28 @@ export const TRUSTED_FIRST_PARTY_SERVER_IDS = Object.keys(
   TRUSTED_FIRST_PARTY_SERVERS,
 );
 
+/**
+ * The first-party trusted servers for the connector UI (2c) to list, each with
+ * whether its real endpoint is CONFIGURED yet. `configured` is false while the
+ * entry still holds the to-be-confirmed placeholder endpoint (the real Google
+ * Workspace MCP endpoints + a Google Cloud OAuth client are a pending setup
+ * step), so the UI can present such servers honestly as "available once
+ * configured" rather than implying a connection the backend cannot yet complete.
+ * Pure data; no secrets.
+ */
+export function listFirstPartyServers(): Array<{
+  serverId: string;
+  displayName: string;
+  configured: boolean;
+}> {
+  return Object.values(TRUSTED_FIRST_PARTY_SERVERS).map((server) => ({
+    serverId: server.serverId,
+    displayName: server.displayName,
+    // The placeholder origin (see TBC above) marks a not-yet-confirmed endpoint.
+    configured: !server.discoveryBaseUrl.includes("TO-BE-CONFIRMED"),
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Self-hosted server identity (the second trusted tier, flag 2b-ii-3).
 // ---------------------------------------------------------------------------

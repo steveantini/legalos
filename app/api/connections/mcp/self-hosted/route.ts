@@ -3,8 +3,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 
 import {
+  adminPolicyPageUrl,
   CONNECTIONS_PATH_PREFIX,
-  connectionsPageUrl,
   mcpConnectionsCallbackUrl,
   resolveAppBaseUrl,
 } from "@/lib/connections/base-url";
@@ -50,7 +50,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 function backToConnections(error: string) {
-  return NextResponse.redirect(connectionsPageUrl({ error }));
+  return NextResponse.redirect(adminPolicyPageUrl({ error }));
 }
 
 export async function GET(request: Request) {

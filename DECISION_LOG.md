@@ -2691,3 +2691,28 @@ Storing at connect makes display instant and offline-safe and avoids coupling re
 
 - A connected MCP server shows its tools; 2c renders this; Phase 2 assembles/executes these tools in the agent loop.
 - The stored catalog is the seam for a future explicit "refresh tools" action and flag 4 discovery.
+
+## D-095 — The MCP connector UI in Policy & access (flag 2c) — MCP Phase 1 complete
+
+Date: 2026-06-01
+Status: Accepted
+
+**Context:**
+
+2a-2b built the trusted-only MCP connect backend (both tiers, legalOS-owned custody, tool discovery). 2c is the super-admin surface that makes it usable and makes the trust posture visible.
+
+**Decision:**
+
+An MCP connections section in Policy & access (super-admin-interactive, read-only for other admins), parallel to the Model connection section. Two connect paths, both visibly trusted: the first-party trusted servers from the code registry (shown honestly, including a not-yet-configured state where real endpoints/OAuth client are pending), and a self-hosted https-URL form (the org's own server). Connected servers render from getOrgMcpConnections with a DERIVED trust tier shown as an honest clear label, status, and the discovered tool catalog (or honest tools-unknown); disconnect is super-admin with confirmation. The trust story is visible by construction: only the vetted first-party list and the self-hosted-your-own path are connectable, with no generic add-any-server affordance, so the trusted-only guarantee is legible in the UI itself. The formal per-org allowlist-narrowing is deferred (connecting is the enabling act for now; the code allowlist stays the hard ceiling). The MCP connect routes were repointed to return to this admin page (where MCP connections are shown) rather than the user-facing data-source connections page.
+
+**Reasoning:**
+
+Making the trusted-only constraint visible (you can only connect vetted-first-party or your-own) turns the security posture into a UX the user can see and trust, not just a backend guarantee. Honest presentation of not-yet-configured first-party servers upholds honest-state. Deriving the trust tier on display keeps the guarantee truthful. Deferring formal narrowing keeps 2c focused; the hard ceiling already lives in code.
+
+**Consequences:**
+
+- MCP Phase 1 is complete: trusted MCP servers (first-party or self-hosted) can be connected and seen with their trust tier and tools, under super-admin governance, with legalOS-owned credential custody.
+- Live first-party (Google) connection awaits the real-world setup (confirmed endpoints + a Google Cloud OAuth client); the UI lights up when configured.
+- Phase 2 (the agent tool-use loop + Docs/Sheets export) is the next arc: agents assembling and calling these connected servers' tools.
+
+**Trust/architecture note (security-architecture doc):** the trusted-only MCP posture is now visible in the product, only vetted first-party servers or the org's own self-hosted server are connectable, with the trust level shown plainly and no path to connect an arbitrary server. Appended to the MCP claim in docs/SECURITY_ARCHITECTURE.md.

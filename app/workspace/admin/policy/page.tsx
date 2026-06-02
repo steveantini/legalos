@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 
 import { DefaultModelEditor } from "@/components/admin/policy/default-model-editor";
+import { McpConnectionsEditor } from "@/components/admin/policy/mcp-connections-editor";
 import { ModelConnectionEditor } from "@/components/admin/policy/model-connection-editor";
 import { PolicyEditor } from "@/components/admin/policy/policy-editor";
 import {
   getOrganizationDefaultModel,
   isCurrentUserSuperAdmin,
 } from "@/lib/auth/access";
+import { getOrgMcpConnections } from "@/lib/connections/mcp/connection-state";
 import { getOrgModelConnectionState } from "@/lib/connections/model-connection-state";
+import { listFirstPartyServers } from "@/lib/connections/providers/mcp-registry";
 import { CAPABILITY_GROUPS } from "@/lib/settings/connections-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -43,13 +46,28 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   "matter-management": "Matters and deals from your organization’s systems.",
 };
 
-export default async function AdminPolicyPage() {
+export default async function AdminPolicyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const canEdit = await isCurrentUserSuperAdmin();
 
-  // The org default model and the model-connection state both live independent of
-  // the connection policy, so they load and render even if the policy read fails.
+  // The org default model, the model-connection state, and the MCP connections
+  // all live independent of the connection policy, so they load and render even
+  // if the policy read fails. The MCP read is service-side (the page awaits it),
+  // so the connections are present on first paint — no client fetch to sequence.
   const orgDefaultModel = await getOrganizationDefaultModel();
   const anthropicModelConnection = await getOrgModelConnectionState("anthropic");
+  const mcpConnections = await getOrgMcpConnections();
+  const firstPartyMcpServers = listFirstPartyServers();
+
+  // The MCP connect flow returns here with a status query param; surface it once.
+  const params = await searchParams;
+  const mcpConnected =
+    typeof params.mcp_connected === "string" ? params.mcp_connected : undefined;
+  const mcpError =
+    typeof params.mcp_error === "string" ? params.mcp_error : undefined;
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -110,6 +128,17 @@ export default async function AdminPolicyPage() {
       <ModelConnectionEditor
         anthropicState={anthropicModelConnection}
         canEdit={canEdit}
+      />
+
+      <McpConnectionsEditor
+        connections={mcpConnections}
+        firstPartyServers={firstPartyMcpServers}
+        canEdit={canEdit}
+        flash={
+          mcpConnected || mcpError
+            ? { connected: mcpConnected, error: mcpError }
+            : undefined
+        }
       />
     </>
   );

@@ -183,6 +183,12 @@ self-hosted flow to first-party, an untrusted URL has no first-party entry and v
 the self-hosted path only ever becomes self-hosted under super-admin authority, and
 no unknown server becomes connectable. (DECISION_LOG D-093, flag 2b-ii-3.)
 
+This posture is now **user-visible** in the product: the admin connector surface
+offers only the vetted first-party servers and a "connect your own self-hosted
+server" path, with each connected server's trust level shown plainly and no
+affordance anywhere to add an arbitrary server. The guarantee is legible in the
+UI itself, not just enforced in the backend. (DECISION_LOG D-095, flag 2c.)
+
 ### 9a. MCP credential custody (the protocol library never holds your credentials)
 
 **Claim.** When legalOS connects to a trusted MCP server, it authenticates using

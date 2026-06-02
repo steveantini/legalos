@@ -30,8 +30,13 @@ export const CONNECTIONS_MCP_CALLBACK_PATH = "/api/connections/mcp/callback";
 /** Path prefix the OAuth state cookie is scoped to (covers connect + callback). */
 export const CONNECTIONS_PATH_PREFIX = "/api/connections";
 
-/** The Connections settings page the flow returns the user to. */
+/** The Connections settings page the OAuth data-source flow returns the user to. */
 export const CONNECTIONS_PAGE_PATH = "/workspace/settings/connections";
+
+/** The admin Policy & access page the MCP connection flow returns the user to
+ * (MCP connections are super-admin governance and are shown there, not on the
+ * user-facing data-source connections page). */
+export const ADMIN_POLICY_PAGE_PATH = "/workspace/admin/policy";
 
 /** Resolve the app's canonical base URL (no trailing slash). */
 export function resolveAppBaseUrl(): string {
@@ -58,6 +63,21 @@ export function connectionsPageUrl(
   if (query?.error) return `${base}?error=${encodeURIComponent(query.error)}`;
   if (query?.connected) {
     return `${base}?connected=${encodeURIComponent(query.connected)}`;
+  }
+  return base;
+}
+
+/** Absolute URL of the admin Policy & access page (where the MCP flow returns),
+ * optionally with a mcp_error / mcp_connected status query param. */
+export function adminPolicyPageUrl(
+  query?: { error?: string; connected?: string },
+): string {
+  const base = `${resolveAppBaseUrl()}${ADMIN_POLICY_PAGE_PATH}`;
+  if (query?.error) {
+    return `${base}?mcp_error=${encodeURIComponent(query.error)}`;
+  }
+  if (query?.connected) {
+    return `${base}?mcp_connected=${encodeURIComponent(query.connected)}`;
   }
   return base;
 }
