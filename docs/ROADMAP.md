@@ -62,6 +62,21 @@ Decide the pricing model before the Insights cost/ROI lens can be honest. Option
 
 ## 2. Connector follow-ups (deferred from the connector hub arc)
 
+### Connections phase — framing (from the opening investigation)
+
+The phase is not "extend the connector registry" but "generalize the connection abstraction beyond OAuth data sources." The current connector assumes one shape: a user OAuth-connects an external account whose data their agents read/write (the ProviderAdapter contract, the AES secret model, the category + read/write-ceiling governance are all OAuth-data-source-shaped). The next things to connect are different kinds of things, so the FOUNDATIONAL decision that gates the rest is: how to generalize the connection abstraction to support non-OAuth connection types (key-based model providers, MCP servers, governed-content sources). This is the first design conversation of the phase.
+
+Findings that shape the work:
+
+- Models-as-a-connection: the models.ts seam is clean and single-sourced (8 consumers derive from it, so swapping the source is contained, the easy ~20%). The surrounding ~80% is the real cost: Anthropic is an always-on platform env key (ANTHROPIC_API_KEY), not a connection, so BYO needs a connect path + per-org key resolution in the chat route; the connection abstraction is OAuth-only and does not fit key-based providers; pricing/cost has NO discovery source (a model discovered via a provider API has no price, pricing must be entered/configured); and a net-new per-model governance dimension (notify-and-approve) is needed that the read/write ceiling does not model.
+- MCP: zero MCP in the codebase. The registry can host an MCP adapter alongside the OAuth one, but the adapter contract, connect flow, secret shape, and exercise path all need an MCP variant, a new mechanism, not a parameter. A significant reframe if pursued.
+- C4L: today it is the import-c4l-plugin.ts script tagging agents rows with a source_origin string (no entity, table, provider, connection, live upstream, or governance). Reframing it as a connection is essentially net-new; the hybrid-edit "upstream-managed" semantics are a conceptual hook but there is no connection plumbing beneath them.
+- Discovery automation: net-new infrastructure. No cron, scheduled functions, webhooks, background jobs, or notification system exist anywhere. The platform supports Vercel cron / Supabase scheduled functions (unconfigured); the discovery-and-notify loop stands up from scratch.
+- Secret model: connection_secrets (AES-256-GCM, service-role-only) is reusable for a BYO key with no schema change (a sibling encryptApiKey is trivial), but the OAuth connect flow, TokenBundle typing, and refresh semantics do not carry over.
+- Governance: notify-and-approve (LOCKED) maps onto a new "approved models" set the connection-derived list is filtered through, governed in Policy & access (which extends cleanly as a surface, but has no pending/approved-model concept and no notification primitive today, both net-new).
+
+Suggested opening for the next session: the connection-abstraction design conversation (how to support non-OAuth connection types), since models-as-a-connection, MCP, and C4L all depend on it. Then models-as-a-connection (Anthropic first) as the first concrete build, which leads into the Business model & pricing arc, which unblocks A4b.
+
 Tracked so they are not lost; each builds on the connector infrastructure shipped in the connector hub arc.
 
 - Agent-form Drive picker: the Drive picker shipped in the chat composer (message attachments) only. Adding it to the agent form (agent attachments) reuses the same picker component. Dependency to clear first: the agent EDIT page must render `gdrive_link` agent attachments gracefully in its attachment display. Today's rendering predates Drive attachments, and a `gdrive_link` agent attachment is only creatable by hand-insert; once the agent-form picker exists, real ones will appear and the edit page must display them without error.
