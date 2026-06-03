@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Super admins can now refresh a connected MCP server's tools from Policy & access, re-checking what the server offers and updating the stored catalog, including each tool's read-only and destructive hints. A failed refresh leaves the existing tools untouched, so re-checking a server can never lose a good catalog. This lets the already-connected Google servers pick up the new hints so a later step can tell their read tools from their write tools.**
+
 - **More Phase 2 groundwork: MCP tool discovery now captures each tool's read-only and destructive hints, and a classifier marks every tool read or write so the upcoming agent loop can auto-run reads and hold writes. A tool counts as read only when its server explicitly marks it safe; anything without a hint is treated as a write, so nothing acts in your Gmail, Drive, or Calendar on an uncertain signal. Already-connected servers keep working and are treated as writes until refreshed. Nothing enforces this yet.**
 
 - **More Phase 2 groundwork: added the function that runs a single MCP tool call, resolving a fresh access token (refreshed transparently, credentials kept in our own vault), calling the server, and turning the outcome into a result the model can use, or a safe, recoverable error message if anything fails. One failing tool call can never crash a conversation. Nothing calls it yet; no change to how chat works today.**

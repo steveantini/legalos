@@ -14,7 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { disconnectMcpServer } from "@/lib/actions/mcp-connection";
+import {
+  disconnectMcpServer,
+  refreshMcpServerTools,
+} from "@/lib/actions/mcp-connection";
 import type { OrgMcpConnection } from "@/lib/connections/mcp/connection-state";
 import type { FirstPartyProviderGroup } from "@/lib/connections/providers/mcp-registry";
 import { cn } from "@/lib/utils";
@@ -135,6 +138,11 @@ export function McpConnectionsEditor({
     return open;
   });
   const [pending, startTransition] = useTransition();
+  // Refresh-tools state: a separate transition so a refresh doesn't disable the
+  // disconnect flow, plus the serverId currently refreshing (for its in-progress
+  // label). Only one refresh runs at a time.
+  const [isRefreshing, startRefresh] = useTransition();
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   // One-time toast on return from the redirect flow.
   useEffect(() => {
@@ -200,6 +208,45 @@ export function McpConnectionsEditor({
       setRemoveTarget(null);
       toast.success("Server disconnected.");
     });
+  }
+
+  function handleRefresh(serverId: string) {
+    if (isRefreshing) return;
+    setRefreshingId(serverId);
+    startRefresh(async () => {
+      const result = await refreshMcpServerTools(serverId);
+      setRefreshingId(null);
+      if (!result.ok) {
+        // Non-destructive: the existing catalog stays; just surface the reason.
+        toast.error(result.error);
+        return;
+      }
+      // Reflect the fresh catalog (now carrying read/write hints) immediately.
+      setConnections((prev) =>
+        prev.map((c) =>
+          c.serverId === serverId ? { ...c, tools: result.tools } : c,
+        ),
+      );
+      const count = result.tools.length;
+      toast.success(
+        count === 1 ? "Refreshed: 1 tool." : `Refreshed: ${count} tools.`,
+      );
+    });
+  }
+
+  /** The calm "Refresh tools" affordance, super-admin only, for a connected server. */
+  function refreshToolsButton(serverId: string) {
+    return (
+      <button
+        type="button"
+        onClick={() => handleRefresh(serverId)}
+        disabled={isRefreshing}
+        className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60 motion-reduce:transition-none"
+        title="Re-check this server's available tools"
+      >
+        {refreshingId === serverId ? "Refreshing…" : "Refresh tools"}
+      </button>
+    );
   }
 
   function toggleExpanded(serverId: string) {
@@ -304,17 +351,30 @@ export function McpConnectionsEditor({
                             </div>
                           ) : null}
                           {connection &&
-                          connection.tools &&
-                          connection.tools.length > 0 ? (
+                          (canEdit ||
+                            (connection.tools &&
+                              connection.tools.length > 0)) ? (
                             <div className="mt-2">
-                              <button
-                                type="button"
-                                onClick={() => toggleExpanded(server.serverId)}
-                                className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
-                              >
-                                {isExpanded ? "Hide tools" : "Show tools"}
-                              </button>
-                              {isExpanded ? (
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                {connection.tools &&
+                                connection.tools.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      toggleExpanded(server.serverId)
+                                    }
+                                    className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
+                                  >
+                                    {isExpanded ? "Hide tools" : "Show tools"}
+                                  </button>
+                                ) : null}
+                                {canEdit
+                                  ? refreshToolsButton(server.serverId)
+                                  : null}
+                              </div>
+                              {isExpanded &&
+                              connection.tools &&
+                              connection.tools.length > 0 ? (
                                 <ul className="mt-2 flex flex-wrap gap-1.5 duration-200 animate-in fade-in-0 motion-reduce:animate-none">
                                   {connection.tools.map((tool) => (
                                     <li
@@ -412,16 +472,25 @@ export function McpConnectionsEditor({
                       </p>
                     </div>
 
-                    {connection.tools && connection.tools.length > 0 ? (
+                    {canEdit ||
+                    (connection.tools && connection.tools.length > 0) ? (
                       <div className="mt-2">
-                        <button
-                          type="button"
-                          onClick={() => toggleExpanded(connection.serverId)}
-                          className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
-                        >
-                          {isExpanded ? "Hide tools" : "Show tools"}
-                        </button>
-                        {isExpanded ? (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                          {connection.tools &&
+                          connection.tools.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(connection.serverId)}
+                              className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
+                            >
+                              {isExpanded ? "Hide tools" : "Show tools"}
+                            </button>
+                          ) : null}
+                          {canEdit ? refreshToolsButton(connection.serverId) : null}
+                        </div>
+                        {isExpanded &&
+                        connection.tools &&
+                        connection.tools.length > 0 ? (
                           <ul className="mt-2 flex flex-wrap gap-1.5 duration-200 animate-in fade-in-0 motion-reduce:animate-none">
                             {connection.tools.map((tool) => (
                               <li
