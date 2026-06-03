@@ -51,10 +51,12 @@ function trustLabel(tier: OrgMcpConnection["trustTier"]): string {
   return "Unverified";
 }
 
-function toolsLine(connection: OrgMcpConnection): string {
-  if (connection.tools === null) return "Tools not yet discovered.";
+/** A connected server's one-line state: connected, plus its tool count (or an
+ * honest note when the catalog hasn't been discovered yet). */
+function connectedLine(connection: OrgMcpConnection): string {
+  if (connection.tools === null) return "Connected · tools not yet discovered";
   const n = connection.tools.length;
-  return `${n} ${n === 1 ? "tool" : "tools"} available.`;
+  return `Connected · ${n} ${n === 1 ? "tool" : "tools"}`;
 }
 
 /**
@@ -118,14 +120,20 @@ export function McpConnectionsEditor({
   const [selfHostedError, setSelfHostedError] = useState<string | null>(null);
   // Tool-list expand state (per connected server).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // Provider-group expand state. Smart default: a sole provider opens (it looks
-  // complete and there's nothing to hide); with several, start collapsed so the
-  // page shows a scannable provider-level overview. Transient (no persistence).
-  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(() =>
-    firstPartyGroups.length === 1
-      ? new Set(firstPartyGroups.map((group) => group.provider))
-      : new Set<string>(),
-  );
+  // Provider-group expand state. Smart default: a provider with any connected
+  // server opens (so the user sees their live connections immediately); otherwise
+  // a sole provider opens (it looks complete and there's nothing to hide) while
+  // several start collapsed for a scannable provider-level overview. Transient
+  // (no persistence).
+  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(() => {
+    const connected = new Set(initialConnections.map((c) => c.serverId));
+    const open = new Set<string>();
+    for (const group of firstPartyGroups) {
+      const hasConnected = group.servers.some((s) => connected.has(s.serverId));
+      if (hasConnected || firstPartyGroups.length === 1) open.add(group.provider);
+    }
+    return open;
+  });
   const [pending, startTransition] = useTransition();
 
   // One-time toast on return from the redirect flow.
@@ -137,6 +145,14 @@ export function McpConnectionsEditor({
   }, []);
 
   const connectedIds = new Set(connections.map((c) => c.serverId));
+  // Merge: each first-party server row looks up its own connection by serverId, so
+  // connection state is shown inside the provider group rather than hoisted out.
+  const connectionsById = new Map(connections.map((c) => [c.serverId, c]));
+  // Self-hosted connections (the org's own servers, trust DERIVED on read) live in
+  // their own distinct block, not in any first-party provider group.
+  const selfHostedConnections = connections.filter(
+    (c) => c.trustTier === "self_hosted",
+  );
 
   function toggleProvider(provider: string) {
     setExpandedProviders((prev) => {
@@ -210,253 +226,309 @@ export function McpConnectionsEditor({
         arbitrary third-party server.
       </p>
 
-      {/* Connected servers. */}
-      {connections.length > 0 ? (
-        <div className="mt-5 space-y-3">
-          {connections.map((connection) => (
+      {/* One unified, provider-grouped list. Every first-party server lives inside
+          its provider's expand/collapse group with its own connection state shown
+          per row, so there is no separate hoisted "connected servers" section and
+          the page stays organized as more providers connect. The collapsed row is
+          the provider-level overview (label, descriptor, status summary). */}
+      <div className="mt-5 space-y-2">
+        {firstPartyGroups.map((group) => {
+          const isOpen = expandedProviders.has(group.provider);
+          return (
             <div
-              key={connection.serverId}
-              className="rounded-xl border border-hairline-strong bg-paper-2 p-5"
+              key={group.provider}
+              className="overflow-hidden rounded-lg border border-hairline bg-paper-2"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-[14.5px] font-medium tracking-[-0.005em] text-foreground">
-                    {connection.label ?? connection.serverId}
-                  </h3>
-                  {connection.trustTier === "self_hosted" &&
-                  connection.serverUrl ? (
-                    <p className="mt-1 break-all text-[12.5px] leading-[1.5] text-muted-foreground">
-                      {connection.serverUrl}
-                    </p>
-                  ) : null}
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => toggleProvider(group.provider)}
+                className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors duration-hover ease-soft hover:bg-secondary motion-reduce:transition-none"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13.5px] font-medium text-foreground">
+                      {group.providerLabel}
+                    </span>
+                    <span className="rounded-full border border-hairline-strong bg-background px-2 py-0.5 text-[11px] font-medium text-foreground">
+                      First-party official
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
+                    {group.providerDescriptor}
+                  </p>
                 </div>
-                <TrustPill tier={connection.trustTier} />
-              </div>
-
-              <p className="mt-4 text-[13px] leading-[1.5] text-foreground">
-                {toolsLine(connection)}
-              </p>
-
-              {connection.tools && connection.tools.length > 0 ? (
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleExpanded(connection.serverId)}
-                    className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
-                  >
-                    {expanded.has(connection.serverId)
-                      ? "Hide tools"
-                      : "Show tools"}
-                  </button>
-                  {expanded.has(connection.serverId) ? (
-                    <ul className="mt-2 flex flex-wrap gap-1.5 duration-200 animate-in fade-in-0 motion-reduce:animate-none">
-                      {connection.tools.map((tool) => (
-                        <li
-                          key={tool.name}
-                          className="rounded-md border border-hairline bg-background px-2 py-0.5 font-mono text-[11.5px] text-foreground"
-                        >
-                          {tool.name}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <span className="text-[12px] text-muted-foreground">
+                    {providerSummary(group, connectedIds)}
+                  </span>
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform duration-hover ease-soft motion-reduce:transition-none",
+                      isOpen ? "rotate-180" : "",
+                    )}
+                  />
                 </div>
-              ) : null}
+              </button>
 
-              {canEdit ? (
-                <div className="mt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setRemoveTarget(connection.serverId)}
-                    disabled={pending}
-                  >
-                    Disconnect
-                  </Button>
+              {isOpen ? (
+                <div className="border-t border-hairline">
+                  {group.servers.map((server) => {
+                    // Merge the registry server with its connection (if any),
+                    // matched by serverId, so each row shows its own state.
+                    const connection = connectionsById.get(server.serverId);
+                    const isExpanded = expanded.has(server.serverId);
+                    return (
+                      <div
+                        key={server.serverId}
+                        className="flex items-start justify-between gap-4 border-t border-hairline px-4 py-3 first:border-t-0"
+                      >
+                        <div className="min-w-0">
+                          <span className="text-[13.5px] font-medium text-foreground">
+                            {server.displayName}
+                          </span>
+                          <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
+                            {FIRST_PARTY_DESCRIPTIONS[server.serverId] ??
+                              "A first-party server."}
+                          </p>
+                          {connection ? (
+                            <div className="mt-2 flex items-center gap-2">
+                              <span
+                                aria-hidden="true"
+                                className="size-1.5 shrink-0 rounded-full bg-foreground"
+                              />
+                              <p className="text-[13px] leading-[1.5] text-foreground">
+                                {connectedLine(connection)}
+                              </p>
+                            </div>
+                          ) : null}
+                          {connection &&
+                          connection.tools &&
+                          connection.tools.length > 0 ? (
+                            <div className="mt-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(server.serverId)}
+                                className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
+                              >
+                                {isExpanded ? "Hide tools" : "Show tools"}
+                              </button>
+                              {isExpanded ? (
+                                <ul className="mt-2 flex flex-wrap gap-1.5 duration-200 animate-in fade-in-0 motion-reduce:animate-none">
+                                  {connection.tools.map((tool) => (
+                                    <li
+                                      key={tool.name}
+                                      className="rounded-md border border-hairline bg-background px-2 py-0.5 font-mono text-[11.5px] text-foreground"
+                                    >
+                                      {tool.name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="shrink-0">
+                          {connection ? (
+                            canEdit ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setRemoveTarget(server.serverId)}
+                                disabled={pending}
+                              >
+                                Disconnect
+                              </Button>
+                            ) : null
+                          ) : server.configured ? (
+                            canEdit ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => connectFirstParty(server.serverId)}
+                              >
+                                Connect
+                              </Button>
+                            ) : null
+                          ) : (
+                            <span className="text-[12px] text-caption">
+                              Available once configured
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
-          ))}
-        </div>
-      ) : null}
+          );
+        })}
+      </div>
 
-      {/* Connect a server — super admins only. */}
-      {canEdit ? (
-        <>
-          <div className="mt-8">
-            <h3 className="text-[14px] font-medium tracking-[-0.005em] text-foreground">
-              First-party servers
-            </h3>
-            {/* Grouped by provider with expand/collapse, so the list stays
-                scannable as providers grow. The collapsed row is the provider-
-                level overview (label, descriptor, status); expanding reveals the
-                individual servers. */}
-            <div className="mt-3 space-y-2">
-              {firstPartyGroups.map((group) => {
-                const isOpen = expandedProviders.has(group.provider);
-                const availableServers = group.servers.filter(
-                  (s) => !connectedIds.has(s.serverId),
-                );
+      {/* Your own server — a self-hosted MCP server the org runs, on its own
+          distinct path. Connected self-hosted servers show their state here (not
+          in any first-party group); the connect form is super admins only. */}
+      {canEdit || selfHostedConnections.length > 0 ? (
+        <div className="mt-8">
+          <h3 className="text-[14px] font-medium tracking-[-0.005em] text-foreground">
+            Your own server
+          </h3>
+
+          {selfHostedConnections.length > 0 ? (
+            <div className="mt-3 space-y-3">
+              {selfHostedConnections.map((connection) => {
+                const isExpanded = expanded.has(connection.serverId);
                 return (
                   <div
-                    key={group.provider}
-                    className="overflow-hidden rounded-lg border border-hairline bg-paper-2"
+                    key={connection.serverId}
+                    className="rounded-xl border border-hairline-strong bg-paper-2 p-5"
                   >
-                    <button
-                      type="button"
-                      aria-expanded={isOpen}
-                      onClick={() => toggleProvider(group.provider)}
-                      className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors duration-hover ease-soft hover:bg-secondary motion-reduce:transition-none"
-                    >
+                    <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[13.5px] font-medium text-foreground">
-                            {group.providerLabel}
-                          </span>
-                          <span className="rounded-full border border-hairline-strong bg-background px-2 py-0.5 text-[11px] font-medium text-foreground">
-                            First-party official
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
-                          {group.providerDescriptor}
-                        </p>
-                      </div>
-                      <div className="ml-auto flex shrink-0 items-center gap-2">
-                        <span className="text-[12px] text-muted-foreground">
-                          {providerSummary(group, connectedIds)}
-                        </span>
-                        <ChevronDownIcon
-                          aria-hidden="true"
-                          className={cn(
-                            "size-4 text-muted-foreground transition-transform duration-hover ease-soft motion-reduce:transition-none",
-                            isOpen ? "rotate-180" : "",
-                          )}
-                        />
-                      </div>
-                    </button>
-
-                    {isOpen ? (
-                      <div className="border-t border-hairline">
-                        {availableServers.length > 0 ? (
-                          availableServers.map((server) => (
-                            <div
-                              key={server.serverId}
-                              className="flex items-center justify-between gap-4 border-t border-hairline px-4 py-3 first:border-t-0"
-                            >
-                              <div className="min-w-0">
-                                <span className="text-[13.5px] font-medium text-foreground">
-                                  {server.displayName}
-                                </span>
-                                <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
-                                  {FIRST_PARTY_DESCRIPTIONS[server.serverId] ??
-                                    "A first-party server."}
-                                </p>
-                              </div>
-                              {server.configured ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    connectFirstParty(server.serverId)
-                                  }
-                                >
-                                  Connect
-                                </Button>
-                              ) : (
-                                <span className="shrink-0 text-[12px] text-caption">
-                                  Available once configured
-                                </span>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <p className="px-4 py-3 text-[12.5px] leading-[1.5] text-caption">
-                            Every server from this provider is connected.
+                        <h4 className="text-[14.5px] font-medium tracking-[-0.005em] text-foreground">
+                          {connection.label ?? connection.serverId}
+                        </h4>
+                        {connection.serverUrl ? (
+                          <p className="mt-1 break-all text-[12.5px] leading-[1.5] text-muted-foreground">
+                            {connection.serverUrl}
                           </p>
-                        )}
+                        ) : null}
+                      </div>
+                      <TrustPill tier={connection.trustTier} />
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="size-1.5 shrink-0 rounded-full bg-foreground"
+                      />
+                      <p className="text-[13px] leading-[1.5] text-foreground">
+                        {connectedLine(connection)}
+                      </p>
+                    </div>
+
+                    {connection.tools && connection.tools.length > 0 ? (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(connection.serverId)}
+                          className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
+                        >
+                          {isExpanded ? "Hide tools" : "Show tools"}
+                        </button>
+                        {isExpanded ? (
+                          <ul className="mt-2 flex flex-wrap gap-1.5 duration-200 animate-in fade-in-0 motion-reduce:animate-none">
+                            {connection.tools.map((tool) => (
+                              <li
+                                key={tool.name}
+                                className="rounded-md border border-hairline bg-background px-2 py-0.5 font-mono text-[11.5px] text-foreground"
+                              >
+                                {tool.name}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {canEdit ? (
+                      <div className="mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setRemoveTarget(connection.serverId)}
+                          disabled={pending}
+                        >
+                          Disconnect
+                        </Button>
                       </div>
                     ) : null}
                   </div>
                 );
               })}
             </div>
-          </div>
+          ) : null}
 
-          <div className="mt-8">
-            <h3 className="text-[14px] font-medium tracking-[-0.005em] text-foreground">
-              Your own server
-            </h3>
-            <p className="mt-1 text-[12.5px] leading-[1.5] text-caption">
-              Enter the URL of an MCP server your organization runs.
-            </p>
-            <div className="mt-3 rounded-lg border border-hairline bg-background p-4">
-              <label
-                htmlFor="mcp-self-hosted-url"
-                className="text-[13px] font-medium text-foreground"
-              >
-                MCP server URL
-              </label>
-              <Input
-                id="mcp-self-hosted-url"
-                type="url"
-                inputMode="url"
-                value={selfHostedUrl}
-                onChange={(event) => {
-                  setSelfHostedUrl(event.target.value);
-                  if (selfHostedError) setSelfHostedError(null);
-                }}
-                placeholder="https://mcp.yourfirm.com"
-                autoComplete="off"
-                spellCheck={false}
-                aria-invalid={selfHostedError ? true : undefined}
-                aria-describedby={
-                  selfHostedError ? "mcp-self-hosted-error" : undefined
-                }
-                className="mt-2 max-w-[420px] bg-paper-2 font-mono text-[13px]"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    connectSelfHosted();
+          {canEdit ? (
+            <>
+              <p className="mt-3 text-[12.5px] leading-[1.5] text-caption">
+                Enter the URL of an MCP server your organization runs.
+              </p>
+              <div className="mt-3 rounded-lg border border-hairline bg-background p-4">
+                <label
+                  htmlFor="mcp-self-hosted-url"
+                  className="text-[13px] font-medium text-foreground"
+                >
+                  MCP server URL
+                </label>
+                <Input
+                  id="mcp-self-hosted-url"
+                  type="url"
+                  inputMode="url"
+                  value={selfHostedUrl}
+                  onChange={(event) => {
+                    setSelfHostedUrl(event.target.value);
+                    if (selfHostedError) setSelfHostedError(null);
+                  }}
+                  placeholder="https://mcp.yourfirm.com"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={selfHostedError ? true : undefined}
+                  aria-describedby={
+                    selfHostedError ? "mcp-self-hosted-error" : undefined
                   }
-                }}
-              />
-              {selfHostedError ? (
-                <p
-                  id="mcp-self-hosted-error"
-                  role="alert"
-                  className="mt-2 text-[12.5px] leading-[1.5] text-destructive"
-                >
-                  {selfHostedError}
-                </p>
-              ) : (
-                <p className="mt-2 text-[12.5px] leading-[1.5] text-caption">
-                  Must be an https URL. Your server authenticates with OAuth 2.1;
-                  legalOS keeps the credentials in its own encrypted vault.
-                </p>
-              )}
-              <div className="mt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={connectSelfHosted}
-                  disabled={selfHostedUrl.trim().length === 0}
-                >
-                  Connect
-                </Button>
+                  className="mt-2 max-w-[420px] bg-paper-2 font-mono text-[13px]"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      connectSelfHosted();
+                    }
+                  }}
+                />
+                {selfHostedError ? (
+                  <p
+                    id="mcp-self-hosted-error"
+                    role="alert"
+                    className="mt-2 text-[12.5px] leading-[1.5] text-destructive"
+                  >
+                    {selfHostedError}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[12.5px] leading-[1.5] text-caption">
+                    Must be an https URL. Your server authenticates with OAuth
+                    2.1; legalOS keeps the credentials in its own encrypted vault.
+                  </p>
+                )}
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={connectSelfHosted}
+                    disabled={selfHostedUrl.trim().length === 0}
+                  >
+                    Connect
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <p className="mt-4 text-[13px] leading-[1.5] text-caption">
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!canEdit ? (
+        <p className="mt-6 text-[13px] leading-[1.5] text-caption">
           Only super admins can connect or disconnect MCP servers. You’re viewing
-          the connected servers as read only.
+          connection state as read only.
         </p>
-      )}
+      ) : null}
 
       <Dialog
         open={removeTarget !== null}
