@@ -109,6 +109,9 @@ function firstPartyEntry(
   // 7591) so a DCR-capable first-party server needs no extra wiring; servers
   // without DCR (Google) pass an explicit `static` acquisition with their env key.
   clientAcquisition: McpClientAcquisition = { mode: "dynamic" },
+  // The OAuth scopes the server requires, declared in the authorization request
+  // (D-099). Empty ⇒ no scope parameter (the dynamic/self-hosted default).
+  scopes: string[] = [],
 ): FirstPartyServerEntry {
   return {
     kind: "mcp",
@@ -118,6 +121,7 @@ function firstPartyEntry(
     displayName,
     provider,
     clientAcquisition,
+    scopes,
     discoveryBaseUrl,
   };
 }
@@ -136,14 +140,36 @@ const GOOGLE_MCP_CLIENT: McpClientAcquisition = {
   credentialKey: "GOOGLE_MCP_OAUTH",
 };
 
+// The OAuth scopes each Google Workspace MCP server requires, sourced VERBATIM
+// from Google's official MCP configuration docs
+// (developers.google.com/workspace/guides/configure-mcp-servers). They are
+// least-privilege (readonly plus file/compose, not full access) and are declared
+// in the authorization request because Google (a static authorization server)
+// requires explicit scopes up front — discovery does not supply them here (D-099).
+// The operator must mirror these on the Google Cloud consent screen's Data Access
+// page; the two must match for consent to succeed.
+const GOOGLE_DRIVE_SCOPES = [
+  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive.file",
+];
+const GOOGLE_GMAIL_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.compose",
+];
+const GOOGLE_CALENDAR_SCOPES = [
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+  "https://www.googleapis.com/auth/calendar.events.freebusy",
+  "https://www.googleapis.com/auth/calendar.events.readonly",
+];
+
 // Google's official global Workspace MCP server endpoints (verbatim from Google's
 // own documentation/console). Google offers dedicated MCP servers for Drive,
 // Gmail, and Calendar — and none for Docs or Sheets, so neither is listed here
 // (Drive's create_file covers creating those files).
 const TRUSTED_FIRST_PARTY_SERVERS: Record<string, FirstPartyServerEntry> = {
-  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, "https://drivemcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT),
-  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, "https://gmailmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT),
-  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, "https://calendarmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT),
+  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, "https://drivemcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_DRIVE_SCOPES),
+  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, "https://gmailmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_GMAIL_SCOPES),
+  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, "https://calendarmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_CALENDAR_SCOPES),
 };
 
 /** A first-party trusted server entry, or null if the id is not on the allowlist. */

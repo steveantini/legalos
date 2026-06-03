@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP connections now request the specific permissions a server needs as part of sign-in, and always show the account chooser, so connecting a Google Workspace server presents the correct permissions and lets you pick which account to authorize. This resolves the sign-in error when connecting Google's servers.**
+
 - **Google Workspace MCP servers are now connectable: the Drive, Gmail, and Calendar first-party servers are wired to Google's official MCP endpoints. (Google does not offer dedicated Docs or Sheets MCP servers; Drive covers creating those files.) A super admin can now connect them from Policy & access.**
 
 - **MCP servers that don't support automatic client registration (like Google) can now connect using a pre-registered OAuth client: the trusted-server registry declares, per server, whether it registers a client on the fly or uses one configured ahead of time, and a configured server reads its client id and secret from its own dedicated, server-only settings, kept separate from the Drive connector's. Servers that do support automatic registration, including your own self-hosted server, are unchanged. If a configured server's client isn't set up yet, connecting fails cleanly with a clear message instead of a confusing error. Every credential still lives in our own encrypted vault. This is the groundwork that lets the Google Workspace servers connect once their client is provisioned.**

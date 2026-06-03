@@ -2788,3 +2788,26 @@ The trusted allowlist is the hard ceiling on what can touch privileged data, so 
 - This is the gate to proving MCP connect live (the go-live proof-out) and, later, Phase 2 agent tool-use against these servers.
 
 Trust/architecture note (security-architecture doc): the trusted first-party MCP allowlist holds only real, official endpoints sourced from the vendor's own documentation; servers the vendor does not offer are not listed.
+
+## D-099 — Per-server OAuth scopes and forced account selection for static MCP servers (flag 2)
+
+Date: 2026-06-03
+Status: Accepted
+
+**Context:**
+
+The first live Google Workspace MCP connect failed with "Missing required parameter: scope" because the MCP authorization request, built around discovery-style auth, did not declare OAuth scopes; Google's OAuth requires them. Google also silently used the browser's default account, causing account confusion.
+
+**Decision:**
+
+First-party server registry entries declare their required OAuth scopes (the three Google servers carry the exact scopes from Google's official MCP configuration docs: Drive drive.readonly + drive.file; Gmail gmail.readonly + gmail.compose; Calendar the three calendar scopes). The auth flow passes these as the OAuth scope parameter in the authorization request, and adds prompt=select_account so the user always chooses which account to authorize. The dynamic/self-hosted path (no declared scopes) is unchanged.
+
+**Reasoning:**
+
+Static authorization servers like Google require explicit scopes up front (discovery does not supply them for this path); declaring them per server in the registry keeps the registry the source of truth for how each trusted server connects, and using Google's exact documented scopes keeps the request correct and least-privilege (readonly + file/compose, not full access). Forcing the account chooser prevents the silent-default-account problem for multi-account users.
+
+**Consequences:**
+
+- Google Workspace MCP servers can complete authorization (the scope error is resolved); operator must also add the scopes to the Google Cloud consent screen Data Access page and authorize with a Workspace (antinilaw.com) account, since the Internal consent screen requires an org account.
+- The account chooser now appears for MCP OAuth, a better multi-account UX.
+- Self-hosted/dynamic behavior unchanged.

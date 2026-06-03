@@ -196,19 +196,29 @@ async function acquireClient(
  * Either way the resulting client info is returned to the SAME custody path — the
  * caller seals it into the cookie and the callback stores it encrypted. Absent ⇒
  * dynamic, so the self-hosted path and any caller that omits it are unchanged.
+ *
+ * `scopes` (D-099) are the OAuth scopes the server requires; they are joined into
+ * the space-delimited OAuth `scope` parameter on the authorization request. Static
+ * servers like Google require explicit scopes up front (discovery does not supply
+ * them for this path). Absent/empty ⇒ no scope parameter (unchanged behavior). The
+ * built authorization URL also carries `prompt=select_account` so the user always
+ * gets the account chooser rather than the browser's silently-default account.
  */
 export async function beginMcpAuthorization(params: {
   serverUrl: string;
   redirectUri: string;
   state: string;
-  scope?: string;
+  scopes?: string[];
   clientAcquisition?: McpClientAcquisition;
 }): Promise<{
   authorizationUrl: URL;
   codeVerifier: string;
   clientInformation: OAuthClientInformationFull;
 }> {
-  const { serverUrl, redirectUri, state, scope } = params;
+  const { serverUrl, redirectUri, state } = params;
+  // The OAuth scope parameter is a space-delimited string; absent/empty stays
+  // undefined so no scope is sent (the dynamic/self-hosted default).
+  const scope = params.scopes?.length ? params.scopes.join(" ") : undefined;
   const acquisition: McpClientAcquisition = params.clientAcquisition ?? {
     mode: "dynamic",
   };
@@ -256,6 +266,12 @@ export async function beginMcpAuthorization(params: {
         ...(resource ? { resource } : {}),
       },
     );
+    // Force the account chooser. The SDK returns a URL we own, so we set the
+    // standard OAuth `prompt=select_account` directly rather than relying on an
+    // SDK option (startAuthorization has none). Harmless and correct for every
+    // redirect-based MCP OAuth: the user picks which account to authorize instead
+    // of the browser's silently-default one.
+    authorizationUrl.searchParams.set("prompt", "select_account");
     return { authorizationUrl, codeVerifier, clientInformation };
   } catch {
     throw new McpAuthError("authorization_failed");

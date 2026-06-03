@@ -92,6 +92,7 @@ export async function GET(request: Request) {
       redirectUri,
       state,
       clientAcquisition: entry.clientAcquisition,
+      scopes: entry.scopes,
     });
   } catch (err) {
     // Never logs token/secret material; only the server id.

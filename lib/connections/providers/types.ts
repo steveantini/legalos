@@ -265,6 +265,14 @@ export type McpServerAdapter = ConnectionAdapterBase & {
    * holds their pre-registered client id/secret.
    */
   clientAcquisition?: McpClientAcquisition;
+  /**
+   * The OAuth scopes this server requires, declared up front in the authorization
+   * request (D-099). Static authorization servers like Google require explicit
+   * scopes (discovery does not supply them for this path); the auth flow joins
+   * these into the OAuth `scope` parameter. Absent/empty ⇒ no scope parameter, the
+   * existing dynamic/self-hosted behavior.
+   */
+  scopes?: string[];
 };
 
 /**
