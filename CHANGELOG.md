@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Groundwork for agents using MCP tools (Phase 2): locked the design for the gated agent tool-use loop (how tools are named and routed, which servers an agent may use, running read tools while holding write tools for confirmation, and the safety guards), and added an internal reader that resolves an organization's connected MCP servers to what's needed to run their tools, the connection, its token reference, the server URL, and the tool catalog. Nothing uses the reader yet; this is the first off-the-hot-path step, with no change to how chat works today.**
+
 - **Connected MCP servers now appear inside their provider's expand and collapse group rather than a separate section, with each server showing its own connection state (connected with its tool count, or connect / available once configured) right where it lives. This keeps the connector organized as more providers connect, and a provider with any live connection opens by default so you see it immediately. Self-hosted servers stay in their own block.**
 
 - **MCP connections now request the specific permissions a server needs as part of sign-in, and always show the account chooser, so connecting a Google Workspace server presents the correct permissions and lets you pick which account to authorize. This resolves the sign-in error when connecting Google's servers.**

@@ -410,6 +410,7 @@ For the fresh chat to know where things live:
 - `scripts/import-c4l-plugin.ts` — the C4L import script (operator runs manually)
 - `docs/C4L_DEFERRED_SKILLS.md` — authoritative reference for every C4L skill audited, where it landed, and why
 - `docs/REBRANDING.md` — the bounded checklist for changing the product name or domain (name = display-text find/replace; domain = one env var `NEXT_PUBLIC_SITE_URL` plus updating OAuth redirect URIs in the external provider consoles; architecture/secrets unaffected). The name and domain are placeholders today, so a future session will likely need this.
+- `docs/PHASE2_MCP_TOOLUSE.md` — the AUTHORITATIVE design lock for MCP Phase 2 (agent tool-use): tool namespacing + routing, two-layer per-agent governance, v1 run-reads/block-writes policy, the iteration/wall-clock guards, token accounting, tracing, the 7-step build order (2P-1 … 2P-7), the gating principle, and the history-replay correctness trap. Every Phase 2 step builds to this spec (D-100). 2P-0 (lock) and 2P-1 (the execution-resolution reader `getOrgMcpExecutionTargets`) shipped; next is 2P-2.
 - `supabase/migrations/` — all schema changes; current HEAD is 0050
 - `supabase/seed/0001_org_and_departments.sql` — canonical post-migrations state; comment header documents the four-group taxonomy
 - `app/workspace/admin/` — the admin section: People, Policy & access, Audit log (Govern); Insights, Evals (Measure). `lib/admin/nav.ts` is the single nav source feeding the admin rail and landing.

@@ -2811,3 +2811,29 @@ Static authorization servers like Google require explicit scopes up front (disco
 - Google Workspace MCP servers can complete authorization (the scope error is resolved); operator must also add the scopes to the Google Cloud consent screen Data Access page and authorize with a Workspace (antinilaw.com) account, since the Internal consent screen requires an org account.
 - The account chooser now appears for MCP OAuth, a better multi-account UX.
 - Self-hosted/dynamic behavior unchanged.
+
+## D-100 — Phase 2 MCP agent tool-use — design lock (2P-0)
+
+Date: 2026-06-03
+Status: Accepted
+
+**Context:**
+
+Phase 1 connects MCP servers and discovers tools; Phase 2 lets agents call them via a gated agentic loop on the chat hot path. The read-only investigation mapped the terrain (the chat hot path is strictly single-pass; web_search is a hosted tool that needs no execution loop; MCP tools are client-executed and require a model→execute→feed-back loop) and a 7-step decomposition. This entry locks the design; the full authoritative spec lives in `docs/PHASE2_MCP_TOOLUSE.md`.
+
+**Decision:**
+
+Six locked decisions: (1) **Namespacing** — connected tools are server-prefixed Anthropic custom tools `<shortPrefix>__<originalToolName>` (e.g. `gdrive__search_files`), satisfying `^[A-Za-z0-9_-]{1,64}$`, with a server-side routing map back to `{ connectionId, tokenRef, serverUrl, originalToolName }`. (2) **Governance** — two layers: the org connects a server (Phase 1, super-admin), and the agent author enables which connected SERVERS this agent may use (per-server granularity for v1; per-tool later); the loop exposes only tools from servers enabled-for-the-agent AND connected-for-the-org. (3) **Write policy (v1)** — auto-run read tools, BLOCK write tools (a write `tool_use` returns a `tool_result` saying it needs confirmation and isn't enabled, so nothing is silently sent/created/deleted), classified by captured MCP annotations (`readOnlyHint`/`destructiveHint`), with a conservative no-annotation ⇒ treated-as-write default; interactive write-confirmation deferred to 2P-7. (4) **Guards** — at most 8 tool rounds per turn and a ~240s wall-clock budget inside the route's 300s `maxDuration`, then a final model turn without tools. (5) **Token accounting** — one summed `usage_events` row per turn plus a new additive `mcp_tool_call_count` column; each round re-sends growing history, so cost grows super-linearly (the summed row keeps it truthful). (6) **Tracing** — reuse the `tool_calls` JSONB + token/PII-free structured logs; persist per call the server/connection, tool name, args SUMMARY, result status, and timing.
+
+Plus the **build order** (2P-1 execution-resolution reader → 2P-2 tool mapping/namespacing → 2P-3 single-tool execution → 2P-4 read/write classification → 2P-5 per-agent governance → 2P-6 the gated loop → 2P-7 UI + optional interactive confirm), the **gating principle** (agents with no enabled-and-connected MCP tools take the byte-identical current single-pass path; the loop engages only when resolved tools exist and ships behind a flag), and the **correctness trap** (history replay must flatten a multi-call turn to the final assistant text + `tool_calls` JSONB so the string-based history stays uncorrupted; intermediate `tool_use`/`tool_result` blocks live only inside the turn's execution).
+
+**Reasoning:**
+
+Off-hot-path, behavior-neutral steps land first; the one hot-path change (the loop) lands last, gated and flagged, so no-MCP agents are byte-identical. v1 runs reads and blocks writes so the loop is proven safely before any agent takes a real action in a user's Gmail/Drive/Calendar; write-confirmation is a deliberate later step. Per-server agent governance mirrors the platform's existing two-layer pattern. The guards bound cost and runtime.
+
+**Consequences:**
+
+- The build proceeds in the locked order; everything before 2P-6 is off the hot path and behavior-neutral.
+- v1 end state: read tools usable mid-conversation; write tools blocked pending confirmation; interactive confirm is 2P-7.
+- New schema/governance to come: a per-agent server-enablement mechanism (2P-5, may carry an additive migration) and an `mcp_tool_call_count` column on `usage_events` (2P-6).
+- 2P-1 (the execution-resolution reader) ships alongside this lock as the first scaffolding step.
