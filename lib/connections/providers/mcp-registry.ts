@@ -44,24 +44,31 @@ import type {
 // ---------------------------------------------------------------------------
 // First-party trusted servers (the hard-ceiling allowlist).
 // ---------------------------------------------------------------------------
-// Seeded with Google's official Workspace MCP servers (Drive, Gmail, Calendar,
-// Docs, Sheets), the intended first trusted surface. These authenticate via
-// OAuth 2.1 (remote servers), reusing the PKCE/TokenBundle substrate in 2b.
+// Seeded with Google's official Workspace MCP servers — Drive, Gmail, and
+// Calendar — the intended first trusted surface. These authenticate via OAuth 2.1
+// (remote servers), reusing the PKCE/TokenBundle substrate.
 //
-// IMPORTANT: the `discoveryBaseUrl` values below are TO-BE-CONFIRMED placeholders.
-// The exact official Google Workspace MCP server endpoints are finalized in 2b
-// (which builds the real connect flow and verifies them); 2a establishes the
-// STRUCTURE and the trust guarantee, not the final URLs. They are deliberately
-// marked here so no placeholder is ever mistaken for a verified endpoint, and
-// because trust derives from registry MEMBERSHIP, not from the URL — a wrong URL
-// fails to connect, it never becomes trusted.
+// The `discoveryBaseUrl` values are Google's official GLOBAL MCP server endpoints,
+// confirmed verbatim from Google's own documentation/console (the authoritative
+// first-party source, not the open web where community Workspace MCP servers
+// dominate). The allowlist is the hard ceiling on what can touch privileged data,
+// so its entries must be real, vendor-official endpoints — and must not include
+// servers the vendor does not offer: Google provides no dedicated Docs or Sheets
+// MCP server, so neither is listed (Drive's create_file covers creating those
+// files). Trust still derives from registry MEMBERSHIP, never from the URL — a
+// wrong URL fails to connect, it never becomes trusted. A future provider added
+// before its endpoint is confirmed can use the TBC placeholder (below), which the
+// connector UI renders honestly as "available once configured" until set.
 //
 // serverId is suffixed '-mcp' so an MCP connection's provider_id is distinct from
 // the existing OAuth Drive adapter's provider_id ('google-drive'); the two kinds
 // coexist as separate connections. capabilityCategory is a descriptive 'mcp'
 // label (not yet a governed connection-policy category, like 'models' in 1b).
 
-const TBC = "https://TO-BE-CONFIRMED-IN-2b.invalid"; // placeholder origin; finalized in 2b
+// Placeholder origin for a future provider added before its real endpoint is
+// confirmed; the connector UI shows such an entry as "available once configured".
+// Google's endpoints are now real (above), so nothing uses this today.
+const TBC = "https://TO-BE-CONFIRMED.invalid";
 
 /**
  * Provider families for first-party servers. The connector UI (2c) groups
@@ -77,7 +84,7 @@ const FIRST_PARTY_PROVIDERS: Record<
 > = {
   "google-workspace": {
     label: "Google Workspace",
-    descriptor: "Drive, Gmail, Calendar, Docs, and Sheets.",
+    descriptor: "Drive, Gmail, and Calendar.",
   },
   // Future: 'microsoft-365' ("Microsoft 365"), 'slack' ("Slack"), etc.
 };
@@ -93,6 +100,11 @@ function firstPartyEntry(
   serverId: string,
   displayName: string,
   provider: string,
+  // The server's official OAuth-discovery base URL (the vendor's MCP endpoint).
+  // Defaults to the TBC placeholder so a provider added before its endpoint is
+  // confirmed renders honestly as "available once configured" (the connector UI's
+  // configured flag keys off this). Trust is registry membership, never this URL.
+  discoveryBaseUrl: string = TBC,
   // How this server's OAuth client is obtained (D-097). Defaults to dynamic (RFC
   // 7591) so a DCR-capable first-party server needs no extra wiring; servers
   // without DCR (Google) pass an explicit `static` acquisition with their env key.
@@ -106,9 +118,7 @@ function firstPartyEntry(
     displayName,
     provider,
     clientAcquisition,
-    // Placeholder until 2b; trust is registry membership, never this URL.
-    discoveryBaseUrl: TBC,
-    // listTools is implemented in 2b (no MCP client / network in 2a).
+    discoveryBaseUrl,
   };
 }
 
@@ -116,7 +126,7 @@ const GOOGLE = "google-workspace";
 
 // Google's Workspace MCP servers do NOT support RFC 7591 dynamic client
 // registration, so they connect with a client PRE-REGISTERED in the Google Cloud
-// console. All five share one Google OAuth client, so they share one env-var pair
+// console. All three share one Google OAuth client, so they share one env-var pair
 // (GOOGLE_MCP_OAUTH_CLIENT_ID / GOOGLE_MCP_OAUTH_CLIENT_SECRET) — deliberately
 // SEPARATE from the Drive data-source connector's GOOGLE_OAUTH_* pair, since the
 // MCP client is registered with different scopes and the MCP callback redirect URI
@@ -126,12 +136,14 @@ const GOOGLE_MCP_CLIENT: McpClientAcquisition = {
   credentialKey: "GOOGLE_MCP_OAUTH",
 };
 
+// Google's official global Workspace MCP server endpoints (verbatim from Google's
+// own documentation/console). Google offers dedicated MCP servers for Drive,
+// Gmail, and Calendar — and none for Docs or Sheets, so neither is listed here
+// (Drive's create_file covers creating those files).
 const TRUSTED_FIRST_PARTY_SERVERS: Record<string, FirstPartyServerEntry> = {
-  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, GOOGLE_MCP_CLIENT),
-  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, GOOGLE_MCP_CLIENT),
-  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, GOOGLE_MCP_CLIENT),
-  "google-docs-mcp": firstPartyEntry("google-docs-mcp", "Google Docs", GOOGLE, GOOGLE_MCP_CLIENT),
-  "google-sheets-mcp": firstPartyEntry("google-sheets-mcp", "Google Sheets", GOOGLE, GOOGLE_MCP_CLIENT),
+  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, "https://drivemcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT),
+  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, "https://gmailmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT),
+  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, "https://calendarmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT),
 };
 
 /** A first-party trusted server entry, or null if the id is not on the allowlist. */

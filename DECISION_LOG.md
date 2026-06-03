@@ -2763,3 +2763,28 @@ Making acquisition a per-server registry declaration (not a global flag or an in
 - Google's Workspace MCP servers become connectable once their pre-registered client is provisioned and `GOOGLE_MCP_OAUTH_CLIENT_ID` / `GOOGLE_MCP_OAUTH_CLIENT_SECRET` are set; until then they fail the connect cleanly with the specific "not set up yet" message. (The discovery endpoints remain to-be-confirmed placeholders, finalized separately; this change adds the client-acquisition half of Google enablement.)
 - Adding another DCR-less first-party provider is a registry declaration (`static` + a credentialKey) plus its env-var pair; DCR-capable and self-hosted servers need nothing.
 - Additive and behavior-neutral for every existing path: no migration, no schema change, and the dynamic-registration flow is untouched.
+
+## D-098 — Wire the real Google Workspace MCP endpoints; align the registry to the three offered servers (flag 2)
+
+Date: 2026-06-03
+Status: Accepted
+
+**Context:**
+
+With static-client support in place and the operator's Google Cloud project enrolled (Developer Preview) and the Drive/Gmail/Calendar MCP APIs enabled, the trusted-MCP registry's placeholder Google endpoints can be replaced with the real official URLs, confirmed verbatim from Google's own documentation/console.
+
+**Decision:**
+
+Set the three first-party Google Workspace MCP endpoints to Google's official global MCP server URLs (https://drivemcp.googleapis.com/mcp/v1, https://gmailmcp.googleapis.com/mcp/v1, https://calendarmcp.googleapis.com/mcp/v1), keeping their static client-acquisition (the pre-registered GOOGLE_MCP_OAUTH client). Removed the Docs and Sheets entries: Google does not offer dedicated Docs/Sheets MCP servers, so they must not appear in the trusted allowlist (which must accurately reflect real, vetted servers); Drive's create_file covers creating Docs/Sheets files for export. The three servers now report configured=true and render as connectable in the connector UI.
+
+**Reasoning:**
+
+The trusted allowlist is the hard ceiling on what can touch privileged data, so its entries must be real, authoritative Google endpoints (sourced from Google's own docs/console, not the open web where community Workspace MCP servers dominate) and must not include servers that don't exist. Keeping the allowlist accurate is part of the trust posture.
+
+**Consequences:**
+
+- Drive, Gmail, and Calendar are connectable via their official Google MCP servers using the pre-registered Google OAuth client; the live connect requires the GOOGLE_MCP_OAUTH credentials in Vercel (set) plus a redeploy, and migration 0052 for tool-catalog persistence.
+- The Google Workspace provider group is Drive, Gmail, Calendar; Docs/Sheets are not separate servers (Drive covers their file creation).
+- This is the gate to proving MCP connect live (the go-live proof-out) and, later, Phase 2 agent tool-use against these servers.
+
+Trust/architecture note (security-architecture doc): the trusted first-party MCP allowlist holds only real, official endpoints sourced from the vendor's own documentation; servers the vendor does not offer are not listed.

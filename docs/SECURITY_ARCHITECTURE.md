@@ -166,9 +166,14 @@ Untrusted servers are not blocked; they are **unrepresentable as connectable**.
 The code allowlist changes only by a deliberate, reviewed deploy; an
 organization's own policy can only **narrow** that set (choose a subset), never
 widen it. The connect flow enforces the check at both initiate and callback
-(defense in depth). (Why this matters: MCP's security maturity lags its adoption;
-many community servers carry known vulnerabilities and tool-poisoning risk — the
-boundary is what makes MCP safe to offer to holders of privileged legal data.)
+(defense in depth). The allowlist also holds only **real, official endpoints
+sourced from the vendor's own documentation** (e.g. Google's Workspace MCP servers
+from Google's own console, not the open web where community Workspace servers
+dominate); servers the vendor does not actually offer are not listed at all, so
+the allowlist stays an accurate map of vetted, existing servers. (Why this
+matters: MCP's security maturity lags its adoption; many community servers carry
+known vulnerabilities and tool-poisoning risk — the boundary is what makes MCP
+safe to offer to holders of privileged legal data.)
 (DECISION_LOG D-089, flag 2a.)
 
 There are exactly two trusted tiers, and they are **partitioned in code** so neither

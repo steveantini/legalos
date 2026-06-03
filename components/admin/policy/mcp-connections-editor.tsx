@@ -43,8 +43,6 @@ const FIRST_PARTY_DESCRIPTIONS: Record<string, string> = {
   "google-drive-mcp": "Documents and files in Google Drive.",
   "google-gmail-mcp": "Email in Gmail.",
   "google-calendar-mcp": "Schedules in Google Calendar.",
-  "google-docs-mcp": "Documents in Google Docs.",
-  "google-sheets-mcp": "Spreadsheets in Google Sheets.",
 };
 
 function trustLabel(tier: OrgMcpConnection["trustTier"]): string {
