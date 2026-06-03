@@ -91,22 +91,25 @@ export default async function AdminPolicyPage({
           Policy & access
         </h1>
         <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          Two decisions govern how your agents use connected tools: the most any
-          connection is allowed to do, and which kinds of connections your
-          organization permits.
+          Set up the engine your agents run on, then what they can reach: the
+          model and whose key powers it, then which connections and trusted
+          servers it can use.
         </p>
-        {!loadFailed && !canEdit ? (
-          <p className="mt-3 text-[13px] leading-[1.5] text-caption">
-            Only super admins can change the connection policy. You’re viewing it
-            as read only.
-          </p>
-        ) : null}
       </header>
 
+      {/* The engine: whose key / which provider, then which model new agents start on. */}
+      <ModelConnectionEditor
+        anthropicState={anthropicModelConnection}
+        canEdit={canEdit}
+      />
+
+      <DefaultModelEditor currentModelId={orgDefaultModel} canEdit={canEdit} />
+
+      {/* The reach: the standing connection guardrail, then the connected servers. */}
       {loadFailed ? (
         <p
           role="alert"
-          className="mt-10 rounded-lg border border-hairline bg-paper-2 px-4 py-3 text-[13px] leading-[1.5] text-foreground"
+          className="mt-12 rounded-lg border border-hairline bg-paper-2 px-4 py-3 text-[13px] leading-[1.5] text-foreground"
         >
           We couldn’t load the current policy. Reload the page to try again.
         </p>
@@ -122,13 +125,6 @@ export default async function AdminPolicyPage({
           canEdit={canEdit}
         />
       )}
-
-      <DefaultModelEditor currentModelId={orgDefaultModel} canEdit={canEdit} />
-
-      <ModelConnectionEditor
-        anthropicState={anthropicModelConnection}
-        canEdit={canEdit}
-      />
 
       <McpConnectionsEditor
         connections={mcpConnections}

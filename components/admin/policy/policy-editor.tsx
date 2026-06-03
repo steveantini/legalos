@@ -95,23 +95,27 @@ export function PolicyEditor({
   ];
 
   return (
-    <div className="mt-10 flex flex-col gap-12">
-      {/* Part 1 — the capability ceiling (the trust statement). */}
-      <section aria-labelledby="policy-ceiling">
-        <h2
-          id="policy-ceiling"
-          className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
-        >
-          The most any connection can do
-        </h2>
-        <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
-          One ceiling applies to every connection. Read only is the safe default.
-        </p>
+    <section aria-labelledby="policy-allowed-connections" className="mt-12">
+      <h2
+        id="policy-allowed-connections"
+        className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
+      >
+        Allowed connections
+      </h2>
+      <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
+        The standing guardrail on what your agents can reach: the most any
+        connection may do, and which kinds your organization permits.
+      </p>
 
+      {/* The capability ceiling — compact, inline-labeled. */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-[13px] font-medium text-foreground">
+          The most any connection can do
+        </span>
         <div
           role="radiogroup"
           aria-label="The most any connection can do"
-          className="mt-4 inline-flex gap-1 rounded-lg border border-hairline bg-paper-2 p-1"
+          className="inline-flex gap-1 rounded-lg border border-hairline bg-paper-2 p-0.5"
         >
           {ceilingOptions.map((option) => {
             const selected = allowWrite === option.allowWrite;
@@ -125,8 +129,8 @@ export function PolicyEditor({
                 onClick={() => chooseCeiling(option.allowWrite)}
                 className={
                   selected
-                    ? "rounded-md bg-primary px-4 py-2 text-[13.5px] font-medium text-primary-foreground transition-colors duration-release ease-release motion-reduce:transition-none"
-                    : `rounded-md px-4 py-2 text-[13.5px] font-medium text-muted-foreground transition-colors duration-release ease-release focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none ${
+                    ? "rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-colors duration-release ease-release motion-reduce:transition-none"
+                    : `rounded-md px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors duration-release ease-release focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none ${
                         canEdit
                           ? "hover:text-foreground hover:duration-hover hover:ease-soft"
                           : "cursor-default"
@@ -138,72 +142,64 @@ export function PolicyEditor({
             );
           })}
         </div>
+      </div>
+      <p className="mt-2 max-w-[70ch] text-[12.5px] leading-[1.5] text-caption">
+        {allowWrite
+          ? "Agents can also make changes in your connected tools, with your approval."
+          : "Agents can reference your connected tools, but never change anything in them."}
+      </p>
 
-        <p className="mt-3 max-w-[70ch] text-[13px] leading-[1.5] text-caption">
-          {allowWrite
-            ? "Agents can also make changes in your connected tools, with your approval."
-            : "Agents can reference your connected tools, but never change anything in them."}
-        </p>
-      </section>
-
-      {/* Part 2 — allowed connection categories (providers derived on save). */}
-      <section aria-labelledby="policy-categories">
-        <h2
-          id="policy-categories"
-          className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
-        >
-          Allowed connections
-        </h2>
-        <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
-          Choose which kinds of connections your organization permits.
-        </p>
-
-        <div className="mt-4">
-          {categories.map((category) => {
-            const isAllowed = allowed.has(category.id);
-            return (
-              <div
-                key={category.id}
-                className="border-b border-hairline last:border-b-0"
-              >
-                <div className="flex items-center gap-4 rounded-lg bg-paper-2 px-5 py-4">
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-medium text-foreground">
-                      {category.title}
-                    </p>
-                    <p className="mt-0.5 text-[12px] leading-[1.5] text-muted-foreground">
-                      {category.description}
-                    </p>
-                  </div>
-                  <div className="ml-auto shrink-0">
-                    {canEdit ? (
-                      <Switch
-                        checked={isAllowed}
-                        onCheckedChange={() => toggleCategory(category.id)}
-                        disabled={pending}
-                        aria-label={`Allow ${category.title}`}
-                      />
-                    ) : (
-                      <span
-                        className={`text-[12px] font-medium ${
-                          isAllowed ? "text-foreground" : "text-muted-foreground"
-                        }`}
-                      >
-                        {isAllowed ? "Allowed" : "Not allowed"}
-                      </span>
-                    )}
-                  </div>
-                </div>
+      {/* Allowed connection categories — a compact list (providers derived on save). */}
+      <div className="mt-4 overflow-hidden rounded-lg border border-hairline">
+        {categories.map((category) => {
+          const isAllowed = allowed.has(category.id);
+          return (
+            <div
+              key={category.id}
+              className="flex items-center gap-4 border-b border-hairline bg-paper-2 px-4 py-2.5 last:border-b-0"
+            >
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-medium text-foreground">
+                  {category.title}
+                </p>
+                <p className="mt-0.5 text-[12px] leading-[1.5] text-muted-foreground">
+                  {category.description}
+                </p>
               </div>
-            );
-          })}
-        </div>
+              <div className="ml-auto shrink-0">
+                {canEdit ? (
+                  <Switch
+                    checked={isAllowed}
+                    onCheckedChange={() => toggleCategory(category.id)}
+                    disabled={pending}
+                    aria-label={`Allow ${category.title}`}
+                  />
+                ) : (
+                  <span
+                    className={`text-[12px] font-medium ${
+                      isAllowed ? "text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    {isAllowed ? "Allowed" : "Not allowed"}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-        <p className="mt-4 max-w-[70ch] text-[12px] leading-[1.5] text-caption">
-          Allowing a category permits that kind of connection. Individual
-          providers become connectable as support for them ships.
+      <p className="mt-3 max-w-[70ch] text-[12px] leading-[1.5] text-caption">
+        Allowing a category permits that kind of connection. Individual providers
+        become connectable as support for them ships.
+      </p>
+
+      {!canEdit ? (
+        <p className="mt-3 text-[13px] leading-[1.5] text-caption">
+          Only super admins can change allowed connections. You’re viewing it as
+          read only.
         </p>
-      </section>
-    </div>
+      ) : null}
+    </section>
   );
 }

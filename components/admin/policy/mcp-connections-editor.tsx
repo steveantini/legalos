@@ -253,8 +253,7 @@ export function McpConnectionsEditor({
               First-party servers
             </h3>
             <p className="mt-1 text-[12.5px] leading-[1.5] text-caption">
-              Official servers legalOS has vetted. These are the only outside
-              servers that can connect.
+              Official servers, vetted by legalOS.
             </p>
             {availableFirstParty.length > 0 ? (
               <div className="mt-3 space-y-2">
@@ -306,8 +305,7 @@ export function McpConnectionsEditor({
               Your own server
             </h3>
             <p className="mt-1 text-[12.5px] leading-[1.5] text-caption">
-              A self-hosted MCP server your organization runs, trusted because you
-              host it.
+              A server your organization runs itself.
             </p>
             <div className="mt-3 rounded-lg border border-hairline bg-background p-4">
               <label
