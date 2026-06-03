@@ -14,7 +14,11 @@ import type {
   OAuthTokens,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 
-import type { TokenBundle } from "@/lib/connections/providers/types";
+import { resolveMcpStaticClient } from "@/lib/connections/providers/mcp-registry";
+import type {
+  McpClientAcquisition,
+  TokenBundle,
+} from "@/lib/connections/providers/types";
 
 /**
  * MCP OAuth 2.1 orchestration (flag 2b-ii-2) — the control-plane seam.
@@ -41,6 +45,7 @@ const CLIENT_NAME = "legalOS";
 export type McpAuthErrorReason =
   | "discovery_failed"
   | "registration_failed"
+  | "client_not_configured"
   | "authorization_failed"
   | "exchange_failed"
   | "refresh_failed";
@@ -134,18 +139,24 @@ async function discover(serverUrl: string) {
 }
 
 /**
- * Acquire the OAuth client to use with this authorization server. Performs RFC
- * 7591 dynamic client registration and RETURNS the client info to be stored in
- * our encrypted substrate (custody ours). A future static-pre-registered-client
- * path (e.g. a Google Cloud OAuth client) would slot in here.
+ * Acquire the OAuth client by RFC 7591 DYNAMIC client registration and RETURN the
+ * client info to be stored in our encrypted substrate (custody ours). Used for
+ * `clientAcquisition: 'dynamic'` servers (the default; self-hosted and any
+ * DCR-capable first-party server). The static path (a pre-registered client read
+ * from env) is handled inline in beginMcpAuthorization (D-097), since it performs
+ * no network registration — it builds the client info from configured creds.
  */
-async function acquireClient(
-  authServerUrl: URL,
-  metadata: Awaited<ReturnType<typeof discoverAuthorizationServerMetadata>>,
+/**
+ * The OAuth client metadata legalOS registers/presents. Dynamic registration
+ * sends it to the server (RFC 7591); the static path reuses it as the descriptive
+ * shell around the pre-registered id/secret, so both produce a complete, identical
+ * OAuthClientInformationFull and the downstream authorize/exchange path is uniform.
+ */
+function buildClientMetadata(
   redirectUri: string,
   scope: string | undefined,
-): Promise<OAuthClientInformationFull> {
-  const clientMetadata: OAuthClientMetadata = {
+): OAuthClientMetadata {
+  return {
     client_name: CLIENT_NAME,
     redirect_uris: [redirectUri],
     grant_types: ["authorization_code", "refresh_token"],
@@ -153,6 +164,15 @@ async function acquireClient(
     token_endpoint_auth_method: "client_secret_post",
     ...(scope ? { scope } : {}),
   };
+}
+
+async function acquireClient(
+  authServerUrl: URL,
+  metadata: Awaited<ReturnType<typeof discoverAuthorizationServerMetadata>>,
+  redirectUri: string,
+  scope: string | undefined,
+): Promise<OAuthClientInformationFull> {
+  const clientMetadata = buildClientMetadata(redirectUri, scope);
   try {
     return await registerClient(authServerUrl, {
       metadata: metadata ?? undefined,
@@ -169,25 +189,60 @@ async function acquireClient(
  * and build the authorization URL + PKCE verifier. Returns everything the sealed
  * cookie must carry to complete the flow (the verifier and the client info), so
  * the callback can re-discover and exchange without anything pre-stored in the DB.
+ *
+ * `clientAcquisition` (D-097) selects HOW the OAuth client is obtained: `dynamic`
+ * (default) registers a fresh client via RFC 7591; `static` reads a pre-registered
+ * client's id/secret from configured env (for servers like Google that lack DCR).
+ * Either way the resulting client info is returned to the SAME custody path — the
+ * caller seals it into the cookie and the callback stores it encrypted. Absent ⇒
+ * dynamic, so the self-hosted path and any caller that omits it are unchanged.
  */
 export async function beginMcpAuthorization(params: {
   serverUrl: string;
   redirectUri: string;
   state: string;
   scope?: string;
+  clientAcquisition?: McpClientAcquisition;
 }): Promise<{
   authorizationUrl: URL;
   codeVerifier: string;
   clientInformation: OAuthClientInformationFull;
 }> {
   const { serverUrl, redirectUri, state, scope } = params;
+  const acquisition: McpClientAcquisition = params.clientAcquisition ?? {
+    mode: "dynamic",
+  };
   const { authServerUrl, metadata, resource } = await discover(serverUrl);
-  const clientInformation = await acquireClient(
-    authServerUrl,
-    metadata,
-    redirectUri,
-    scope,
-  );
+
+  // Obtain the OAuth client. Dynamic registers one with the authorization server;
+  // static builds it from the pre-registered creds in env. The two differ ONLY in
+  // where the client originates — both yield an OAuthClientInformationFull that
+  // flows through the identical authorize/exchange/store path below.
+  let clientInformation: OAuthClientInformationFull;
+  if (acquisition.mode === "static") {
+    const creds = resolveMcpStaticClient(acquisition.credentialKey);
+    if (!creds) {
+      // Unconfigured creds: fail cleanly. Never proceed with an empty client, and
+      // the reason carries no hint of which env var is missing.
+      throw new McpAuthError("client_not_configured");
+    }
+    // The pre-registered client was registered (in the provider's console) with
+    // these same redirect URIs / grant types; wrap the configured id/secret in
+    // that metadata so the client info is complete and identical in shape to a
+    // dynamically registered one.
+    clientInformation = {
+      ...buildClientMetadata(redirectUri, scope),
+      client_id: creds.clientId,
+      client_secret: creds.clientSecret,
+    };
+  } else {
+    clientInformation = await acquireClient(
+      authServerUrl,
+      metadata,
+      redirectUri,
+      scope,
+    );
+  }
 
   try {
     const { authorizationUrl, codeVerifier } = await startAuthorization(

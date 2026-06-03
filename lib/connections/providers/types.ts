@@ -218,6 +218,30 @@ export type McpToolDescriptor = {
  * reject non-'oauth' kinds, 1a). 2b builds the MCP connect path; 2c the UI;
  * Phase 2 the agent tool-use loop.
  */
+/**
+ * How a trusted MCP server's OAuth client is obtained (D-097). The MCP flow
+ * needs an OAuth client (a client_id / client_secret) before it can request
+ * consent; servers differ in how that client comes to exist:
+ *
+ *   - `dynamic` — the server supports RFC 7591 Dynamic Client Registration, so
+ *     the flow registers a fresh client at connect time. This is the default and
+ *     the path self-hosted servers take.
+ *   - `static`  — the server does NOT support DCR (e.g. Google), so a client must
+ *     be PRE-REGISTERED out of band in the provider's console; the flow reads its
+ *     id/secret from configured env vars. `credentialKey` names the env-var pair
+ *     (`{credentialKey}_CLIENT_ID` / `{credentialKey}_CLIENT_SECRET`); the values
+ *     themselves are never in code. A static server with unconfigured creds fails
+ *     the connect cleanly, it never proceeds with empty credentials.
+ *
+ * Either way the resulting client info flows into the SAME encrypted custody path
+ * (connection_secrets); only WHERE the client originates differs. Absent (default)
+ * is treated as `dynamic`, so existing entries and the self-hosted path are
+ * behavior-neutral.
+ */
+export type McpClientAcquisition =
+  | { mode: "dynamic" }
+  | { mode: "static"; credentialKey: string };
+
 export type McpServerAdapter = ConnectionAdapterBase & {
   kind: "mcp";
   /** Stable server identity; keys the trusted-MCP registry. providerId mirrors this. */
@@ -234,6 +258,13 @@ export type McpServerAdapter = ConnectionAdapterBase & {
    * client that implements it lands in 2b. Undefined in 2a (no network yet).
    */
   listTools?(accessToken: string): Promise<McpToolDescriptor[]>;
+  /**
+   * How this server's OAuth client is obtained (D-097). Absent ⇒ `dynamic` (RFC
+   * 7591 registration), the default for DCR-capable and self-hosted servers.
+   * Servers without DCR (e.g. Google) declare `static` with the env-var pair that
+   * holds their pre-registered client id/secret.
+   */
+  clientAcquisition?: McpClientAcquisition;
 };
 
 /**

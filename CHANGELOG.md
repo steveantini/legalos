@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP servers that don't support automatic client registration (like Google) can now connect using a pre-registered OAuth client: the trusted-server registry declares, per server, whether it registers a client on the fly or uses one configured ahead of time, and a configured server reads its client id and secret from its own dedicated, server-only settings, kept separate from the Drive connector's. Servers that do support automatic registration, including your own self-hosted server, are unchanged. If a configured server's client isn't set up yet, connecting fails cleanly with a clear message instead of a confusing error. Every credential still lives in our own encrypted vault. This is the groundwork that lets the Google Workspace servers connect once their client is provisioned.**
+
 - **MCP connections now group first-party servers by provider with expand and collapse, built to stay scannable as more providers are added: each provider shows a one-line summary (its servers and their connection state) and expands to its individual servers. Google Workspace, the sole provider today, opens by default; the sub-section copy is tightened.**
 
 - **Refined Policy & access: the sections now follow a natural setup order, the engine first (model connection, then default model) and the reach next (allowed connections, then MCP connections); the MCP trust posture is stated once instead of repeated; and allowed connections is a more compact, calmer control.**

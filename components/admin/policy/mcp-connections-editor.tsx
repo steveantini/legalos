@@ -95,6 +95,8 @@ function connectErrorMessage(code: string): string {
       return "That server can’t be connected.";
     case "invalid_server_url":
       return "Enter a valid https server URL.";
+    case "mcp_client_not_configured":
+      return "This server needs a configured OAuth client that isn’t set up yet.";
     default:
       return "Could not complete the connection. Try again.";
   }

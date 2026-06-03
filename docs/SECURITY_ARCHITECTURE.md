@@ -210,6 +210,16 @@ seam (RFC 8707 resource indicators) is in place for a future model where tokens
 come from the customer's own identity provider, bound to a single server.
 (DECISION_LOG D-092, flag 2b-ii-2.)
 
+Custody is identical whether the OAuth client is registered dynamically or
+pre-registered: some trusted servers (e.g. Google) do not support dynamic client
+registration and instead use a client provisioned out of band, whose id and
+secret legalOS reads from a dedicated, server-only configuration value distinct
+from any data-source connector's. That configured secret is treated as a
+credential like any other — sealed into the connect flow and stored in the same
+AES-256-GCM, service-role-only vault, never in code and never client-reachable —
+so the "the protocol library never holds your credentials" guarantee holds for
+both acquisition modes. (DECISION_LOG D-097.)
+
 ### 10. The data-sovereignty story
 
 **Claim.** An organization can run legalOS so that its privileged data never

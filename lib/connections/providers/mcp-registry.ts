@@ -1,6 +1,7 @@
 import "server-only";
 
 import type {
+  McpClientAcquisition,
   McpServerAdapter,
   McpTrustTier,
 } from "@/lib/connections/providers/types";
@@ -92,6 +93,10 @@ function firstPartyEntry(
   serverId: string,
   displayName: string,
   provider: string,
+  // How this server's OAuth client is obtained (D-097). Defaults to dynamic (RFC
+  // 7591) so a DCR-capable first-party server needs no extra wiring; servers
+  // without DCR (Google) pass an explicit `static` acquisition with their env key.
+  clientAcquisition: McpClientAcquisition = { mode: "dynamic" },
 ): FirstPartyServerEntry {
   return {
     kind: "mcp",
@@ -100,6 +105,7 @@ function firstPartyEntry(
     capabilityCategory: "mcp",
     displayName,
     provider,
+    clientAcquisition,
     // Placeholder until 2b; trust is registry membership, never this URL.
     discoveryBaseUrl: TBC,
     // listTools is implemented in 2b (no MCP client / network in 2a).
@@ -108,12 +114,24 @@ function firstPartyEntry(
 
 const GOOGLE = "google-workspace";
 
+// Google's Workspace MCP servers do NOT support RFC 7591 dynamic client
+// registration, so they connect with a client PRE-REGISTERED in the Google Cloud
+// console. All five share one Google OAuth client, so they share one env-var pair
+// (GOOGLE_MCP_OAUTH_CLIENT_ID / GOOGLE_MCP_OAUTH_CLIENT_SECRET) — deliberately
+// SEPARATE from the Drive data-source connector's GOOGLE_OAUTH_* pair, since the
+// MCP client is registered with different scopes and the MCP callback redirect URI
+// (D-097). The values live only in env; nothing here holds a credential.
+const GOOGLE_MCP_CLIENT: McpClientAcquisition = {
+  mode: "static",
+  credentialKey: "GOOGLE_MCP_OAUTH",
+};
+
 const TRUSTED_FIRST_PARTY_SERVERS: Record<string, FirstPartyServerEntry> = {
-  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE),
-  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE),
-  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE),
-  "google-docs-mcp": firstPartyEntry("google-docs-mcp", "Google Docs", GOOGLE),
-  "google-sheets-mcp": firstPartyEntry("google-sheets-mcp", "Google Sheets", GOOGLE),
+  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, GOOGLE_MCP_CLIENT),
+  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, GOOGLE_MCP_CLIENT),
+  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, GOOGLE_MCP_CLIENT),
+  "google-docs-mcp": firstPartyEntry("google-docs-mcp", "Google Docs", GOOGLE, GOOGLE_MCP_CLIENT),
+  "google-sheets-mcp": firstPartyEntry("google-sheets-mcp", "Google Sheets", GOOGLE, GOOGLE_MCP_CLIENT),
 };
 
 /** A first-party trusted server entry, or null if the id is not on the allowlist. */
@@ -121,6 +139,28 @@ export function getTrustedMcpServer(
   serverId: string,
 ): (McpServerAdapter & { displayName: string }) | null {
   return TRUSTED_FIRST_PARTY_SERVERS[serverId] ?? null;
+}
+
+/** A pre-registered (static) OAuth client's credentials, read from env. */
+export type McpStaticClient = { clientId: string; clientSecret: string };
+
+/**
+ * Resolve a static server's PRE-REGISTERED OAuth client credentials from env
+ * (D-097). `credentialKey` names the env-var pair by convention:
+ * `{credentialKey}_CLIENT_ID` and `{credentialKey}_CLIENT_SECRET`. Returns null
+ * if either is unset or blank, so the caller can fail the connect cleanly rather
+ * than proceeding with an empty client.
+ *
+ * Server-only (reads env); never returns or logs which var was missing, only the
+ * null/non-null result, so a misconfiguration can't leak the env-var layout.
+ */
+export function resolveMcpStaticClient(
+  credentialKey: string,
+): McpStaticClient | null {
+  const clientId = process.env[`${credentialKey}_CLIENT_ID`]?.trim();
+  const clientSecret = process.env[`${credentialKey}_CLIENT_SECRET`]?.trim();
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
 }
 
 /**

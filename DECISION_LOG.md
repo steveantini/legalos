@@ -2738,3 +2738,28 @@ Designing the scaling structure before the second provider avoids a redesign und
 
 - Adding a provider is data only (a provider-metadata entry plus its servers); the UI scales without change.
 - The trusted-only posture stays visible by construction (only the vetted provider groups and the self-hosted-your-own path; no add-arbitrary-server affordance).
+
+## D-097 — Pre-registered (static) OAuth client support for MCP servers without dynamic registration
+
+Date: 2026-06-03
+Status: Accepted
+
+**Context:**
+
+The MCP auth flow (D-092) always acquired its OAuth client via RFC 7591 Dynamic Client Registration: at connect time it registered a fresh client with the server's authorization server. That works for DCR-capable servers (and for the self-hosted path, where the customer runs a server that supports it), but the first intended first-party surface — Google's Workspace MCP servers — does NOT support DCR. Google requires a client PRE-REGISTERED out of band in the Google Cloud console, with its id/secret configured into the app. With only the dynamic path, Google could never connect; the connect would fail at registration. The static-client path is the gating step for the Google Workspace MCP servers (the registry entries that have carried to-be-confirmed placeholders since 2a).
+
+**Decision:**
+
+The trusted-MCP registry now DECLARES, per server, how its OAuth client is obtained: a `clientAcquisition` of `{ mode: 'dynamic' }` (the default, absent ⇒ dynamic) or `{ mode: 'static', credentialKey }`. The five Google Workspace entries declare `static` with credentialKey `GOOGLE_MCP_OAUTH`; everything else (and the self-hosted path, which omits the field) stays dynamic. For a static server, the flow reads a pre-registered client's id/secret from the env-var pair named by convention from the key (`GOOGLE_MCP_OAUTH_CLIENT_ID` / `GOOGLE_MCP_OAUTH_CLIENT_SECRET`), wraps them in the same client metadata a dynamic registration would have produced, and proceeds; it never calls `registerClient`. The two env vars are DELIBERATELY SEPARATE from the Drive data-source connector's `GOOGLE_OAUTH_*` pair — the MCP client is registered with different scopes and the MCP callback redirect URI. If a static server's creds are unset, `beginMcpAuthorization` throws `client_not_configured` and the connect fails cleanly with a specific, non-revealing admin message ("This server needs a configured OAuth client that isn't set up yet"); it never proceeds with an empty client, and the error never names the missing env var.
+
+Custody is unchanged: the static client info flows into the SAME encrypted path as a dynamic one — sealed into the connect cookie, then stored in `connection_secrets` alongside the tokens — so refresh reads the stored client info and works identically. (Storing it, rather than re-reading env at refresh, keeps the MCP custody path uniform across both acquisition modes and avoids a second code path; the configured secret is a credential and belongs in the encrypted vault like any other.)
+
+**Reasoning:**
+
+Making acquisition a per-server registry declaration (not a global flag or an inferred property) keeps the trust registry the single source of truth for everything about a trusted server, and keeps the dynamic path — the existing, shipped behavior — exactly as it was (absent field ⇒ dynamic; self-hosted unchanged). The only thing that varies between modes is WHERE the client originates; discovery, the PKCE authorization, the token exchange, refresh, the trust gates, and custody are all shared. The separate env-var pair prevents the MCP client (different scopes, different redirect URI) from being conflated with the Drive connector's client, a conflation that would silently break one or both. Failing closed on unconfigured creds (rather than attempting a malformed flow) gives the admin an honest, specific signal without leaking the env-var layout.
+
+**Consequences:**
+
+- Google's Workspace MCP servers become connectable once their pre-registered client is provisioned and `GOOGLE_MCP_OAUTH_CLIENT_ID` / `GOOGLE_MCP_OAUTH_CLIENT_SECRET` are set; until then they fail the connect cleanly with the specific "not set up yet" message. (The discovery endpoints remain to-be-confirmed placeholders, finalized separately; this change adds the client-acquisition half of Google enablement.)
+- Adding another DCR-less first-party provider is a registry declaration (`static` + a credentialKey) plus its env-var pair; DCR-capable and self-hosted servers need nothing.
+- Additive and behavior-neutral for every existing path: no migration, no schema change, and the dynamic-registration flow is untouched.

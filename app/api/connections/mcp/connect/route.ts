@@ -14,7 +14,7 @@ import {
   sealSecretJson,
   signState,
 } from "@/lib/connections/crypto";
-import { beginMcpAuthorization } from "@/lib/connections/mcp/auth";
+import { beginMcpAuthorization, McpAuthError } from "@/lib/connections/mcp/auth";
 import {
   getTrustedMcpServer,
   isTrustedFirstPartyServer,
@@ -83,17 +83,25 @@ export async function GET(request: Request) {
   const state = signState({ p: serverId, n: nonce, u: user.id });
   const redirectUri = mcpConnectionsCallbackUrl();
 
-  // ---- Discover, register our client, and build the authorization URL.
+  // ---- Discover, acquire our client (dynamic registration, or a pre-registered
+  //      static client per the registry entry, D-097), and build the auth URL.
   let begun;
   try {
     begun = await beginMcpAuthorization({
       serverUrl: entry.discoveryBaseUrl,
       redirectUri,
       state,
+      clientAcquisition: entry.clientAcquisition,
     });
-  } catch {
+  } catch (err) {
     // Never logs token/secret material; only the server id.
     console.error("mcp authorization initiate failed", { server: serverId });
+    // A static server whose pre-registered client isn't configured gets its own
+    // specific (still non-revealing) message, so an admin knows it's a setup gap
+    // rather than a transient failure.
+    if (err instanceof McpAuthError && err.reason === "client_not_configured") {
+      return backToConnections("mcp_client_not_configured");
+    }
     return backToConnections("mcp_connect_failed");
   }
 
