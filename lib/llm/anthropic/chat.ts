@@ -119,6 +119,21 @@ export type AnthropicCustomTool = {
  */
 export type AnthropicTool = AnthropicHostedTool | AnthropicCustomTool;
 
+/**
+ * A `tool_result` content block — the message we feed back after executing a
+ * client tool (Phase 2). `content` is a string (the subset of Anthropic's
+ * `string | block[]` shape we produce); `is_error` true tells the model the tool
+ * failed so it can recover. Produced by executeMcpTool (2P-3); the gated loop
+ * (2P-6) carries it into a user turn. (Matches @anthropic-ai/sdk's
+ * ToolResultBlockParam.)
+ */
+export type AnthropicToolResultBlock = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean;
+};
+
 export type StreamAnthropicChatArgs = {
   /** Bare Anthropic model id (e.g. 'claude-sonnet-4-6'), no vendor prefix. */
   model: string;

@@ -2837,3 +2837,26 @@ Off-hot-path, behavior-neutral steps land first; the one hot-path change (the lo
 - v1 end state: read tools usable mid-conversation; write tools blocked pending confirmation; interactive confirm is 2P-7.
 - New schema/governance to come: a per-agent server-enablement mechanism (2P-5, may carry an additive migration) and an `mcp_tool_call_count` column on `usage_events` (2P-6).
 - 2P-1 (the execution-resolution reader) ships alongside this lock as the first scaffolding step.
+
+## D-101 — Add a test runner around 2P-6 (deliberate deferral, not drift)
+
+Date: 2026-06-03
+Status: Accepted
+
+**Context:**
+
+The repo has no test runner today (no vitest/jest, zero `*.test.ts`), despite CLAUDE.md's testing aspirations. Phase 2 is introducing pure, high-value-to-test logic: the 2P-2 tool namespacing / truncation / `input_schema` normalization, the 2P-3 result and error shaping, and the existing trust-derivation (`deriveMcpTrustTier`). These are exactly the functions where assertions catch regressions cheaply.
+
+**Decision:**
+
+Add a lightweight vitest setup and backfill unit tests for these pure functions **around 2P-6** (with or just before the gated agentic loop), so the one hot-path change lands guarded by tests. Do NOT add the runner mid-arc during the off-hot-path scaffolding steps (2P-1 … 2P-5); writing unrunnable `*.test.ts` now, or bolting on test infra between small isolated commits, adds churn without protecting anything yet.
+
+**Reasoning:**
+
+The value of tests peaks exactly when the risky change (the loop) lands; that is the moment to have them green. Until then the scaffolding steps are pure additions verified by `tsc` + build and are individually low-risk. Introducing the runner as its own focused step (rather than smuggled into a feature commit) keeps both the runner setup and the feature commits clean. Recording the gap as a decision makes the deferral intentional and prevents it from reading as drift in a future audit.
+
+**Consequences:**
+
+- 2P-1 … 2P-5 ship without colocated tests (verified by typecheck + build); their pure functions carry described test plans in the task records and code comments meanwhile.
+- A vitest setup + backfilled assertions (2P-2 mapping, 2P-3 shaping, trust derivation, and the 2P-6 loop's guards) land around 2P-6.
+- Tracked as a near-term tech-foundation item in `docs/ROADMAP.md`.

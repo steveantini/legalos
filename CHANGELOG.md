@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **More Phase 2 groundwork: added the function that runs a single MCP tool call, resolving a fresh access token (refreshed transparently, credentials kept in our own vault), calling the server, and turning the outcome into a result the model can use, or a safe, recoverable error message if anything fails. One failing tool call can never crash a conversation. Nothing calls it yet; no change to how chat works today.**
+
 - **More groundwork for agents using MCP tools (Phase 2): added the pure transform that turns an organization's connected MCP tools into tool definitions the model can be offered, with server-prefixed names (so the model can call, say, Drive's search distinctly from another server's) and a routing map back to each tool's connection so a later step can run it against the right server. Malformed tool schemas degrade safely instead of failing. Nothing uses it yet; no change to how chat works today.**
 
 - **Groundwork for agents using MCP tools (Phase 2): locked the design for the gated agent tool-use loop (how tools are named and routed, which servers an agent may use, running read tools while holding write tools for confirmation, and the safety guards), and added an internal reader that resolves an organization's connected MCP servers to what's needed to run their tools, the connection, its token reference, the server URL, and the tool catalog. Nothing uses the reader yet; this is the first off-the-hot-path step, with no change to how chat works today.**
