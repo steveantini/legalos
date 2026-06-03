@@ -182,6 +182,27 @@ export type McpTrustTier = "first_party" | "self_hosted" | "untrusted";
  * the tool's JSON Schema, kept as `unknown` here so this types-only module stays
  * free of an MCP SDK dependency; the MCP client (2b) validates it.
  */
+/**
+ * The MCP tool annotations (hints) captured at discovery — a subset of the SDK's
+ * ToolAnnotations (D-100, 2P-4). They are HINTS, not guarantees, so the read/write
+ * classifier treats a tool as read only when AFFIRMATIVELY flagged read-only and
+ * non-destructive; everything else (including absent annotations) is a write.
+ * Optional throughout: a server may omit any hint, and catalogs discovered before
+ * 2P-4 carry none — that legitimate "unknown" state classifies as write.
+ */
+export type McpToolAnnotations = {
+  /** Title hint for display. */
+  title?: string;
+  /** The server affirms this tool does not modify its environment. */
+  readOnlyHint?: boolean;
+  /** The server warns this tool may perform destructive updates. */
+  destructiveHint?: boolean;
+  /** Repeated calls with the same args have no additional effect. */
+  idempotentHint?: boolean;
+  /** The tool interacts with an open world (external entities) vs a closed one. */
+  openWorldHint?: boolean;
+};
+
 export type McpToolDescriptor = {
   /** The tool name the model calls (e.g. 'create_document'). */
   name: string;
@@ -193,6 +214,13 @@ export type McpToolDescriptor = {
   description?: string;
   /** The tool's JSON Schema input shape (validated by the MCP client in 2b). */
   inputSchema: unknown;
+  /**
+   * The tool's read/write hints, captured at discovery (2P-4). OPTIONAL and
+   * additive: it rides the existing discovered_tools jsonb with no migration, and
+   * absent annotations (older catalogs, or servers that don't annotate) are a
+   * valid "unknown" state the classifier treats conservatively as write.
+   */
+  annotations?: McpToolAnnotations;
 };
 
 /**

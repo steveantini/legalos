@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **More Phase 2 groundwork: MCP tool discovery now captures each tool's read-only and destructive hints, and a classifier marks every tool read or write so the upcoming agent loop can auto-run reads and hold writes. A tool counts as read only when its server explicitly marks it safe; anything without a hint is treated as a write, so nothing acts in your Gmail, Drive, or Calendar on an uncertain signal. Already-connected servers keep working and are treated as writes until refreshed. Nothing enforces this yet.**
+
 - **More Phase 2 groundwork: added the function that runs a single MCP tool call, resolving a fresh access token (refreshed transparently, credentials kept in our own vault), calling the server, and turning the outcome into a result the model can use, or a safe, recoverable error message if anything fails. One failing tool call can never crash a conversation. Nothing calls it yet; no change to how chat works today.**
 
 - **More groundwork for agents using MCP tools (Phase 2): added the pure transform that turns an organization's connected MCP tools into tool definitions the model can be offered, with server-prefixed names (so the model can call, say, Drive's search distinctly from another server's) and a routing map back to each tool's connection so a later step can run it against the right server. Malformed tool schemas degrade safely instead of failing. Nothing uses it yet; no change to how chat works today.**

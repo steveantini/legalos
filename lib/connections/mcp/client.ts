@@ -4,8 +4,12 @@ import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 
-import type { McpToolDescriptor } from "@/lib/connections/providers/types";
+import type {
+  McpToolAnnotations,
+  McpToolDescriptor,
+} from "@/lib/connections/providers/types";
 
 /**
  * The MCP client capability (flag 2b-i): a thin, isolated server-side wrapper
@@ -156,12 +160,48 @@ export async function listMcpServerTools(
     const result = await client.listTools(undefined, {
       timeout: REQUEST_TIMEOUT_MS,
     });
-    return result.tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-    }));
+    return result.tools.map((tool) => {
+      const descriptor: McpToolDescriptor = {
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      };
+      // Capture the read/write hints when the server provides them (2P-4); leave
+      // annotations undefined when absent — the "unknown" state the classifier
+      // treats conservatively as write. Only the known hint fields are stored, so
+      // the persisted catalog shape stays clean.
+      const captured = captureAnnotations(tool.annotations);
+      if (captured) descriptor.annotations = captured;
+      return descriptor;
+    });
   });
+}
+
+/**
+ * Map the SDK tool's annotations to the captured {@link McpToolAnnotations} subset,
+ * keeping only the known, well-typed hint fields. Returns undefined when the tool
+ * has no annotations or none of the known fields are present, preserving the
+ * "unknown" state (no false read-only signal).
+ */
+function captureAnnotations(
+  annotations: ToolAnnotations | undefined,
+): McpToolAnnotations | undefined {
+  if (!annotations) return undefined;
+  const captured: McpToolAnnotations = {};
+  if (typeof annotations.title === "string") captured.title = annotations.title;
+  if (typeof annotations.readOnlyHint === "boolean") {
+    captured.readOnlyHint = annotations.readOnlyHint;
+  }
+  if (typeof annotations.destructiveHint === "boolean") {
+    captured.destructiveHint = annotations.destructiveHint;
+  }
+  if (typeof annotations.idempotentHint === "boolean") {
+    captured.idempotentHint = annotations.idempotentHint;
+  }
+  if (typeof annotations.openWorldHint === "boolean") {
+    captured.openWorldHint = annotations.openWorldHint;
+  }
+  return Object.keys(captured).length > 0 ? captured : undefined;
 }
 
 /**
