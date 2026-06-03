@@ -76,15 +76,48 @@ export type AnthropicSystemBlock = {
 };
 
 /**
- * Tool definition passed in the request's tools array. v1 supports
- * Anthropic's hosted web_search server tool; future tools (calculator,
- * Drive read/write, custom org tools) implement their own variants.
+ * Anthropic's hosted web_search server tool. Anthropic executes it server-side
+ * and streams the results back in the same response (no client execution loop).
  */
-export type AnthropicTool = {
+export type AnthropicHostedTool = {
   type: "web_search_20250305";
   name: "web_search";
   max_uses?: number;
 };
+
+/**
+ * A custom tool's input schema — the standard Anthropic shape (a JSON-Schema
+ * object). `type` is the literal "object" Anthropic requires; the index signature
+ * carries any additional JSON-Schema keys the server declares. (Matches
+ * @anthropic-ai/sdk's Tool.InputSchema.)
+ */
+export type AnthropicToolInputSchema = {
+  type: "object";
+  properties: Record<string, unknown>;
+  required?: string[];
+  [k: string]: unknown;
+};
+
+/**
+ * A CUSTOM (client-executed) tool definition (Phase 2). Unlike the hosted
+ * web_search tool, the model emits a tool_use that WE execute (against an MCP
+ * server) and feed back a tool_result. Has no `type` discriminant — Anthropic
+ * treats a tool with name + input_schema and no `type` as a custom tool. The
+ * Phase 2 mapping (2P-2) produces these from an org's connected MCP tools; the
+ * gated loop (2P-6) is the first to pass them. No execution is wired here.
+ */
+export type AnthropicCustomTool = {
+  name: string;
+  description: string;
+  input_schema: AnthropicToolInputSchema;
+};
+
+/**
+ * A tool definition passed in the request's tools array — the hosted web_search
+ * tool OR a custom (client-executed) tool. The hosted variant is unchanged from
+ * v1; the custom variant is additive (widened in 2P-2, used by the loop in 2P-6).
+ */
+export type AnthropicTool = AnthropicHostedTool | AnthropicCustomTool;
 
 export type StreamAnthropicChatArgs = {
   /** Bare Anthropic model id (e.g. 'claude-sonnet-4-6'), no vendor prefix. */
