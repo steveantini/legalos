@@ -2716,3 +2716,25 @@ Making the trusted-only constraint visible (you can only connect vetted-first-pa
 - Phase 2 (the agent tool-use loop + Docs/Sheets export) is the next arc: agents assembling and calling these connected servers' tools.
 
 **Trust/architecture note (security-architecture doc):** the trusted-only MCP posture is now visible in the product, only vetted first-party servers or the org's own self-hosted server are connectable, with the trust level shown plainly and no path to connect an arbitrary server. Appended to the MCP claim in docs/SECURITY_ARCHITECTURE.md.
+
+## D-096 — Group MCP first-party servers by provider with expand/collapse (built to scale)
+
+Date: 2026-06-03
+Status: Accepted
+
+**Context:**
+
+The MCP connector UI listed first-party trusted servers as a flat list. That is fine for one provider (Google Workspace, five servers) but does not scale: as providers grow (Microsoft 365, Slack, matter-management, each with several servers), a flat list becomes an unwieldy wall.
+
+**Decision:**
+
+Group first-party servers by PROVIDER FAMILY with an expand/collapse per provider, built now (ahead of the second provider) so adding a provider later is "add entries," not "redesign under load." The registry gains a provider grouping key and a group-by-provider helper (additive; no trust, endpoint, or partitioning change). The collapsed provider row is the scannable overview (provider label, a one-line descriptor, and a status summary, e.g. "5 servers, available once configured" or "5 servers, 2 connected"); expanding reveals the individual servers with their trust pill and connect state. Smart default: a sole provider opens (it looks complete and there is nothing to hide); multiple providers start collapsed for a clean provider-level overview, with the user able to toggle any group. The expand state is transient (useState, no persistence). Self-hosted stays its own distinct block (the org's own server, not a vetted provider's catalog) with an instructional line, and the redundant first-party sub-line was removed while the section's emphatic trusted-only statement stays.
+
+**Reasoning:**
+
+Designing the scaling structure before the second provider avoids a redesign under load and makes the page read as intentional at one provider and tidy at many. The collapsed provider row keeps the overview fixed-height per provider regardless of how many servers each offers, so scannability holds at 1, 3, or 30 providers. The smart-default expand keeps today's single-provider view from hiding everything behind a chevron. Keeping self-hosted separate respects that it is categorically different from a vetted provider's catalog. Trust derivation, the partitioning, custody, and the placeholder endpoints are all unchanged.
+
+**Consequences:**
+
+- Adding a provider is data only (a provider-metadata entry plus its servers); the UI scales without change.
+- The trusted-only posture stays visible by construction (only the vetted provider groups and the self-hosted-your-own path; no add-arbitrary-server affordance).

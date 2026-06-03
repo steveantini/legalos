@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { disconnectMcpServer } from "@/lib/actions/mcp-connection";
 import type { OrgMcpConnection } from "@/lib/connections/mcp/connection-state";
+import type { FirstPartyProviderGroup } from "@/lib/connections/providers/mcp-registry";
+import { cn } from "@/lib/utils";
 
 /**
  * The MCP connections control (admin Policy & access, flag 2c) — the super-admin
@@ -36,12 +39,6 @@ import type { OrgMcpConnection } from "@/lib/connections/mcp/connection-state";
  * client-side fetch to choreograph.
  */
 
-type FirstPartyServer = {
-  serverId: string;
-  displayName: string;
-  configured: boolean;
-};
-
 const FIRST_PARTY_DESCRIPTIONS: Record<string, string> = {
   "google-drive-mcp": "Documents and files in Google Drive.",
   "google-gmail-mcp": "Email in Gmail.",
@@ -62,6 +59,31 @@ function toolsLine(connection: OrgMcpConnection): string {
   return `${n} ${n === 1 ? "tool" : "tools"} available.`;
 }
 
+/**
+ * The collapsed provider row's status summary — honest about the org's state with
+ * the provider's servers: the catalog size plus how many are connected, or (while
+ * endpoints are placeholders) that they're available once configured.
+ */
+function providerSummary(
+  group: FirstPartyProviderGroup,
+  connectedIds: Set<string>,
+): string {
+  const total = group.servers.length;
+  const noun = total === 1 ? "server" : "servers";
+  const connected = group.servers.filter((s) =>
+    connectedIds.has(s.serverId),
+  ).length;
+  if (connected > 0) {
+    return connected === total
+      ? `${total} ${noun} · all connected`
+      : `${total} ${noun} · ${connected} connected`;
+  }
+  const anyConfigured = group.servers.some((s) => s.configured);
+  return anyConfigured
+    ? `${total} ${noun} · ready to connect`
+    : `${total} ${noun} · available once configured`;
+}
+
 /** Map a connect-flow error code to a friendly, non-revealing message. */
 function connectErrorMessage(code: string): string {
   switch (code) {
@@ -80,12 +102,12 @@ function connectErrorMessage(code: string): string {
 
 export function McpConnectionsEditor({
   connections: initialConnections,
-  firstPartyServers,
+  firstPartyGroups,
   canEdit,
   flash,
 }: {
   connections: OrgMcpConnection[];
-  firstPartyServers: FirstPartyServer[];
+  firstPartyGroups: FirstPartyProviderGroup[];
   canEdit: boolean;
   flash?: { connected?: string; error?: string };
 }) {
@@ -94,7 +116,16 @@ export function McpConnectionsEditor({
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const [selfHostedUrl, setSelfHostedUrl] = useState("");
   const [selfHostedError, setSelfHostedError] = useState<string | null>(null);
+  // Tool-list expand state (per connected server).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Provider-group expand state. Smart default: a sole provider opens (it looks
+  // complete and there's nothing to hide); with several, start collapsed so the
+  // page shows a scannable provider-level overview. Transient (no persistence).
+  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(() =>
+    firstPartyGroups.length === 1
+      ? new Set(firstPartyGroups.map((group) => group.provider))
+      : new Set<string>(),
+  );
   const [pending, startTransition] = useTransition();
 
   // One-time toast on return from the redirect flow.
@@ -106,9 +137,15 @@ export function McpConnectionsEditor({
   }, []);
 
   const connectedIds = new Set(connections.map((c) => c.serverId));
-  const availableFirstParty = firstPartyServers.filter(
-    (s) => !connectedIds.has(s.serverId),
-  );
+
+  function toggleProvider(provider: string) {
+    setExpandedProviders((prev) => {
+      const next = new Set(prev);
+      if (next.has(provider)) next.delete(provider);
+      else next.add(provider);
+      return next;
+    });
+  }
 
   function connectFirstParty(serverId: string) {
     // Full-document navigation to the connect route (it sets the flow cookie and
@@ -252,52 +289,100 @@ export function McpConnectionsEditor({
             <h3 className="text-[14px] font-medium tracking-[-0.005em] text-foreground">
               First-party servers
             </h3>
-            <p className="mt-1 text-[12.5px] leading-[1.5] text-caption">
-              Official servers, vetted by legalOS.
-            </p>
-            {availableFirstParty.length > 0 ? (
-              <div className="mt-3 space-y-2">
-                {availableFirstParty.map((server) => (
+            {/* Grouped by provider with expand/collapse, so the list stays
+                scannable as providers grow. The collapsed row is the provider-
+                level overview (label, descriptor, status); expanding reveals the
+                individual servers. */}
+            <div className="mt-3 space-y-2">
+              {firstPartyGroups.map((group) => {
+                const isOpen = expandedProviders.has(group.provider);
+                const availableServers = group.servers.filter(
+                  (s) => !connectedIds.has(s.serverId),
+                );
+                return (
                   <div
-                    key={server.serverId}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-hairline bg-paper-2 px-4 py-3"
+                    key={group.provider}
+                    className="overflow-hidden rounded-lg border border-hairline bg-paper-2"
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13.5px] font-medium text-foreground">
-                          {server.displayName}
-                        </span>
-                        <span className="rounded-full border border-hairline-strong bg-background px-2 py-0.5 text-[11px] font-medium text-foreground">
-                          First-party official
-                        </span>
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      onClick={() => toggleProvider(group.provider)}
+                      className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors duration-hover ease-soft hover:bg-secondary motion-reduce:transition-none"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13.5px] font-medium text-foreground">
+                            {group.providerLabel}
+                          </span>
+                          <span className="rounded-full border border-hairline-strong bg-background px-2 py-0.5 text-[11px] font-medium text-foreground">
+                            First-party official
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
+                          {group.providerDescriptor}
+                        </p>
                       </div>
-                      <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
-                        {FIRST_PARTY_DESCRIPTIONS[server.serverId] ??
-                          "A first-party server."}
-                      </p>
-                    </div>
-                    {server.configured ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => connectFirstParty(server.serverId)}
-                      >
-                        Connect
-                      </Button>
-                    ) : (
-                      <span className="shrink-0 text-[12px] text-caption">
-                        Available once configured
-                      </span>
-                    )}
+                      <div className="ml-auto flex shrink-0 items-center gap-2">
+                        <span className="text-[12px] text-muted-foreground">
+                          {providerSummary(group, connectedIds)}
+                        </span>
+                        <ChevronDownIcon
+                          aria-hidden="true"
+                          className={cn(
+                            "size-4 text-muted-foreground transition-transform duration-hover ease-soft motion-reduce:transition-none",
+                            isOpen ? "rotate-180" : "",
+                          )}
+                        />
+                      </div>
+                    </button>
+
+                    {isOpen ? (
+                      <div className="border-t border-hairline">
+                        {availableServers.length > 0 ? (
+                          availableServers.map((server) => (
+                            <div
+                              key={server.serverId}
+                              className="flex items-center justify-between gap-4 border-t border-hairline px-4 py-3 first:border-t-0"
+                            >
+                              <div className="min-w-0">
+                                <span className="text-[13.5px] font-medium text-foreground">
+                                  {server.displayName}
+                                </span>
+                                <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
+                                  {FIRST_PARTY_DESCRIPTIONS[server.serverId] ??
+                                    "A first-party server."}
+                                </p>
+                              </div>
+                              {server.configured ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    connectFirstParty(server.serverId)
+                                  }
+                                >
+                                  Connect
+                                </Button>
+                              ) : (
+                                <span className="shrink-0 text-[12px] text-caption">
+                                  Available once configured
+                                </span>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="px-4 py-3 text-[12.5px] leading-[1.5] text-caption">
+                            Every server from this provider is connected.
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-[13px] leading-[1.5] text-caption">
-                Every first-party server is connected.
-              </p>
-            )}
+                );
+              })}
+            </div>
           </div>
 
           <div className="mt-8">
@@ -305,7 +390,7 @@ export function McpConnectionsEditor({
               Your own server
             </h3>
             <p className="mt-1 text-[12.5px] leading-[1.5] text-caption">
-              A server your organization runs itself.
+              Enter the URL of an MCP server your organization runs.
             </p>
             <div className="mt-3 rounded-lg border border-hairline bg-background p-4">
               <label

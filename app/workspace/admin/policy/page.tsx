@@ -10,7 +10,7 @@ import {
 } from "@/lib/auth/access";
 import { getOrgMcpConnections } from "@/lib/connections/mcp/connection-state";
 import { getOrgModelConnectionState } from "@/lib/connections/model-connection-state";
-import { listFirstPartyServers } from "@/lib/connections/providers/mcp-registry";
+import { listFirstPartyServersByProvider } from "@/lib/connections/providers/mcp-registry";
 import { CAPABILITY_GROUPS } from "@/lib/settings/connections-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -60,7 +60,7 @@ export default async function AdminPolicyPage({
   const orgDefaultModel = await getOrganizationDefaultModel();
   const anthropicModelConnection = await getOrgModelConnectionState("anthropic");
   const mcpConnections = await getOrgMcpConnections();
-  const firstPartyMcpServers = listFirstPartyServers();
+  const firstPartyMcpGroups = listFirstPartyServersByProvider();
 
   // The MCP connect flow returns here with a status query param; surface it once.
   const params = await searchParams;
@@ -128,7 +128,7 @@ export default async function AdminPolicyPage({
 
       <McpConnectionsEditor
         connections={mcpConnections}
-        firstPartyServers={firstPartyMcpServers}
+        firstPartyGroups={firstPartyMcpGroups}
         canEdit={canEdit}
         flash={
           mcpConnected || mcpError

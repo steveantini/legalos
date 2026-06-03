@@ -62,31 +62,58 @@ import type {
 
 const TBC = "https://TO-BE-CONFIRMED-IN-2b.invalid"; // placeholder origin; finalized in 2b
 
+/**
+ * Provider families for first-party servers. The connector UI (2c) groups
+ * servers by provider with expand/collapse, so the list stays scannable as
+ * providers grow. Adding a provider is adding one entry here plus its servers in
+ * TRUSTED_FIRST_PARTY_SERVERS (provider keyed to one of these). Key order is the
+ * display order. `provider` here is the family, distinct from a server's
+ * `providerId` (which is its own serverId on the connection row).
+ */
+const FIRST_PARTY_PROVIDERS: Record<
+  string,
+  { label: string; descriptor: string }
+> = {
+  "google-workspace": {
+    label: "Google Workspace",
+    descriptor: "Drive, Gmail, Calendar, Docs, and Sheets.",
+  },
+  // Future: 'microsoft-365' ("Microsoft 365"), 'slack' ("Slack"), etc.
+};
+
+/** A first-party registry entry: the adapter plus display + provider-family metadata. */
+type FirstPartyServerEntry = McpServerAdapter & {
+  displayName: string;
+  /** The provider FAMILY key (a FIRST_PARTY_PROVIDERS key), for grouping. */
+  provider: string;
+};
+
 function firstPartyEntry(
   serverId: string,
   displayName: string,
-): McpServerAdapter & { displayName: string } {
+  provider: string,
+): FirstPartyServerEntry {
   return {
     kind: "mcp",
     serverId,
     providerId: serverId, // for MCP adapters, providerId mirrors serverId
     capabilityCategory: "mcp",
     displayName,
+    provider,
     // Placeholder until 2b; trust is registry membership, never this URL.
     discoveryBaseUrl: TBC,
     // listTools is implemented in 2b (no MCP client / network in 2a).
   };
 }
 
-const TRUSTED_FIRST_PARTY_SERVERS: Record<
-  string,
-  McpServerAdapter & { displayName: string }
-> = {
-  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive"),
-  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail"),
-  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar"),
-  "google-docs-mcp": firstPartyEntry("google-docs-mcp", "Google Docs"),
-  "google-sheets-mcp": firstPartyEntry("google-sheets-mcp", "Google Sheets"),
+const GOOGLE = "google-workspace";
+
+const TRUSTED_FIRST_PARTY_SERVERS: Record<string, FirstPartyServerEntry> = {
+  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE),
+  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE),
+  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE),
+  "google-docs-mcp": firstPartyEntry("google-docs-mcp", "Google Docs", GOOGLE),
+  "google-sheets-mcp": firstPartyEntry("google-sheets-mcp", "Google Sheets", GOOGLE),
 };
 
 /** A first-party trusted server entry, or null if the id is not on the allowlist. */
@@ -111,26 +138,54 @@ export const TRUSTED_FIRST_PARTY_SERVER_IDS = Object.keys(
   TRUSTED_FIRST_PARTY_SERVERS,
 );
 
-/**
- * The first-party trusted servers for the connector UI (2c) to list, each with
- * whether its real endpoint is CONFIGURED yet. `configured` is false while the
- * entry still holds the to-be-confirmed placeholder endpoint (the real Google
- * Workspace MCP endpoints + a Google Cloud OAuth client are a pending setup
- * step), so the UI can present such servers honestly as "available once
- * configured" rather than implying a connection the backend cannot yet complete.
- * Pure data; no secrets.
- */
-export function listFirstPartyServers(): Array<{
+/** One first-party server as the connector UI lists it. `configured` is false
+ * while the entry still holds the to-be-confirmed placeholder endpoint, so the UI
+ * presents it honestly as "available once configured" rather than implying a
+ * connection the backend cannot yet complete. */
+export type FirstPartyServerInfo = {
   serverId: string;
   displayName: string;
   configured: boolean;
-}> {
-  return Object.values(TRUSTED_FIRST_PARTY_SERVERS).map((server) => ({
-    serverId: server.serverId,
-    displayName: server.displayName,
-    // The placeholder origin (see TBC above) marks a not-yet-confirmed endpoint.
-    configured: !server.discoveryBaseUrl.includes("TO-BE-CONFIRMED"),
-  }));
+};
+
+/** First-party servers grouped under one provider family, for the UI's
+ * expand/collapse provider groups. */
+export type FirstPartyProviderGroup = {
+  provider: string;
+  providerLabel: string;
+  providerDescriptor: string;
+  servers: FirstPartyServerInfo[];
+};
+
+/**
+ * The first-party trusted servers GROUPED BY PROVIDER family for the connector UI
+ * (2c). Groups follow FIRST_PARTY_PROVIDERS key order; each server keeps its id,
+ * display name, and configured state. Built so the list stays scannable as
+ * providers grow (Google Workspace today; Microsoft 365, Slack, and others slot
+ * in as added entries). Pure data; no secrets, no trust/endpoint change.
+ */
+export function listFirstPartyServersByProvider(): FirstPartyProviderGroup[] {
+  const byProvider = new Map<string, FirstPartyServerInfo[]>();
+  for (const server of Object.values(TRUSTED_FIRST_PARTY_SERVERS)) {
+    const info: FirstPartyServerInfo = {
+      serverId: server.serverId,
+      displayName: server.displayName,
+      // The placeholder origin (see TBC above) marks a not-yet-confirmed endpoint.
+      configured: !server.discoveryBaseUrl.includes("TO-BE-CONFIRMED"),
+    };
+    const existing = byProvider.get(server.provider);
+    if (existing) existing.push(info);
+    else byProvider.set(server.provider, [info]);
+  }
+
+  return Object.keys(FIRST_PARTY_PROVIDERS)
+    .filter((provider) => byProvider.has(provider))
+    .map((provider) => ({
+      provider,
+      providerLabel: FIRST_PARTY_PROVIDERS[provider].label,
+      providerDescriptor: FIRST_PARTY_PROVIDERS[provider].descriptor,
+      servers: byProvider.get(provider) ?? [],
+    }));
 }
 
 // ---------------------------------------------------------------------------
