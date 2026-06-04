@@ -110,6 +110,31 @@ function extractText(content: unknown): string | null {
  * contents). A populated search shows a large `tl` / a non-empty array; an empty
  * result shows tl≈0 / arrays of length 0. Remove once the empty-result cause is found.
  */
+/**
+ * TEMPORARY token/PII-SAFE shape of a tool call's ARGUMENTS for the query-syntax
+ * diagnostic (hypothesis c) — NEVER the literal values (a search term may carry
+ * PII). Reports per key: the key name, the value type, and for strings the LENGTH
+ * plus whether the value LOOKS LIKE a Drive query-operator expression (so we can
+ * tell a bare term from `name contains '…'` / `fullText contains '…'` / a corpora
+ * param) without logging the term itself.
+ */
+const DRIVE_QUERY_OPS =
+  /\b(contains|fullText|mimeType|trashed|sharedWithMe|parents|modifiedTime|corpora)\b|=/i;
+
+function mcpArgShape(input: unknown): string {
+  if (!isRecord(input)) return `nonobject(${typeof input})`;
+  const parts = Object.keys(input)
+    .sort()
+    .map((k) => {
+      const v = input[k];
+      if (typeof v === "string") {
+        return `${k}:str[${v.length}]${DRIVE_QUERY_OPS.test(v) ? "+ops" : ""}`;
+      }
+      return `${k}:${Array.isArray(v) ? `arr[${v.length}]` : typeof v}`;
+    });
+  return parts.length > 0 ? parts.join(",") : "empty";
+}
+
 function mcpResultShape(raw: unknown): string {
   if (!isRecord(raw)) return `nonobject(${typeof raw})`;
   const blocks = Array.isArray(raw.content) ? raw.content.length : -1;
@@ -311,13 +336,13 @@ export async function executeMcpTool(params: {
     // diagnostic only; never affect execution
   }
 
-  // ---- TEMPORARY DIAGNOSTIC (Drive empty-result debug, hypothesis c): log the
-  //      ARGUMENTS the model sent for this tool, to see the query param NAME +
-  //      syntax vs what Google's Drive search_files expects (e.g. a bare term vs a
-  //      Drive query operator / a corpora param). The query is the user's own
-  //      search term — debug-only, temporary.
+  // ---- TEMPORARY DIAGNOSTIC (Drive empty-result debug, hypothesis c): the
+  //      PII-SAFE SHAPE of the arguments the model sent — param names, value types/
+  //      lengths, and whether a string value looks like Drive query-operator syntax
+  //      — NEVER the literal query value (which may carry a PII search term). Shows
+  //      a bare term (e.g. `query:str[10]`) vs operator syntax (`query:str[25]+ops`).
   console.log(
-    `MCP_DIAG_ARG ${safeJsonStringify(toolInput)} | ${route.originalToolName}`,
+    `MCP_DIAG_ARG ${mcpArgShape(toolInput)} | ${route.originalToolName}`,
   );
 
   // 1. Fresh access token (MCP refresh handled transparently; custody ours).
