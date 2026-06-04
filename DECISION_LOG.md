@@ -2860,3 +2860,28 @@ The value of tests peaks exactly when the risky change (the loop) lands; that is
 - 2P-1 … 2P-5 ship without colocated tests (verified by typecheck + build); their pure functions carry described test plans in the task records and code comments meanwhile.
 - A vitest setup + backfilled assertions (2P-2 mapping, 2P-3 shaping, trust derivation, and the 2P-6 loop's guards) land around 2P-6.
 - Tracked as a near-term tech-foundation item in `docs/ROADMAP.md`.
+
+## D-102 — MCP token refresh — request offline access, surface error'd connections, and separate manual-refresh from runtime error-marking
+
+Date: 2026-06-03
+Status: Accepted
+
+**Context:**
+
+MCP OAuth never requested a refresh token (the authorization request set only `prompt=select_account`, not `access_type=offline`), so Google never returned one and every MCP connection was stored with a null refresh token. The ~1-hour access tokens then expired and `getUsableAccessToken` could not renew them. A read-only investigation traced two observed bugs to this single root cause: (1) "refresh fails on all three Google servers" — `getUsableAccessToken` threw `no_refresh_token`; and (2) "disconnect removed all three" — the failed refreshes flipped all three to `status='error'` via `markConnectionError`, and the readers returned only `status='active'`, so the error'd connections silently vanished (they were hidden, not deleted; only Drive was actually disconnected, which is correctly scoped). The manual refresh also misreported a token failure as "could not reach the server" and mutated connection health as a side effect.
+
+**Decision:**
+
+Three coordinated fixes. (1) **Request offline access:** `beginMcpAuthorization` now sets `access_type=offline` and `prompt=select_account consent` on the authorization URL, so the server issues a refresh token (the consent prompt ensures it is re-issued for a returning user) while keeping the account chooser; the existing exchange already persists `refresh_token` into the encrypted bundle, so token renewal then works. Applied generally to every redirect-based MCP auth request (standard OAuth/Google params, harmless for servers that don't honor them). (2) **Surface error'd connections:** the DISPLAY reader (`getOrgMcpConnections`) now returns `status IN ('active','error')`, and the connector UI renders an error'd connection with a "needs reconnect" state (a muted-red dot/label) plus a Reconnect action (the same connect flow); the EXECUTION reader (`getOrgMcpExecutionTargets`) deliberately stays active-only, so an unhealthy connection is never offered to an agent. (3) **Honest manual refresh:** `getUsableAccessToken` gained a `markErrorOnFailure` option (default true — runtime/use-time callers keep marking a dead token unhealthy); the manual `refreshMcpServerTools` passes false (re-checking a server must not mutate connection health) and returns a typed message (token failure ⇒ "This connection needs to be reconnected." vs an `McpClientError` reach failure ⇒ "Could not reach the server.").
+
+**Reasoning:**
+
+Working token refresh is a prerequisite for both the manual refresh and the agent loop (2P-6). Honest-state means a lapsed connection is visible and recoverable, not silently hidden. A manual maintenance action should not mutate connection health; that side effect belongs to runtime/use-time token death (the loop hitting a dead token), where marking the connection error is correct and drives the reconnect prompt.
+
+**Consequences:**
+
+- New/reconnected MCP connections obtain and store a refresh token, so their access renews automatically.
+- The three already-connected Google servers were stored WITHOUT a refresh token and must be **reconnected once** (re-consent) to gain one. (No data repair; the operator reconnects after this ships.)
+- The two readers' purposes are now explicit and distinct: display surfaces error'd connections, execution returns only healthy ones.
+- The agent loop (2P-6) can rely on refresh plus appropriate runtime error-marking (the default `markErrorOnFailure: true` path).
+- `disconnectMcpServer` is unchanged (correctly scoped). No migration (the `status` column already exists).

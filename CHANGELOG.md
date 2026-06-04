@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **MCP connections now obtain a refresh token at connect, so their access can be renewed automatically instead of lapsing after about an hour. A connection whose access has lapsed is now shown clearly as needing reconnect, with a reconnect action, instead of silently disappearing. And a manual tool refresh now reports an accurate reason (needs reconnect versus could not reach the server) without marking the connection unhealthy. Existing Google Workspace connections must be reconnected once to gain a refresh token.**
+
 ### Added
 
 - **Super admins can now refresh a connected MCP server's tools from Policy & access, re-checking what the server offers and updating the stored catalog, including each tool's read-only and destructive hints. A failed refresh leaves the existing tools untouched, so re-checking a server can never lose a good catalog. This lets the already-connected Google servers pick up the new hints so a later step can tell their read tools from their write tools.**

@@ -266,12 +266,20 @@ export async function beginMcpAuthorization(params: {
         ...(resource ? { resource } : {}),
       },
     );
-    // Force the account chooser. The SDK returns a URL we own, so we set the
-    // standard OAuth `prompt=select_account` directly rather than relying on an
-    // SDK option (startAuthorization has none). Harmless and correct for every
-    // redirect-based MCP OAuth: the user picks which account to authorize instead
-    // of the browser's silently-default one.
-    authorizationUrl.searchParams.set("prompt", "select_account");
+    // Request offline access AND force consent so the server issues a REFRESH
+    // token, and force the account chooser. The SDK returns a URL we own, so we
+    // set these standard params directly (startAuthorization has no option for
+    // them). access_type=offline is what makes Google return a refresh_token;
+    // prompt=consent makes it RE-issue one for a returning user who already
+    // consented (without it, Google omits the refresh_token on re-auth). The
+    // prompt value is space-delimited, so "select_account consent" keeps the
+    // account chooser AND guarantees a refresh token. Without a refresh token the
+    // ~1-hour access token can never be renewed, which is the bug this fixes. All
+    // of these are standard OAuth/Google params, harmless for any server that does
+    // not honor them, so they apply to every redirect-based MCP auth request
+    // (first-party static + self-hosted/dynamic alike).
+    authorizationUrl.searchParams.set("access_type", "offline");
+    authorizationUrl.searchParams.set("prompt", "select_account consent");
     return { authorizationUrl, codeVerifier, clientInformation };
   } catch {
     throw new McpAuthError("authorization_failed");

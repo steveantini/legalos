@@ -54,11 +54,21 @@ export class TokenUnavailableError extends Error {
  * Read + decrypt the stored token for a connection and return a non-expired
  * access token, refreshing and persisting if needed. Throws
  * {@link TokenUnavailableError} on any failure.
+ *
+ * `markErrorOnFailure` (default true) controls whether a token-resolution failure
+ * flips the connection to status='error'. Runtime/use-time callers (Drive content
+ * + listing, the MCP tool executor) keep the default: a dead token there means the
+ * connection genuinely can't be used, so marking it unhealthy lets the UI prompt a
+ * reconnect. A MANUAL maintenance action (the connector's "refresh tools") passes
+ * false: re-checking a server should report "needs reconnect" without mutating
+ * connection health as a side effect.
  */
 export async function getUsableAccessToken(
   connectionId: string,
   tokenRef: string,
+  options: { markErrorOnFailure?: boolean } = {},
 ): Promise<string> {
+  const markErrorOnFailure = options.markErrorOnFailure ?? true;
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -86,7 +96,7 @@ export async function getUsableAccessToken(
 
   // Expired/near-expiry: a refresh token is required to mint a new one.
   if (!bundle.refreshToken) {
-    await markConnectionError(admin, connectionId);
+    if (markErrorOnFailure) await markConnectionError(admin, connectionId);
     throw new TokenUnavailableError(connectionId, "no_refresh_token");
   }
 
@@ -114,7 +124,7 @@ export async function getUsableAccessToken(
     try {
       refreshed = await adapter.refreshAccessToken(bundle.refreshToken);
     } catch {
-      await markConnectionError(admin, connectionId);
+      if (markErrorOnFailure) await markConnectionError(admin, connectionId);
       throw new TokenUnavailableError(connectionId, "refresh_failed");
     }
   } else if (category === "mcp") {
@@ -140,14 +150,14 @@ export async function getUsableAccessToken(
       // the client info and server URL survive the re-encrypt for the next refresh.
       refreshed = mcpRefreshed;
     } catch {
-      await markConnectionError(admin, connectionId);
+      if (markErrorOnFailure) await markConnectionError(admin, connectionId);
       throw new TokenUnavailableError(connectionId, "refresh_failed");
     }
   } else {
     // No known refresh strategy for this connection's provider. Today this is
     // unreachable (the only OAuth connection is Drive, which resolves above);
     // fail closed rather than silently returning a stale token.
-    await markConnectionError(admin, connectionId);
+    if (markErrorOnFailure) await markConnectionError(admin, connectionId);
     throw new TokenUnavailableError(connectionId, "refresh_failed");
   }
 

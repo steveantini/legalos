@@ -75,6 +75,13 @@ export async function getOrgMcpConnections(): Promise<OrgMcpConnection[]> {
 
   // Try with discovered_tools; if the column is absent (pre-migration), retry
   // without it and report null catalogs rather than erroring.
+  // DISPLAY reader: include 'error' connections as well as 'active', so a
+  // connection whose access token lapsed (status flipped to 'error') is SURFACED
+  // with a "needs reconnect" state in the connector UI rather than silently
+  // vanishing. The status rides on each row so the UI can render the difference.
+  // (The EXECUTION reader, getOrgMcpExecutionTargets, deliberately stays
+  // active-only — an unhealthy connection must never be offered to an agent.)
+  const displayStatuses = ["active", "error"];
   const withTools = await admin
     .from("connections")
     .select(
@@ -83,7 +90,7 @@ export async function getOrgMcpConnections(): Promise<OrgMcpConnection[]> {
     .eq("scope", "org")
     .is("owner_user_id", null)
     .eq("capability_category", "mcp")
-    .eq("status", "active");
+    .in("status", displayStatuses);
   if (!withTools.error && withTools.data) {
     return (withTools.data as McpRow[]).map(toConnection);
   }
@@ -94,7 +101,7 @@ export async function getOrgMcpConnections(): Promise<OrgMcpConnection[]> {
     .eq("scope", "org")
     .is("owner_user_id", null)
     .eq("capability_category", "mcp")
-    .eq("status", "active");
+    .in("status", displayStatuses);
   if (withoutTools.error || !withoutTools.data) return [];
   return (withoutTools.data as McpRow[]).map(toConnection);
 }

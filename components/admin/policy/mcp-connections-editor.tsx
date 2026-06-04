@@ -64,22 +64,33 @@ function connectedLine(connection: OrgMcpConnection): string {
 
 /**
  * The collapsed provider row's status summary — honest about the org's state with
- * the provider's servers: the catalog size plus how many are connected, or (while
- * endpoints are placeholders) that they're available once configured.
+ * the provider's servers: how many are connected (active), how many need reconnect
+ * (status 'error', their access lapsed), or (while endpoints are placeholders) that
+ * they're available once configured.
  */
 function providerSummary(
   group: FirstPartyProviderGroup,
-  connectedIds: Set<string>,
+  connectionsById: Map<string, OrgMcpConnection>,
 ): string {
   const total = group.servers.length;
   const noun = total === 1 ? "server" : "servers";
-  const connected = group.servers.filter((s) =>
-    connectedIds.has(s.serverId),
-  ).length;
-  if (connected > 0) {
-    return connected === total
-      ? `${total} ${noun} · all connected`
-      : `${total} ${noun} · ${connected} connected`;
+  let active = 0;
+  let errored = 0;
+  for (const server of group.servers) {
+    const connection = connectionsById.get(server.serverId);
+    if (!connection) continue;
+    if (connection.status === "error") errored += 1;
+    else active += 1;
+  }
+  if (active > 0 || errored > 0) {
+    const parts: string[] = [];
+    if (active > 0) {
+      parts.push(active === total ? "all connected" : `${active} connected`);
+    }
+    if (errored > 0) {
+      parts.push(`${errored} ${errored === 1 ? "needs" : "need"} reconnect`);
+    }
+    return `${total} ${noun} · ${parts.join(", ")}`;
   }
   const anyConfigured = group.servers.some((s) => s.configured);
   return anyConfigured
@@ -152,7 +163,6 @@ export function McpConnectionsEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const connectedIds = new Set(connections.map((c) => c.serverId));
   // Merge: each first-party server row looks up its own connection by serverId, so
   // connection state is shown inside the provider group rather than hoisted out.
   const connectionsById = new Map(connections.map((c) => [c.serverId, c]));
@@ -177,6 +187,20 @@ export function McpConnectionsEditor({
     window.location.assign(
       `/api/connections/mcp/connect?server=${encodeURIComponent(serverId)}`,
     );
+  }
+
+  // Reconnect an error'd connection (its access lapsed) by re-running the same
+  // connect flow: the first-party route for a registry server, the self-hosted
+  // route (with the stored URL) for the org's own server. Re-consent yields a
+  // fresh token (now with offline access), restoring the connection.
+  function reconnect(connection: OrgMcpConnection) {
+    if (connection.trustTier === "self_hosted" && connection.serverUrl) {
+      window.location.assign(
+        `/api/connections/mcp/self-hosted?url=${encodeURIComponent(connection.serverUrl)}`,
+      );
+    } else {
+      connectFirstParty(connection.serverId);
+    }
   }
 
   function connectSelfHosted() {
@@ -307,7 +331,7 @@ export function McpConnectionsEditor({
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                   <span className="text-[12px] text-muted-foreground">
-                    {providerSummary(group, connectedIds)}
+                    {providerSummary(group, connectionsById)}
                   </span>
                   <ChevronDownIcon
                     aria-hidden="true"
@@ -343,17 +367,31 @@ export function McpConnectionsEditor({
                             <div className="mt-2 flex items-center gap-2">
                               <span
                                 aria-hidden="true"
-                                className="size-1.5 shrink-0 rounded-full bg-foreground"
+                                className={cn(
+                                  "size-1.5 shrink-0 rounded-full",
+                                  connection.status === "error"
+                                    ? "bg-warn-fg"
+                                    : "bg-foreground",
+                                )}
                               />
-                              <p className="text-[13px] leading-[1.5] text-foreground">
-                                {connectedLine(connection)}
+                              <p
+                                className={cn(
+                                  "text-[13px] leading-[1.5]",
+                                  connection.status === "error"
+                                    ? "text-warn-fg"
+                                    : "text-foreground",
+                                )}
+                              >
+                                {connection.status === "error"
+                                  ? "Needs reconnect"
+                                  : connectedLine(connection)}
                               </p>
                             </div>
                           ) : null}
                           {connection &&
-                          (canEdit ||
-                            (connection.tools &&
-                              connection.tools.length > 0)) ? (
+                          ((connection.tools &&
+                            connection.tools.length > 0) ||
+                            (canEdit && connection.status !== "error")) ? (
                             <div className="mt-2">
                               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                                 {connection.tools &&
@@ -368,7 +406,7 @@ export function McpConnectionsEditor({
                                     {isExpanded ? "Hide tools" : "Show tools"}
                                   </button>
                                 ) : null}
-                                {canEdit
+                                {canEdit && connection.status !== "error"
                                   ? refreshToolsButton(server.serverId)
                                   : null}
                               </div>
@@ -389,19 +427,33 @@ export function McpConnectionsEditor({
                             </div>
                           ) : null}
                         </div>
-                        <div className="shrink-0">
+                        <div className="flex shrink-0 items-center gap-2">
                           {connection ? (
                             canEdit ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => setRemoveTarget(server.serverId)}
-                                disabled={pending}
-                              >
-                                Disconnect
-                              </Button>
+                              <>
+                                {connection.status === "error" ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => reconnect(connection)}
+                                  >
+                                    Reconnect
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() =>
+                                    setRemoveTarget(server.serverId)
+                                  }
+                                  disabled={pending}
+                                >
+                                  Disconnect
+                                </Button>
+                              </>
                             ) : null
                           ) : server.configured ? (
                             canEdit ? (
@@ -465,15 +517,29 @@ export function McpConnectionsEditor({
                     <div className="mt-4 flex items-center gap-2">
                       <span
                         aria-hidden="true"
-                        className="size-1.5 shrink-0 rounded-full bg-foreground"
+                        className={cn(
+                          "size-1.5 shrink-0 rounded-full",
+                          connection.status === "error"
+                            ? "bg-warn-fg"
+                            : "bg-foreground",
+                        )}
                       />
-                      <p className="text-[13px] leading-[1.5] text-foreground">
-                        {connectedLine(connection)}
+                      <p
+                        className={cn(
+                          "text-[13px] leading-[1.5]",
+                          connection.status === "error"
+                            ? "text-warn-fg"
+                            : "text-foreground",
+                        )}
+                      >
+                        {connection.status === "error"
+                          ? "Needs reconnect"
+                          : connectedLine(connection)}
                       </p>
                     </div>
 
-                    {canEdit ||
-                    (connection.tools && connection.tools.length > 0) ? (
+                    {(connection.tools && connection.tools.length > 0) ||
+                    (canEdit && connection.status !== "error") ? (
                       <div className="mt-2">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                           {connection.tools &&
@@ -486,7 +552,9 @@ export function McpConnectionsEditor({
                               {isExpanded ? "Hide tools" : "Show tools"}
                             </button>
                           ) : null}
-                          {canEdit ? refreshToolsButton(connection.serverId) : null}
+                          {canEdit && connection.status !== "error"
+                            ? refreshToolsButton(connection.serverId)
+                            : null}
                         </div>
                         {isExpanded &&
                         connection.tools &&
@@ -506,7 +574,17 @@ export function McpConnectionsEditor({
                     ) : null}
 
                     {canEdit ? (
-                      <div className="mt-4">
+                      <div className="mt-4 flex items-center gap-2">
+                        {connection.status === "error" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => reconnect(connection)}
+                          >
+                            Reconnect
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="outline"

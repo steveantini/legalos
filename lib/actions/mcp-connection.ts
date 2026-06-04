@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { isCurrentUserSuperAdmin } from "@/lib/auth/access";
 import { listMcpServerTools } from "@/lib/connections/mcp/client";
-import { getUsableAccessToken } from "@/lib/connections/tokens";
+import {
+  getUsableAccessToken,
+  TokenUnavailableError,
+} from "@/lib/connections/tokens";
 import type { McpToolDescriptor } from "@/lib/connections/providers/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -122,7 +125,13 @@ export async function refreshMcpServerTools(
   // custody ours), then list the tools. Any failure leaves discovered_tools intact.
   let tools: McpToolDescriptor[];
   try {
-    const accessToken = await getUsableAccessToken(row.id, row.token_ref);
+    // Manual maintenance action: pass markErrorOnFailure:false so a failed token
+    // resolution does NOT flip the connection to status='error' as a side effect.
+    // Re-checking a server should report a reason, not mutate connection health
+    // (that's reserved for runtime/use-time token death in the agent loop).
+    const accessToken = await getUsableAccessToken(row.id, row.token_ref, {
+      markErrorOnFailure: false,
+    });
     tools = await listMcpServerTools({
       serverUrl: row.base_url,
       accessToken,
@@ -137,6 +146,13 @@ export async function refreshMcpServerTools(
       server: serverId,
       reason,
     });
+    // Honest typed message: a token failure means the connection can't mint an
+    // access token, so it needs reconnecting — never report that as "unreachable".
+    // Only an actual MCP client error (timeout/unreachable) is a genuine reach
+    // failure, handled by the default message below.
+    if (err instanceof TokenUnavailableError) {
+      return { ok: false, error: "This connection needs to be reconnected." };
+    }
     return {
       ok: false,
       error: "Could not reach the server to refresh its tools. Try again.",
