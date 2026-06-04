@@ -790,6 +790,9 @@ export async function POST(request: Request) {
     let mcpToolDefs: AnthropicCustomTool[] = [];
     let mcpRoutingMap: Record<string, McpToolRoute> = {};
     const mcpAccessByName = new Map<string, McpToolAccess>();
+    // TEMPORARY (Drive debug): the input schema each tool declares, so we can see
+    // the params (e.g. whether search_files has a corpora/q param) from tool_calls.
+    const mcpSchemaByName = new Map<string, string>();
     if (mcpToolsFlag) {
       const resolved = await resolveOrgMcpTools();
       mcpToolDefs = resolved.toolDefs;
@@ -807,6 +810,16 @@ export async function POST(request: Request) {
           namespaced,
           descriptor ? classifyMcpTool(descriptor) : "write",
         );
+        if (descriptor) {
+          try {
+            mcpSchemaByName.set(
+              namespaced,
+              JSON.stringify(descriptor.inputSchema).slice(0, 2000),
+            );
+          } catch {
+            // non-serializable schema; skip (diagnostic only)
+          }
+        }
       }
     }
     const mcpLoopEngaged = mcpToolsFlag && mcpToolDefs.length > 0;
@@ -1131,6 +1144,9 @@ export async function POST(request: Request) {
             // types / lengths / Drive-operator flag), persisted so the query syntax
             // is readable from tool_calls without logs.
             arg_shape: mcpArgShape(block.input),
+            // TEMPORARY (Drive debug): the tool's declared input schema (params),
+            // to check the corpora/q hypothesis from the persisted record.
+            tool_schema: mcpSchemaByName.get(block.name),
           };
           toolCalls.push(toolCall);
           controller.enqueue(
@@ -1184,6 +1200,11 @@ export async function POST(request: Request) {
             // scope error), not just the code, so the failure is diagnosable here.
             if (exec.trace.errorMessage) {
               toolCall.error_message = exec.trace.errorMessage;
+            }
+            // TEMPORARY: the full raw error result (Google's complete reason), so
+            // the structured detail behind the one-liner is readable from the row.
+            if (exec.trace.errorDetail) {
+              toolCall.error_detail = exec.trace.errorDetail;
             }
           }
           controller.enqueue(

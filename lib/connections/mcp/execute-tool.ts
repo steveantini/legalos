@@ -63,6 +63,15 @@ export type McpToolTrace = {
    * Remove with the other MCP debug aids once the cause is found.
    */
   resultShape?: string;
+  /**
+   * TEMPORARY (Drive PERMISSION_DENIED debug): the FULL raw CallToolResult on a
+   * tool-level error (bounded ~2k), to surface Google's complete error detail
+   * (status / reason / metadata / help URL) that the one-line message hides — or
+   * to confirm the server returned only the one-liner. A Google permission/scope
+   * error is operational, not a secret; never contains a token. Remove with the
+   * other MCP debug aids.
+   */
+  errorDetail?: string;
 };
 
 /** The outcome of executing one tool: the tool_result to feed back + a trace record. */
@@ -255,6 +264,14 @@ function boundTraceMessage(message: string): string {
     : message;
 }
 
+/** TEMPORARY: bound the full-error detail to ~2k so it can't bloat the jsonb. */
+const TRACE_ERROR_DETAIL_MAX = 2000;
+function boundDetail(detail: string): string {
+  return detail.length > TRACE_ERROR_DETAIL_MAX
+    ? `${detail.slice(0, TRACE_ERROR_DETAIL_MAX)} (truncated)`
+    : detail;
+}
+
 /** The token/PII-free error trace for a failed execution. The optional message is
  * the already-shaped, token-safe reason (bounded); recording it makes a server-side
  * failure diagnosable from the trace alone. */
@@ -430,6 +447,9 @@ export async function executeMcpTool(params: {
         ? {
             errorCode: "tool_error",
             errorMessage: boundTraceMessage(toolResult.content),
+            // TEMPORARY: the COMPLETE raw result, to surface (or rule out) any
+            // structured Google error detail the one-liner hides.
+            errorDetail: boundDetail(safeJsonStringify(raw)),
           }
         : {}),
     },

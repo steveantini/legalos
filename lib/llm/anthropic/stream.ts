@@ -85,6 +85,19 @@ export type ChatToolCall = {
    * result is visible from the persisted record. Remove with the other MCP debug aids.
    */
   result_shape?: string;
+  /**
+   * TEMPORARY (Drive PERMISSION_DENIED debug): on a tool error, the FULL raw
+   * CallToolResult (bounded ~2k) — Google's complete error reason/status/metadata,
+   * not just the one-liner. Operational, token-free. Remove with the debug aids.
+   */
+  error_detail?: string;
+  /**
+   * TEMPORARY (Drive PERMISSION_DENIED debug): the called tool's input schema
+   * (bounded ~2k) — the params the server declares (e.g. whether search_files has a
+   * `corpora`/`q` param we're not sending). Non-PII tool metadata. Remove with the
+   * debug aids.
+   */
+  tool_schema?: string;
 };
 
 export type ChatStreamEvent =
