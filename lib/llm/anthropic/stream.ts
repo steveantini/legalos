@@ -56,6 +56,15 @@ export type ChatToolCall = {
    * during render. Captured server-side at tool_trace_start emit time.
    */
   position: number;
+  /**
+   * For an MCP tool call (Phase 2, 2P-6b): the read/write classification. A
+   * 'write' call is held with a needs-confirmation result rather than executed in
+   * v1. Absent for the hosted web_search tool. Additive (rides the tool_calls
+   * jsonb); consumers ignore unknown fields.
+   */
+  access?: "read" | "write";
+  /** For an MCP tool call: the server id the tool belongs to. Absent for web_search. */
+  server?: string;
 };
 
 export type ChatStreamEvent =

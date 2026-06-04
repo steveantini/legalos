@@ -4,13 +4,24 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
+import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { resolveAttachmentText } from "@/lib/connections/attachment-content";
+import type { ModelCredential } from "@/lib/connections/providers/types";
+import { executeMcpTool } from "@/lib/connections/mcp/execute-tool";
+import {
+  classifyMcpTool,
+  type McpToolAccess,
+} from "@/lib/connections/mcp/tool-classification";
+import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
 import { ALLOWED_MIME_TYPES, extractText } from "@/lib/extract/extract";
 import {
   streamAnthropicChat,
+  type AnthropicChatMessage,
+  type AnthropicCustomTool,
   type AnthropicSystemBlock,
   type AnthropicStreamEvent,
   type AnthropicTool,
+  type AnthropicToolResultBlock,
 } from "@/lib/llm/anthropic/chat";
 import {
   buildSystemPrompt,
@@ -71,6 +82,31 @@ export const maxDuration = 300;
 // at 100k chars; this bounds the sum so several large files can't blow up the
 // prompt and its cost.
 const ATTACHMENT_AGGREGATE_CHAR_BUDGET = 250_000;
+
+// ---- MCP agentic tool-use loop (Phase 2, 2P-6b) guards ----
+// At most this many model turns per user turn. The final allowed turn runs
+// WITHOUT tools so the model produces a text answer rather than another tool
+// request, bounding cost and runaway tool chains.
+const MCP_MAX_TOOL_ROUNDS = 8;
+// Stop initiating new tool rounds past this wall-clock budget (inside the route's
+// 300s maxDuration), then force the final no-tools turn.
+const MCP_LOOP_WALL_CLOCK_MS = 240_000;
+// The v1 write-policy result fed back to the model when it requests a write tool.
+const MCP_WRITE_BLOCKED_MESSAGE =
+  "This action needs confirmation and is not yet enabled, so nothing was sent, created, or deleted. Tell the user what you would do and that it requires confirmation.";
+
+/**
+ * A token/PII-free summary of an MCP tool call's arguments for the trace record:
+ * the sorted argument KEY names only, never the values (which may carry PII). The
+ * model still receives the full arguments for execution; only the persisted /
+ * surfaced trace uses this summary.
+ */
+function mcpArgsSummary(input: unknown): { args: string[] } {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return { args: Object.keys(input as Record<string, unknown>).sort() };
+  }
+  return { args: [] };
+}
 
 // A per-message attachment riding the send payload. Disjoint by shape: an
 // uploaded local file carries a storage_path (re-extracted from Storage
@@ -731,6 +767,43 @@ export async function POST(request: Request) {
       });
     }
 
+    // ---- MCP agent tools (Phase 2, 2P-6b) — DOUBLE-GATED.
+    //   GATE A (feature flag): MCP_AGENT_TOOLS_ENABLED must be exactly "true".
+    //     Default OFF — when off, the loop NEVER engages and we don't even resolve
+    //     MCP tools, so every request is byte-identical to the single-pass path
+    //     (no extra DB read). The operator flips this to kill/enable the loop with
+    //     no deploy.
+    //   GATE B (has-tools): even with the flag on, the loop engages only when the
+    //     org PERMITS the MCP category AND has a connected, healthy server
+    //     (resolveOrgMcpTools returns a non-empty tool set, D-104). Otherwise the
+    //     request takes the byte-identical single-pass path.
+    // The loop engages IFF (flag on) AND (non-empty MCP tools). Every other request
+    // is unchanged from before 2P-6b.
+    const mcpToolsFlag = process.env.MCP_AGENT_TOOLS_ENABLED === "true";
+    let mcpToolDefs: AnthropicCustomTool[] = [];
+    let mcpRoutingMap: Record<string, McpToolRoute> = {};
+    const mcpAccessByName = new Map<string, McpToolAccess>();
+    if (mcpToolsFlag) {
+      const resolved = await resolveOrgMcpTools();
+      mcpToolDefs = resolved.toolDefs;
+      mcpRoutingMap = resolved.routingMap;
+      // Classify each offered tool (read vs write) for the loop's v1 policy. A
+      // descriptor not found (shouldn't happen) classifies as write (conservative).
+      const targetsByServerId = new Map(
+        resolved.targets.map((t) => [t.serverId, t]),
+      );
+      for (const [namespaced, route] of Object.entries(resolved.routingMap)) {
+        const descriptor = targetsByServerId
+          .get(route.serverId)
+          ?.tools?.find((tool) => tool.name === route.originalToolName);
+        mcpAccessByName.set(
+          namespaced,
+          descriptor ? classifyMcpTool(descriptor) : "write",
+        );
+      }
+    }
+    const mcpLoopEngaged = mcpToolsFlag && mcpToolDefs.length > 0;
+
     // ---- Vendor dispatch
     let parsedModel;
     try {
@@ -810,48 +883,15 @@ export async function POST(request: Request) {
         let cacheCreationTokens = 0;
         let cacheReadTokens = 0;
         let webSearchCount = 0;
+        let mcpToolCallCount = 0;
         let streamError: Error | null = null;
 
-        try {
-          let events: AsyncIterable<AnthropicStreamEvent>;
-          let finalUsage: () => Promise<{
-            input_tokens: number;
-            output_tokens: number;
-            cache_creation_input_tokens: number;
-            cache_read_input_tokens: number;
-            web_search_requests: number;
-          }>;
-
-          switch (vendor) {
-            case "anthropic": {
-              // Resolve the model credential through the single seam (D-086),
-              // with the org/user/vendor context in scope here. In managed mode
-              // this returns the platform ANTHROPIC_API_KEY, so the constructed
-              // client — and the stream — is identical to before; 1c adds the
-              // bring-your-own-key branch behind the same call. Resolving inside
-              // this try means a resolution failure surfaces as a stream error,
-              // exactly as a missing key did when the read lived in the client.
-              const credential = await resolveModelCredential({
-                organizationId: agent.organization_id,
-                userId: user.id,
-                vendor,
-              });
-              const r = streamAnthropicChat({
-                model: vendorModelName,
-                credential,
-                systemBlocks,
-                messages: apiMessages,
-                maxTokens: 4096,
-                tools: tools.length > 0 ? tools : undefined,
-              });
-              events = r.events;
-              finalUsage = r.finalUsage;
-              break;
-            }
-            default:
-              throw new Error(`Unsupported model vendor: ${vendor}`);
-          }
-
+        // Consume ONE model stream into the shared accumulators + SSE. Called once
+        // by the single-pass path and once per round by the MCP loop; the event
+        // handling below is verbatim from the pre-2P-6b single-pass consumption.
+        async function consumeStream(
+          events: AsyncIterable<AnthropicStreamEvent>,
+        ): Promise<void> {
           for await (const event of events) {
             switch (event.type) {
               case "text": {
@@ -1008,18 +1048,233 @@ export async function POST(request: Request) {
               }
             }
           }
+        }
 
-          // End-of-stream drain: any citations queued after the last
-          // sentence-end / boundary land at the current end of body
-          // rather than dropping silently.
+        // Accumulate one round's usage into the per-turn totals (the loop sums
+        // across rounds; the single-pass path sets them once).
+        function addUsage(usage: {
+          input_tokens: number;
+          output_tokens: number;
+          cache_creation_input_tokens: number;
+          cache_read_input_tokens: number;
+          web_search_requests: number;
+        }): void {
+          tokensIn = (tokensIn ?? 0) + usage.input_tokens;
+          tokensOut = (tokensOut ?? 0) + usage.output_tokens;
+          cacheCreationTokens += usage.cache_creation_input_tokens;
+          cacheReadTokens += usage.cache_read_input_tokens;
+          webSearchCount += usage.web_search_requests;
+        }
+
+        // Finalize a held/failed MCP tool call (no execution) into an is_error
+        // tool_result + an error trace. Used for write-blocked and unknown-tool.
+        function holdMcpToolCall(
+          toolCall: ChatToolCall,
+          errorCode: string,
+          message: string,
+        ): AnthropicToolResultBlock {
+          const finishedAt = new Date().toISOString();
+          toolCall.status = "error";
+          toolCall.finished_at = finishedAt;
+          toolCall.error = errorCode;
+          controller.enqueue(
+            encodeSseEvent({
+              type: "tool_trace_error",
+              id: toolCall.id,
+              error: errorCode,
+              finished_at: finishedAt,
+            }),
+          );
+          return {
+            type: "tool_result",
+            tool_use_id: toolCall.id,
+            content: message,
+            is_error: true,
+          };
+        }
+
+        // Execute one MCP tool_use block into a tool_result to feed back, recording
+        // the trace (server, tool, args summary, status, timing, read/write) and
+        // surfacing tool_trace_* SSE events. v1 policy: run reads, HOLD writes.
+        async function runOneMcpToolCall(block: {
+          id: string;
+          name: string;
+          input: unknown;
+        }): Promise<AnthropicToolResultBlock> {
+          mcpToolCallCount += 1;
           drainCitations();
+          const startedAt = new Date().toISOString();
+          const position = assistantText.length;
+          const summary = mcpArgsSummary(block.input);
+          const route = mcpRoutingMap[block.name];
+          const access = mcpAccessByName.get(block.name) ?? "write";
 
-          const usage = await finalUsage();
-          tokensIn = usage.input_tokens;
-          tokensOut = usage.output_tokens;
-          cacheCreationTokens = usage.cache_creation_input_tokens;
-          cacheReadTokens = usage.cache_read_input_tokens;
-          webSearchCount = usage.web_search_requests;
+          const toolCall: ChatToolCall = {
+            id: block.id,
+            name: block.name,
+            input: summary,
+            output: null,
+            status: "running",
+            started_at: startedAt,
+            position,
+            access,
+            server: route?.serverId,
+          };
+          toolCalls.push(toolCall);
+          controller.enqueue(
+            encodeSseEvent({
+              type: "tool_trace_start",
+              id: block.id,
+              name: block.name,
+              input: summary,
+              started_at: startedAt,
+              position,
+            }),
+          );
+
+          // Unknown tool (the model can only call offered tools — guard anyway).
+          if (!route) {
+            return holdMcpToolCall(
+              toolCall,
+              "unknown_tool",
+              "The tool call failed: the requested tool is not available.",
+            );
+          }
+          // WRITE policy (v1): hold — never silently send/create/delete.
+          if (access === "write") {
+            return holdMcpToolCall(
+              toolCall,
+              "write_blocked",
+              MCP_WRITE_BLOCKED_MESSAGE,
+            );
+          }
+          // READ: execute (never throws; returns a tool_result + safe trace).
+          const exec = await executeMcpTool({
+            route,
+            toolInput: block.input,
+            toolUseId: block.id,
+          });
+          const ok = exec.trace.status === "ok";
+          toolCall.status = ok ? "done" : "error";
+          toolCall.finished_at = exec.trace.finishedAt;
+          toolCall.output = { source_ids: [] };
+          if (!ok) toolCall.error = exec.trace.errorCode;
+          controller.enqueue(
+            encodeSseEvent(
+              ok
+                ? {
+                    type: "tool_trace_done",
+                    id: block.id,
+                    output: { source_ids: [] },
+                    finished_at: exec.trace.finishedAt,
+                  }
+                : {
+                    type: "tool_trace_error",
+                    id: block.id,
+                    error: exec.trace.errorCode ?? "error",
+                    finished_at: exec.trace.finishedAt,
+                  },
+            ),
+          );
+          return exec.toolResult;
+        }
+
+        // The gated agentic loop: stream the model, and while it requests client
+        // tools, execute them and re-stream with the results appended — until a
+        // normal end, or the round / wall-clock budget forces a final no-tools turn.
+        async function runMcpLoop(credential: ModelCredential): Promise<void> {
+          const allTools: AnthropicTool[] = [...tools, ...mcpToolDefs];
+          // Ephemeral model context: starts from the string-based history + current
+          // turn, then gains content-block tool turns. The PERSISTED history stays
+          // the final assistant text + tool_calls JSONB, so replay is unaffected.
+          const loopMessages: AnthropicChatMessage[] = [...apiMessages];
+          const deadline = Date.now() + MCP_LOOP_WALL_CLOCK_MS;
+          let round = 0;
+
+          for (;;) {
+            round += 1;
+            const budgetExhausted =
+              round >= MCP_MAX_TOOL_ROUNDS || Date.now() >= deadline;
+            // The final allowed turn runs WITHOUT tools to force a text answer.
+            const turnTools = budgetExhausted ? [] : allTools;
+            const r = streamAnthropicChat({
+              model: vendorModelName,
+              credential,
+              systemBlocks,
+              messages: loopMessages,
+              maxTokens: 4096,
+              tools: turnTools.length > 0 ? turnTools : undefined,
+            });
+            await consumeStream(r.events);
+            addUsage(await r.finalUsage());
+
+            const finalMessage = await r.finalMessage();
+            if (budgetExhausted || finalMessage.stop_reason !== "tool_use") {
+              drainCitations();
+              break;
+            }
+
+            // The model requested client tools. Re-send its turn (text + tool_use
+            // blocks), then a user turn with the tool_results.
+            drainCitations();
+            loopMessages.push({
+              role: "assistant",
+              content: finalMessage.content as AnthropicChatMessage["content"],
+            });
+            const toolResults: AnthropicToolResultBlock[] = [];
+            for (const block of finalMessage.content) {
+              if (block.type !== "tool_use") continue;
+              toolResults.push(
+                await runOneMcpToolCall({
+                  id: block.id,
+                  name: block.name,
+                  input: block.input,
+                }),
+              );
+            }
+            loopMessages.push({
+              role: "user",
+              content: toolResults as AnthropicChatMessage["content"],
+            });
+          }
+        }
+
+        try {
+          // Non-anthropic vendors are unsupported (parity with the prior dispatch).
+          if (vendor !== "anthropic") {
+            throw new Error(`Unsupported model vendor: ${vendor}`);
+          }
+          // Resolve the credential through the single seam (D-086); managed mode
+          // returns the platform key so the stream is identical to before, BYO
+          // rides the same call. Resolving inside try surfaces a failure as a
+          // stream error, exactly as before.
+          const credential = await resolveModelCredential({
+            organizationId: agent.organization_id,
+            userId: user.id,
+            vendor,
+          });
+
+          if (mcpLoopEngaged) {
+            await runMcpLoop(credential);
+          } else {
+            // Single-pass — byte-identical to the pre-2P-6b path.
+            const r = streamAnthropicChat({
+              model: vendorModelName,
+              credential,
+              systemBlocks,
+              messages: apiMessages,
+              maxTokens: 4096,
+              tools: tools.length > 0 ? tools : undefined,
+            });
+            await consumeStream(r.events);
+            drainCitations();
+            const usage = await r.finalUsage();
+            tokensIn = usage.input_tokens;
+            tokensOut = usage.output_tokens;
+            cacheCreationTokens = usage.cache_creation_input_tokens;
+            cacheReadTokens = usage.cache_read_input_tokens;
+            webSearchCount = usage.web_search_requests;
+          }
         } catch (err) {
           // Stream failed mid-flight. Per Step B "persist what we have so
           // far": fall through to the persistence block below with
@@ -1117,7 +1372,8 @@ export async function POST(request: Request) {
           console.error("computeCostMicroUsd failed — recording cost 0", err);
         }
 
-        const { error: usageErr } = await supabase.from("usage_events").insert({
+        // The usage row, summed across all loop rounds (one row per user turn).
+        const usageRow = {
           organization_id: agent.organization_id,
           user_id: user.id,
           agent_id: agent.id,
@@ -1130,11 +1386,24 @@ export async function POST(request: Request) {
           cache_read_tokens: cacheReadTokens,
           web_search_count: webSearchCount,
           cost_micro_usd: costMicroUsd,
-        });
+        };
+        // Include mcp_tool_call_count; tolerate the column being absent pre-
+        // migration (Postgres 42703) by retrying without it, so the usage row is
+        // still recorded (the count is lost until the migration is applied).
+        const { error: usageErr } = await supabase
+          .from("usage_events")
+          .insert({ ...usageRow, mcp_tool_call_count: mcpToolCallCount });
         if (usageErr) {
-          console.error("usage_events insert failed", {
-            code: usageErr.code,
-          });
+          if (usageErr.code === "42703") {
+            const { error: retryErr } = await supabase
+              .from("usage_events")
+              .insert(usageRow);
+            if (retryErr) {
+              console.error("usage_events insert failed", { code: retryErr.code });
+            }
+          } else {
+            console.error("usage_events insert failed", { code: usageErr.code });
+          }
         }
 
         // 5. Done.

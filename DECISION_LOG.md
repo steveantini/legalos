@@ -2935,3 +2935,27 @@ With basic users authoring agents, per-agent gating neither scales nor governs; 
 - 2P-6 calls `resolveOrgMcpTools()` (no agent argument) to build the loop's tool set.
 - The agent form is MCP-free again (web_search unchanged); no per-agent or per-tool MCP model.
 - Migration 0054 drops `enabled_mcp_servers`; migration 0055 makes `'mcp'` a governed, default-permitted category. RLS unaffected (both ride existing rows). This supersedes D-103 (2P-5).
+
+## D-105 — The gated agentic MCP tool-use loop (2P-6b)
+
+Date: 2026-06-04
+Status: Accepted
+
+**Context:**
+
+The finish line of Phase 2: the one hot-path change, wiring the built-and-tested pieces (2P-1 resolver, 2P-2 mapping, 2P-3 executor, 2P-4 classifier, 2P-6a tests) into the chat route so an agent can actually USE connected MCP tools mid-conversation. The chat route was single-pass (one model call, stream, persist one assistant message + one usage row).
+
+**Decision:**
+
+A multi-turn loop inside the route's SSE stream, DOUBLE-GATED so the highest-blast-radius change is isolated: Gate A is an explicit env flag `MCP_AGENT_TOOLS_ENABLED` (default OFF — only the exact string "true" enables; off ⇒ no MCP resolution at all, so the path is byte-identical, no extra DB read); Gate B is the natural has-tools gate (`resolveOrgMcpTools()` non-empty — the org permits the MCP category AND has a connected, healthy server). The loop engages IFF (flag on) AND (non-empty tools); every other request is byte-identical to the pre-2P-6b single-pass path (the event consumption was extracted verbatim into a `consumeStream` helper both paths share). In the loop: stream the model; if `stop_reason === "tool_use"`, for each tool_use look up the routing map, classify (2P-4) — READ ⇒ execute via `executeMcpTool` (never throws), WRITE ⇒ hold with a needs-confirmation `is_error` tool_result (v1: nothing is silently sent/created/deleted) — append the assistant turn (content blocks) + a user turn (tool_result blocks), and re-stream. Guards: at most 8 model rounds and a ~240s wall-clock budget (inside the 300s maxDuration), then a forced final no-tools turn. `chat.ts` accepts content-block messages and exposes `finalMessage` (stop_reason + content). Usage is summed across rounds into one `usage_events` row plus a new `mcp_tool_call_count` (migration 0056, tolerant of absence). History persists as the final assistant TEXT + the `tool_calls` JSONB (server, tool, args summary, status, timing, read/write) — the content-block tool turns are ephemeral model context, never persisted — so reload/replay stays string-based and uncorrupted.
+
+**Reasoning:**
+
+The flag plus the has-tools gate isolate the hot path so the live conversation flow is unaffected until deliberately enabled, and is instantly revertible (flip the flag, no deploy) if anything is wrong. Blocking writes proves the loop safely before any agent takes a real action in a user's Gmail/Drive/Calendar; interactive write-confirmation is the deliberate next step (2P-7). The 8-round + wall-clock guards bound cost and stay inside the serverless limit. Flattening history to final text + `tool_calls` preserves the existing conversation contract (the single-pass replay shape), the most likely place a multi-turn loop could corrupt state. Args are summarized (key names only) so the trace is token/PII-free.
+
+**Consequences:**
+
+- Agents can use connected MCP READ tools live, behind the flag; web_search continues to work alone and alongside MCP tools.
+- Write tools are held with a needs-confirmation result; interactive write-confirmation + richer MCP tool-trace UI are 2P-7.
+- Phase 2 is functionally complete behind the flag. Operator: apply migration 0056 and set `MCP_AGENT_TOOLS_ENABLED=true` to test live.
+- The loop is the foundation for richer agent tool use.

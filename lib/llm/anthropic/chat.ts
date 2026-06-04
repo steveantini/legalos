@@ -1,5 +1,7 @@
 import "server-only";
 
+import type Anthropic from "@anthropic-ai/sdk";
+
 import type { ModelCredential } from "@/lib/connections/providers/types";
 
 import { createAnthropicClient } from "./client";
@@ -134,6 +136,18 @@ export type AnthropicToolResultBlock = {
   is_error?: boolean;
 };
 
+/**
+ * One message in the request's messages array. `content` is a plain string for
+ * ordinary turns (the single-pass path), OR an array of content blocks for the
+ * agentic loop's tool turns (Phase 2, 2P-6b): the assistant turn carries the
+ * model's content (text + tool_use blocks), and the following user turn carries
+ * the tool_result blocks. Matches @anthropic-ai/sdk's MessageParam.
+ */
+export type AnthropicChatMessage = {
+  role: "user" | "assistant";
+  content: string | Anthropic.Messages.ContentBlockParam[];
+};
+
 export type StreamAnthropicChatArgs = {
   /** Bare Anthropic model id (e.g. 'claude-sonnet-4-6'), no vendor prefix. */
   model: string;
@@ -150,7 +164,7 @@ export type StreamAnthropicChatArgs = {
    */
   systemBlocks: AnthropicSystemBlock[];
   /** Conversation history + current user turn, in Anthropic's role/content shape. */
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messages: AnthropicChatMessage[];
   maxTokens: number;
   /** Server-side tool definitions to expose to the model (web search in v1). */
   tools?: AnthropicTool[];
@@ -175,6 +189,14 @@ export type StreamAnthropicChatResult = {
     cache_read_input_tokens: number;
     web_search_requests: number;
   }>;
+  /**
+   * Resolves to the completed assistant message once the stream ends. The agentic
+   * loop (2P-6b) reads `stop_reason` (=== "tool_use" when the model wants a client
+   * tool) and `content` (the text + tool_use blocks to re-send as the assistant
+   * turn). Backed by the same cached SDK final message as finalUsage, so reading
+   * both costs one network round-trip.
+   */
+  finalMessage: () => Promise<Anthropic.Messages.Message>;
 };
 
 export function streamAnthropicChat(
@@ -314,5 +336,6 @@ export function streamAnthropicChat(
           final.usage.server_tool_use?.web_search_requests ?? 0,
       };
     },
+    finalMessage: () => stream.finalMessage(),
   };
 }
