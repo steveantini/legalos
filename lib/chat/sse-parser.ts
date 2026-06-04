@@ -42,6 +42,23 @@ export type ChatToolCall = {
   finished_at?: string;
   error?: string;
   position: number;
+  /**
+   * For an MCP tool call (Phase 2): the token/PII-safe human-readable reason on
+   * failure (e.g. a Google permission/scope message). Present on the persisted
+   * record, so it surfaces after a reload; the live `tool_trace_error` event
+   * carries only the `error` code, so it may be absent mid-stream. Absent on
+   * success and for web_search. Mirrors the server-side ChatToolCall.
+   */
+  error_message?: string;
+  /**
+   * For an MCP tool call (Phase 2): the read/write classification. A 'write'
+   * call is held with a needs-confirmation result rather than executed in v1
+   * (2P-6b), so the trace renders it as held, not failed. Present on the
+   * persisted record; absent mid-stream and for web_search.
+   */
+  access?: "read" | "write";
+  /** For an MCP tool call: the server id the tool belongs to. Absent for web_search. */
+  server?: string;
 };
 
 export type ChatStreamEvent =

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { ChatToolCall } from "@/lib/chat/sse-parser";
+import { toolLabel } from "@/lib/chat/tool-display";
 
 interface ToolTraceCardProps {
   /**
@@ -41,18 +42,43 @@ interface ToolTraceCardProps {
   onRetry?: () => void;
 }
 
-const FRIENDLY_TOOL_NAME: Record<string, string> = {
-  web_search: "Web search",
-};
+/** web_search is the hosted tool; everything else is a namespaced MCP tool. */
+type ToolKind = "web_search" | "mcp";
 
+function kindOf(name: string): ToolKind {
+  return name === "web_search" ? "web_search" : "mcp";
+}
+
+/**
+ * Human-friendly header label for a call. For web_search this is "Web
+ * search"; for an MCP call it's "<Server>: <action>" derived from the
+ * namespaced name (e.g. gdrive__search_files → "Google Drive: search
+ * files"). Derived purely from the name so it reads the same while a call
+ * streams and after a reload. See lib/chat/tool-display.ts.
+ */
 function displayToolName(rawName: string): string {
-  return FRIENDLY_TOOL_NAME[rawName] ?? rawName;
+  return toolLabel(rawName).full;
+}
+
+/**
+ * A held write (2P-6b v1 policy): the model requested a write tool, which is
+ * held with a needs-confirmation result rather than executed, so nothing is
+ * sent, created, or deleted. The loop records this as status "error" with the
+ * `write_blocked` code on BOTH the live event and the persisted record, so we
+ * detect it by code and render it as held (calm), not failed (alarming). The
+ * interactive approval that replaces the hold lands in 2P-7b.
+ */
+function isHeldWrite(call: ChatToolCall): boolean {
+  return call.error === "write_blocked";
 }
 
 /**
  * Defensive read of the search query from Anthropic's `web_search` tool
  * input. The shape is { query: string } per the SDK; we narrow rather
- * than trust an unknown coming from JSONB.
+ * than trust an unknown coming from JSONB. MCP calls persist only a
+ * PII-safe argument-key summary (never a `query`), so this returns null
+ * for them and no query box renders — we never surface raw argument
+ * values or file names.
  */
 function readQuery(input: unknown): string | null {
   if (input && typeof input === "object" && "query" in input) {
@@ -62,86 +88,156 @@ function readQuery(input: unknown): string | null {
   return null;
 }
 
+/** Calm/alarming tone for a trace's status, driving text color + border. */
+type ToolTone = "running" | "done" | "error" | "held";
+
 /**
- * Status text + accent for either a singleton call OR a group of calls.
- * Group status logic per the addendum spec:
+ * Status text + tone for either a singleton call OR a group of calls (a
+ * group is always the same tool name, so its kind is uniform).
  *
- *   - any running    → "Searching" / "Running"
- *   - all done, no errors → "Searched" / "Done"
- *   - all done, ≥1 error  → "Failed (N of M)" where N is errors, M is total
+ *   - any running        → "Searching" (web) / "Running" (MCP)
+ *   - all held writes     → "Needs confirmation" (calm — nothing was sent)
+ *   - any true error      → "Failed (N of M)" (web) / "Couldn't complete" (MCP)
+ *   - otherwise           → "Searched" (web) / "Done" (MCP)
  *
- * isError flag flips the status text to warn-fg and the card border to
- * warn-fg/30. For groups with mixed running+error, we treat the running
- * as winning visually (no error border yet) — once running completes,
- * the final state surfaces.
+ * web_search keeps its exact prior wording and "Failed (N of M)" behavior;
+ * only MCP gains the calmer "Couldn't complete" / held wording.
  */
 function statusOf(toolCalls: ChatToolCall[]): {
   text: string;
+  tone: ToolTone;
   isError: boolean;
   isRunning: boolean;
 } {
-  const anyRunning = toolCalls.some((c) => c.status === "running");
-  if (anyRunning) {
-    const name = toolCalls[0].name;
+  const kind = kindOf(toolCalls[0].name);
+  const total = toolCalls.length;
+
+  if (toolCalls.some((c) => c.status === "running")) {
     return {
-      text: name === "web_search" ? "Searching" : "Running",
+      text: kind === "web_search" ? "Searching" : "Running",
+      tone: "running",
       isError: false,
       isRunning: true,
     };
   }
-  const errors = toolCalls.filter((c) => c.status === "error").length;
-  if (errors > 0) {
+
+  if (kind === "web_search") {
+    const errors = toolCalls.filter((c) => c.status === "error").length;
+    if (errors > 0) {
+      return {
+        text: `Failed (${errors} of ${total})`,
+        tone: "error",
+        isError: true,
+        isRunning: false,
+      };
+    }
+    return { text: "Searched", tone: "done", isError: false, isRunning: false };
+  }
+
+  // MCP: separate held writes (calm) from true failures (warn).
+  const held = toolCalls.filter(isHeldWrite).length;
+  const trueErrors = toolCalls.filter(
+    (c) => c.status === "error" && !isHeldWrite(c),
+  ).length;
+
+  if (trueErrors > 0) {
     return {
-      text: `Failed (${errors} of ${toolCalls.length})`,
+      text:
+        total === 1
+          ? "Couldn't complete"
+          : `Couldn't complete (${trueErrors} of ${total})`,
+      tone: "error",
       isError: true,
       isRunning: false,
     };
   }
-  const name = toolCalls[0].name;
-  return {
-    text: name === "web_search" ? "Searched" : "Done",
-    isError: false,
-    isRunning: false,
-  };
+  if (held > 0) {
+    return {
+      text: total === 1 ? "Needs confirmation" : `Needs confirmation (${held})`,
+      tone: "held",
+      isError: false,
+      isRunning: false,
+    };
+  }
+  return { text: "Done", tone: "done", isError: false, isRunning: false };
+}
+
+/** Tone → text color for a status word or an MCP result line. */
+function toneTextClass(tone: ToolTone): string {
+  if (tone === "error") return "text-warn-fg";
+  if (tone === "held") return "text-muted-foreground";
+  return "text-muted-foreground";
 }
 
 /**
- * Per-call result line for the expanded panel. A successful call shows
- * "Cited N source(s)" using its own source_ids attribution; an error
- * call shows the error code in warn-fg; a streaming/un-attributed call
- * shows "—" so the row honestly says "we don't know yet."
+ * Per-call result line for the expanded panel.
+ *
+ *   web_search → "Cited N source(s)" from its own source_ids attribution;
+ *   an error shows the error code; a streaming/un-attributed call shows
+ *   "—" so the row honestly says "we don't know yet."
+ *
+ *   MCP → a calm one-liner: a held write explains nothing ran; a true
+ *   error surfaces the safe `error_message` (the persisted reason, e.g. a
+ *   Google permission message), falling back to a generic line; a success
+ *   confirms completion. Never surfaces raw arguments or file names.
  */
-function resultText(
+function resultLine(
   call: ChatToolCall,
   messageIsHydrated: boolean,
-): { text: string; isError: boolean } {
-  if (call.status === "error") {
-    return { text: call.error ?? "Tool returned an error.", isError: true };
+): { text: string; tone: ToolTone } {
+  if (kindOf(call.name) === "web_search") {
+    if (call.status === "error") {
+      return { text: call.error ?? "Tool returned an error.", tone: "error" };
+    }
+    const sourceIds = call.output?.source_ids ?? [];
+    const knowsCount = messageIsHydrated && call.status === "done";
+    if (!knowsCount) return { text: "—", tone: "done" };
+    return {
+      text:
+        sourceIds.length === 1
+          ? "Cited 1 source"
+          : `Cited ${sourceIds.length} sources`,
+      tone: "done",
+    };
   }
-  const sourceIds = call.output?.source_ids ?? [];
-  const knowsCount = messageIsHydrated && call.status === "done";
-  if (!knowsCount) return { text: "—", isError: false };
-  return {
-    text:
-      sourceIds.length === 1
-        ? "Cited 1 source"
-        : `Cited ${sourceIds.length} sources`,
-    isError: false,
-  };
+
+  // MCP
+  if (isHeldWrite(call)) {
+    return {
+      text: "Held. This action needs your confirmation before it runs, so nothing was sent, created, or deleted.",
+      tone: "held",
+    };
+  }
+  if (call.status === "error") {
+    return {
+      text: call.error_message ?? "This tool call couldn't be completed.",
+      tone: "error",
+    };
+  }
+  if (call.status === "running") {
+    return { text: "Running…", tone: "done" };
+  }
+  return { text: "Completed.", tone: "done" };
 }
 
 /**
  * Polished trace card — chat-aperture-spec.md §2.5 + Step C addendum
- * grouping. Default collapsed; click the header row to toggle. The card
- * border lifts to warn-fg/30 when the group surfaces an error state.
+ * grouping, extended for MCP tools in 2P-7a. Default collapsed; click the
+ * header row to toggle. The card border lifts to warn-fg/30 only on a true
+ * error; a held write stays calm (it isn't a failure).
  *
- * Singleton (toolCalls.length === 1): single Query + single Result in
- * the expanded panel, exactly as the Step C baseline.
+ * The header reads a friendly label — "Web search" for the hosted tool,
+ * "<Server>: <action>" for an MCP call (e.g. "Google Drive: search files")
+ * — plus an understated status (Searching/Running, Searched/Done, Needs
+ * confirmation, Couldn't complete). This is presentation only; it renders
+ * from the trace the loop already persists, with no change to what's sent
+ * to any server.
  *
- * Group (toolCalls.length > 1): header gets " · {N} queries" appended;
- * expanded panel renders an ordered list of per-call rows separated
- * by hairlines. Each row carries its own Query box + Result line so
- * source attribution stays honest per query.
+ * Singleton (toolCalls.length === 1): one row in the expanded panel.
+ * Group (toolCalls.length > 1): header gains " · {N} queries|calls";
+ * the expanded panel lists per-call rows separated by hairlines. web_search
+ * rows keep their Query + Result layout; MCP rows show a single calm status
+ * line (never raw arguments or file names).
  *
  * Open state is local React state, not persisted — reload always boots
  * collapsed.
@@ -156,6 +252,8 @@ export function ToolTraceCard({
   const status = statusOf(toolCalls);
   const isGroup = toolCalls.length > 1;
   const head = toolCalls[0];
+  // web_search collapses parallel "queries"; an MCP group collapses "calls".
+  const countNoun = kindOf(head.name) === "web_search" ? "queries" : "calls";
 
   function toggle() {
     setOpen((prev) => !prev);
@@ -169,7 +267,7 @@ export function ToolTraceCard({
   }
 
   const ariaLabel = isGroup
-    ? `${displayToolName(head.name)} tool trace, ${toolCalls.length} queries, ${status.text.toLowerCase()}`
+    ? `${displayToolName(head.name)} tool trace, ${toolCalls.length} ${countNoun}, ${status.text.toLowerCase()}`
     : `${displayToolName(head.name)} tool trace, ${status.text.toLowerCase()}`;
 
   return (
@@ -199,18 +297,14 @@ export function ToolTraceCard({
         <span className="text-caption" aria-hidden>
           ·
         </span>
-        <span
-          className={status.isError ? "text-warn-fg" : "text-muted-foreground"}
-        >
-          {status.text}
-        </span>
+        <span className={toneTextClass(status.tone)}>{status.text}</span>
         {isGroup ? (
           <>
             <span className="text-caption" aria-hidden>
               ·
             </span>
             <span className="text-muted-foreground">
-              {toolCalls.length} queries
+              {toolCalls.length} {countNoun}
             </span>
           </>
         ) : null}
@@ -273,14 +367,26 @@ interface RowBodyProps {
 }
 
 /**
- * Shared row body — same Query + Result layout used by both the
- * singleton expanded panel and each row of a multi-call group, so the
- * two rendering paths stay visually consistent.
+ * Expanded-panel row body, used by both the singleton panel and each row
+ * of a multi-call group so the two paths stay visually consistent.
+ *
+ * web_search keeps the Query + Result layout (its input carries a real
+ * query). An MCP call has no query to show (only a PII-safe argument-key
+ * summary, which we deliberately don't surface), so it renders a single
+ * calm status line: held, the safe failure reason, or completion.
  */
 function ToolTraceRowBody({ call, messageIsHydrated }: RowBodyProps) {
-  const query = readQuery(call.input);
-  const result = resultText(call, messageIsHydrated);
+  const result = resultLine(call, messageIsHydrated);
 
+  if (kindOf(call.name) === "mcp") {
+    return (
+      <p className={`flex-1 text-[13px] ${toneTextClass(result.tone)}`}>
+        {result.text}
+      </p>
+    );
+  }
+
+  const query = readQuery(call.input);
   return (
     <div className="flex-1">
       {query ? (
@@ -299,7 +405,7 @@ function ToolTraceRowBody({ call, messageIsHydrated }: RowBodyProps) {
         </div>
         <p
           className={`text-[13px] ${
-            result.isError ? "text-warn-fg" : "text-foreground"
+            result.tone === "error" ? "text-warn-fg" : "text-foreground"
           }`}
         >
           {result.text}

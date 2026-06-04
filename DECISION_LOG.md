@@ -2963,7 +2963,7 @@ The flag plus the has-tools gate isolate the hot path so the live conversation f
 ## D-106 — Google Drive MCP data access blocked by Developer-Preview authorization gate (external dependency)
 
 Date: 2026-06-04
-Status: Accepted
+Status: Resolved (2026-06-04) — root cause was a missing Workspace Developer Preview enrollment, now enrolled and confirmed; Drive reads verified live. See Resolution below.
 
 **Context:**
 
@@ -2978,3 +2978,9 @@ Conclude that the block is a Google-side Workspace **Developer-Preview authoriza
 - Phase 2 is functionally complete and demonstrable for the agentic loop; **live Google Drive data access is pending a Google-preview-side resolution** (tracked in docs/ROADMAP.md). The feature flag (`MCP_AGENT_TOOLS_ENABLED`) gates the loop meanwhile.
 - The permanent tool-error reason surfacing (from commit c290d81) stays; all temporary diagnostics are removed; the request/argument/auth path, the loop, governance, gating, and the 30 tests are unchanged.
 - Calendar reconnect remains a separate small open item; 2P-7 (tool-trace UI + interactive write-confirmation) is still pending.
+
+**Resolution (2026-06-04): RESOLVED.**
+
+The root cause was that Google Cloud project 738626459610 (legalOS-dev) was not enrolled in the Google Workspace Developer Preview Program. Enrollment was submitted and confirmed on 2026-06-04 — the program team confirmed the project's features are ready to use ("all the features in the program are now ready to be used"). Immediately after confirmation, Drive MCP reads were verified working live end-to-end against real Google Drive data: the agentic loop runs, the model calls `search_files`, the call executes over the live transport, and real files are returned and woven into the answer.
+
+This confirms the diagnosis above: every legalOS-side configuration — OAuth client, requested scopes, app trust in Admin API controls, the authorizing Workspace account, the base and MCP APIs, the request/argument shape, and the agentic loop — was correct throughout. The sole blocker was the missing developer-preview enrollment, a Google-side prerequisite keyed to the Cloud project number. No legalOS code changed to resolve it. The lesson (the several easy-to-miss Google-side setup steps, and the long opaque failure they produced) is captured as a customer-onboarding roadmap item so a future customer is guided through the setup rather than debugging it blind.
