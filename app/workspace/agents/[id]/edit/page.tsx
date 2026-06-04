@@ -4,10 +4,6 @@ import { notFound } from "next/navigation";
 import { AgentForm } from "@/components/agents/agent-form";
 import { updateAgentAction } from "@/lib/actions/agents";
 import {
-  getAgentEnabledMcpServers,
-  getConnectedMcpServerOptions,
-} from "@/lib/connections/mcp/agent-tools";
-import {
   getAgent,
   isCurrentUserOrgAdmin,
   requireAuthUser,
@@ -97,11 +93,6 @@ export default async function EditAgentPage({ params }: PageProps) {
     }),
   );
 
-  // The org's connected MCP servers (for the author's per-server toggles) and this
-  // agent's currently-enabled set (2P-5). Both tolerate the column being absent.
-  const connectedMcpServers = await getConnectedMcpServerOptions();
-  const enabledMcpServers = await getAgentEnabledMcpServers(agent.id);
-
   return (
     <main className="mx-auto max-w-3xl">
       <header className="mb-8">
@@ -139,13 +130,11 @@ export default async function EditAgentPage({ params }: PageProps) {
           toolsEnabled: Array.isArray(agent.tools_enabled)
             ? (agent.tools_enabled as unknown as string[])
             : [],
-          enabledMcpServers,
         }}
         departmentSlug={agent.department.slug}
         forkedFromAgent={null}
         action={updateAgentAction}
         sourceOrigin={agent.source_origin}
-        connectedMcpServers={connectedMcpServers}
       />
     </main>
   );

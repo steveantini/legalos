@@ -15,10 +15,25 @@ import { CAPABILITY_GROUPS } from "@/lib/settings/connections-data";
  * action and the page can import them without pulling in server-only code.
  */
 
-/** Every known capability-category id, in registry order. */
-export const KNOWN_CATEGORY_IDS: ReadonlyArray<string> = CAPABILITY_GROUPS.map(
-  (group) => group.id,
-);
+/**
+ * The MCP capability category id — a GOVERNED Allowed-connections category (Phase
+ * 2). Unlike the data-source categories, it has no OAuth providers (MCP servers
+ * connect through their own trust registry, not allowed_providers), so it is a
+ * known category for the policy allowlist but contributes nothing to
+ * deriveAllowedProviders.
+ */
+export const MCP_CATEGORY_ID = "mcp";
+
+/**
+ * Every known capability-category id, in registry order, plus the MCP category.
+ * The data-source categories come from CAPABILITY_GROUPS; 'mcp' is appended so the
+ * super admin can permit or deny MCP-type connections org-wide from the same
+ * Allowed-connections control. deriveAllowedProviders ignores 'mcp' (no providers).
+ */
+export const KNOWN_CATEGORY_IDS: ReadonlyArray<string> = [
+  ...CAPABILITY_GROUPS.map((group) => group.id),
+  MCP_CATEGORY_ID,
+];
 
 /**
  * The providers an allowed set of categories permits. For each allowed category,

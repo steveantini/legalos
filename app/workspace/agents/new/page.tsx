@@ -8,10 +8,6 @@ import {
   createTemplateAgentAction,
 } from "@/lib/actions/agents";
 import {
-  getAgentEnabledMcpServers,
-  getConnectedMcpServerOptions,
-} from "@/lib/connections/mcp/agent-tools";
-import {
   getDepartmentIfAccessible,
   getOrganizationDefaultModel,
   isCurrentUserOrgAdmin,
@@ -98,7 +94,6 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
     systemPrompt: "",
     model: blankCreateModel,
     toolsEnabled: [] as string[],
-    enabledMcpServers: [] as string[],
   };
 
   if (forkFromId) {
@@ -131,14 +126,8 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
       toolsEnabled: Array.isArray(template.tools_enabled)
         ? (template.tools_enabled as unknown as string[])
         : [],
-      // A fork inherits the source template's enabled MCP servers (re-validated
-      // against what's connected on save). Tolerant of the column being absent.
-      enabledMcpServers: await getAgentEnabledMcpServers(template.id),
     };
   }
-
-  // The org's connected MCP servers offered as per-agent toggles (2P-5).
-  const connectedMcpServers = await getConnectedMcpServerOptions();
 
   // Heading + subline per flow. Template-create gets a distinct heading
   // so the admin sees the org-wide stakes; fork-from-template keeps the
@@ -170,7 +159,6 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
         departmentSlug={department.slug}
         forkedFromAgent={forkedFromAgent}
         action={isAsTemplate ? createTemplateAgentAction : createAgentAction}
-        connectedMcpServers={connectedMcpServers}
       />
     </main>
   );

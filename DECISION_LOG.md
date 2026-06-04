@@ -2889,7 +2889,7 @@ Working token refresh is a prerequisite for both the manual refresh and the agen
 ## D-103 — Per-agent MCP-server governance (2P-5)
 
 Date: 2026-06-04
-Status: Accepted
+Status: Superseded by D-104 (MCP-to-agent governance moved to the org level; the per-agent `enabled_mcp_servers` layer was removed)
 
 **Context:**
 
@@ -2909,3 +2909,27 @@ A separate column keeps the two governance axes legible and independently evolva
 - The gated loop (2P-6) calls `resolveAgentMcpTools(agent.enabled_mcp_servers)` to build the loop's tool set.
 - Per-tool granularity is a documented future refinement.
 - Additive migration 0053 (`enabled_mcp_servers` jsonb not null default `'[]'`); existing agents default to none enabled. RLS unaffected (rides the agents row).
+
+## D-104 — MCP-to-agent governance is org-level, not per-agent (reverses 2P-5 / D-103)
+
+Date: 2026-06-04
+Status: Accepted
+
+**Context:**
+
+2P-5 (D-103) made MCP enablement per-agent (an `enabled_mcp_servers` column + agent-form toggles + `resolveAgentMcpTools`). But basic users author their own agents, so per-agent super-admin control is impractical and doesn't actually govern — the real, sufficient lever is at the org level. The per-agent layer was never wired into the chat route (2P-6 isn't built), so reversing it is clean.
+
+**Decision:**
+
+Remove the per-agent layer (drop the `enabled_mcp_servers` column via migration 0054; remove its schema/form/resolver code) and govern MCP-to-agent access ENTIRELY at the org level via two existing super-admin levers that BOTH must agree: (1) the Allowed-connections policy permits the `'mcp'` category — now a GOVERNED category in `connection_policy.allowed_categories` (added to `KNOWN_CATEGORY_IDS`; the Allowed-connections control offers it as a toggle; meaningful because the org also has non-MCP connection kinds), and (2) the server is connected AND healthy (Phase 1 + D-102). MCP defaults to PERMITTED (migration 0055 adds `'mcp'` to the existing policy row and the column default): connecting a server is already a deliberate super-admin act, so the category switch's value is the org-wide OFF override, not a second mandatory on-switch. The org-level resolver `resolveOrgMcpTools` intersects gate 1 (`isCategoryAllowed('mcp')`) with gate 2 (`getOrgMcpExecutionTargets`, active-only) and maps the survivors (2P-2) to `{ targets, toolDefs, routingMap }`. There is no per-agent enablement; basic users cannot configure MCP at all; proper agent use is a training/policy matter.
+
+**Reasoning:**
+
+With basic users authoring agents, per-agent gating neither scales nor governs; the super admin's connect + allow decisions are the real control. Gating on the Allowed-connections category gives that existing policy primitive a genuine job for MCP (an org-wide off switch) and reuses `isCategoryAllowed` rather than building a parallel system. `'mcp'` carries no OAuth providers, so `deriveAllowedProviders` ignores it (it gates the category only). Default-permitted avoids friction while preserving the org-wide kill switch.
+
+**Consequences:**
+
+- Governance is simpler and honest: Allowed connections governs MCP as a category; deny it (or disconnect/error a server) and the tools vanish for every agent at once.
+- 2P-6 calls `resolveOrgMcpTools()` (no agent argument) to build the loop's tool set.
+- The agent form is MCP-free again (web_search unchanged); no per-agent or per-tool MCP model.
+- Migration 0054 drops `enabled_mcp_servers`; migration 0055 makes `'mcp'` a governed, default-permitted category. RLS unaffected (both ride existing rows). This supersedes D-103 (2P-5).

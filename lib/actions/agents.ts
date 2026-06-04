@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { isCurrentUserOrgAdmin } from "@/lib/auth/access";
-import { getConnectedMcpServerIds } from "@/lib/connections/mcp/agent-tools";
 import { SUPPORTED_MODEL_IDS } from "@/lib/llm/models";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -22,57 +21,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  */
 
 const SUPPORTED_MODELS = SUPPORTED_MODEL_IDS as [string, ...string[]];
-
-/**
- * Parse the agent form's `enabled_mcp_servers` hidden field — a JSON string array
- * of the MCP server ids the author toggled on (2P-5). Defensive: any malformed or
- * non-array value degrades to [] (no servers enabled). Never throws.
- */
-function parseEnabledMcpServers(raw: string | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.filter((v): v is string => typeof v === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Validate a requested MCP-server set against what's CURRENTLY connected for the
- * org, dropping any id that isn't connected (so a stale or forged id can't be
- * stored as enabled). Returns the cleaned set. The runtime resolver is still the
- * authoritative gate; this just keeps the stored set clean. Returns [] without a
- * connection read when nothing was requested.
- */
-async function validateEnabledMcpServers(requested: string[]): Promise<string[]> {
-  if (requested.length === 0) return [];
-  const connected = await getConnectedMcpServerIds();
-  return requested.filter((id) => connected.has(id));
-}
-
-/**
- * Persist an agent's enabled MCP servers as a SEPARATE best-effort write, so the
- * critical insert/update path is untouched and tolerant of the column being absent
- * pre-migration: an "undefined column" error (Postgres 42703) is ignored (the
- * agent is already saved; enablement persists once the migration lands). Any other
- * error is logged but never fails the save.
- */
-async function persistEnabledMcpServers(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  agentId: string,
-  servers: string[],
-): Promise<void> {
-  const { error } = await supabase
-    .from("agents")
-    .update({ enabled_mcp_servers: servers })
-    .eq("id", agentId);
-  if (error && error.code !== "42703") {
-    console.error("enabled_mcp_servers persist failed", { code: error.code });
-  }
-}
 
 /**
  * Zod schema for the create-agent form. Bounded fields (`model`) match the
@@ -119,13 +67,6 @@ const createAgentSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === "on"),
-  /**
-   * The MCP servers this agent may use (2P-5), as a JSON string array of server
-   * ids from the form's hidden field. Parsed + validated against currently-
-   * connected servers in the action; stored in the agents.enabled_mcp_servers
-   * column. Optional/absent ⇒ no MCP servers enabled.
-   */
-  enabled_mcp_servers: z.string().optional(),
 });
 
 const pendingAttachmentSchema = z.object({
@@ -209,7 +150,6 @@ export async function createAgentAction(
     forked_from_agent_id: formData.get("forked_from_agent_id") || undefined,
     pending_attachments: formData.get("pending_attachments") || undefined,
     tool_web_search: formData.get("tool_web_search") || undefined,
-    enabled_mcp_servers: formData.get("enabled_mcp_servers") || undefined,
   });
   if (!parsed.success) {
     const fieldErrors: NonNullable<
@@ -328,17 +268,6 @@ export async function createAgentAction(
     return { ok: false, formError: "Could not create agent. Try again." };
   }
 
-  // Persist the agent's enabled MCP servers (2P-5), validated against what's
-  // currently connected. Only when the author enabled some — a fresh agent
-  // defaults to none, so skipping the write avoids a round-trip in the common case.
-  const requestedMcp = parseEnabledMcpServers(input.enabled_mcp_servers);
-  if (requestedMcp.length > 0) {
-    const validatedMcp = await validateEnabledMcpServers(requestedMcp);
-    if (validatedMcp.length > 0) {
-      await persistEnabledMcpServers(supabase, input.agent_id, validatedMcp);
-    }
-  }
-
   if (pendingAttachments.length > 0) {
     const { error: attErr } = await supabase
       .from("agent_attachments")
@@ -393,13 +322,6 @@ const updateAgentSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === "on"),
-  /**
-   * The MCP servers this agent may use (2P-5), as a JSON string array of server
-   * ids from the form's hidden field. Parsed + validated against currently-
-   * connected servers in the action; stored in the agents.enabled_mcp_servers
-   * column. Optional/absent ⇒ no MCP servers enabled.
-   */
-  enabled_mcp_servers: z.string().optional(),
 });
 
 export async function updateAgentAction(
@@ -422,7 +344,6 @@ export async function updateAgentAction(
     system_prompt: formData.get("system_prompt"),
     model: formData.get("model"),
     tool_web_search: formData.get("tool_web_search") || undefined,
-    enabled_mcp_servers: formData.get("enabled_mcp_servers") || undefined,
   });
   if (!parsed.success) {
     const fieldErrors: NonNullable<
@@ -514,13 +435,6 @@ export async function updateAgentAction(
     console.error("updateAgentAction update failed", updateError);
     return { ok: false, formError: "Could not save changes. Try again." };
   }
-
-  // Persist the agent's enabled MCP servers (2P-5), validated against what's
-  // currently connected. Always written on edit (so the author can clear the set);
-  // re-validating also drops any server that has been disconnected since.
-  const requestedMcp = parseEnabledMcpServers(input.enabled_mcp_servers);
-  const validatedMcp = await validateEnabledMcpServers(requestedMcp);
-  await persistEnabledMcpServers(supabase, input.agent_id, validatedMcp);
 
   redirect(`/workspace/agents/${input.agent_id}`);
 }
@@ -787,13 +701,6 @@ const createTemplateAgentSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === "on"),
-  /**
-   * The MCP servers this agent may use (2P-5), as a JSON string array of server
-   * ids from the form's hidden field. Parsed + validated against currently-
-   * connected servers in the action; stored in the agents.enabled_mcp_servers
-   * column. Optional/absent ⇒ no MCP servers enabled.
-   */
-  enabled_mcp_servers: z.string().optional(),
 });
 
 /**
@@ -833,7 +740,6 @@ export async function createTemplateAgentAction(
     system_prompt: formData.get("system_prompt"),
     model: formData.get("model"),
     tool_web_search: formData.get("tool_web_search") || undefined,
-    enabled_mcp_servers: formData.get("enabled_mcp_servers") || undefined,
   });
   if (!parsed.success) {
     const fieldErrors: NonNullable<
@@ -899,16 +805,6 @@ export async function createTemplateAgentAction(
       code: insertError.code,
     });
     return { ok: false, formError: "Could not create template. Try again." };
-  }
-
-  // Persist the template's enabled MCP servers (2P-5), validated against what's
-  // currently connected (best-effort, tolerant of the column being absent).
-  const requestedMcp = parseEnabledMcpServers(input.enabled_mcp_servers);
-  if (requestedMcp.length > 0) {
-    const validatedMcp = await validateEnabledMcpServers(requestedMcp);
-    if (validatedMcp.length > 0) {
-      await persistEnabledMcpServers(supabase, input.agent_id, validatedMcp);
-    }
   }
 
   redirect(`/workspace/departments/${department.slug}`);

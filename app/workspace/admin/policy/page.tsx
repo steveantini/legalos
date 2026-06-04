@@ -9,6 +9,7 @@ import {
   isCurrentUserSuperAdmin,
 } from "@/lib/auth/access";
 import { getOrgMcpConnections } from "@/lib/connections/mcp/connection-state";
+import { MCP_CATEGORY_ID } from "@/lib/connections/policy-derivation";
 import { getOrgModelConnectionState } from "@/lib/connections/model-connection-state";
 import { listFirstPartyServersByProvider } from "@/lib/connections/providers/mcp-registry";
 import { CAPABILITY_GROUPS } from "@/lib/settings/connections-data";
@@ -78,11 +79,22 @@ export default async function AdminPolicyPage({
 
   const loadFailed = Boolean(error) || data === null;
 
-  const categories = CAPABILITY_GROUPS.map((group) => ({
-    id: group.id,
-    title: group.title,
-    description: CATEGORY_DESCRIPTIONS[group.id] ?? group.description,
-  }));
+  const categories = [
+    ...CAPABILITY_GROUPS.map((group) => ({
+      id: group.id,
+      title: group.title,
+      description: CATEGORY_DESCRIPTIONS[group.id] ?? group.description,
+    })),
+    // MCP is a GOVERNED category alongside the data-source kinds (Phase 2): the
+    // org-wide switch for whether agents may use MCP-server tools. Connecting a
+    // server (MCP connections, below) and permitting this category must BOTH hold.
+    {
+      id: MCP_CATEGORY_ID,
+      title: "MCP servers",
+      description:
+        "Tools and live data your agents reach through connected MCP servers.",
+    },
+  ];
 
   return (
     <>

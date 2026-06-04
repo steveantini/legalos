@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Agents can now be granted access to specific connected MCP servers: an agent author chooses, in the agent's settings, which connected servers that agent may use. The agent only gets tools from servers that are both enabled for it and connected for the workspace, so disconnecting a server immediately revokes it everywhere, and an agent never reaches a server its author didn't enable. (The chat experience that uses these tools follows next.)**
+- **MCP tool access for agents is now governed entirely by the workspace admin: the Allowed connections policy includes an MCP category, and agents can use a connected server's tools only when an admin permits the MCP category and the server is connected. The earlier per-agent setting was removed; basic users no longer configure MCP access. (The chat experience that uses these tools follows next.)**
 
 - **Super admins can now refresh a connected MCP server's tools from Policy & access, re-checking what the server offers and updating the stored catalog, including each tool's read-only and destructive hints. A failed refresh leaves the existing tools untouched, so re-checking a server can never lose a good catalog. This lets the already-connected Google servers pick up the new hints so a later step can tell their read tools from their write tools.**
 
