@@ -2885,3 +2885,27 @@ Working token refresh is a prerequisite for both the manual refresh and the agen
 - The two readers' purposes are now explicit and distinct: display surfaces error'd connections, execution returns only healthy ones.
 - The agent loop (2P-6) can rely on refresh plus appropriate runtime error-marking (the default `markErrorOnFailure: true` path).
 - `disconnectMcpServer` is unchanged (correctly scoped). No migration (the `status` column already exists).
+
+## D-103 — Per-agent MCP-server governance (2P-5)
+
+Date: 2026-06-04
+Status: Accepted
+
+**Context:**
+
+The locked two-layer governance model (D-100) needs its agent-author layer: which connected MCP servers a given agent may use, plus the resolver the gated loop (2P-6) calls to build an agent's tool set. The org-connect layer (super-admin) shipped in Phase 1; the runtime token-refresh prerequisite shipped (D-102).
+
+**Decision:**
+
+A dedicated `agents.enabled_mcp_servers` jsonb column (default `'[]'`) stores the MCP server ids an agent may use — separate from `tools_enabled`, which is for Anthropic hosted-tool toggles (web_search); the two are distinct governance axes. The agent author enables per connected SERVER (v1; per-tool deferred), choosing only from the org's currently-connected servers (the agent form offers active connections as toggles, with an honest empty state when none are connected and a "needs reconnect" server excluded). Saves validate the selection against what's actually connected, dropping any non-connected id (the form's hidden field carries a JSON array the create/update/template-create actions parse and re-validate). The runtime resolver `resolveAgentMcpTools` intersects an agent's `enabled_mcp_servers` with the org's connected+healthy execution targets (`getOrgMcpExecutionTargets`, active-only) and maps the survivors (2P-2) to namespaced tool defs + a routing map. Persistence is a separate best-effort write tolerant of the column being absent (Postgres 42703 ignored), and the form/pages read the column tolerantly, so the code deploys safely before the migration is applied.
+
+**Reasoning:**
+
+A separate column keeps the two governance axes legible and independently evolvable. Per-server matches how authors think about granting access; finer safety (which tool calls auto-run) is the read/write classifier's job (2P-4), not the grant. Intersecting at runtime means disconnecting or erroring a server instantly revokes it from every agent with no stored grants to go stale, and an unauthorized or never-connected id contributes nothing — the two-layer guarantee. Building the resolver off the hot path keeps 2P-6 a clean wiring step.
+
+**Consequences:**
+
+- Agents can be scoped to specific connected servers; the create, edit, and template-create flows persist the selection; the duplicate-agent path starts a copy with no MCP servers (safe default; the author adds them on edit) — a noted minor follow-up.
+- The gated loop (2P-6) calls `resolveAgentMcpTools(agent.enabled_mcp_servers)` to build the loop's tool set.
+- Per-tool granularity is a documented future refinement.
+- Additive migration 0053 (`enabled_mcp_servers` jsonb not null default `'[]'`); existing agents default to none enabled. RLS unaffected (rides the agents row).

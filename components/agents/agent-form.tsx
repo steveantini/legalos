@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { AgentAttachmentsSection } from "@/components/agents/agent-attachments-section";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -52,6 +52,19 @@ interface AgentFormDefaults {
    * loads the agent's current tools_enabled column.
    */
   toolsEnabled: string[];
+  /**
+   * The MCP server ids this agent may use to start (2P-5), from its
+   * enabled_mcp_servers column (edit) or the fork source (create); [] for a
+   * fresh agent. Reconciled against the currently-connected servers on save.
+   */
+  enabledMcpServers: string[];
+}
+
+/** A connected MCP server the author can enable for this agent (2P-5). */
+interface ConnectedMcpServer {
+  serverId: string;
+  displayName: string;
+  toolCount: number | null;
 }
 
 type AgentFormAction = (
@@ -108,6 +121,12 @@ interface AgentFormProps {
    * fields by stripping the readOnly attribute in devtools.
    */
   sourceOrigin?: string | null;
+  /**
+   * The org's currently-connected MCP servers the author can enable for this
+   * agent (2P-5). Only active/connected servers (the page filters out
+   * needs-reconnect). Empty ⇒ the form shows an honest "none connected" state.
+   */
+  connectedMcpServers: ConnectedMcpServer[];
 }
 
 const initialState: AgentFormResult = { ok: true };
@@ -121,8 +140,23 @@ export function AgentForm({
   existingAttachments,
   action,
   sourceOrigin,
+  connectedMcpServers,
 }: AgentFormProps) {
   const [state, formAction, pending] = useActionState(action, initialState);
+
+  // Which connected MCP servers this agent may use (2P-5). Controlled so the
+  // selection survives a failed submit; serialized into a hidden field the action
+  // parses and re-validates against what's connected.
+  const [enabledMcpServers, setEnabledMcpServers] = useState<string[]>(
+    defaults.enabledMcpServers,
+  );
+  function toggleMcpServer(serverId: string, on: boolean) {
+    setEnabledMcpServers((prev) =>
+      on
+        ? Array.from(new Set([...prev, serverId]))
+        : prev.filter((id) => id !== serverId),
+    );
+  }
 
   const fieldError = (
     field: keyof NonNullable<
@@ -309,6 +343,61 @@ export function AgentForm({
             defaultChecked={defaults.toolsEnabled.includes("web_search")}
           />
         )}
+      </div>
+
+      {/* MCP servers (2P-5): which connected servers this agent may use. The
+          agent only gets a server's tools when it's enabled here AND connected
+          for the workspace; the action re-validates the selection on save. */}
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label className="text-sm font-medium">MCP servers</Label>
+          <p className="text-sm text-muted-foreground">
+            Choose which connected servers this agent may use for tools and live
+            data. A server must be connected for your workspace and enabled here.
+          </p>
+        </div>
+        {connectedMcpServers.length === 0 ? (
+          <p className="rounded-md border border-hairline bg-paper-2 px-3 py-2.5 text-sm text-muted-foreground">
+            No MCP servers are connected. A workspace admin can connect servers in
+            Policy and access.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {connectedMcpServers.map((server) => (
+              <div
+                key={server.serverId}
+                className="flex items-start justify-between gap-3 rounded-md border border-hairline bg-paper-2 px-3 py-2.5"
+              >
+                <div className="space-y-0.5">
+                  <Label
+                    htmlFor={`mcp-${server.serverId}`}
+                    className="text-sm font-medium"
+                  >
+                    {server.displayName}
+                  </Label>
+                  {server.toolCount !== null ? (
+                    <p className="text-xs text-muted-foreground">
+                      {server.toolCount}{" "}
+                      {server.toolCount === 1 ? "tool" : "tools"}
+                    </p>
+                  ) : null}
+                </div>
+                <Switch
+                  id={`mcp-${server.serverId}`}
+                  checked={enabledMcpServers.includes(server.serverId)}
+                  onCheckedChange={(checked) =>
+                    toggleMcpServer(server.serverId, checked)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <input
+          type="hidden"
+          name="enabled_mcp_servers"
+          value={JSON.stringify(enabledMcpServers)}
+        />
       </div>
 
       <div className="space-y-2">
