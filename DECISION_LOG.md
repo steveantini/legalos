@@ -2861,6 +2861,8 @@ The value of tests peaks exactly when the risky change (the loop) lands; that is
 - A vitest setup + backfilled assertions (2P-2 mapping, 2P-3 shaping, trust derivation, and the 2P-6 loop's guards) land around 2P-6.
 - Tracked as a near-term tech-foundation item in `docs/ROADMAP.md`.
 
+**Follow-through (2P-6a, shipped):** vitest added (node env; `@/*` + `server-only` aliases mirror the app; tests excluded from the Next bundle by not being in the route import graph), with 30 unit tests across the 2P-2 mapping/namespacing/normalization, the 2P-3 result/error shaping, the 2P-4 classifier, and `deriveMcpTrustTier`. The only runtime edit was a behavior-neutral extraction in `execute-tool.ts`: the inline success/error shaping became exported pure functions `shapeToolResult` / `shapeToolError` (with `errorExecution` replaced by an `errorTrace` helper), composed identically by `executeMcpTool` — confirmed behavior-identical for every real input (`getUsableAccessToken` only throws `TokenUnavailableError`, `callMcpServerTool` only throws `McpClientError`, so `shapeToolError`'s type dispatch reproduces the prior per-catch mapping exactly).
+
 ## D-102 — MCP token refresh — request offline access, surface error'd connections, and separate manual-refresh from runtime error-marking
 
 Date: 2026-06-03

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Added a test runner (vitest) and unit tests covering the MCP building blocks the agent loop will depend on: tool mapping, server-prefix namespacing, input-schema normalization, result and error shaping, read/write classification, and trust-tier derivation. This lands the upcoming agent loop on a tested foundation. Dev tooling and tests only, with no change to how anything behaves.**
+
 ### Fixed
 
 - **MCP connections now obtain a refresh token at connect, so their access can be renewed automatically instead of lapsing after about an hour. A connection whose access has lapsed is now shown clearly as needing reconnect, with a reconnect action, instead of silently disappearing. And a manual tool refresh now reports an accurate reason (needs reconnect versus could not reach the server) without marking the connection unhealthy. Existing Google Workspace connections must be reconnected once to gain a refresh token.**

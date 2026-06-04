@@ -30,7 +30,7 @@ import type { AnthropicToolResultBlock } from "@/lib/llm/anthropic/chat";
 /** Per-tool-result size cap. A result is re-sent to the model on every subsequent
  * loop round (history grows), so an unbounded result would blow context and cost.
  * ~25k chars is roughly 6-8k tokens — ample for a tool result, bounded for the loop. */
-const MAX_TOOL_RESULT_CHARS = 25_000;
+export const MAX_TOOL_RESULT_CHARS = 25_000;
 
 /**
  * A token/PII-free record of one tool execution, for 2P-6 to persist into the
@@ -133,14 +133,42 @@ function shapeSuccess(raw: unknown): { content: string; isToolError: boolean } {
   return { content: capResult(safeJsonStringify(raw)), isToolError };
 }
 
-/** Build an is_error tool_result + error trace, never leaking token/PII material. */
-function errorExecution(
-  route: McpToolRoute,
+/**
+ * Shape a successful MCP CallToolResult into an Anthropic tool_result block (2P-3).
+ * Pure and exported for unit testing. `isToolError` reflects the MCP result's own
+ * `isError` flag (a tool-level failure the model should be told about).
+ */
+export function shapeToolResult(
+  raw: unknown,
   toolUseId: string,
-  startedAt: string,
-  errorCode: string,
-  message: string,
-): McpToolExecution {
+): { toolResult: AnthropicToolResultBlock; isToolError: boolean } {
+  const shaped = shapeSuccess(raw);
+  return {
+    toolResult: {
+      type: "tool_result",
+      tool_use_id: toolUseId,
+      content: shaped.content,
+      ...(shaped.isToolError ? { is_error: true } : {}),
+    },
+    isToolError: shaped.isToolError,
+  };
+}
+
+/**
+ * Shape a thrown execution error into an is_error tool_result + safe error code
+ * (2P-3). Pure and exported for unit testing. Dispatches by error type: a
+ * TokenUnavailableError yields the reconnect-style message; anything else (in
+ * practice an McpClientError from the client) yields the reach-failure message.
+ * The message is token/PII-safe (mirrors the Phase 1 error discipline).
+ */
+export function shapeToolError(
+  error: unknown,
+  toolUseId: string,
+): { toolResult: AnthropicToolResultBlock; errorCode: string } {
+  const { code, message } =
+    error instanceof TokenUnavailableError
+      ? tokenFailure(error)
+      : clientFailure(error);
   return {
     toolResult: {
       type: "tool_result",
@@ -148,15 +176,24 @@ function errorExecution(
       content: message,
       is_error: true,
     },
-    trace: {
-      serverId: route.serverId,
-      connectionId: route.connectionId,
-      originalToolName: route.originalToolName,
-      status: "error",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      errorCode,
-    },
+    errorCode: code,
+  };
+}
+
+/** The token/PII-free error trace for a failed execution. */
+function errorTrace(
+  route: McpToolRoute,
+  startedAt: string,
+  errorCode: string,
+): McpToolTrace {
+  return {
+    serverId: route.serverId,
+    connectionId: route.connectionId,
+    originalToolName: route.originalToolName,
+    status: "error",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    errorCode,
   };
 }
 
@@ -202,13 +239,15 @@ export async function executeMcpTool(params: {
 
   // A connection with no stored server URL can't be called; fail closed cleanly.
   if (!route.serverUrl) {
-    return errorExecution(
-      route,
-      toolUseId,
-      startedAt,
-      "no_server_url",
-      "The tool call failed: the server address is not configured.",
-    );
+    return {
+      toolResult: {
+        type: "tool_result",
+        tool_use_id: toolUseId,
+        content: "The tool call failed: the server address is not configured.",
+        is_error: true,
+      },
+      trace: errorTrace(route, startedAt, "no_server_url"),
+    };
   }
 
   // 1. Fresh access token (MCP refresh handled transparently; custody ours).
@@ -216,8 +255,10 @@ export async function executeMcpTool(params: {
   try {
     accessToken = await getUsableAccessToken(route.connectionId, route.tokenRef);
   } catch (err) {
-    const { code, message } = tokenFailure(err);
-    return errorExecution(route, toolUseId, startedAt, code, message);
+    // getUsableAccessToken only throws TokenUnavailableError, which shapeToolError
+    // maps to the reconnect-style message + safe code.
+    const { toolResult, errorCode } = shapeToolError(err, toolUseId);
+    return { toolResult, trace: errorTrace(route, startedAt, errorCode) };
   }
 
   // 2. Call the server (Phase 1 client: 15s timeout, always-dispose, token-safe).
@@ -230,27 +271,24 @@ export async function executeMcpTool(params: {
       arguments: asArguments(toolInput),
     });
   } catch (err) {
-    const { code, message } = clientFailure(err);
-    return errorExecution(route, toolUseId, startedAt, code, message);
+    // callMcpServerTool only throws McpClientError, which shapeToolError maps to
+    // the reach-failure message + safe code.
+    const { toolResult, errorCode } = shapeToolError(err, toolUseId);
+    return { toolResult, trace: errorTrace(route, startedAt, errorCode) };
   }
 
   // 3. Shape the result (may itself report a tool-level error via MCP isError).
-  const shaped = shapeSuccess(raw);
+  const { toolResult, isToolError } = shapeToolResult(raw, toolUseId);
   return {
-    toolResult: {
-      type: "tool_result",
-      tool_use_id: toolUseId,
-      content: shaped.content,
-      ...(shaped.isToolError ? { is_error: true } : {}),
-    },
+    toolResult,
     trace: {
       serverId: route.serverId,
       connectionId: route.connectionId,
       originalToolName: route.originalToolName,
-      status: shaped.isToolError ? "error" : "ok",
+      status: isToolError ? "error" : "ok",
       startedAt,
       finishedAt: new Date().toISOString(),
-      ...(shaped.isToolError ? { errorCode: "tool_error" } : {}),
+      ...(isToolError ? { errorCode: "tool_error" } : {}),
     },
   };
 }
