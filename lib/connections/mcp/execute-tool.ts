@@ -47,6 +47,13 @@ export type McpToolTrace = {
   finishedAt: string;
   /** A safe code on failure (e.g. 'timeout', 'unauthorized', 'refresh_failed', 'tool_error'). */
   errorCode?: string;
+  /**
+   * The token/PII-safe human-readable reason on failure (the same shaped message
+   * fed to the model), so a server-side failure is diagnosable from the trace, not
+   * just the code. For a 'tool_error' this is the error text the server returned in
+   * its tool_result (e.g. a Google permission/scope message). Bounded in length.
+   */
+  errorMessage?: string;
 };
 
 /** The outcome of executing one tool: the tool_result to feed back + a trace record. */
@@ -180,11 +187,24 @@ export function shapeToolError(
   };
 }
 
-/** The token/PII-free error trace for a failed execution. */
+/** Trace error messages are bounded so a verbose tool error can't bloat the
+ * tool_calls jsonb; operational permission/scope errors are short anyway. */
+const TRACE_ERROR_MESSAGE_MAX = 500;
+
+function boundTraceMessage(message: string): string {
+  return message.length > TRACE_ERROR_MESSAGE_MAX
+    ? `${message.slice(0, TRACE_ERROR_MESSAGE_MAX)} (truncated)`
+    : message;
+}
+
+/** The token/PII-free error trace for a failed execution. The optional message is
+ * the already-shaped, token-safe reason (bounded); recording it makes a server-side
+ * failure diagnosable from the trace alone. */
 function errorTrace(
   route: McpToolRoute,
   startedAt: string,
   errorCode: string,
+  errorMessage?: string,
 ): McpToolTrace {
   return {
     serverId: route.serverId,
@@ -194,6 +214,7 @@ function errorTrace(
     startedAt,
     finishedAt: new Date().toISOString(),
     errorCode,
+    ...(errorMessage ? { errorMessage: boundTraceMessage(errorMessage) } : {}),
   };
 }
 
@@ -239,14 +260,15 @@ export async function executeMcpTool(params: {
 
   // A connection with no stored server URL can't be called; fail closed cleanly.
   if (!route.serverUrl) {
+    const message = "The tool call failed: the server address is not configured.";
     return {
       toolResult: {
         type: "tool_result",
         tool_use_id: toolUseId,
-        content: "The tool call failed: the server address is not configured.",
+        content: message,
         is_error: true,
       },
-      trace: errorTrace(route, startedAt, "no_server_url"),
+      trace: errorTrace(route, startedAt, "no_server_url", message),
     };
   }
 
@@ -258,7 +280,10 @@ export async function executeMcpTool(params: {
     // getUsableAccessToken only throws TokenUnavailableError, which shapeToolError
     // maps to the reconnect-style message + safe code.
     const { toolResult, errorCode } = shapeToolError(err, toolUseId);
-    return { toolResult, trace: errorTrace(route, startedAt, errorCode) };
+    return {
+      toolResult,
+      trace: errorTrace(route, startedAt, errorCode, toolResult.content),
+    };
   }
 
   // 2. Call the server (Phase 1 client: 15s timeout, always-dispose, token-safe).
@@ -274,7 +299,10 @@ export async function executeMcpTool(params: {
     // callMcpServerTool only throws McpClientError, which shapeToolError maps to
     // the reach-failure message + safe code.
     const { toolResult, errorCode } = shapeToolError(err, toolUseId);
-    return { toolResult, trace: errorTrace(route, startedAt, errorCode) };
+    return {
+      toolResult,
+      trace: errorTrace(route, startedAt, errorCode, toolResult.content),
+    };
   }
 
   // 3. Shape the result (may itself report a tool-level error via MCP isError).
@@ -288,7 +316,14 @@ export async function executeMcpTool(params: {
       status: isToolError ? "error" : "ok",
       startedAt,
       finishedAt: new Date().toISOString(),
-      ...(isToolError ? { errorCode: "tool_error" } : {}),
+      // On a server-reported tool error (isError:true), record both the code and
+      // the safe message the server returned (e.g. a Google permission/scope error).
+      ...(isToolError
+        ? {
+            errorCode: "tool_error",
+            errorMessage: boundTraceMessage(toolResult.content),
+          }
+        : {}),
     },
   };
 }

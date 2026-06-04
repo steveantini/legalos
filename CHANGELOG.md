@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **MCP tool-call traces now record the safe, human-readable reason a tool failed, not just an error code, so a server-side failure (such as a Google permission or scope error returned on an otherwise successful connection) is diagnosable directly from the record. The argument-summary field was also renamed for clarity, so it clearly reads as the argument names rather than looking like a malformed payload. Observability and clarity only; nothing about what's sent to the server changed.**
+
 ### Added
 
 - **Agents can now use connected MCP tools during a conversation: when an admin permits the MCP category and connects a server, an agent can call that server's read tools (for example, search and read Drive files) and weave the results into its answer, within an eight-round safety limit. Write actions (creating or sending) are held pending a confirmation step coming next, so nothing is changed without confirmation. The feature is behind a flag and off by default; every conversation is unchanged until it's turned on.**

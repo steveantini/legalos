@@ -97,15 +97,16 @@ const MCP_WRITE_BLOCKED_MESSAGE =
 
 /**
  * A token/PII-free summary of an MCP tool call's arguments for the trace record:
- * the sorted argument KEY names only, never the values (which may carry PII). The
- * model still receives the full arguments for execution; only the persisted /
- * surfaced trace uses this summary.
+ * the sorted argument KEY NAMES only (under an `argKeys` field so the trace reads
+ * unambiguously as the key names, not an arguments envelope), never the values
+ * (which may carry PII). The model still receives the full arguments for execution;
+ * only the persisted / surfaced trace uses this summary.
  */
-function mcpArgsSummary(input: unknown): { args: string[] } {
+function mcpArgsSummary(input: unknown): { argKeys: string[] } {
   if (input && typeof input === "object" && !Array.isArray(input)) {
-    return { args: Object.keys(input as Record<string, unknown>).sort() };
+    return { argKeys: Object.keys(input as Record<string, unknown>).sort() };
   }
-  return { args: [] };
+  return { argKeys: [] };
 }
 
 // A per-message attachment riding the send payload. Disjoint by shape: an
@@ -1077,6 +1078,7 @@ export async function POST(request: Request) {
           toolCall.status = "error";
           toolCall.finished_at = finishedAt;
           toolCall.error = errorCode;
+          toolCall.error_message = message;
           controller.enqueue(
             encodeSseEvent({
               type: "tool_trace_error",
@@ -1158,7 +1160,14 @@ export async function POST(request: Request) {
           toolCall.status = ok ? "done" : "error";
           toolCall.finished_at = exec.trace.finishedAt;
           toolCall.output = { source_ids: [] };
-          if (!ok) toolCall.error = exec.trace.errorCode;
+          if (!ok) {
+            toolCall.error = exec.trace.errorCode;
+            // Record the safe, human-readable reason (e.g. a Google permission /
+            // scope error), not just the code, so the failure is diagnosable here.
+            if (exec.trace.errorMessage) {
+              toolCall.error_message = exec.trace.errorMessage;
+            }
+          }
           controller.enqueue(
             encodeSseEvent(
               ok

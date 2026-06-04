@@ -52,6 +52,13 @@ export type ChatToolCall = {
   finished_at?: string;
   error?: string;
   /**
+   * For an MCP tool call (Phase 2): the token/PII-safe human-readable reason on
+   * failure (the same shaped message fed to the model), so a server-side failure
+   * is diagnosable from the record, not just the `error` code. Absent on success
+   * and for web_search. Additive (rides the tool_calls jsonb).
+   */
+  error_message?: string;
+  /**
    * Character offset in the assistant body where this trace block slots in
    * during render. Captured server-side at tool_trace_start emit time.
    */
