@@ -275,15 +275,14 @@ export async function executeMcpTool(params: {
 
   // ---- TEMPORARY DIAGNOSTIC (Drive MCP permission debug): log the scopes Google
   //      actually GRANTED for this connection's token. Token-safe — only the scope
-  //      URL string, never the token. Reveals a consent/grant mismatch (e.g. the
-  //      token bound only drive.file, not drive.readonly) behind a PERMISSION_DENIED.
+  //      URL string, never the token. The runtime-logs table truncates to ~27
+  //      chars, so the decisive booleans (does the token carry drive.readonly vs
+  //      only drive.file?) are FRONT-LOADED; the full scope string trails.
   try {
-    const grantedScope = await readConnectionGrantedScope(route.tokenRef);
-    console.log("mcp tool exec diagnostic — granted scope", {
-      serverId: route.serverId,
-      tool: route.originalToolName,
-      grantedScope,
-    });
+    const s = (await readConnectionGrantedScope(route.tokenRef)) ?? "";
+    console.log(
+      `MCP_DIAG ro=${s.includes("drive.readonly")} file=${s.includes("drive.file")} n=${s.split(/\s+/).filter(Boolean).length} | ${route.serverId} | scope=${s}`,
+    );
   } catch {
     // diagnostic only; never affect execution
   }
@@ -332,11 +331,11 @@ export async function executeMcpTool(params: {
   //      ACCESS_TOKEN_SCOPE_INSUFFICIENT). The result BODY carries no token; it may
   //      echo args, so this is a temporary debug log only.
   if (isToolError) {
-    console.error("mcp tool error — full result", {
-      serverId: route.serverId,
-      tool: route.originalToolName,
-      raw: safeJsonStringify(raw),
-    });
+    const hasStructured =
+      isRecord(raw) && isRecord((raw as Record<string, unknown>).structuredContent);
+    console.error(
+      `MCP_DIAG_ERR struct=${hasStructured} | ${route.serverId} | ${safeJsonStringify(raw)}`,
+    );
   }
 
   return {
