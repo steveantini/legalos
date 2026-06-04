@@ -7,7 +7,7 @@ import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
 import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { resolveAttachmentText } from "@/lib/connections/attachment-content";
 import type { ModelCredential } from "@/lib/connections/providers/types";
-import { executeMcpTool, mcpArgShape } from "@/lib/connections/mcp/execute-tool";
+import { executeMcpTool } from "@/lib/connections/mcp/execute-tool";
 import {
   classifyMcpTool,
   type McpToolAccess,
@@ -781,18 +781,9 @@ export async function POST(request: Request) {
     // The loop engages IFF (flag on) AND (non-empty MCP tools). Every other request
     // is unchanged from before 2P-6b.
     const mcpToolsFlag = process.env.MCP_AGENT_TOOLS_ENABLED === "true";
-    // TEMPORARY debug allowance (Drive empty-result investigation): when set, the
-    // loop EXECUTES write tools instead of holding them, so the create-then-search
-    // test (create_file → search_files) can run to test the drive.file scope-
-    // semantics hypothesis. DEFAULT OFF — writes stay held (v1 policy) unless this
-    // is exactly "true". Remove once the investigation concludes.
-    const mcpDebugAllowWrites = process.env.MCP_DEBUG_ALLOW_WRITES === "true";
     let mcpToolDefs: AnthropicCustomTool[] = [];
     let mcpRoutingMap: Record<string, McpToolRoute> = {};
     const mcpAccessByName = new Map<string, McpToolAccess>();
-    // TEMPORARY (Drive debug): the input schema each tool declares, so we can see
-    // the params (e.g. whether search_files has a corpora/q param) from tool_calls.
-    const mcpSchemaByName = new Map<string, string>();
     if (mcpToolsFlag) {
       const resolved = await resolveOrgMcpTools();
       mcpToolDefs = resolved.toolDefs;
@@ -810,16 +801,6 @@ export async function POST(request: Request) {
           namespaced,
           descriptor ? classifyMcpTool(descriptor) : "write",
         );
-        if (descriptor) {
-          try {
-            mcpSchemaByName.set(
-              namespaced,
-              JSON.stringify(descriptor.inputSchema).slice(0, 2000),
-            );
-          } catch {
-            // non-serializable schema; skip (diagnostic only)
-          }
-        }
       }
     }
     const mcpLoopEngaged = mcpToolsFlag && mcpToolDefs.length > 0;
@@ -1140,13 +1121,6 @@ export async function POST(request: Request) {
             position,
             access,
             server: route?.serverId,
-            // TEMPORARY (Drive empty-result debug): PII-safe arg shape (key names /
-            // types / lengths / Drive-operator flag), persisted so the query syntax
-            // is readable from tool_calls without logs.
-            arg_shape: mcpArgShape(block.input),
-            // TEMPORARY (Drive debug): the tool's declared input schema (params),
-            // to check the corpora/q hypothesis from the persisted record.
-            tool_schema: mcpSchemaByName.get(block.name),
           };
           toolCalls.push(toolCall);
           controller.enqueue(
@@ -1168,10 +1142,8 @@ export async function POST(request: Request) {
               "The tool call failed: the requested tool is not available.",
             );
           }
-          // WRITE policy (v1): hold — never silently send/create/delete. The
-          // temporary MCP_DEBUG_ALLOW_WRITES flag (default off) lets a write through
-          // for the create-then-search diagnostic test only.
-          if (access === "write" && !mcpDebugAllowWrites) {
+          // WRITE policy (v1): hold — never silently send/create/delete.
+          if (access === "write") {
             return holdMcpToolCall(
               toolCall,
               "write_blocked",
@@ -1188,23 +1160,12 @@ export async function POST(request: Request) {
           toolCall.status = ok ? "done" : "error";
           toolCall.finished_at = exec.trace.finishedAt;
           toolCall.output = { source_ids: [] };
-          // TEMPORARY (Drive empty-result debug): PII-safe result shape (counts /
-          // lengths / keys), persisted so populated-vs-empty is readable from
-          // tool_calls without logs.
-          if (exec.trace.resultShape) {
-            toolCall.result_shape = exec.trace.resultShape;
-          }
           if (!ok) {
             toolCall.error = exec.trace.errorCode;
             // Record the safe, human-readable reason (e.g. a Google permission /
             // scope error), not just the code, so the failure is diagnosable here.
             if (exec.trace.errorMessage) {
               toolCall.error_message = exec.trace.errorMessage;
-            }
-            // TEMPORARY: the full raw error result (Google's complete reason), so
-            // the structured detail behind the one-liner is readable from the row.
-            if (exec.trace.errorDetail) {
-              toolCall.error_detail = exec.trace.errorDetail;
             }
           }
           controller.enqueue(

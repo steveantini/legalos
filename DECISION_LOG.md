@@ -2959,3 +2959,22 @@ The flag plus the has-tools gate isolate the hot path so the live conversation f
 - Write tools are held with a needs-confirmation result; interactive write-confirmation + richer MCP tool-trace UI are 2P-7.
 - Phase 2 is functionally complete behind the flag. Operator: apply migration 0056 and set `MCP_AGENT_TOOLS_ENABLED=true` to test live.
 - The loop is the foundation for richer agent tool use.
+
+## D-106 — Google Drive MCP data access blocked by Developer-Preview authorization gate (external dependency)
+
+Date: 2026-06-04
+Status: Accepted
+
+**Context:**
+
+The full Phase 2 agentic MCP loop (D-105) is built, tested (30 unit tests), gated (flag + has-tools), and proven end-to-end against live Google MCP servers: the loop runs multi-turn, tools resolve under org governance, tokens refresh, calls execute over the live transport (HTTP 200 from drivemcp.googleapis.com), and traces persist. The remaining failure is narrow: Google's Drive read tools (search_files, list_recent_files) return a tool-level error `isError:true` with the bare message "The caller does not have permission". A focused investigation (token-safe diagnostics persisted to the tool_calls jsonb, since the Vercel log reader was unreliable) verified that everything on our side is correct: the arguments are well-formed and unwrapped (the model sends the tool's declared `query`/`pageSize` params, per the discovered schema which exposes no `corpora` param); the stored token carries the requested scopes (`drive.readonly` AND `drive.file`, verified `ro=true file=true`); the dedicated MCP OAuth client is trusted in Google Workspace Admin API controls; the authorizing account is the steve@antinilaw.com Workspace account; and the base Drive API is enabled. Google's CallToolResult returns ONLY the bare one-liner — no structuredContent, no `reason`/`status`/`metadata`/help URL (confirmed by persisting the full raw result).
+
+**Decision:**
+
+Conclude that the block is a Google-side Workspace **Developer-Preview authorization gate** on Drive MCP data access, NOT a defect in legalOS (not the request, arguments, scopes, OAuth client, account, or the loop, all verified correct). Stop engineering on it; pursue resolution via Google's Developer Preview documentation/support separately. Remove the temporary investigation diagnostics (the MCP_DIAG console logs, the granted-scope reader, the debug-only arg/result/error/schema fields on the tool-call trace, the MCP_DEBUG_ALLOW_WRITES write-allowance flag — writes are blocked again per the v1 needs-confirmation policy), and KEEP the one durable observability win: a failed MCP tool call records a safe, bounded human-readable reason (`error_message`) on the persisted trace, so future MCP failures are diagnosable from the record (even when, as here, the only safe text is the server's one-liner).
+
+**Consequences:**
+
+- Phase 2 is functionally complete and demonstrable for the agentic loop; **live Google Drive data access is pending a Google-preview-side resolution** (tracked in docs/ROADMAP.md). The feature flag (`MCP_AGENT_TOOLS_ENABLED`) gates the loop meanwhile.
+- The permanent tool-error reason surfacing (from commit c290d81) stays; all temporary diagnostics are removed; the request/argument/auth path, the loop, governance, gating, and the 30 tests are unchanged.
+- Calendar reconnect remains a separate small open item; 2P-7 (tool-trace UI + interactive write-confirmation) is still pending.

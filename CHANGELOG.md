@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Removed the temporary MCP diagnostics added while investigating a Google Drive access error, and kept the permanent improvement: a failed MCP tool call now records a safe, readable reason on its trace (not just an error code), so future tool failures are diagnosable from the record. (The Drive failure was traced to a Google-side Developer-Preview authorization gate, not a defect on our side.)**
+
 - **Added a test runner (vitest) and unit tests covering the MCP building blocks the agent loop will depend on: tool mapping, server-prefix namespacing, input-schema normalization, result and error shaping, read/write classification, and trust-tier derivation. This lands the upcoming agent loop on a tested foundation. Dev tooling and tests only, with no change to how anything behaves.**
 
 ### Fixed

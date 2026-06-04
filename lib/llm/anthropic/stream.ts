@@ -72,32 +72,6 @@ export type ChatToolCall = {
   access?: "read" | "write";
   /** For an MCP tool call: the server id the tool belongs to. Absent for web_search. */
   server?: string;
-  /**
-   * TEMPORARY (Drive empty-result debug): the PII-safe SHAPE of the tool arguments
-   * (key names, value types/lengths, Drive-operator flag — never literal values),
-   * persisted so the query syntax is diagnosable from the DB. Remove with the other
-   * MCP debug aids.
-   */
-  arg_shape?: string;
-  /**
-   * TEMPORARY (Drive empty-result debug): the PII-safe SHAPE of the server result
-   * (counts/lengths/key names — never file names/values), so a successful-but-empty
-   * result is visible from the persisted record. Remove with the other MCP debug aids.
-   */
-  result_shape?: string;
-  /**
-   * TEMPORARY (Drive PERMISSION_DENIED debug): on a tool error, the FULL raw
-   * CallToolResult (bounded ~2k) — Google's complete error reason/status/metadata,
-   * not just the one-liner. Operational, token-free. Remove with the debug aids.
-   */
-  error_detail?: string;
-  /**
-   * TEMPORARY (Drive PERMISSION_DENIED debug): the called tool's input schema
-   * (bounded ~2k) — the params the server declares (e.g. whether search_files has a
-   * `corpora`/`q` param we're not sending). Non-PII tool metadata. Remove with the
-   * debug aids.
-   */
-  tool_schema?: string;
 };
 
 export type ChatStreamEvent =

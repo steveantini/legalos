@@ -4,7 +4,6 @@ import { callMcpServerTool, McpClientError } from "@/lib/connections/mcp/client"
 import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
 import {
   getUsableAccessToken,
-  readConnectionGrantedScope,
   TokenUnavailableError,
 } from "@/lib/connections/tokens";
 import type { AnthropicToolResultBlock } from "@/lib/llm/anthropic/chat";
@@ -55,23 +54,6 @@ export type McpToolTrace = {
    * its tool_result (e.g. a Google permission/scope message). Bounded in length.
    */
   errorMessage?: string;
-  /**
-   * TEMPORARY (Drive empty-result debug): the PII-safe SHAPE of the server's
-   * result (counts/lengths/key names only, never file names or values), so a
-   * successful-but-empty result is distinguishable from a populated one directly
-   * from the persisted trace. Present only when the server returned a result.
-   * Remove with the other MCP debug aids once the cause is found.
-   */
-  resultShape?: string;
-  /**
-   * TEMPORARY (Drive PERMISSION_DENIED debug): the FULL raw CallToolResult on a
-   * tool-level error (bounded ~2k), to surface Google's complete error detail
-   * (status / reason / metadata / help URL) that the one-line message hides — or
-   * to confirm the server returned only the one-liner. A Google permission/scope
-   * error is operational, not a secret; never contains a token. Remove with the
-   * other MCP debug aids.
-   */
-  errorDetail?: string;
 };
 
 /** The outcome of executing one tool: the tool_result to feed back + a trace record. */
@@ -117,55 +99,6 @@ function extractText(content: unknown): string | null {
     }
   }
   return parts.length > 0 ? parts.join("\n") : null;
-}
-
-/**
- * TEMPORARY token/PII-SAFE shape summary of a CallToolResult, for diagnosing an
- * empty Drive search WITHOUT logging any file name or value. Reports COUNTS and
- * TYPES only: extracted-text LENGTH (never the text), content block count, the
- * isError flag, and structuredContent's key names + array LENGTHS (never the array
- * contents). A populated search shows a large `tl` / a non-empty array; an empty
- * result shows tl≈0 / arrays of length 0. Remove once the empty-result cause is found.
- */
-/**
- * TEMPORARY token/PII-SAFE shape of a tool call's ARGUMENTS for the query-syntax
- * diagnostic (hypothesis c) — NEVER the literal values (a search term may carry
- * PII). Reports per key: the key name, the value type, and for strings the LENGTH
- * plus whether the value LOOKS LIKE a Drive query-operator expression (so we can
- * tell a bare term from `name contains '…'` / `fullText contains '…'` / a corpora
- * param) without logging the term itself.
- */
-const DRIVE_QUERY_OPS =
-  /\b(contains|fullText|mimeType|trashed|sharedWithMe|parents|modifiedTime|corpora)\b|=/i;
-
-export function mcpArgShape(input: unknown): string {
-  if (!isRecord(input)) return `nonobject(${typeof input})`;
-  const parts = Object.keys(input)
-    .sort()
-    .map((k) => {
-      const v = input[k];
-      if (typeof v === "string") {
-        return `${k}:str[${v.length}]${DRIVE_QUERY_OPS.test(v) ? "+ops" : ""}`;
-      }
-      return `${k}:${Array.isArray(v) ? `arr[${v.length}]` : typeof v}`;
-    });
-  return parts.length > 0 ? parts.join(",") : "empty";
-}
-
-function mcpResultShape(raw: unknown): string {
-  if (!isRecord(raw)) return `nonobject(${typeof raw})`;
-  const blocks = Array.isArray(raw.content) ? raw.content.length : -1;
-  const text = extractText(raw.content);
-  const textLen = text ? text.length : 0;
-  const sc = raw.structuredContent;
-  let scShape = "none";
-  if (isRecord(sc)) {
-    const parts = Object.entries(sc).map(([k, v]) =>
-      Array.isArray(v) ? `${k}[${v.length}]` : `${k}:${typeof v}`,
-    );
-    scShape = parts.length > 0 ? parts.join(",") : "empty";
-  }
-  return `tl=${textLen} blocks=${blocks} err=${raw.isError === true} sc={${scShape}}`;
 }
 
 /** A token-free description of non-text result blocks (images, resources, etc.). */
@@ -264,14 +197,6 @@ function boundTraceMessage(message: string): string {
     : message;
 }
 
-/** TEMPORARY: bound the full-error detail to ~2k so it can't bloat the jsonb. */
-const TRACE_ERROR_DETAIL_MAX = 2000;
-function boundDetail(detail: string): string {
-  return detail.length > TRACE_ERROR_DETAIL_MAX
-    ? `${detail.slice(0, TRACE_ERROR_DETAIL_MAX)} (truncated)`
-    : detail;
-}
-
 /** The token/PII-free error trace for a failed execution. The optional message is
  * the already-shaped, token-safe reason (bounded); recording it makes a server-side
  * failure diagnosable from the trace alone. */
@@ -347,29 +272,6 @@ export async function executeMcpTool(params: {
     };
   }
 
-  // ---- TEMPORARY DIAGNOSTIC (Drive MCP permission debug): log the scopes Google
-  //      actually GRANTED for this connection's token. Token-safe — only the scope
-  //      URL string, never the token. The runtime-logs table truncates to ~27
-  //      chars, so the decisive booleans (does the token carry drive.readonly vs
-  //      only drive.file?) are FRONT-LOADED; the full scope string trails.
-  try {
-    const s = (await readConnectionGrantedScope(route.tokenRef)) ?? "";
-    console.log(
-      `MCP_DIAG ro=${s.includes("drive.readonly")} file=${s.includes("drive.file")} n=${s.split(/\s+/).filter(Boolean).length} | ${route.serverId} | scope=${s}`,
-    );
-  } catch {
-    // diagnostic only; never affect execution
-  }
-
-  // ---- TEMPORARY DIAGNOSTIC (Drive empty-result debug, hypothesis c): the
-  //      PII-SAFE SHAPE of the arguments the model sent — param names, value types/
-  //      lengths, and whether a string value looks like Drive query-operator syntax
-  //      — NEVER the literal query value (which may carry a PII search term). Shows
-  //      a bare term (e.g. `query:str[10]`) vs operator syntax (`query:str[25]+ops`).
-  console.log(
-    `MCP_DIAG_ARG ${mcpArgShape(toolInput)} | ${route.originalToolName}`,
-  );
-
   // 1. Fresh access token (MCP refresh handled transparently; custody ours).
   let accessToken: string;
   try {
@@ -405,30 +307,6 @@ export async function executeMcpTool(params: {
 
   // 3. Shape the result (may itself report a tool-level error via MCP isError).
   const { toolResult, isToolError } = shapeToolResult(raw, toolUseId);
-
-  // ---- TEMPORARY DIAGNOSTIC (Drive empty-result debug, hypothesis a/b): the
-  //      PII-safe SHAPE of the result (counts/lengths only, never file names), so a
-  //      successful-but-empty search (tl≈0 / empty arrays) is distinguishable from a
-  //      populated one the model ignored. Front-loaded so the truncated table shows tl.
-  console.log(
-    `MCP_DIAG_OK ${mcpResultShape(raw)} | ${route.serverId} | ${route.originalToolName}`,
-  );
-
-  // ---- TEMPORARY DIAGNOSTIC (Drive MCP permission debug): when the server reports
-  //      a tool-level error, log the FULL raw CallToolResult. shapeSuccess keeps
-  //      only the text block and drops structuredContent, so the one-line message
-  //      ("The caller does not have permission") may hide Google's fuller error
-  //      detail (reason / status / metadata, e.g. SERVICE_DISABLED or
-  //      ACCESS_TOKEN_SCOPE_INSUFFICIENT). The result BODY carries no token; it may
-  //      echo args, so this is a temporary debug log only.
-  if (isToolError) {
-    const hasStructured =
-      isRecord(raw) && isRecord((raw as Record<string, unknown>).structuredContent);
-    console.error(
-      `MCP_DIAG_ERR struct=${hasStructured} | ${route.serverId} | ${safeJsonStringify(raw)}`,
-    );
-  }
-
   return {
     toolResult,
     trace: {
@@ -438,18 +316,12 @@ export async function executeMcpTool(params: {
       status: isToolError ? "error" : "ok",
       startedAt,
       finishedAt: new Date().toISOString(),
-      // TEMPORARY: PII-safe shape of the server result, persisted for the empty-
-      // result investigation (populated vs empty), readable from tool_calls.
-      resultShape: mcpResultShape(raw),
       // On a server-reported tool error (isError:true), record both the code and
       // the safe message the server returned (e.g. a Google permission/scope error).
       ...(isToolError
         ? {
             errorCode: "tool_error",
             errorMessage: boundTraceMessage(toolResult.content),
-            // TEMPORARY: the COMPLETE raw result, to surface (or rule out) any
-            // structured Google error detail the one-liner hides.
-            errorDetail: boundDetail(safeJsonStringify(raw)),
           }
         : {}),
     },

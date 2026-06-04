@@ -175,33 +175,6 @@ export async function getUsableAccessToken(
   return refreshed.accessToken;
 }
 
-/**
- * TEMPORARY token-safe diagnostic (Drive MCP permission debug): the space-delimited
- * scope string Google actually GRANTED for a connection's stored token. Returns
- * ONLY the granted scope URLs (e.g. ".../auth/drive.readonly .../auth/drive.file"),
- * which are NOT secrets — never the access token, refresh token, or client secret.
- * Used to diagnose a consent/grant mismatch (the token binding a narrower scope set
- * than requested) behind a PERMISSION_DENIED. Returns null if unreadable. Remove
- * once the Drive permission issue is resolved.
- */
-export async function readConnectionGrantedScope(
-  tokenRef: string,
-): Promise<string | null> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("connection_secrets")
-    .select("ciphertext")
-    .eq("id", tokenRef)
-    .maybeSingle();
-  if (error || !data) return null;
-  try {
-    const bundle = decryptTokenBundle((data as { ciphertext: string }).ciphertext);
-    return bundle.scope;
-  } catch {
-    return null;
-  }
-}
-
 // Best-effort: mark a connection as needing reconnection so the Connections UI
 // can later reflect it. Never throws — a failure here must not mask the typed
 // TokenUnavailableError the caller is about to receive.
