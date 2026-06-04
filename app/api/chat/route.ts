@@ -7,7 +7,7 @@ import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
 import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { resolveAttachmentText } from "@/lib/connections/attachment-content";
 import type { ModelCredential } from "@/lib/connections/providers/types";
-import { executeMcpTool } from "@/lib/connections/mcp/execute-tool";
+import { executeMcpTool, mcpArgShape } from "@/lib/connections/mcp/execute-tool";
 import {
   classifyMcpTool,
   type McpToolAccess,
@@ -1127,6 +1127,10 @@ export async function POST(request: Request) {
             position,
             access,
             server: route?.serverId,
+            // TEMPORARY (Drive empty-result debug): PII-safe arg shape (key names /
+            // types / lengths / Drive-operator flag), persisted so the query syntax
+            // is readable from tool_calls without logs.
+            arg_shape: mcpArgShape(block.input),
           };
           toolCalls.push(toolCall);
           controller.enqueue(
@@ -1168,6 +1172,12 @@ export async function POST(request: Request) {
           toolCall.status = ok ? "done" : "error";
           toolCall.finished_at = exec.trace.finishedAt;
           toolCall.output = { source_ids: [] };
+          // TEMPORARY (Drive empty-result debug): PII-safe result shape (counts /
+          // lengths / keys), persisted so populated-vs-empty is readable from
+          // tool_calls without logs.
+          if (exec.trace.resultShape) {
+            toolCall.result_shape = exec.trace.resultShape;
+          }
           if (!ok) {
             toolCall.error = exec.trace.errorCode;
             // Record the safe, human-readable reason (e.g. a Google permission /

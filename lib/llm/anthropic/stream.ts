@@ -72,6 +72,19 @@ export type ChatToolCall = {
   access?: "read" | "write";
   /** For an MCP tool call: the server id the tool belongs to. Absent for web_search. */
   server?: string;
+  /**
+   * TEMPORARY (Drive empty-result debug): the PII-safe SHAPE of the tool arguments
+   * (key names, value types/lengths, Drive-operator flag — never literal values),
+   * persisted so the query syntax is diagnosable from the DB. Remove with the other
+   * MCP debug aids.
+   */
+  arg_shape?: string;
+  /**
+   * TEMPORARY (Drive empty-result debug): the PII-safe SHAPE of the server result
+   * (counts/lengths/key names — never file names/values), so a successful-but-empty
+   * result is visible from the persisted record. Remove with the other MCP debug aids.
+   */
+  result_shape?: string;
 };
 
 export type ChatStreamEvent =

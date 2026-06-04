@@ -55,6 +55,14 @@ export type McpToolTrace = {
    * its tool_result (e.g. a Google permission/scope message). Bounded in length.
    */
   errorMessage?: string;
+  /**
+   * TEMPORARY (Drive empty-result debug): the PII-safe SHAPE of the server's
+   * result (counts/lengths/key names only, never file names or values), so a
+   * successful-but-empty result is distinguishable from a populated one directly
+   * from the persisted trace. Present only when the server returned a result.
+   * Remove with the other MCP debug aids once the cause is found.
+   */
+  resultShape?: string;
 };
 
 /** The outcome of executing one tool: the tool_result to feed back + a trace record. */
@@ -121,7 +129,7 @@ function extractText(content: unknown): string | null {
 const DRIVE_QUERY_OPS =
   /\b(contains|fullText|mimeType|trashed|sharedWithMe|parents|modifiedTime|corpora)\b|=/i;
 
-function mcpArgShape(input: unknown): string {
+export function mcpArgShape(input: unknown): string {
   if (!isRecord(input)) return `nonobject(${typeof input})`;
   const parts = Object.keys(input)
     .sort()
@@ -413,6 +421,9 @@ export async function executeMcpTool(params: {
       status: isToolError ? "error" : "ok",
       startedAt,
       finishedAt: new Date().toISOString(),
+      // TEMPORARY: PII-safe shape of the server result, persisted for the empty-
+      // result investigation (populated vs empty), readable from tool_calls.
+      resultShape: mcpResultShape(raw),
       // On a server-reported tool error (isError:true), record both the code and
       // the safe message the server returned (e.g. a Google permission/scope error).
       ...(isToolError
