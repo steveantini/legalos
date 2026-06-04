@@ -781,6 +781,12 @@ export async function POST(request: Request) {
     // The loop engages IFF (flag on) AND (non-empty MCP tools). Every other request
     // is unchanged from before 2P-6b.
     const mcpToolsFlag = process.env.MCP_AGENT_TOOLS_ENABLED === "true";
+    // TEMPORARY debug allowance (Drive empty-result investigation): when set, the
+    // loop EXECUTES write tools instead of holding them, so the create-then-search
+    // test (create_file → search_files) can run to test the drive.file scope-
+    // semantics hypothesis. DEFAULT OFF — writes stay held (v1 policy) unless this
+    // is exactly "true". Remove once the investigation concludes.
+    const mcpDebugAllowWrites = process.env.MCP_DEBUG_ALLOW_WRITES === "true";
     let mcpToolDefs: AnthropicCustomTool[] = [];
     let mcpRoutingMap: Record<string, McpToolRoute> = {};
     const mcpAccessByName = new Map<string, McpToolAccess>();
@@ -1142,8 +1148,10 @@ export async function POST(request: Request) {
               "The tool call failed: the requested tool is not available.",
             );
           }
-          // WRITE policy (v1): hold — never silently send/create/delete.
-          if (access === "write") {
+          // WRITE policy (v1): hold — never silently send/create/delete. The
+          // temporary MCP_DEBUG_ALLOW_WRITES flag (default off) lets a write through
+          // for the create-then-search diagnostic test only.
+          if (access === "write" && !mcpDebugAllowWrites) {
             return holdMcpToolCall(
               toolCall,
               "write_blocked",

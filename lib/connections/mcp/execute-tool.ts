@@ -102,6 +102,30 @@ function extractText(content: unknown): string | null {
   return parts.length > 0 ? parts.join("\n") : null;
 }
 
+/**
+ * TEMPORARY token/PII-SAFE shape summary of a CallToolResult, for diagnosing an
+ * empty Drive search WITHOUT logging any file name or value. Reports COUNTS and
+ * TYPES only: extracted-text LENGTH (never the text), content block count, the
+ * isError flag, and structuredContent's key names + array LENGTHS (never the array
+ * contents). A populated search shows a large `tl` / a non-empty array; an empty
+ * result shows tl≈0 / arrays of length 0. Remove once the empty-result cause is found.
+ */
+function mcpResultShape(raw: unknown): string {
+  if (!isRecord(raw)) return `nonobject(${typeof raw})`;
+  const blocks = Array.isArray(raw.content) ? raw.content.length : -1;
+  const text = extractText(raw.content);
+  const textLen = text ? text.length : 0;
+  const sc = raw.structuredContent;
+  let scShape = "none";
+  if (isRecord(sc)) {
+    const parts = Object.entries(sc).map(([k, v]) =>
+      Array.isArray(v) ? `${k}[${v.length}]` : `${k}:${typeof v}`,
+    );
+    scShape = parts.length > 0 ? parts.join(",") : "empty";
+  }
+  return `tl=${textLen} blocks=${blocks} err=${raw.isError === true} sc={${scShape}}`;
+}
+
 /** A token-free description of non-text result blocks (images, resources, etc.). */
 function describeNonText(content: unknown[]): string {
   const types = content.map((block) =>
@@ -287,6 +311,15 @@ export async function executeMcpTool(params: {
     // diagnostic only; never affect execution
   }
 
+  // ---- TEMPORARY DIAGNOSTIC (Drive empty-result debug, hypothesis c): log the
+  //      ARGUMENTS the model sent for this tool, to see the query param NAME +
+  //      syntax vs what Google's Drive search_files expects (e.g. a bare term vs a
+  //      Drive query operator / a corpora param). The query is the user's own
+  //      search term — debug-only, temporary.
+  console.log(
+    `MCP_DIAG_ARG ${safeJsonStringify(toolInput)} | ${route.originalToolName}`,
+  );
+
   // 1. Fresh access token (MCP refresh handled transparently; custody ours).
   let accessToken: string;
   try {
@@ -322,6 +355,14 @@ export async function executeMcpTool(params: {
 
   // 3. Shape the result (may itself report a tool-level error via MCP isError).
   const { toolResult, isToolError } = shapeToolResult(raw, toolUseId);
+
+  // ---- TEMPORARY DIAGNOSTIC (Drive empty-result debug, hypothesis a/b): the
+  //      PII-safe SHAPE of the result (counts/lengths only, never file names), so a
+  //      successful-but-empty search (tl≈0 / empty arrays) is distinguishable from a
+  //      populated one the model ignored. Front-loaded so the truncated table shows tl.
+  console.log(
+    `MCP_DIAG_OK ${mcpResultShape(raw)} | ${route.serverId} | ${route.originalToolName}`,
+  );
 
   // ---- TEMPORARY DIAGNOSTIC (Drive MCP permission debug): when the server reports
   //      a tool-level error, log the FULL raw CallToolResult. shapeSuccess keeps
