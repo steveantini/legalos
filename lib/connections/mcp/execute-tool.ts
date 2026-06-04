@@ -4,6 +4,7 @@ import { callMcpServerTool, McpClientError } from "@/lib/connections/mcp/client"
 import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
 import {
   getUsableAccessToken,
+  readConnectionGrantedScope,
   TokenUnavailableError,
 } from "@/lib/connections/tokens";
 import type { AnthropicToolResultBlock } from "@/lib/llm/anthropic/chat";
@@ -272,6 +273,21 @@ export async function executeMcpTool(params: {
     };
   }
 
+  // ---- TEMPORARY DIAGNOSTIC (Drive MCP permission debug): log the scopes Google
+  //      actually GRANTED for this connection's token. Token-safe — only the scope
+  //      URL string, never the token. Reveals a consent/grant mismatch (e.g. the
+  //      token bound only drive.file, not drive.readonly) behind a PERMISSION_DENIED.
+  try {
+    const grantedScope = await readConnectionGrantedScope(route.tokenRef);
+    console.log("mcp tool exec diagnostic — granted scope", {
+      serverId: route.serverId,
+      tool: route.originalToolName,
+      grantedScope,
+    });
+  } catch {
+    // diagnostic only; never affect execution
+  }
+
   // 1. Fresh access token (MCP refresh handled transparently; custody ours).
   let accessToken: string;
   try {
@@ -307,6 +323,22 @@ export async function executeMcpTool(params: {
 
   // 3. Shape the result (may itself report a tool-level error via MCP isError).
   const { toolResult, isToolError } = shapeToolResult(raw, toolUseId);
+
+  // ---- TEMPORARY DIAGNOSTIC (Drive MCP permission debug): when the server reports
+  //      a tool-level error, log the FULL raw CallToolResult. shapeSuccess keeps
+  //      only the text block and drops structuredContent, so the one-line message
+  //      ("The caller does not have permission") may hide Google's fuller error
+  //      detail (reason / status / metadata, e.g. SERVICE_DISABLED or
+  //      ACCESS_TOKEN_SCOPE_INSUFFICIENT). The result BODY carries no token; it may
+  //      echo args, so this is a temporary debug log only.
+  if (isToolError) {
+    console.error("mcp tool error — full result", {
+      serverId: route.serverId,
+      tool: route.originalToolName,
+      raw: safeJsonStringify(raw),
+    });
+  }
+
   return {
     toolResult,
     trace: {
