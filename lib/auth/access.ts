@@ -5,6 +5,11 @@ import {
   groupAgentsBySource,
   type ExternalAgentGroup,
 } from "@/lib/agents/source";
+import {
+  getVendorContentSettings,
+  vendorContentEnabledFromSettings,
+} from "@/lib/content/content-settings";
+import { VENDOR_PROVIDER_ORDER } from "@/lib/content/vendor-registry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -871,9 +876,14 @@ export async function getAgentsForDepartmentLaunchpad(
   userId: string,
 ): Promise<{
   departmentAgents: LaunchpadAgent[];
-  /** External (vendor) agents split into one group per source/vendor (Step 4).
-   *  One group with the sole vendor today (Claude for Legal). */
+  /** External (vendor) agents split into one group per source/vendor (Step 4),
+   *  filtered to providers the org permits (Step 5). One group with the sole
+   *  vendor today (Claude for Legal) when permitted. */
   externalGroups: ExternalAgentGroup<LaunchpadAgent>[];
+  /** Whether the org permits vendor content at all (any registered provider
+   *  enabled). Drives whether the empty-state "curated content coming" section
+   *  shows: when false, the vendor surface is OFF org-wide and nothing renders. */
+  vendorContentEnabled: boolean;
   myAgents: LaunchpadAgent[];
 }> {
   const supabase = await createSupabaseServerClient();
@@ -938,11 +948,25 @@ export async function getAgentsForDepartmentLaunchpad(
     updated_at: row.updated_at,
   });
 
+  // Split the (already sort_order-sorted) external agents into one group per
+  // source/vendor (registry-driven, deterministic), then GATE on the org's
+  // per-provider enablement (Step 5): a provider a super admin disabled has its
+  // section hidden org-wide. Default-permit — a provider with no setting is on.
+  const vendorSettings = await getVendorContentSettings();
+  const allGroups = groupAgentsBySource(externalAgents.map(toLaunchpadAgent));
+  const externalGroups = allGroups.filter((group) =>
+    vendorContentEnabledFromSettings(vendorSettings, group.sourceId),
+  );
+  // The vendor surface is "on" when at least one registered provider is enabled;
+  // controls whether the empty-state section shows when a department has none.
+  const vendorContentEnabled = VENDOR_PROVIDER_ORDER.some((providerId) =>
+    vendorContentEnabledFromSettings(vendorSettings, providerId),
+  );
+
   return {
     departmentAgents: departmentAgents.map(toLaunchpadAgent),
-    // Split the (already sort_order-sorted) external agents into one group per
-    // source/vendor; group + agent ordering is deterministic and registry-driven.
-    externalGroups: groupAgentsBySource(externalAgents.map(toLaunchpadAgent)),
+    externalGroups,
+    vendorContentEnabled,
     myAgents: myAgents.map(toLaunchpadAgent),
   };
 }

@@ -15,8 +15,12 @@ import type { CollapsedSectionsValue } from "@/lib/preferences/keys";
 
 interface DepartmentLaunchpadContentProps {
   departmentAgents: LaunchpadAgent[];
-  /** External (vendor) agents grouped by source — one section per vendor present. */
+  /** External (vendor) agents grouped by source — one section per vendor present
+   *  (already filtered to org-permitted providers). */
   externalGroups: ExternalAgentGroup<LaunchpadAgent>[];
+  /** Whether the org permits vendor content at all (Step 5). When false, NO
+   *  vendor surface renders — not even the empty-state section. */
+  vendorContentEnabled: boolean;
   myAgents: LaunchpadAgent[];
   departmentSlug: string;
   canManageTemplates: boolean;
@@ -54,6 +58,7 @@ interface DepartmentLaunchpadContentProps {
 export function DepartmentLaunchpadContent({
   departmentAgents,
   externalGroups,
+  vendorContentEnabled,
   myAgents,
   departmentSlug,
   canManageTemplates,
@@ -111,8 +116,10 @@ export function DepartmentLaunchpadContent({
           from the source registry (Claude for Legal today; a future provider
           gets its own titled section automatically). `canManageTemplates` is
           forwarded so admin viewers get the overflow-menu affordances on the
-          cards. When no department has external agents from any vendor, a single
-          empty-state section renders (not one per registered provider). */}
+          cards. Governance (Step 5): when the org has turned vendor content OFF
+          (`vendorContentEnabled` false), the whole vendor surface is hidden — no
+          sections and no empty-state. When ON but a department has no vendor
+          agents, a single empty-state section renders (not one per provider). */}
       {externalGroups.length > 0 ? (
         externalGroups.map((group) => {
           const key = externalCollapseSectionKey(group.sourceId);
@@ -134,7 +141,7 @@ export function DepartmentLaunchpadContent({
             </CollapsibleSection>
           );
         })
-      ) : (
+      ) : vendorContentEnabled ? (
         <CollapsibleSection
           title={emptyExternalTitle}
           sectionKey={emptyExternalSectionKey}
@@ -147,7 +154,7 @@ export function DepartmentLaunchpadContent({
             </p>
           </div>
         </CollapsibleSection>
-      )}
+      ) : null}
 
       {/* My Agents — user-owned personal agents. Always rendered with an
           empty state when the user hasn't created anything yet. */}

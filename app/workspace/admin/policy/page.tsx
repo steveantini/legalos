@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 
+import {
+  ContentProvidersEditor,
+  type ContentProviderRow,
+} from "@/components/admin/policy/content-providers-editor";
 import { DefaultModelEditor } from "@/components/admin/policy/default-model-editor";
 import { McpConnectionsEditor } from "@/components/admin/policy/mcp-connections-editor";
 import { ModelConnectionEditor } from "@/components/admin/policy/model-connection-editor";
@@ -8,12 +12,23 @@ import {
   getOrganizationDefaultModel,
   isCurrentUserSuperAdmin,
 } from "@/lib/auth/access";
+import {
+  getVendorContentSettings,
+  vendorContentEnabledFromSettings,
+} from "@/lib/content/content-settings";
+import { VENDOR_CONTENT_PROVIDERS } from "@/lib/content/vendor-registry";
 import { getOrgMcpConnections } from "@/lib/connections/mcp/connection-state";
 import { MCP_CATEGORY_ID } from "@/lib/connections/policy-derivation";
 import { getOrgModelConnectionState } from "@/lib/connections/model-connection-state";
 import { listFirstPartyServersByProvider } from "@/lib/connections/providers/mcp-registry";
 import { CAPABILITY_GROUPS } from "@/lib/settings/connections-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+/** Admin-facing one-line descriptions per vendor content provider. */
+const CONTENT_PROVIDER_DESCRIPTIONS: Record<string, string> = {
+  "claude-for-legal":
+    "Prebuilt legal agents from Anthropic's open-source Claude for Legal suite, shown in each department.",
+};
 
 export const metadata: Metadata = {
   title: "Policy & access",
@@ -62,6 +77,22 @@ export default async function AdminPolicyPage({
   const anthropicModelConnection = await getOrgModelConnectionState("anthropic");
   const mcpConnections = await getOrgMcpConnections();
   const firstPartyMcpGroups = listFirstPartyServersByProvider();
+
+  // Vendor content governance (Step 5): one row per registered provider, with its
+  // org enablement (default permitted) and the last-refreshed timestamp the
+  // platform-owner refresh writes (passive transparency, no action).
+  const vendorSettings = await getVendorContentSettings();
+  const contentProviders: ContentProviderRow[] = Object.values(
+    VENDOR_CONTENT_PROVIDERS,
+  ).map((provider) => ({
+    providerId: provider.providerId,
+    displayLabel: provider.displayLabel,
+    description:
+      CONTENT_PROVIDER_DESCRIPTIONS[provider.providerId] ??
+      "Curated agents shown in each department.",
+    enabled: vendorContentEnabledFromSettings(vendorSettings, provider.providerId),
+    lastRefreshedAt: vendorSettings[provider.providerId]?.lastRefreshedAt ?? null,
+  }));
 
   // The MCP connect flow returns here with a status query param; surface it once.
   const params = await searchParams;
@@ -148,6 +179,10 @@ export default async function AdminPolicyPage({
             : undefined
         }
       />
+
+      {/* Content: the org-level half of vendor-content governance — which curated
+          libraries the org shows, and when they were last updated. */}
+      <ContentProvidersEditor providers={contentProviders} canEdit={canEdit} />
     </>
   );
 }

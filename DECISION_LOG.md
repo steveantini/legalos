@@ -3148,3 +3148,26 @@ Provider-agnostic structure mirrors the connector/MCP trusted-registry pattern a
 - A second content provider is an incremental add (a registry entry + its import adapter) and appears in its own titled section automatically; no launchpad rearchitecture.
 - The launchpad, attribution badges, and collapse state are all registry-driven; the single-vendor experience is unchanged. Step 5 governs the `vendor-content` category at the org level (super-admin on/off + FYI notification), the final C4L arc step.
 - No migration, no change to the refresh button / import safety / mapping / custody, and no change to how agents are created or edited.
+
+## D-114 — Super-admin governance of vendor content + last-updated transparency (C4L/platform arc Step 5, arc complete)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+The arc's two-layer governance needed its second layer: the platform owner controls WHAT the curated content is (Steps 1-4); the super admin needed to control WHETHER their org uses/sees it. The Step 5 prompt suggested mirroring the `'mcp'` governed category (adding `'vendor-content'` to `connection_policy.allowed_categories`, gated by `isCategoryAllowed`). But that prompt ALSO required default-PERMITTED ("shows until explicitly denied; sensible pre-migration") — which the permit-list cannot satisfy: `allowed_categories` is a permit-list that defaults to DENY-when-absent, so default-permit-when-absent and explicit-deny-by-removal are mutually exclusive there.
+
+**Decision:**
+
+Govern vendor content with a dedicated per-`(organization, provider)` store — `content_provider_settings(enabled boolean default true, last_refreshed_at)` (migration 0059) — NOT `allowed_categories`. A provider with NO row (and a missing table, pre-migration) is treated as ENABLED, so vendor content shows by default and stays shown until a super admin explicitly disables a provider (which writes `enabled=false`); the launchpad gates each vendor section on this (`getAgentsForDepartmentLaunchpad` filters `externalGroups` and returns a `vendorContentEnabled` flag so a fully-off org renders no vendor surface, not even the empty-state). The control is a "Content" section in Policy & access (a list of providers, super-admin-editable / org_admin read-only, optimistic-save), per the locked C4L-placement decision. A passive per-provider "last updated" line — written by the platform-owner refresh (`recordVendorContentRefreshed`, service-role) and read by super admins — provides transparency with no adopt action (push model). This DEVIATES from the prompt's `allowed_categories` suggestion; reported and justified.
+
+**Reasoning:**
+
+A dedicated default-true flag is the only representation that satisfies all three stated requirements at once (default-permit, explicit-deny, sensible pre-migration / deploy-tolerant), whereas the deny-default permit-list cannot. It is also the multi-provider-ready store the locked C4L-placement decision specified (keyed by org + provider) — the right shape now that the launchpad is vendor-agnostic (Step 4), so a second provider is a new row, not a redesign. The governance LOCATION and UX still mirror `'mcp'` (a super-admin Policy & access toggle that truly gates org-wide), honoring the prompt's intent. Passive last-updated fits the push model (the super admin has nothing to do) without an active badge/banner that would nag.
+
+**Consequences:**
+
+- Firms can disable vendor content org-wide; super admins have honest update visibility without an adoption burden. The two-layer governance (platform owner owns the content; super admin owns whether the org uses it) is complete.
+- **The C4L + platform-owner arc is COMPLETE** (platform-owner tier; safe updatable import; one-button refresh; vendor-agnostic structure; super-admin governance + transparency).
+- Migration `0059_content_provider_settings.sql` (per-org per-provider settings, RLS read-org / super-admin-write, default-permit, no seed). Deploy-tolerant: pre-migration the settings read fails to "all enabled" so the launchpad is unchanged. No change to the refresh import logic, the mapping, custody, or the vendor-agnostic structure.

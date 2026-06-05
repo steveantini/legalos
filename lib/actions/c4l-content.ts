@@ -4,6 +4,7 @@ import {
   isCurrentUserPlatformOwner,
   requireAuthUser,
 } from "@/lib/auth/access";
+import { recordVendorContentRefreshed } from "@/lib/content/content-settings";
 import { fetchC4LSkills, type C4LRefreshResult } from "@/lib/content/c4l-fetch";
 import { importC4LContent } from "@/lib/content/c4l-import";
 import {
@@ -55,6 +56,10 @@ export async function refreshC4LContent(): Promise<C4LRefreshResult> {
       error: "The content couldn't be saved. No changes were made; please try again.",
     };
   }
+
+  // Record the successful refresh time for the passive "last updated" line super
+  // admins see in Policy & access (Step 5). Best-effort; never fails the refresh.
+  await recordVendorContentRefreshed(organizationId, CLAUDE_FOR_LEGAL.providerId);
 
   const mapping = CLAUDE_FOR_LEGAL.pluginDepartmentMap;
 

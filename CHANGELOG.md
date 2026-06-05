@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Workspace admins can now turn the curated content library on or off for their organization from Policy and access, and can see when it was last updated. It is on by default, and turning it off hides the curated agents for everyone in the org. The last-updated line is written when the platform owner refreshes the library, so admins have honest visibility into changes without anything to do.**
+
 ### Changed
 
 - **The curated content library is now vendor-agnostic under the hood: a content provider registry is the single source of truth, and each provider's agents render in their own clearly labeled section per department, so additional providers in the future appear automatically without rework. The experience is unchanged today with Claude for Legal as the sole provider, including each user's section collapse preferences.**
