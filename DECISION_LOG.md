@@ -3078,3 +3078,27 @@ Cross-tenant administration is a DIFFERENT AXIS from org roles — a platform ow
 - The C4L refresh button (Step 3) and future platform features (billing, cross-tenant analytics/management) have a gated home; `platform_owner` and any org's `super_admin` remain separable concerns.
 - Migration `0058_platform_admins.sql` (cross-tenant grant, RLS read-own-only, granted to the operator). Code is deploy-tolerant: the reader fails closed to "not a platform owner" if the table/grant is absent, so the surface 404s for everyone until the migration is applied; the rest of the app is unaffected.
 - The platform surface lives under `/workspace/platform` (inheriting the workspace chrome so it matches the admin register natively) rather than a top-level `/platform` console; a separate console can come with true multi-tenancy. No change to the org admin area, the `user_role` enum, or any existing gating.
+
+## D-111 — Safe, placement-preserving C4L import + persisted mapping (C4L/platform arc Step 2)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+C4L content was imported by a one-shot CLI (`scripts/import-c4l-plugin.ts`) that upserts agents keyed on `(organization_id, slug)` with a stable `c4l-<plugin>-<skill>` slug and a `source_origin` provenance stamp, placing each agent from a `--department` CLI argument. Two things blocked a safe platform-owner refresh button (Step 3): (1) the plugin→department placement lived ONLY in the operator's past CLI invocations, not persisted anywhere a button could reapply; and (2) the import set `is_active=true` UNCONDITIONALLY, so a re-run would RESURRECT the non-agent skills the operator deliberately soft-deleted via the `0024`-style filter migrations — undoing curation, the single most important correctness risk.
+
+**Decision:**
+
+Persist the plugin→department mapping as VERSION-CONTROLLED CODE CONFIG in a vendor-content registry seam (`lib/content/vendor-registry.ts`: a `VendorContentProvider` type + the `CLAUDE_FOR_LEGAL` entry with `pluginDepartmentMap`), derived from live state so it matches reality exactly, mirroring the trusted MCP-server registry (mapping-as-code, not a DB table, no migration). Refactor the import into a reusable server function (`lib/content/c4l-import.ts`): a PURE `planC4LImport` core holding all safety logic + a thin `importC4LContent` executor over an injectable `C4LImportStore`, accepting already-parsed skills as input (Step 3 feeds GitHub-fetched data). The safety rules: NEVER reactivate a soft-deleted/filtered row (skip, never touch is_active/deleted_at); place new agents ONLY from the persisted mapping; apply a CONSERVATIVE NON-DESTRUCTIVE update policy — an existing active row is never modified, and source-owned content drift (name/description/system_prompt) is REPORTED for an explicit later review/apply rather than auto-overwritten, so admin edits, admin moves (placement), and active/filter state are all preserved; keep the idempotent stable-slug upsert so re-import only inserts genuinely new skills and conversation history (agent-id references) is never broken. A plugin absent from the mapping is COLLECTED into `unmappedPlugins` and imported nowhere — never guessed into a department, never dropped silently.
+
+**Reasoning:**
+
+Making the refresh safe in ISOLATION, before Step 3 wires a button to it, is the de-risk discipline this arc follows (the highest-consequence operation — mutating the curated library — lands on proven-safe logic). Protecting the operator's curation is the non-negotiable correctness requirement, so the import respects the soft-delete filter as a skip signal (per migration 0024's own comment). The conservative "never overwrite an existing row, report drift instead" policy is the only policy that genuinely preserves admin edits given there is no stored content baseline yet to distinguish edited from unedited rows; auto-applying upstream updates to known-unedited rows is deferred until such a baseline exists. Mapping-as-code matches the trusted-registry pattern (platform-owner-owned, PR-reviewed, not tenant- or runtime-mutable) and is the seam the multi-vendor provider registry (Step 4) grows from.
+
+**Consequences:**
+
+- Step 3's button calls a proven-safe function; curation is protected across refreshes; uncategorized new content is surfaced for a platform-owner decision rather than guessed.
+- The mapping is derived from live state and reported for operator confirmation; if a placement differs from the codified constant, the constant is corrected (it is version-controlled, a one-line change).
+- The legacy one-shot CLI is SUPERSEDED for refreshes (it would resurrect filtered rows and uses `--department`); a header note directs maintainers to the safe function. It remains only as a manual first-import escape hatch.
+- Also (operator data cleanup, not code): removed the stale `platform_owner` grant on `steve@antinilaw.com`, leaving `steveantini@gmail.com` as the sole platform owner, per the two-identity model (personal account = platform owner; antinilaw.com account = customer-experience test identity).

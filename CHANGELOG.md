@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The curated content (Claude for Legal) import is now a safe, reusable operation. The plugin-to-department placement is captured as version-controlled config, so a refresh always restores agents to the right departments. A refresh never resurrects skills an admin filtered out, never loses placement or overwrites an admin's edits, and reports any new uncategorized content rather than guessing where it goes. Foundation only, with no trigger wired to it yet; the platform-owner refresh button follows next.**
+
 - **Introduced a platform administration tier: a cross-tenant platform owner capability, separate from organization roles, and a minimal, scalable platform admin area that only a platform owner can see. It is the foundation for managing the curated content library and future platform-level features. The capability is a reassignable grant rather than a higher organization role, so one person can hold both their organization role and the platform capability, and it can never be self-granted. The new area is a calm, scalable landing today; real sections drop in over the next steps. Everyone who is not a platform owner, including organization admins, sees no change.**
 
 - **Approving a write action now actually performs it: when you approve, the agent creates the file (or sends the message, and so on) and reports the result, completing the human-in-the-loop write flow. Denying still declines safely with nothing done, and the approval is recorded so the same action can't run twice on a double click or retry. Reads, governance, gating, and every path with the feature off are unchanged.**

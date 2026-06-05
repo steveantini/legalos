@@ -25,6 +25,15 @@
  * This is the Shape A one-shot path; a Shape B sync pipeline (GitHub
  * Action) replaces it later. Rerunning is safe — the upsert keeps rows
  * consistent without creating duplicates.
+ *
+ * SUPERSEDED for refreshes by `lib/content/c4l-import.ts` (C4L/platform arc
+ * Step 2): this one-shot CLI sets is_active=true unconditionally, so re-running
+ * it would RESURRECT skills the operator soft-deleted via the 0024-style filter
+ * migrations, and it places agents from the --department arg rather than the
+ * persisted plugin→department map. Do NOT use this for a refresh — use the
+ * refresh-safe `importC4LContent` (curation-respecting, placement-preserving),
+ * which Step 3's platform-owner button will call. This script remains only as a
+ * manual first-import escape hatch.
  */
 
 import { existsSync } from "node:fs";
