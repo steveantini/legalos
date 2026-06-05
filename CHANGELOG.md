@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The rail account block now reflects platform owner status for a platform owner, shown under their organization role, matching what the profile page already shows. Everyone who is not a platform owner sees no change.**
+
 ### Added
 
 - **The platform owner can now refresh the curated content library from its public source with one button. New agents are imported into their departments, previously filtered content stays filtered, and any new uncategorized plugins or upstream content changes are surfaced for review rather than applied automatically. The button lives on a new platform Content library page that only a platform owner can see; running it again when nothing is new reads as up to date.**

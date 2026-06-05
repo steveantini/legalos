@@ -76,6 +76,12 @@ export function WorkspaceProfileBlock({
             {displayName}
           </p>
           <p className="truncate text-[11px] text-caption">{roleLabel}</p>
+          {/* Platform owner is a separate cross-tenant capability (a user can
+              hold it alongside an org role). When held, surface it under the
+              org role with a calm primary accent so the two axes both read. */}
+          {isPlatformOwner ? (
+            <p className="truncate text-[11px] text-primary">Platform owner</p>
+          ) : null}
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top">
