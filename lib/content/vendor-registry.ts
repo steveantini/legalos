@@ -69,3 +69,19 @@ export const CLAUDE_FOR_LEGAL: VendorContentProvider = {
 export const VENDOR_CONTENT_PROVIDERS: Record<string, VendorContentProvider> = {
   [CLAUDE_FOR_LEGAL.providerId]: CLAUDE_FOR_LEGAL,
 };
+
+/** A registered provider by id, or undefined for an unknown source. */
+export function getVendorProvider(
+  providerId: string,
+): VendorContentProvider | undefined {
+  return VENDOR_CONTENT_PROVIDERS[providerId];
+}
+
+/**
+ * Registered provider ids in registry (insertion) order. The launchpad renders
+ * each vendor's section in this order, so the ordering of content sections is
+ * data-driven from one place.
+ */
+export const VENDOR_PROVIDER_ORDER: readonly string[] = Object.keys(
+  VENDOR_CONTENT_PROVIDERS,
+);

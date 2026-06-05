@@ -3125,3 +3125,26 @@ Landing the trigger on Step 2's proven-safe import keeps the operator's curation
 - The platform owner self-serves content refreshes from the public source; super admins cannot. Filtered content stays filtered; existing agents are never overwritten; conversation history is untouched (insert-new-only, stable slugs).
 - Applying upstream content updates and assigning departments to unmapped plugins are future actions; the multi-vendor bucket split + provider registry (Step 4) and super-admin governance + notification (Step 5) follow.
 - `gray-matter` moved from devDependencies to dependencies (runtime use). No migration; no change to how C4L agents render or are gated.
+
+## D-113 — Vendor-agnostic content structure (C4L/platform arc Step 4)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+The launchpad collapsed ALL externally-sourced agents into one bucket (`source_origin IS NOT NULL`) rendered under a hardcoded "Claude for Legal" section title. Provenance was already structured (`source_origin = "<sourceId>:<plugin>/<skill>"`, parsed by `lib/agents/source.ts`), and Step 2 added `lib/content/vendor-registry.ts` (the C4L provider entry). To make adding a second provider (e.g. a future OpenAI legal library) a registry entry + import adapter rather than a rearchitecture — the provider-agnostic pattern the connector/MCP registries already use — the single hardcoded bucket needs to become a registry-driven, source-split, dynamically-titled structure.
+
+**Decision:**
+
+Generalize the seam into a vendor-content PROVIDER REGISTRY as the single source of truth for provider metadata (`vendor-registry.ts` gains `getVendorProvider` + `VENDOR_PROVIDER_ORDER`), and RECONCILE `source.ts` to read from it: `AgentSourceId` relaxes to open `string` (vendors are extensible; known ones live in the registry), `getSourceDisplayLabel` reads the registry (humanized fallback for an unregistered id), `parseSourceOrigin` accepts any well-shaped source id (no longer rejects unregistered ones), so there is one source of truth, not two. `getAgentsForDepartmentLaunchpad` returns `externalGroups` (one group per source/vendor) via a pure, unit-tested `groupAgentsBySource` (orders registered providers first, unknown ids alphabetically; agents within a group preserve the existing sort). The launchpad renders one dynamically-titled `CollapsibleSection` per vendor present; per-vendor collapse state is keyed independently, with the legacy Claude for Legal section retaining the `externalAgents` key so existing user preferences survive (`CollapsedSectionsValue` opened to a string-keyed map). Empty-state: a SINGLE section (not one per registered provider), titled with the sole provider's label when there is exactly one (so the single-vendor case is behavior-identical to the old single bucket), else a generic "Curated content". BEHAVIOR-NEUTRAL with C4L as the only provider today; no migration (the split is computed from existing `source_origin` data).
+
+**Reasoning:**
+
+Provider-agnostic structure mirrors the connector/MCP trusted-registry pattern and the project's core commitment; one source of truth (the registry) prevents the labels/ids drifting across two lists. Doing it as a behavior-neutral structural refactor BEFORE any second vendor exists keeps the eventual addition trivial (a registry entry + adapter) and de-risks it (the structure is proven against the real C4L data first). Preserving the legacy collapse key for C4L avoids resetting any user's existing section preference. Relaxing `parseSourceOrigin`/`AgentSourceId` is safe for today's data (the only source is registered) and is the correct posture for an extensible vendor set.
+
+**Consequences:**
+
+- A second content provider is an incremental add (a registry entry + its import adapter) and appears in its own titled section automatically; no launchpad rearchitecture.
+- The launchpad, attribution badges, and collapse state are all registry-driven; the single-vendor experience is unchanged. Step 5 governs the `vendor-content` category at the org level (super-admin on/off + FYI notification), the final C4L arc step.
+- No migration, no change to the refresh button / import safety / mapping / custody, and no change to how agents are created or edited.

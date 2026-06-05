@@ -37,19 +37,17 @@ export function deptCollapsedSectionsKey(departmentSlug: string): string {
 }
 
 /**
- * Shape stored under `deptCollapsedSectionsKey(...)`. Each section flag
- * is independent so the user can collapse one section without
- * touching the others' state.
- *
- * Declared as a type alias (not an interface) so the implicit index
- * signature lets it satisfy the `PreferenceValue` generic constraint
- * on the user-preferences server actions. Interfaces don't get that
- * signature implicitly even when their fields are uniform.
+ * Shape stored under `deptCollapsedSectionsKey(...)`: a map of section key →
+ * collapsed flag, each independent so collapsing one section doesn't touch the
+ * others. An explicit string index signature (rather than fixed named fields)
+ * so it holds the launchpad's per-vendor content sections too (Step 4): the
+ * known keys are `departmentAgents`, `externalAgents` (the legacy / claude-for-legal
+ * external section), `myAgents`, and `external:<sourceId>` for additional vendor
+ * content providers. The index signature also satisfies the `PreferenceValue`
+ * generic constraint on the user-preferences server actions.
  */
 export type CollapsedSectionsValue = {
-  departmentAgents?: boolean;
-  externalAgents?: boolean;
-  myAgents?: boolean;
+  [sectionKey: string]: boolean | undefined;
 };
 
 /**

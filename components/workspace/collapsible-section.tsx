@@ -15,8 +15,10 @@ import {
 interface CollapsibleSectionProps {
   /** Section heading text (e.g., "Department Agents"). */
   title: string;
-  /** Field within the CollapsedSectionsValue shape that stores this section's state. */
-  sectionKey: keyof CollapsedSectionsValue;
+  /** The CollapsedSectionsValue key this section's state stores under (per-vendor
+   *  content sections use `external:<sourceId>`; the legacy keys are
+   *  departmentAgents / externalAgents / myAgents). */
+  sectionKey: string;
   /** Department slug for the preference key. */
   departmentSlug: string;
   /** Whether the section starts collapsed (from the server-fetched preference). */
@@ -109,7 +111,7 @@ export function CollapsibleSection({
  */
 async function persistCollapsedState(
   departmentSlug: string,
-  sectionKey: keyof CollapsedSectionsValue,
+  sectionKey: string,
   collapsed: boolean,
 ): Promise<void> {
   const prefKey = deptCollapsedSectionsKey(departmentSlug);

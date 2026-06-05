@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The curated content library is now vendor-agnostic under the hood: a content provider registry is the single source of truth, and each provider's agents render in their own clearly labeled section per department, so additional providers in the future appear automatically without rework. The experience is unchanged today with Claude for Legal as the sole provider, including each user's section collapse preferences.**
+
 - **The rail account block now reflects platform owner status for a platform owner, shown under their organization role, matching what the profile page already shows. Everyone who is not a platform owner sees no change.**
 
 ### Added

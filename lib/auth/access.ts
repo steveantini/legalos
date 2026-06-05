@@ -1,6 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 
+import {
+  groupAgentsBySource,
+  type ExternalAgentGroup,
+} from "@/lib/agents/source";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -867,7 +871,9 @@ export async function getAgentsForDepartmentLaunchpad(
   userId: string,
 ): Promise<{
   departmentAgents: LaunchpadAgent[];
-  externalAgents: LaunchpadAgent[];
+  /** External (vendor) agents split into one group per source/vendor (Step 4).
+   *  One group with the sole vendor today (Claude for Legal). */
+  externalGroups: ExternalAgentGroup<LaunchpadAgent>[];
   myAgents: LaunchpadAgent[];
 }> {
   const supabase = await createSupabaseServerClient();
@@ -934,7 +940,9 @@ export async function getAgentsForDepartmentLaunchpad(
 
   return {
     departmentAgents: departmentAgents.map(toLaunchpadAgent),
-    externalAgents: externalAgents.map(toLaunchpadAgent),
+    // Split the (already sort_order-sorted) external agents into one group per
+    // source/vendor; group + agent ordering is deterministic and registry-driven.
+    externalGroups: groupAgentsBySource(externalAgents.map(toLaunchpadAgent)),
     myAgents: myAgents.map(toLaunchpadAgent),
   };
 }
