@@ -7,6 +7,11 @@ import {
   resumeWorkflowApproval,
   type WorkflowRunResult,
 } from "@/lib/workflows/run";
+import {
+  saveWorkflowDefinition as saveWorkflowDefinitionImpl,
+  type SaveWorkflowInput,
+  type SaveWorkflowResult,
+} from "@/lib/workflows/authoring";
 
 /**
  * Start a workflow run from a stored definition (Workflows arc, Steps 2-3). The
@@ -62,4 +67,36 @@ export async function decideWorkflowApproval(
     pendingApprovalId: parsed.data.pendingApprovalId,
     decision: parsed.data.decision,
   });
+}
+
+/**
+ * Create or update a workflow definition from the builder (Step 4a). The builder
+ * sends the canonical step graph directly; this validates the outer shape, then
+ * delegates to the authoring layer, which runs the SAME engine validator before
+ * persisting. Org-admin gated inside the authoring layer (RLS re-enforces).
+ */
+const saveSchema = z.object({
+  id: z.string().uuid().nullable(),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000),
+  departmentId: z.string().uuid().nullable(),
+  status: z.enum(["draft", "active"]),
+});
+
+export async function saveWorkflowDefinition(
+  input: SaveWorkflowInput,
+): Promise<SaveWorkflowResult> {
+  const parsed = saveSchema.safeParse({
+    id: input.id,
+    name: input.name,
+    description: input.description,
+    departmentId: input.departmentId,
+    status: input.status,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Check the workflow name and details." };
+  }
+  // `steps` is the canonical graph; the authoring layer validates it at the data
+  // boundary with the engine validator.
+  return saveWorkflowDefinitionImpl({ ...parsed.data, steps: input.steps });
 }

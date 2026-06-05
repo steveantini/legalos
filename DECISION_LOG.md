@@ -3241,3 +3241,26 @@ Completes the safe-write story on a proven pattern, with the same custody discip
 - Fuller autonomy (auto-pilot writes) remains a deliberately gated future capability; v1 never performs an unattended write in any mode.
 - The builder + approval UI (Step 4) exposes this over the `startWorkflowRun` / `decideWorkflowApproval` actions; branching, triggers, and C4L templates build on it.
 - Migration `0061_workflow_approvals_and_autonomy.sql` (`workflow_runs.autonomy_level`; `workflow_step_runs.approval_mode`; the `workflow_pending_approvals` table + RLS, owner-decides / org-admin-read, token_ref only). The operator applies it. Requires 0060; deploy-tolerant (nothing outside Workflows touches it).
+
+## D-118 — No-code workflow builder over the canonical graph (Workflows arc Step 4a)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+The engine and data model shipped (Steps 1-3), all server-side; the "My Workflows" surface was still a coming-soon stub. Step 4 brings the UI, split into 4a (builder + My Workflows: compose and save) and 4b (run/audit/approve). The operator chose the most foundationally sound builder: an editor over the canonical declarative graph, not a separate "UI format" requiring translation.
+
+**Decision:**
+
+Build a form/list builder (not a visual canvas) that edits the CANONICAL `workflow_definitions.definition` jsonb directly — an ordered list of steps you add (run an agent / take an action / human approval), configure, and reorder, with each step carrying a stable id and an explicit input mapping (default: the previous step's output). Saving goes through a server action that runs the SAME `validateWorkflowDefinition` the engine uses BEFORE persisting, surfacing validation errors inline — so what you build is exactly what runs. Available steps are resolved from the LIVE, governed registries via a new `getWorkflowCapabilities()` (org native agents from the agents table, RLS-scoped; governed MCP tools from `resolveOrgMcpTools`, each with its discovered input schema and read/write classification reusing the chat tool-naming) — never a hardcoded menu, so a newly added agent or connected tool appears automatically (the turnkey property), and a write tool surfaces marked "requires approval" (Step 3). The capability transform (`mcpTargetsToToolOptions`) is pure and unit-tested. Validation policy: a definition with steps is fully validated (structure + resolvable governed capabilities + mapping integrity) for BOTH draft and active, so a stored definition is always valid-or-empty; the one relaxation is that an empty draft may be saved (activating requires ≥1 step). Step types are chosen at add-time (Add an agent / action / approval) rather than a per-step type-switch, avoiding a destructive "change type wipes config" interaction. Autonomy stays a RUN-level setting (chosen at run time, 4b), NOT a builder field, keeping the architectural separation clean. Authoring is org-admin gated (page-level `notFound()` + the authoring layer re-verifies + RLS re-enforces); org members can read the list. No migration — this is an editor over the existing 0060 schema.
+
+**Reasoning:**
+
+A form/list editor over the canonical graph is the foundationally sound v1: it produces exactly what the engine runs (no translation layer to drift), matches the linear execution model honestly, and keeps a future visual canvas additive (same data, when branching execution lands) — exactly as the data model keeps the branching/agentic doors open. Live-registry capability resolution delivers the turnkey property and means the builder can never offer a capability the engine can't run. Validating with the engine's own validator before persisting makes the builder and the runtime share one definition of "valid." Deferring run/audit/approval UI to 4b keeps each surface shippable.
+
+**Consequences:**
+
+- Admins can compose, save, and edit workflows now; running, watching, auditing, and approving land in 4b; the Template Library (Step 5) stays a coming-soon card.
+- The builder reads `getWorkflowCapabilities()`, so connecting a new tool or adding an agent immediately widens what a workflow can do, with no builder change.
+- A canvas builder, if ever wanted, is a new editor over the same canonical graph — not a rewrite.

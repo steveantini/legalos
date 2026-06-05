@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **You can now build workflows with no code. The My Workflows page lets an admin compose an ordered sequence of steps (run an agent, take an action on a connected tool, or pause for human approval), choosing from the agents and tools your organization already has, so a newly connected tool appears automatically. Each workflow is saved and validated against the same checks the engine uses, so what you build is exactly what will run. Running them comes next.**
+
 - **Workflows can now include human approval checkpoints and can take write actions safely: a workflow pauses for a person to approve before it continues, or before it performs any write, and the approval is recorded in the audit trail. An autonomy setting lays the groundwork for supervised versus more autonomous runs, with writes always requiring approval for now, so no workflow ever takes an unattended write action.**
 
 - **Internal foundation: legalOS can now define multi-step workflows as data and execute them step by step, recording an immutable audit trail of every step, with agents and connected tools as the available step types. Workflows run linearly for now, pause at human approval steps, and never take an unattended write action; the authoring interface and human approval execution follow.**
