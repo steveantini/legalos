@@ -6,8 +6,6 @@ import { z } from "zod";
 import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
 import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { resolveAttachmentText } from "@/lib/connections/attachment-content";
-import type { ModelCredential } from "@/lib/connections/providers/types";
-import { executeMcpTool } from "@/lib/connections/mcp/execute-tool";
 import {
   classifyMcpTool,
   type McpToolAccess,
@@ -15,28 +13,17 @@ import {
 import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
 import { ALLOWED_MIME_TYPES, extractText } from "@/lib/extract/extract";
 import {
-  streamAnthropicChat,
-  type AnthropicChatMessage,
   type AnthropicCustomTool,
   type AnthropicSystemBlock,
-  type AnthropicStreamEvent,
   type AnthropicTool,
-  type AnthropicToolResultBlock,
 } from "@/lib/llm/anthropic/chat";
 import {
   buildSystemPrompt,
   wrapUserMessage,
 } from "@/lib/llm/anthropic/prompt-defense";
-import {
-  encodeSseEvent,
-  SSE_RESPONSE_HEADERS,
-  type ChatSource,
-  type ChatToolCall,
-} from "@/lib/llm/anthropic/stream";
 import type { MessageRole, NativeAgent } from "@/lib/llm/anthropic/types";
-import { resolveModelCredential } from "@/lib/llm/model-credential";
+import { streamChatTurn } from "@/lib/chat/assistant-stream";
 import { parseModelId } from "@/lib/llm/parse-model-id";
-import { computeCostMicroUsd } from "@/lib/llm/pricing";
 import { checkChatRateLimit } from "@/lib/llm/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -83,31 +70,9 @@ export const maxDuration = 300;
 // prompt and its cost.
 const ATTACHMENT_AGGREGATE_CHAR_BUDGET = 250_000;
 
-// ---- MCP agentic tool-use loop (Phase 2, 2P-6b) guards ----
-// At most this many model turns per user turn. The final allowed turn runs
-// WITHOUT tools so the model produces a text answer rather than another tool
-// request, bounding cost and runaway tool chains.
-const MCP_MAX_TOOL_ROUNDS = 8;
-// Stop initiating new tool rounds past this wall-clock budget (inside the route's
-// 300s maxDuration), then force the final no-tools turn.
-const MCP_LOOP_WALL_CLOCK_MS = 240_000;
-// The v1 write-policy result fed back to the model when it requests a write tool.
-const MCP_WRITE_BLOCKED_MESSAGE =
-  "This action needs confirmation and is not yet enabled, so nothing was sent, created, or deleted. Tell the user what you would do and that it requires confirmation.";
-
-/**
- * A token/PII-free summary of an MCP tool call's arguments for the trace record:
- * the sorted argument KEY NAMES only (under an `argKeys` field so the trace reads
- * unambiguously as the key names, not an arguments envelope), never the values
- * (which may carry PII). The model still receives the full arguments for execution;
- * only the persisted / surfaced trace uses this summary.
- */
-function mcpArgsSummary(input: unknown): { argKeys: string[] } {
-  if (input && typeof input === "object" && !Array.isArray(input)) {
-    return { argKeys: Object.keys(input as Record<string, unknown>).sort() };
-  }
-  return { argKeys: [] };
-}
+// The MCP agentic loop, citation draining, tool-trace summarization, and stream
+// persistence (including the 2P-7b write-confirmation pause) live in
+// lib/chat/assistant-stream.ts, shared with the resume path (/api/chat/confirm).
 
 // A per-message attachment riding the send payload. Disjoint by shape: an
 // uploaded local file carries a storage_path (re-extracted from Storage
@@ -188,33 +153,6 @@ function errorResponse(error: ChatErrorCode, status: number) {
 }
 
 /**
- * Generate a short opaque id (12 hex chars) prefixed with the given tag.
- * Used for source ids (`src_xxx`) and as a fallback for tool call ids
- * when Anthropic's tool_use_id is missing. Web Crypto's randomUUID is
- * available in Node 22 / Vercel runtime; takes the first 12 hex chars
- * of the dash-stripped UUID for a 48-bit random space — collision risk
- * within a single message (≤ tens of items) is negligible.
- */
-function shortId(prefix: string): string {
-  const hex = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-  return `${prefix}_${hex}`;
-}
-
-/**
- * Extract a clean display domain from a URL: hostname stripped of a
- * leading "www.". Returns the input unchanged if URL parsing fails so
- * a malformed citation URL doesn't crash the stream.
- */
-function domainFromUrl(url: string): string {
-  try {
-    const hostname = new URL(url).hostname;
-    return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
-  } catch {
-    return url;
-  }
-}
-
-/**
  * Escape a string for safe inclusion inside an XML-style double-quoted
  * attribute. The attachment filename is user-supplied and could contain `"`,
  * `&`, or angle brackets that would otherwise break the
@@ -289,33 +227,6 @@ async function loadMessageAttachmentRows(
   });
   return null;
 }
-
-/**
- * Citation-marker drain points for the deferred-injection pipeline
- * (Session 18c addendum). Anthropic's web_search emits citations_delta
- * BEFORE the cited text rather than after, so injecting markers at the
- * stream position lands pills in front of claims ("[1] The FTC banned…")
- * — frontier-product convention is markers AFTER the cited claim, after
- * the sentence-ending period.
- *
- * The pipeline buffers markers in a per-stream pendingCitations queue
- * and drains at the first match of this regex within a text chunk:
- *
- *   [.!?](?=\s|$)    — sentence-ending punctuation followed by space or
- *                      end of chunk
- *   (?=\n\n)         — paragraph break (zero-length lookahead so markers
- *                      land at end of paragraph, not start of next)
- *   (?=\n[*\-+] )    — bullet list-item start
- *   (?=\n#{1,6}\s)   — heading start
- *   (?=\n>\s)        — blockquote start
- *   (?=\n\d+\. )     — ordered list-item start
- *
- * Tool events (tool_trace_*) and end-of-stream also force a drain —
- * citations belong to text already emitted, never to text that hasn't
- * arrived yet.
- */
-const CITATION_DRAIN_RE =
-  /[.!?](?=\s|$)|(?=\n\n)|(?=\n[*\-+] )|(?=\n#{1,6}\s)|(?=\n>\s)|(?=\n\d+\. )/;
 
 export async function POST(request: Request) {
   try {
@@ -818,617 +729,31 @@ export async function POST(request: Request) {
     }
     const { vendor, model: vendorModelName } = parsedModel;
 
-    // Capture metadata into closure for the stream callback.
-    const sseStream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        // 1. Emit the meta event up-front so the client knows the IDs.
-        controller.enqueue(
-          encodeSseEvent({
-            type: "meta",
-            conversation_id: conversationId,
-            user_message_id: userMsg.id,
-          }),
-        );
-
-        // ---- Stream-local accumulators ----
-        // assistantText accumulates the full body, including inline
-        // <sup data-source-id="..." /> markers injected at citation time.
-        // sources / toolCalls are the records that will land on the
-        // assistant message row at end-of-stream (or mid-stream error).
-        // sourceByUrl dedups within-message: a URL appearing twice in
-        // citations_delta still produces a single source record, but
-        // each citation still emits its own <sup> marker pointing at
-        // the existing source's id.
-        let assistantText = "";
-        const sources: ChatSource[] = [];
-        const sourceByUrl = new Map<string, string>();
-        const toolCalls: ChatToolCall[] = [];
-        // Sources that arrived since the last finalized tool call. At
-        // tool_trace_done emit time we move these into the matching
-        // tool call's output.source_ids on the persisted record (live
-        // SSE event still ships output.source_ids: [] per Step B
-        // attribution-timing decision).
-        let pendingSourceAttributions: string[] = [];
-        let lastDoneToolCallIndex: number | null = null;
-        // Citation markers awaiting injection (Session 18c addendum).
-        // Citations queue here when their citations_delta arrives and
-        // drain into assistantText / the SSE token stream at the next
-        // sentence-ending punctuation, structural boundary, tool event,
-        // or end-of-stream — so pills land AFTER cited claims rather
-        // than before.
-        let pendingCitations: string[] = [];
-
-        function drainCitations() {
-          if (pendingCitations.length === 0) return;
-          // Dedup within drain — if Anthropic emits three citations to
-          // the same source for one cited claim, render one pill, not
-          // three. Stable insertion order across the dedup'd set.
-          const seen = new Set<string>();
-          let markers = "";
-          for (const sid of pendingCitations) {
-            if (seen.has(sid)) continue;
-            seen.add(sid);
-            markers += `<sup data-source-id="${sid}"></sup>`;
-          }
-          pendingCitations = [];
-          if (markers.length > 0) {
-            assistantText += markers;
-            controller.enqueue(
-              encodeSseEvent({ type: "token", text: markers }),
-            );
-          }
-        }
-
-        let tokensIn: number | null = null;
-        let tokensOut: number | null = null;
-        let cacheCreationTokens = 0;
-        let cacheReadTokens = 0;
-        let webSearchCount = 0;
-        let mcpToolCallCount = 0;
-        let streamError: Error | null = null;
-
-        // Consume ONE model stream into the shared accumulators + SSE. Called once
-        // by the single-pass path and once per round by the MCP loop; the event
-        // handling below is verbatim from the pre-2P-6b single-pass consumption.
-        async function consumeStream(
-          events: AsyncIterable<AnthropicStreamEvent>,
-        ): Promise<void> {
-          for await (const event of events) {
-            switch (event.type) {
-              case "text": {
-                // Defer-and-split: if any citations are queued and this
-                // chunk contains a sentence-end / structural boundary,
-                // emit chunk up-to-and-including the boundary, drain
-                // markers there, then emit the tail. If no boundary
-                // OR no pending citations, just emit the chunk.
-                if (pendingCitations.length === 0) {
-                  assistantText += event.text;
-                  controller.enqueue(
-                    encodeSseEvent({ type: "token", text: event.text }),
-                  );
-                  break;
-                }
-                const m = event.text.match(CITATION_DRAIN_RE);
-                if (!m || m.index === undefined) {
-                  assistantText += event.text;
-                  controller.enqueue(
-                    encodeSseEvent({ type: "token", text: event.text }),
-                  );
-                  break;
-                }
-                const splitEnd = m.index + m[0].length;
-                const head = event.text.slice(0, splitEnd);
-                const tail = event.text.slice(splitEnd);
-                if (head.length > 0) {
-                  assistantText += head;
-                  controller.enqueue(
-                    encodeSseEvent({ type: "token", text: head }),
-                  );
-                }
-                drainCitations();
-                if (tail.length > 0) {
-                  assistantText += tail;
-                  controller.enqueue(
-                    encodeSseEvent({ type: "token", text: tail }),
-                  );
-                }
-                break;
-              }
-              case "tool_trace_start": {
-                // Citations belong to text already emitted, never to
-                // text that hasn't arrived yet — drain before any tool
-                // boundary so pending pills land at the end of the
-                // text block that just closed.
-                drainCitations();
-                const position = assistantText.length;
-                const toolCall: ChatToolCall = {
-                  id: event.id,
-                  name: event.toolName,
-                  input: event.input,
-                  output: null,
-                  status: "running",
-                  started_at: event.startedAt,
-                  position,
-                };
-                toolCalls.push(toolCall);
-                controller.enqueue(
-                  encodeSseEvent({
-                    type: "tool_trace_start",
-                    id: event.id,
-                    name: event.toolName,
-                    input: event.input,
-                    started_at: event.startedAt,
-                    position,
-                  }),
-                );
-                break;
-              }
-              case "tool_trace_done": {
-                drainCitations();
-                const idx = toolCalls.findIndex((t) => t.id === event.id);
-                if (idx >= 0) {
-                  // Roll any source_ids that streamed since the previous
-                  // done event into the previous tool call's output.
-                  if (
-                    lastDoneToolCallIndex !== null &&
-                    pendingSourceAttributions.length > 0
-                  ) {
-                    const prev = toolCalls[lastDoneToolCallIndex];
-                    prev.output = {
-                      source_ids: [
-                        ...(prev.output?.source_ids ?? []),
-                        ...pendingSourceAttributions,
-                      ],
-                    };
-                  }
-                  pendingSourceAttributions = [];
-                  toolCalls[idx].status = "done";
-                  toolCalls[idx].finished_at = event.finishedAt;
-                  toolCalls[idx].output = { source_ids: [] };
-                  lastDoneToolCallIndex = idx;
-                }
-                controller.enqueue(
-                  encodeSseEvent({
-                    type: "tool_trace_done",
-                    id: event.id,
-                    output: { source_ids: [] },
-                    finished_at: event.finishedAt,
-                  }),
-                );
-                break;
-              }
-              case "tool_trace_error": {
-                drainCitations();
-                const idx = toolCalls.findIndex((t) => t.id === event.id);
-                if (idx >= 0) {
-                  toolCalls[idx].status = "error";
-                  toolCalls[idx].finished_at = event.finishedAt;
-                  toolCalls[idx].error = event.error;
-                }
-                controller.enqueue(
-                  encodeSseEvent({
-                    type: "tool_trace_error",
-                    id: event.id,
-                    error: event.error,
-                    finished_at: event.finishedAt,
-                  }),
-                );
-                break;
-              }
-              case "citation": {
-                let sourceId = sourceByUrl.get(event.url);
-                if (!sourceId) {
-                  sourceId = shortId("src");
-                  sourceByUrl.set(event.url, sourceId);
-                  const source: ChatSource = {
-                    id: sourceId,
-                    title: event.title,
-                    url: event.url,
-                    domain: domainFromUrl(event.url),
-                  };
-                  sources.push(source);
-                  controller.enqueue(
-                    encodeSseEvent({
-                      type: "source_added",
-                      id: source.id,
-                      title: source.title,
-                      url: source.url,
-                      domain: source.domain,
-                    }),
-                  );
-                  pendingSourceAttributions.push(sourceId);
-                }
-                // Queue marker for next drain point. Anthropic emits
-                // citations_delta BEFORE the cited text rather than
-                // after; injecting at stream position lands pills in
-                // front of claims. Deferring to the next sentence-end /
-                // paragraph break / tool boundary / end-of-stream lands
-                // them in academic-citation position (after the period).
-                pendingCitations.push(sourceId);
-                break;
-              }
-            }
-          }
-        }
-
-        // Accumulate one round's usage into the per-turn totals (the loop sums
-        // across rounds; the single-pass path sets them once).
-        function addUsage(usage: {
-          input_tokens: number;
-          output_tokens: number;
-          cache_creation_input_tokens: number;
-          cache_read_input_tokens: number;
-          web_search_requests: number;
-        }): void {
-          tokensIn = (tokensIn ?? 0) + usage.input_tokens;
-          tokensOut = (tokensOut ?? 0) + usage.output_tokens;
-          cacheCreationTokens += usage.cache_creation_input_tokens;
-          cacheReadTokens += usage.cache_read_input_tokens;
-          webSearchCount += usage.web_search_requests;
-        }
-
-        // Finalize a held/failed MCP tool call (no execution) into an is_error
-        // tool_result + an error trace. Used for write-blocked and unknown-tool.
-        function holdMcpToolCall(
-          toolCall: ChatToolCall,
-          errorCode: string,
-          message: string,
-        ): AnthropicToolResultBlock {
-          const finishedAt = new Date().toISOString();
-          toolCall.status = "error";
-          toolCall.finished_at = finishedAt;
-          toolCall.error = errorCode;
-          toolCall.error_message = message;
-          controller.enqueue(
-            encodeSseEvent({
-              type: "tool_trace_error",
-              id: toolCall.id,
-              error: errorCode,
-              finished_at: finishedAt,
-            }),
-          );
-          return {
-            type: "tool_result",
-            tool_use_id: toolCall.id,
-            content: message,
-            is_error: true,
-          };
-        }
-
-        // Execute one MCP tool_use block into a tool_result to feed back, recording
-        // the trace (server, tool, args summary, status, timing, read/write) and
-        // surfacing tool_trace_* SSE events. v1 policy: run reads, HOLD writes.
-        async function runOneMcpToolCall(block: {
-          id: string;
-          name: string;
-          input: unknown;
-        }): Promise<AnthropicToolResultBlock> {
-          mcpToolCallCount += 1;
-          drainCitations();
-          const startedAt = new Date().toISOString();
-          const position = assistantText.length;
-          const summary = mcpArgsSummary(block.input);
-          const route = mcpRoutingMap[block.name];
-          const access = mcpAccessByName.get(block.name) ?? "write";
-
-          const toolCall: ChatToolCall = {
-            id: block.id,
-            name: block.name,
-            input: summary,
-            output: null,
-            status: "running",
-            started_at: startedAt,
-            position,
-            access,
-            server: route?.serverId,
-          };
-          toolCalls.push(toolCall);
-          controller.enqueue(
-            encodeSseEvent({
-              type: "tool_trace_start",
-              id: block.id,
-              name: block.name,
-              input: summary,
-              started_at: startedAt,
-              position,
-            }),
-          );
-
-          // Unknown tool (the model can only call offered tools — guard anyway).
-          if (!route) {
-            return holdMcpToolCall(
-              toolCall,
-              "unknown_tool",
-              "The tool call failed: the requested tool is not available.",
-            );
-          }
-          // WRITE policy (v1): hold — never silently send/create/delete.
-          if (access === "write") {
-            return holdMcpToolCall(
-              toolCall,
-              "write_blocked",
-              MCP_WRITE_BLOCKED_MESSAGE,
-            );
-          }
-          // READ: execute (never throws; returns a tool_result + safe trace).
-          const exec = await executeMcpTool({
-            route,
-            toolInput: block.input,
-            toolUseId: block.id,
-          });
-          const ok = exec.trace.status === "ok";
-          toolCall.status = ok ? "done" : "error";
-          toolCall.finished_at = exec.trace.finishedAt;
-          toolCall.output = { source_ids: [] };
-          if (!ok) {
-            toolCall.error = exec.trace.errorCode;
-            // Record the safe, human-readable reason (e.g. a Google permission /
-            // scope error), not just the code, so the failure is diagnosable here.
-            if (exec.trace.errorMessage) {
-              toolCall.error_message = exec.trace.errorMessage;
-            }
-          }
-          controller.enqueue(
-            encodeSseEvent(
-              ok
-                ? {
-                    type: "tool_trace_done",
-                    id: block.id,
-                    output: { source_ids: [] },
-                    finished_at: exec.trace.finishedAt,
-                  }
-                : {
-                    type: "tool_trace_error",
-                    id: block.id,
-                    error: exec.trace.errorCode ?? "error",
-                    finished_at: exec.trace.finishedAt,
-                  },
-            ),
-          );
-          return exec.toolResult;
-        }
-
-        // The gated agentic loop: stream the model, and while it requests client
-        // tools, execute them and re-stream with the results appended — until a
-        // normal end, or the round / wall-clock budget forces a final no-tools turn.
-        async function runMcpLoop(credential: ModelCredential): Promise<void> {
-          const allTools: AnthropicTool[] = [...tools, ...mcpToolDefs];
-          // Ephemeral model context: starts from the string-based history + current
-          // turn, then gains content-block tool turns. The PERSISTED history stays
-          // the final assistant text + tool_calls JSONB, so replay is unaffected.
-          const loopMessages: AnthropicChatMessage[] = [...apiMessages];
-          const deadline = Date.now() + MCP_LOOP_WALL_CLOCK_MS;
-          let round = 0;
-
-          for (;;) {
-            round += 1;
-            const budgetExhausted =
-              round >= MCP_MAX_TOOL_ROUNDS || Date.now() >= deadline;
-            // The final allowed turn runs WITHOUT tools to force a text answer.
-            const turnTools = budgetExhausted ? [] : allTools;
-            const r = streamAnthropicChat({
-              model: vendorModelName,
-              credential,
-              systemBlocks,
-              messages: loopMessages,
-              maxTokens: 4096,
-              tools: turnTools.length > 0 ? turnTools : undefined,
-            });
-            await consumeStream(r.events);
-            addUsage(await r.finalUsage());
-
-            const finalMessage = await r.finalMessage();
-            if (budgetExhausted || finalMessage.stop_reason !== "tool_use") {
-              drainCitations();
-              break;
-            }
-
-            // The model requested client tools. Re-send its turn (text + tool_use
-            // blocks), then a user turn with the tool_results.
-            drainCitations();
-            loopMessages.push({
-              role: "assistant",
-              content: finalMessage.content as AnthropicChatMessage["content"],
-            });
-            const toolResults: AnthropicToolResultBlock[] = [];
-            for (const block of finalMessage.content) {
-              if (block.type !== "tool_use") continue;
-              toolResults.push(
-                await runOneMcpToolCall({
-                  id: block.id,
-                  name: block.name,
-                  input: block.input,
-                }),
-              );
-            }
-            loopMessages.push({
-              role: "user",
-              content: toolResults as AnthropicChatMessage["content"],
-            });
-          }
-        }
-
-        try {
-          // Non-anthropic vendors are unsupported (parity with the prior dispatch).
-          if (vendor !== "anthropic") {
-            throw new Error(`Unsupported model vendor: ${vendor}`);
-          }
-          // Resolve the credential through the single seam (D-086); managed mode
-          // returns the platform key so the stream is identical to before, BYO
-          // rides the same call. Resolving inside try surfaces a failure as a
-          // stream error, exactly as before.
-          const credential = await resolveModelCredential({
-            organizationId: agent.organization_id,
-            userId: user.id,
-            vendor,
-          });
-
-          if (mcpLoopEngaged) {
-            await runMcpLoop(credential);
-          } else {
-            // Single-pass — byte-identical to the pre-2P-6b path.
-            const r = streamAnthropicChat({
-              model: vendorModelName,
-              credential,
-              systemBlocks,
-              messages: apiMessages,
-              maxTokens: 4096,
-              tools: tools.length > 0 ? tools : undefined,
-            });
-            await consumeStream(r.events);
-            drainCitations();
-            const usage = await r.finalUsage();
-            tokensIn = usage.input_tokens;
-            tokensOut = usage.output_tokens;
-            cacheCreationTokens = usage.cache_creation_input_tokens;
-            cacheReadTokens = usage.cache_read_input_tokens;
-            webSearchCount = usage.web_search_requests;
-          }
-        } catch (err) {
-          // Stream failed mid-flight. Per Step B "persist what we have so
-          // far": fall through to the persistence block below with
-          // whatever assistantText / sources / toolCalls accumulated.
-          // Tool calls still in "running" stay that way — that's honest
-          // about the stream state at termination.
-          streamError = err instanceof Error ? err : new Error(String(err));
-          console.error("model stream failed", err);
-          // Drain any pending citations into the partial body so the
-          // persisted assistantText has its markers in (approximately)
-          // the right place even on interrupt.
-          drainCitations();
-        }
-
-        // Final source-attribution flush: any sources accumulated after
-        // the last tool_trace_done belong to that call.
-        if (
-          lastDoneToolCallIndex !== null &&
-          pendingSourceAttributions.length > 0
-        ) {
-          const prev = toolCalls[lastDoneToolCallIndex];
-          prev.output = {
-            source_ids: [
-              ...(prev.output?.source_ids ?? []),
-              ...pendingSourceAttributions,
-            ],
-          };
-        }
-
-        // 3. Persist assistant message — full body + sources + tool_calls.
-        // Persist even on stream error so reload reflects partial state.
-        const { data: assistantMsg, error: assistantInsertErr } = await supabase
-          .from("messages")
-          .insert({
-            conversation_id: conversationId,
-            role: "assistant" satisfies MessageRole,
-            content: assistantText,
-            tokens_in: tokensIn,
-            tokens_out: tokensOut,
-            sources,
-            tool_calls: toolCalls,
-          })
-          .select("id")
-          .single();
-        if (assistantInsertErr || !assistantMsg) {
-          console.error("assistant message insert failed", {
-            code: assistantInsertErr?.code,
-          });
-          controller.enqueue(
-            encodeSseEvent({ type: "error", error: "internal_error" }),
-          );
-          controller.close();
-          return;
-        }
-
-        // Bump conversations.updated_at to reflect genuine last activity.
-        // The chat flow otherwise never updates the conversation row, so
-        // updated_at would stay frozen at creation time and the home's
-        // "Continue working" ordering would be wrong. One write per
-        // request (both turns are now persisted). Best-effort: a failure
-        // here must not abort a stream that already produced a reply.
-        const { error: bumpErr } = await supabase
-          .from("conversations")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", conversationId);
-        if (bumpErr) {
-          console.error("conversation updated_at bump failed", {
-            code: bumpErr.code,
-          });
-        }
-
-        // If the stream errored mid-flight, surface error then close —
-        // skip usage_events (we don't have final usage) and skip done.
-        if (streamError) {
-          controller.enqueue(
-            encodeSseEvent({ type: "error", error: "upstream_error" }),
-          );
-          controller.close();
-          return;
-        }
-
-        // 4. Persist usage event. tokensIn / tokensOut are non-null here
-        //    because the try block above guarantees finalMessage() ran.
-        let costMicroUsd = 0;
-        try {
-          costMicroUsd = computeCostMicroUsd(
-            tokensIn!,
-            tokensOut!,
-            cacheCreationTokens,
-            cacheReadTokens,
-            webSearchCount,
-            modelSnapshot,
-          );
-        } catch (err) {
-          console.error("computeCostMicroUsd failed — recording cost 0", err);
-        }
-
-        // The usage row, summed across all loop rounds (one row per user turn).
-        const usageRow = {
-          organization_id: agent.organization_id,
-          user_id: user.id,
-          agent_id: agent.id,
-          conversation_id: conversationId,
-          message_id: assistantMsg.id,
-          model: modelSnapshot,
-          tokens_in: tokensIn!,
-          tokens_out: tokensOut!,
-          cache_creation_tokens: cacheCreationTokens,
-          cache_read_tokens: cacheReadTokens,
-          web_search_count: webSearchCount,
-          cost_micro_usd: costMicroUsd,
-        };
-        // Include mcp_tool_call_count; tolerate the column being absent pre-
-        // migration (Postgres 42703) by retrying without it, so the usage row is
-        // still recorded (the count is lost until the migration is applied).
-        const { error: usageErr } = await supabase
-          .from("usage_events")
-          .insert({ ...usageRow, mcp_tool_call_count: mcpToolCallCount });
-        if (usageErr) {
-          if (usageErr.code === "42703") {
-            const { error: retryErr } = await supabase
-              .from("usage_events")
-              .insert(usageRow);
-            if (retryErr) {
-              console.error("usage_events insert failed", { code: retryErr.code });
-            }
-          } else {
-            console.error("usage_events insert failed", { code: usageErr.code });
-          }
-        }
-
-        // 5. Done.
-        controller.enqueue(
-          encodeSseEvent({
-            type: "done",
-            assistant_message_id: assistantMsg.id,
-            tokens_in: tokensIn!,
-            tokens_out: tokensOut!,
-          }),
-        );
-        controller.close();
+    // ---- Stream the assistant turn (fresh send). The streaming machinery
+    // (consumeStream, the agentic loop, citation draining, persistence, and the
+    // 2P-7b write-confirmation pause) lives in lib/chat/assistant-stream.ts so a
+    // paused write's resume (/api/chat/confirm) shares the exact same path.
+    return streamChatTurn({
+      supabase,
+      conversationId,
+      organizationId: agent.organization_id,
+      agentId: agent.id,
+      userId: user.id,
+      modelSnapshot,
+      vendor,
+      vendorModelName,
+      systemBlocks,
+      tools,
+      mcpToolDefs,
+      mcpRoutingMap,
+      mcpAccessByName,
+      mcpLoopEngaged,
+      mode: {
+        kind: "fresh",
+        userMessageId: userMsg.id,
+        baseMessages: apiMessages,
       },
     });
-
-    return new Response(sseStream, { headers: SSE_RESPONSE_HEADERS });
   } catch (err) {
     console.error("/api/chat unexpected error", err);
     return errorResponse("internal_error", 500);

@@ -2,13 +2,26 @@
 
 import { FileTextIcon } from "lucide-react";
 
+import { ConfirmationCard } from "./confirmation-card";
 import { CopyButton } from "./copy-button";
 import { MessageActionsMenu } from "./message-actions-menu";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { SourcesList } from "./sources-list";
 import { ToolTraceCard } from "./tool-trace-card";
 
+import type { ConfirmationDecision } from "@/lib/chat/mcp-confirmation";
 import type { ChatSource, ChatToolCall } from "@/lib/chat/sse-parser";
+
+/** Statuses that mean a tool call is an MCP write-confirmation, not a trace. */
+const CONFIRMATION_STATUSES = new Set<ChatToolCall["status"]>([
+  "awaiting_confirmation",
+  "denied",
+  "approved",
+]);
+
+function isConfirmationCall(call: ChatToolCall): boolean {
+  return CONFIRMATION_STATUSES.has(call.status);
+}
 
 export type ChatMessage = {
   /** Server-issued UUID once known; transient client id otherwise. */
@@ -98,11 +111,19 @@ interface MessageBubbleProps {
    * as its `onRetry` prop.
    */
   onToolErrorRetry?: () => void;
+  /**
+   * Fires when the user approves or denies a paused MCP write (2P-7b),
+   * carrying the paused-run id + the decision. Threaded down to each
+   * ConfirmationCard. Omitted when no decision can be made here (e.g. an
+   * admin viewing another user's conversation).
+   */
+  onConfirmDecision?: (pausedRunId: string, decision: ConfirmationDecision) => void;
 }
 
 type RenderBlock =
   | { kind: "text"; body: string }
-  | { kind: "tool_trace_group"; toolCalls: ChatToolCall[] };
+  | { kind: "tool_trace_group"; toolCalls: ChatToolCall[] }
+  | { kind: "tool_confirmation"; call: ChatToolCall };
 
 /**
  * Splice tool trace cards into the markdown body at their captured
@@ -135,6 +156,14 @@ function buildBlocks(message: ChatMessage): RenderBlock[] {
     if (safePos > cursor) {
       blocks.push({ kind: "text", body: message.content.slice(cursor, safePos) });
     }
+    // A paused/decided MCP write renders as its own Approve/Deny card, never
+    // grouped with trace calls — confirmation is strictly per action (2P-7b).
+    if (isConfirmationCall(head)) {
+      blocks.push({ kind: "tool_confirmation", call: head });
+      cursor = safePos;
+      i += 1;
+      continue;
+    }
     // Look ahead: pull subsequent calls into this group as long as
     // (a) the same tool name and (b) the body slice between the previous
     // call's position and the next call's position is whitespace-only.
@@ -143,7 +172,7 @@ function buildBlocks(message: ChatMessage): RenderBlock[] {
     let j = i + 1;
     while (j < sorted.length) {
       const next = sorted[j];
-      if (next.name !== head.name) break;
+      if (next.name !== head.name || isConfirmationCall(next)) break;
       const nextSafe = Math.max(
         lastPos,
         Math.min(next.position, message.content.length),
@@ -181,6 +210,7 @@ export function MessageBubble({
   message,
   isStreaming,
   onToolErrorRetry,
+  onConfirmDecision,
 }: MessageBubbleProps) {
   // error_banner messages are rendered by MessageList directly via
   // <ChatErrorMessage>; this branch is defensive — if one ever reaches
@@ -256,6 +286,20 @@ export function MessageBubble({
                   toolCalls={b.toolCalls}
                   messageIsHydrated={isHydrated}
                   onRetry={onToolErrorRetry}
+                />
+              );
+            }
+            if (b.kind === "tool_confirmation") {
+              const pausedRunId = b.call.confirmation?.paused_run_id;
+              return (
+                <ConfirmationCard
+                  key={`cc-${b.call.id}`}
+                  call={b.call}
+                  onDecision={
+                    onConfirmDecision && pausedRunId
+                      ? (decision) => onConfirmDecision(pausedRunId, decision)
+                      : undefined
+                  }
                 />
               );
             }

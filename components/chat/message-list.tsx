@@ -8,6 +8,8 @@ import { MessageBubble, type ChatMessage } from "./message-bubble";
 import { ThinkingGlyph } from "./thinking-glyph";
 import { TypingIndicator } from "./typing-indicator";
 
+import type { ConfirmationDecision } from "@/lib/chat/mcp-confirmation";
+
 import { cn } from "@/lib/utils";
 
 interface MessageListProps {
@@ -37,6 +39,16 @@ interface MessageListProps {
    * before re-firing.
    */
   onToolErrorRetry: (assistantId: string) => void;
+  /**
+   * Approve/Deny handler for a paused MCP write-confirmation (2P-7b).
+   * Receives the paused-run id + the decision; ChatInterface records the
+   * decision and resumes the loop, streaming the continuation into the
+   * same assistant bubble.
+   */
+  onConfirmDecision: (
+    pausedRunId: string,
+    decision: ConfirmationDecision,
+  ) => void;
 }
 
 /**
@@ -95,6 +107,7 @@ export function MessageList({
   streamErrorBody,
   onStreamErrorRetry,
   onToolErrorRetry,
+  onConfirmDecision,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -203,6 +216,7 @@ export function MessageList({
                 message={m}
                 isStreaming={showCaret}
                 onToolErrorRetry={toolRetry}
+                onConfirmDecision={onConfirmDecision}
               />
             );
           })}

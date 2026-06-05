@@ -47,7 +47,20 @@ export type ChatToolCall = {
   name: string;
   input: unknown;
   output: { source_ids: string[] } | null;
-  status: "running" | "done" | "error";
+  /**
+   * Execution lifecycle. web_search / MCP reads use running → done | error.
+   * An MCP WRITE that the loop paused for human confirmation (2P-7b) uses the
+   * three confirmation states: `awaiting_confirmation` (paused, Approve/Deny
+   * pending), then `denied` (user declined) or `approved` (user approved; the
+   * write itself executes in 2P-7b-ii — until then nothing is sent).
+   */
+  status:
+    | "running"
+    | "done"
+    | "error"
+    | "awaiting_confirmation"
+    | "denied"
+    | "approved";
   started_at: string;
   finished_at?: string;
   error?: string;
@@ -72,6 +85,13 @@ export type ChatToolCall = {
   access?: "read" | "write";
   /** For an MCP tool call: the server id the tool belongs to. Absent for web_search. */
   server?: string;
+  /**
+   * For a paused MCP write (2P-7b): the paused-run record this confirmation is
+   * wired to. Lets the UI render the Approve/Deny card and resume the loop from
+   * the persisted trace alone (so a reload still surfaces the pending decision).
+   * Present once status enters a confirmation state.
+   */
+  confirmation?: { paused_run_id: string };
 };
 
 export type ChatStreamEvent =
@@ -100,6 +120,26 @@ export type ChatStreamEvent =
       id: string;
       error: string;
       finished_at: string;
+    }
+  | {
+      // The loop paused on a write tool and is awaiting a human decision
+      // (2P-7b). Carries the PII-safe info the client needs to render the
+      // Approve/Deny card and to resume the loop after a decision. No raw
+      // argument values or file names cross this boundary — only argKeys.
+      type: "tool_confirmation_required";
+      paused_run_id: string;
+      /** The assistant message this turn is building (settle the bubble here). */
+      assistant_message_id: string;
+      /** The paused tool call's id (tool_use id), to attach the card to it. */
+      tool_call_id: string;
+      /** The namespaced tool name, e.g. "gdrive__create_file" — the client
+       * derives the friendly label from it, identically to a reloaded trace. */
+      tool_name: string;
+      /** The server id the write targets. */
+      server: string;
+      access: "write";
+      /** PII-safe argument key names only (never values). */
+      arg_keys: string[];
     }
   | {
       type: "source_added";

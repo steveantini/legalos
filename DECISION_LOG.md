@@ -2984,3 +2984,27 @@ Conclude that the block is a Google-side Workspace **Developer-Preview authoriza
 The root cause was that Google Cloud project 738626459610 (legalOS-dev) was not enrolled in the Google Workspace Developer Preview Program. Enrollment was submitted and confirmed on 2026-06-04 — the program team confirmed the project's features are ready to use ("all the features in the program are now ready to be used"). Immediately after confirmation, Drive MCP reads were verified working live end-to-end against real Google Drive data: the agentic loop runs, the model calls `search_files`, the call executes over the live transport, and real files are returned and woven into the answer.
 
 This confirms the diagnosis above: every legalOS-side configuration — OAuth client, requested scopes, app trust in Admin API controls, the authorizing Workspace account, the base and MCP APIs, the request/argument shape, and the agentic loop — was correct throughout. The sole blocker was the missing developer-preview enrollment, a Google-side prerequisite keyed to the Cloud project number. No legalOS code changed to resolve it. The lesson (the several easy-to-miss Google-side setup steps, and the long opaque failure they produced) is captured as a customer-onboarding roadmap item so a future customer is guided through the setup rather than debugging it blind.
+
+## D-107 — Interactive MCP write-confirmation via pause-and-resume (2P-7b-i)
+
+Date: 2026-06-04
+Status: Accepted
+
+**Context:**
+
+The agentic loop (2P-6b, D-105) runs many model turns inside ONE serverless request and, in v1, silently blocked any write tool the model requested. Making writes human-approvable means pausing a mid-stream loop for an out-of-band Approve/Deny decision — something a single serverless request cannot await (the function would have to hold open for an unbounded human delay, fragile to timeouts and refreshes). The loop's content-block turns are also ephemeral today; only the final assistant text + the `tool_calls` JSONB persist, an invariant that keeps conversation replay uncorrupted.
+
+**Decision:**
+
+Adopt PAUSE-AND-RESUME ACROSS REQUESTS. On a write, the loop persists its resumable state plus the pending action into a tenant-scoped `mcp_paused_runs` table (storing the connection's `token_ref` pointer, NEVER a token), emits a `tool_confirmation_required` SSE event, and ends the request cleanly with the partial assistant message + a `tool_calls` trace marking the write `awaiting_confirmation`. A separate, owner-authorized decision (`POST /api/chat/confirm`) records the choice and RESUMES the loop in a fresh request: deny feeds the model a declined tool_result and continues; approve feeds an approved-but-execution-pending placeholder and continues (the write itself executes in 2P-7b-ii — no write fires in 2P-7b-i, preserving the v1 no-write guarantee). Confirmation is PER ACTION for v1 (each write decided individually; a turn with several writes pauses at the first and re-surfaces the next on resume). The streaming machinery (consumeStream, the loop, citation draining, persistence) was extracted to `lib/chat/assistant-stream.ts` so the fresh turn and the resume share one code path; the fresh path stays behavior-preserving, and with the feature flag off or no MCP tools present every request is byte-identical to before.
+
+**Reasoning:**
+
+Pause-and-resume is robust to timeouts and refreshes and is the correct human-in-the-loop foundation. It preserves the string-history + `tool_calls` invariant by keeping the content-block loop state in the paused-run record, not in message history (the resume UPDATES the same assistant message, so one user turn stays one assistant message even across the pause). The persisted loop state and pending input are the user's own conversation data, scoped to the owning user exactly like the messages they belong to (RLS mirrors conversations/messages); no secret is written — the resume re-resolves a live token via `getUsableAccessToken` from the stored `token_ref`, as the loop does today. Splitting execution into 2P-7b-ii lets the first real write land on a proven pause/resume mechanism.
+
+**Consequences:**
+
+- Writes become approvable: the conversation pauses and asks, instead of silently blocking. Deny is fully wired end-to-end; approve is recorded and resumed with a placeholder.
+- 2P-7b-ii lifts the block on approve (executes the write on resume, then continues).
+- Batch "approve all" and fuller reload-resilience polish are later refinements. A paused run abandoned without a decision records no usage for the tokens already spent (a minor v1 undercount). If the paused-runs table is unavailable, a write degrades gracefully to the legacy "blocked, nothing sent" hold.
+- New migration `0057_mcp_paused_runs.sql` (tenant-scoped, RLS, no secrets); requires applying before the feature is fully functional, though the flag-off path is unaffected either way.

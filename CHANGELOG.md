@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **When an agent wants to take a write action (like creating a file or sending a message), the conversation now pauses and asks you to approve or deny it, instead of silently blocking it. Denying lets the agent continue gracefully and acknowledge the declined action. Approving is acknowledged now, with the action itself executing in the next update, so nothing is sent or created yet. The pause is durable: it survives a refresh, and the approve/deny card is still there when you come back. Reads still run as before, and conversations are unchanged until the feature is turned on. Includes a new tenant-scoped record for the paused state (no secrets are stored).**
+
 ### Changed
 
 - **MCP tool activity in chat now reads cleanly: each tool call shows a friendly label such as "Google Drive: search files" with calm running, done, needs-confirmation, and error states, surfacing the safe reason when a call can't complete, in the same understated style as the web search indicator. It never shows raw arguments or file names. This is presentation only, rendered from the trace already recorded for each turn, with no change to what's sent to any connected service. Separately, the long Google Drive access investigation was resolved: the cause was that our Google Cloud project hadn't been enrolled in Google's Workspace Developer Preview Program, which is now enrolled and confirmed, with Drive reads working live; everything on our side had been correct throughout. A customer-onboarding roadmap item was added so future customers are guided through Google's several easy-to-miss setup steps rather than debugging them blind.**

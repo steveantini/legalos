@@ -37,7 +37,19 @@ export type ChatToolCall = {
   name: string;
   input: unknown;
   output: { source_ids: string[] } | null;
-  status: "running" | "done" | "error";
+  /**
+   * Execution lifecycle. web_search / MCP reads use running → done | error. An
+   * MCP WRITE paused for human confirmation (2P-7b) uses the confirmation
+   * states: `awaiting_confirmation` (Approve/Deny pending), then `denied` or
+   * `approved` (the write executes in 2P-7b-ii; until then nothing is sent).
+   */
+  status:
+    | "running"
+    | "done"
+    | "error"
+    | "awaiting_confirmation"
+    | "denied"
+    | "approved";
   started_at: string;
   finished_at?: string;
   error?: string;
@@ -59,6 +71,12 @@ export type ChatToolCall = {
   access?: "read" | "write";
   /** For an MCP tool call: the server id the tool belongs to. Absent for web_search. */
   server?: string;
+  /**
+   * For a paused MCP write (2P-7b): the paused-run record this confirmation is
+   * wired to, so the UI can render the Approve/Deny card and resume the loop
+   * from the persisted trace alone (a reload still surfaces the decision).
+   */
+  confirmation?: { paused_run_id: string };
 };
 
 export type ChatStreamEvent =
@@ -87,6 +105,17 @@ export type ChatStreamEvent =
       id: string;
       error: string;
       finished_at: string;
+    }
+  | {
+      // The loop paused on a write tool and awaits a human decision (2P-7b).
+      type: "tool_confirmation_required";
+      paused_run_id: string;
+      assistant_message_id: string;
+      tool_call_id: string;
+      tool_name: string;
+      server: string;
+      access: "write";
+      arg_keys: string[];
     }
   | {
       type: "source_added";
