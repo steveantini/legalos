@@ -1,5 +1,7 @@
+import type { McpToolTrace } from "@/lib/connections/mcp/execute-tool";
 import type { AnthropicToolResultBlock } from "@/lib/llm/anthropic/chat";
 import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
+import type { ChatToolCall } from "@/lib/llm/anthropic/stream";
 
 /**
  * Interactive MCP write-confirmation (Phase 2, 2P-7b) — the pure pieces shared
@@ -76,5 +78,36 @@ export function assembleDecisionToolResult(
     type: "tool_result",
     tool_use_id: toolUseId,
     content,
+  };
+}
+
+/**
+ * Map an executed write's trace (2P-7b-ii) to the terminal fields its trace
+ * entry should carry, so an approved-and-executed write reads as a real tool
+ * call (access write, status done | error) rather than a pending confirmation.
+ * Mirrors how a read's outcome settles its trace: success → `done` with empty
+ * source attribution; a server-reported failure → `error` with the safe code +
+ * human-readable reason (never a token or raw value). Pure, so it's unit-tested.
+ */
+export function executedWriteTraceFields(trace: McpToolTrace): {
+  status: ChatToolCall["status"];
+  finished_at: string;
+  output: { source_ids: string[] };
+  error?: string;
+  error_message?: string;
+} {
+  if (trace.status === "ok") {
+    return {
+      status: "done",
+      finished_at: trace.finishedAt,
+      output: { source_ids: [] },
+    };
+  }
+  return {
+    status: "error",
+    finished_at: trace.finishedAt,
+    output: { source_ids: [] },
+    ...(trace.errorCode ? { error: trace.errorCode } : {}),
+    ...(trace.errorMessage ? { error_message: trace.errorMessage } : {}),
   };
 }

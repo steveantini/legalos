@@ -7,6 +7,7 @@ import {
   streamChatTurn,
   type LoopState,
 } from "@/lib/chat/assistant-stream";
+import type { PendingMcpToolCall } from "@/lib/chat/mcp-confirmation";
 import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import {
   classifyMcpTool,
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
     const { data: run, error: runErr } = await supabase
       .from("mcp_paused_runs")
       .select(
-        "id, conversation_id, message_id, user_id, organization_id, status, loop_state",
+        "id, conversation_id, message_id, user_id, organization_id, status, loop_state, pending_tool_call",
       )
       .eq("id", paused_run_id)
       .maybeSingle();
@@ -107,10 +108,14 @@ export async function POST(request: Request) {
     if (!claimed) return errorResponse("already_decided", 409);
 
     const seed = run.loop_state as unknown as LoopState;
+    // The pending write to execute on approve (2P-7b-ii). Carries the route
+    // (incl. token_ref pointer, never a token) + the tool input.
+    const pending = run.pending_tool_call as unknown as PendingMcpToolCall;
 
     // ---- Re-resolve the org's MCP tools fresh for the continued loop (same as
-    // a normal turn). The decided write's result needs no route; remaining reads
-    // and any further tool calls do. A server disconnected since the pause simply
+    // a normal turn). On approve the pending write executes via its OWN persisted
+    // route (above); this resolution covers any remaining reads and further tool
+    // calls the continuation makes. A server disconnected since the pause simply
     // yields no tools — the loop still completes with a final text answer.
     const resolved = await resolveOrgMcpTools();
     const mcpAccessByName = new Map<string, McpToolAccess>();
@@ -150,6 +155,7 @@ export async function POST(request: Request) {
         pausedRunId: run.id,
         decision,
         seed,
+        pending,
       },
     });
   } catch (err) {

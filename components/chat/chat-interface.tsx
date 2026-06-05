@@ -786,7 +786,10 @@ export function ChatInterface({
         ),
       );
     }
-    setConfirmationStatus(decision === "deny" ? "denied" : "approved");
+    // Deny settles the card to its declined state. Approve now executes the
+    // write (2P-7b-ii), so optimistically show it as a running trace; the
+    // resume stream emits its real done/error outcome.
+    setConfirmationStatus(decision === "deny" ? "denied" : "running");
 
     setApiError(null);
     setIsStreaming(true);

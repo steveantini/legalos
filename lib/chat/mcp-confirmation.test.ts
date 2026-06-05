@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import type { McpToolTrace } from "@/lib/connections/mcp/execute-tool";
+
 import {
   assembleDecisionToolResult,
   buildConfirmationPayload,
+  executedWriteTraceFields,
   type PendingMcpToolCall,
 } from "./mcp-confirmation";
 
@@ -52,5 +55,47 @@ describe("assembleDecisionToolResult", () => {
     expect(result.is_error).toBeUndefined();
     expect(result.content).toContain("approved");
     expect(result.content).toContain("not been performed yet");
+  });
+});
+
+describe("executedWriteTraceFields", () => {
+  const base = {
+    serverId: "google-drive-mcp",
+    connectionId: "conn_1",
+    originalToolName: "create_file",
+    startedAt: "2026-06-04T00:00:00.000Z",
+    finishedAt: "2026-06-04T00:00:02.000Z",
+  };
+
+  it("settles a successful write to done with empty attribution, no error", () => {
+    const trace: McpToolTrace = { ...base, status: "ok" };
+    const fields = executedWriteTraceFields(trace);
+    expect(fields.status).toBe("done");
+    expect(fields.finished_at).toBe("2026-06-04T00:00:02.000Z");
+    expect(fields.output).toEqual({ source_ids: [] });
+    expect(fields.error).toBeUndefined();
+    expect(fields.error_message).toBeUndefined();
+  });
+
+  it("settles a failed write to error with the safe code + reason", () => {
+    const trace: McpToolTrace = {
+      ...base,
+      status: "error",
+      errorCode: "tool_error",
+      errorMessage: "The caller does not have permission.",
+    };
+    const fields = executedWriteTraceFields(trace);
+    expect(fields.status).toBe("error");
+    expect(fields.error).toBe("tool_error");
+    expect(fields.error_message).toBe("The caller does not have permission.");
+    expect(fields.output).toEqual({ source_ids: [] });
+  });
+
+  it("omits error_message when the failed trace carries none", () => {
+    const trace: McpToolTrace = { ...base, status: "error", errorCode: "timeout" };
+    const fields = executedWriteTraceFields(trace);
+    expect(fields.status).toBe("error");
+    expect(fields.error).toBe("timeout");
+    expect(fields.error_message).toBeUndefined();
   });
 });

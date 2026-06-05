@@ -3008,3 +3008,27 @@ Pause-and-resume is robust to timeouts and refreshes and is the correct human-in
 - 2P-7b-ii lifts the block on approve (executes the write on resume, then continues).
 - Batch "approve all" and fuller reload-resilience polish are later refinements. A paused run abandoned without a decision records no usage for the tokens already spent (a minor v1 undercount). If the paused-runs table is unavailable, a write degrades gracefully to the legacy "blocked, nothing sent" hold.
 - New migration `0057_mcp_paused_runs.sql` (tenant-scoped, RLS, no secrets); requires applying before the feature is fully functional, though the flag-off path is unaffected either way.
+
+## D-108 — Approved MCP writes execute (2P-7b-ii) — Phase 2 complete
+
+Date: 2026-06-04
+Status: Accepted
+
+**Context:**
+
+2P-7b-i (D-107) proved pause-and-resume write-confirmation end to end: a write pauses the loop, persists `mcp_paused_runs` (loop state + the pending action, including the route's `token_ref` pointer and the tool input), and a separate owner-authorized decision resumes the loop. Deny ran live (declined tool_result → continue); approve was deliberately a placeholder that resumed WITHOUT executing the write, so the highest-consequence step (mutating the user's Google data) could land on an already-proven mechanism. 2P-7b-ii lifts that block.
+
+**Decision:**
+
+On an owner-approved resume, EXECUTE the pending write through the SAME executor reads use (`executeMcpTool`): reconstruct the route from the persisted `pending_tool_call` and resolve a fresh access token live via `getUsableAccessToken(connectionId, tokenRef)` inside the executor — only the `token_ref` pointer is ever persisted; no stored token is read or logged. Feed the REAL tool_result (success or `is_error`) back for the pending `tool_use` id, continue the loop so the model reports what it did, and settle the trace entry to its real terminal status (`done` | `error`, with the safe `error_message` on failure) so the friendly UI (2P-7a) shows an actually-executed write, e.g. "Google Drive: create file · Done". Deny is unchanged. The write executes AT MOST ONCE: the atomic `pending → resuming` claim made in `/api/chat/confirm` (an `UPDATE … WHERE status = 'pending'` that returns zero rows on a second call) gates entry to the executing resume, so a double-click or retry cannot fire the write twice. Only the approve branch changed; the pause/persist mechanism, schema, auth/claim, and UI are untouched.
+
+**Reasoning:**
+
+Landing the first real write on the already-proven pause/resume mechanism keeps the mutate-user-data step minimal and isolated. Reusing the read executor means writes go through the same vetted, never-throws, token/PII-safe path (live token resolution, custody ours, bounded result, `is_error` on failure). Per-action human approval is the safety gate; a server-side write failure surfaces as an `is_error` result the model narrates gracefully, with the trace distinguishing executed-ok from executed-error, and the run still reaching `resumed` (the decision was honored, the write attempted).
+
+**Consequences:**
+
+- Agents can now take real write actions, but only with explicit, per-action human approval. **Phase 2 (the full agentic MCP tool-use loop — governed reads run freely, writes require human approval) is complete and proven live.**
+- The history invariant holds: message history stays final text + `tool_calls` JSONB; the executed write's content-block tool_result lives only in the resumed loop state, so follow-up turns replay uncorrupted.
+- No schema change, no migration. Reads, resolver, classifier, governance, gating, trust/custody/endpoints, and the flag-off / no-MCP path are all unchanged.
+- Later refinements remain: batch "approve all" (per-action only today) and abandoned-run usage accounting (D-107). The placeholder result helper from 2P-7b-i is retained for deny; its approve branch is now unused.

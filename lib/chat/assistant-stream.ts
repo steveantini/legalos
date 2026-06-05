@@ -26,6 +26,7 @@ import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   assembleDecisionToolResult,
   buildConfirmationPayload,
+  executedWriteTraceFields,
   type ConfirmationDecision,
   type PendingMcpToolCall,
 } from "@/lib/chat/mcp-confirmation";
@@ -132,6 +133,13 @@ export type ChatTurnMode =
       pausedRunId: string;
       decision: ConfirmationDecision;
       seed: LoopState;
+      /**
+       * The write the model requested, with the route + input to execute it on
+       * approve (2P-7b-ii). Read from the paused run's pending_tool_call column.
+       * The token is NEVER stored — only route.tokenRef, re-resolved live by
+       * executeMcpTool.
+       */
+      pending: PendingMcpToolCall;
     };
 
 /** All inputs the streaming machinery needs, gathered by each caller. */
@@ -758,20 +766,59 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
           loopMessages = [...mode.seed.loopMessages];
           round = mode.seed.round;
           // Reconstruct the results known for the paused turn: the reads already
-          // executed before the write, plus the now-decided write itself.
+          // executed before the write, plus the now-decided write.
           const resolved = new Map<string, AnthropicToolResultBlock>();
           for (const r of mode.seed.partialToolResults) {
             resolved.set(r.tool_use_id, r);
           }
-          resolved.set(
-            mode.seed.pendingToolUseId,
-            assembleDecisionToolResult(mode.decision, mode.seed.pendingToolUseId),
-          );
-          // Settle the paused write's trace entry to the decided state.
-          const entry = toolCalls.find((c) => c.id === mode.seed.pendingToolUseId);
-          if (entry) {
-            entry.status = mode.decision === "deny" ? "denied" : "approved";
-            entry.finished_at = new Date().toISOString();
+          const pendingId = mode.seed.pendingToolUseId;
+          const entry = toolCalls.find((c) => c.id === pendingId);
+
+          if (mode.decision === "deny") {
+            // Decline: feed a declined result; nothing executes.
+            resolved.set(pendingId, assembleDecisionToolResult("deny", pendingId));
+            if (entry) {
+              entry.status = "denied";
+              entry.finished_at = new Date().toISOString();
+            }
+          } else {
+            // Approve: EXECUTE the real write (2P-7b-ii). The same executor reads
+            // use — a fresh access token is resolved live from the route's
+            // token_ref INSIDE executeMcpTool; no stored token is ever read or
+            // logged. It never throws, returning a real or is_error tool_result +
+            // a token/PII-safe trace. The atomic pending→resuming claim in
+            // /api/chat/confirm guarantees this runs at most once (a second
+            // confirm finds the run no longer 'pending'), so a double-click or
+            // retry cannot fire the write twice.
+            const exec = await executeMcpTool({
+              route: mode.pending.route,
+              toolInput: mode.pending.input,
+              toolUseId: pendingId,
+            });
+            resolved.set(pendingId, exec.toolResult);
+            const fields = executedWriteTraceFields(exec.trace);
+            // Settle the trace to the real executed outcome (done | error), so a
+            // reload and the friendly UI both show an actually-executed write.
+            if (entry) Object.assign(entry, fields);
+            // Transition the client's optimistic "running" card to that outcome,
+            // e.g. "Google Drive: create file · Done" (or the safe error reason).
+            controller.enqueue(
+              encodeSseEvent(
+                fields.status === "done"
+                  ? {
+                      type: "tool_trace_done",
+                      id: pendingId,
+                      output: { source_ids: [] },
+                      finished_at: fields.finished_at,
+                    }
+                  : {
+                      type: "tool_trace_error",
+                      id: pendingId,
+                      error: fields.error ?? "error",
+                      finished_at: fields.finished_at,
+                    },
+              ),
+            );
           }
           const pausedTurn = loopMessages[loopMessages.length - 1];
           const pausedContent = (pausedTurn?.content ?? []) as ToolUseBlock[];
