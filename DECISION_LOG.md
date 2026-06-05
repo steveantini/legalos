@@ -3032,3 +3032,26 @@ Landing the first real write on the already-proven pause/resume mechanism keeps 
 - The history invariant holds: message history stays final text + `tool_calls` JSONB; the executed write's content-block tool_result lives only in the resumed loop state, so follow-up turns replay uncorrupted.
 - No schema change, no migration. Reads, resolver, classifier, governance, gating, trust/custody/endpoints, and the flag-off / no-MCP path are all unchanged.
 - Later refinements remain: batch "approve all" (per-action only today) and abandoned-run usage accounting (D-107). The placeholder result helper from 2P-7b-i is retained for deny; its approve branch is now unused.
+
+## D-109 — Per-user calendar is MCP-only and admin-controlled (no user opt-in)
+
+Date: 2026-06-05
+Status: Accepted (forward-looking; the arc is not yet built)
+
+**Context:**
+
+The workspace-home "Today" card is meant to show a user their schedule, but it was built (Reading-1, D-057/D-058) against a per-user `'calendar'` capability category checked via `connection_grants` — a per-user calendar-OAuth path that never shipped. Meanwhile the actual Google Calendar integration arrived via the org-level MCP path (category `'mcp'`, grant-less, org-scoped), which the card cannot see, so it reads "not yet connected" despite a working Calendar MCP. Planning the per-user calendar arc forced two questions: which connection path it should use, and whether users opt in.
+
+**Decision:**
+
+(1) **MCP is the only Google/Workspace path.** Per-user calendar is built by adding a PER-USER dimension to the MCP connection model (org-scoped today), NOT by introducing a separate per-user calendar-OAuth connector. (2) **Admin-controlled, the user has no say.** When the super admin enables/connects per-user calendar for the org, it connects for users; the user does not opt in or choose. The super admin's decision IS the grant. Per-user calendar is the first instance of the per-user-MCP capability, which is intended to be reusable for later per-user Workspace connections (Gmail, Drive).
+
+**Reasoning:**
+
+A second Google connection path (MCP for agents + OAuth for the home) would re-create the dual-path entanglement the org-level-MCP-governance decision (D-104) deliberately collapsed: two credential custodies, two trust derivations, two governance surfaces for the same provider. Keeping MCP as the single Google path means one custody model, one trust derivation, and one governance lever. Admin-controlled (no user opt-in) is consistent with the org-level MCP governance pattern (D-104): the admin sets it, and proper use is a policy/training matter rather than a per-user toggle — which also keeps the experience simple for both the user (their calendar is just present) and the admin (one clear control, not a fiddly per-user setup).
+
+**Consequences:**
+
+- The per-user calendar arc replaces the dormant per-user-`'calendar'` `connection_grants` check in `calendar-connect-card.tsx` with the per-user-MCP path; the already-built `today-schedule.tsx` view lights up once the per-user MCP dimension exists.
+- The MCP connection model gains a per-user dimension (a real schema/identity change to the currently org-only `connections` MCP rows). This is the substantive work of the arc, reusable for per-user Gmail/Drive later.
+- Recorded in `docs/ROADMAP.md` ("Future arcs identified during Connections-phase planning") alongside the Matters and Desk arcs. The small "Calendar MCP reconnect" open item is effectively superseded by this arc.
