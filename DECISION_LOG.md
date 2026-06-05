@@ -3217,3 +3217,27 @@ Deterministic + auditable is the legal requirement; the declarative-data model, 
 - Workflows can be defined and run server-side now; the builder UI (Step 4), human-checkpoint execution / resume (Step 3), branching/routing, triggers, and C4L templates (Step 5) all build on this without re-architecting.
 - Write actions in a workflow will route through the future human-checkpoint mechanism (Step 3); v1 has no unattended writes anywhere.
 - Migration `0060_workflows.sql` (the three tables + RLS, org-scoped: the triggering user owns a run, org admins read; org-admin authoring of definitions; plus the `usage_events.workflow_run_id` column). The operator applies it. Deploy-tolerant: nothing outside the Workflows surface touches these tables, so the rest of the app is unchanged whether or not it is applied.
+
+## D-117 — Workflow human checkpoints, approved writes, and the autonomy foundation (Workflows arc Step 3)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+Step 2 shipped the engine with human_checkpoint steps that pause-and-stop and a blanket rejection of write tool_actions (no safe-write path). Step 3 completes the safety/write model: a workflow must be able to take real write actions, but only under human approval, and the design must realize the co-pilot ↔ auto-pilot spectrum architecturally while shipping only the safe end. The proven primitive is the Phase 2 chat write-confirmation: persist resumable state (token_ref, never a token), emit a confirmation, end the request, and resume on an owner decision via an atomic at-most-once claim.
+
+**Decision:**
+
+Generalize that pattern to workflow runs. Introduce a RUN-level `autonomy_level` (`supervised` default | `autonomous`) — autonomy is a property of the run, not the definition, so the same definition can run supervised or (later) more autonomously. The engine branches the pause decision on it: a `human_checkpoint` under supervised pauses for approval and stops; under autonomous it auto-proceeds (recorded `auto_proceeded`). A WRITE `tool_action` pauses for approval in EVERY autonomy mode (the validator now ALLOWS write tool_actions because they are approval-gated; the resolver returns `needs_approval` and never executes a write; the pure engine has NO write-execution path at all). On approval, the write executes once via `executeMcpTool` (live token re-resolved from the persisted token_ref), recorded `human_approved`; on deny the run is `cancelled`. The durable state is a `workflow_pending_approvals` row (one open decision per paused run; a write stores route+toolInput+toolUseId with token_ref only), and resume reconstructs the value context from the run's completed step outputs, re-enters the engine at the paused step, and continues. An ATOMIC `pending→resolving` claim guarantees an approved write executes at most once. `workflow_step_runs.approval_mode` records per-step provenance (`human_approved` | `auto_proceeded` | null) for the legal audit. The decision entry point is the `decideWorkflowApproval` server action (no UI yet). v1 ships supervised live; autonomous is represented but its writes still require approval — unattended auto-write is a deliberately gated future capability. The resume logic (claim, approve/deny, write-execute, continue) is a pure, dependency-injected function unit-tested with fakes, so the at-most-once and approve/deny paths are tested without a DB.
+
+**Reasoning:**
+
+Completes the safe-write story on a proven pattern, with the same custody discipline (token_ref only, live re-resolution). Modeling autonomy as a run-level setting realizes the co-pilot ↔ auto-pilot spectrum architecturally while shipping only the safe (supervised) end — appropriate to legal liability, where "agents may act without human approval" must be a deliberate, explicitly-permissioned opt-in, not a default. Keeping write execution OUT of the pure engine (only reachable through the approval-resume path's injected executor) makes "no unattended write" a structural guarantee, not a policy check. Per-step approval provenance serves the legal audit requirement ("was this human-reviewed or run autonomously?"). The atomic claim mirrors the Phase 2 at-most-once guarantee.
+
+**Consequences:**
+
+- Workflows can take real actions under human approval; on approve the write actually executes and the run continues, on deny it stops.
+- Fuller autonomy (auto-pilot writes) remains a deliberately gated future capability; v1 never performs an unattended write in any mode.
+- The builder + approval UI (Step 4) exposes this over the `startWorkflowRun` / `decideWorkflowApproval` actions; branching, triggers, and C4L templates build on it.
+- Migration `0061_workflow_approvals_and_autonomy.sql` (`workflow_runs.autonomy_level`; `workflow_step_runs.approval_mode`; the `workflow_pending_approvals` table + RLS, owner-decides / org-admin-read, token_ref only). The operator applies it. Requires 0060; deploy-tolerant (nothing outside Workflows touches it).

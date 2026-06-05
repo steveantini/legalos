@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Workflows can now include human approval checkpoints and can take write actions safely: a workflow pauses for a person to approve before it continues, or before it performs any write, and the approval is recorded in the audit trail. An autonomy setting lays the groundwork for supervised versus more autonomous runs, with writes always requiring approval for now, so no workflow ever takes an unattended write action.**
+
 - **Internal foundation: legalOS can now define multi-step workflows as data and execute them step by step, recording an immutable audit trail of every step, with agents and connected tools as the available step types. Workflows run linearly for now, pause at human approval steps, and never take an unattended write action; the authoring interface and human approval execution follow.**
 
 - **Internal foundation for multi-step workflows: agents can now be run programmatically, not only through the chat interface, returning their output, tool activity, and usage. This is the building block a workflow's agent-step will call. Headless runs use the same governance and read-only tool access as chat, never perform an unattended write, and record usage for cost tracking. The chat experience is unchanged.**

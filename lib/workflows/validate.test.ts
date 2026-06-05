@@ -71,7 +71,7 @@ describe("validateWorkflowDefinition", () => {
     if (!result.ok) expect(result.errors.join(" ")).toMatch(/not a prior step/i);
   });
 
-  it("rejects a write tool_action (no unattended writes in v1)", async () => {
+  it("accepts a write tool_action (approval-gated at execution, Step 3)", async () => {
     const result = await validateWorkflowDefinition(
       {
         steps: [
@@ -80,8 +80,7 @@ describe("validateWorkflowDefinition", () => {
       },
       deps,
     );
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.join(" ")).toMatch(/write/i);
+    expect(result.ok).toBe(true);
   });
 
   it("rejects an unresolvable agentId and an unresolvable tool", async () => {

@@ -1,34 +1,49 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { runWorkflow, type WorkflowEngineDeps } from "./engine";
-import type { WorkflowDefinition } from "./types";
+import {
+  resumeWorkflow,
+  runWorkflow,
+  type ResolveContext,
+  type WorkflowEngineDeps,
+} from "./engine";
+import type { PendingWriteAction, WorkflowDefinition } from "./types";
 
-/** Deps with sensible fakes; override per test. nowIso is fixed (timing isn't asserted). */
+/** Deps with read-only fakes; override per test. nowIso fixed (timing not asserted). */
 function deps(over: Partial<WorkflowEngineDeps>): WorkflowEngineDeps {
   return {
     runAgentStep: async (_step, input) => ({ ok: true, output: `out:${input}` }),
-    runToolActionStep: async () => ({ ok: true, output: "tool-out" }),
+    runToolActionStep: async () => ({ kind: "executed", ok: true, output: "tool-out" }),
     nowIso: () => "2026-06-05T00:00:00.000Z",
     ...over,
   };
 }
 
-describe("runWorkflow", () => {
-  it("walks a linear two-step run, defaulting to the previous output, with two immutable step records", async () => {
+const FAKE_ROUTE = {
+  serverId: "gdrive",
+  connectionId: "conn-1",
+  tokenRef: "tok-1",
+  serverUrl: "https://example.test/mcp",
+  originalToolName: "create_file",
+};
+const FAKE_PENDING: PendingWriteAction = {
+  route: FAKE_ROUTE,
+  toolInput: { name: "x" },
+  toolUseId: "tu_w",
+};
+
+describe("runWorkflow (fresh walk)", () => {
+  it("walks a linear two-step run, defaulting to the previous output", async () => {
     const def: WorkflowDefinition = {
       steps: [
         { id: "a1", type: "agent", name: "First", agentId: "ag1" },
-        { id: "a2", type: "agent", name: "Second", agentId: "ag2" }, // no inputMapping → previous
+        { id: "a2", type: "agent", name: "Second", agentId: "ag2" },
       ],
     };
-    const outcome = await runWorkflow(def, "start", deps({}));
-
-    expect(outcome.status).toBe("completed");
-    expect(outcome.steps).toHaveLength(2);
-    // Step 1 consumes the run input (first step's `previous` = run input).
-    expect(outcome.steps[0]).toMatchObject({ stepId: "a1", sequence: 0, status: "completed", input: "start", output: "out:start" });
-    // Step 2 defaults to the previous step's output.
-    expect(outcome.steps[1]).toMatchObject({ stepId: "a2", sequence: 1, status: "completed", input: "out:start", output: "out:out:start" });
+    const r = await runWorkflow(def, "start", deps({}));
+    expect(r.status).toBe("completed");
+    expect(r.steps).toHaveLength(2);
+    expect(r.steps[0]).toMatchObject({ stepId: "a1", input: "start", output: "out:start", approvalMode: null });
+    expect(r.steps[1]).toMatchObject({ stepId: "a2", input: "out:start", output: "out:out:start" });
   });
 
   it("resolves run_input and a named prior step distinctly from previous", async () => {
@@ -43,72 +58,191 @@ describe("runWorkflow", () => {
           toolName: "search_files",
           argMapping: { q: { source: "run_input" } },
         },
-        {
-          id: "a2",
-          type: "agent",
-          name: "Third",
-          agentId: "ag2",
-          inputMapping: { source: "step", stepId: "a1" }, // the NAMED prior step, not previous (t1)
-        },
+        { id: "a2", type: "agent", name: "Third", agentId: "ag2", inputMapping: { source: "step", stepId: "a1" } },
       ],
     };
-    const runToolActionStep = vi.fn(async () => ({ ok: true, output: "T1" }));
-    const outcome = await runWorkflow(def, "start", deps({ runToolActionStep }));
-
-    expect(outcome.status).toBe("completed");
-    // tool args resolved from run_input
+    const runToolActionStep = vi.fn(async () => ({ kind: "executed" as const, ok: true, output: "T1" }));
+    const r = await runWorkflow(def, "start", deps({ runToolActionStep }));
+    expect(r.status).toBe("completed");
     expect(runToolActionStep).toHaveBeenCalledWith(expect.objectContaining({ id: "t1" }), { q: "start" });
-    // a2 consumed a1's output ("out:start"), NOT the previous step t1's output ("T1")
-    expect(outcome.steps[2]).toMatchObject({ stepId: "a2", input: "out:start", output: "out:out:start" });
+    expect(r.steps[2]).toMatchObject({ stepId: "a2", input: "out:start", output: "out:out:start" });
   });
 
-  it("fail-stops on a step failure: run failed, no further steps", async () => {
+  it("fail-stops on a step failure", async () => {
     const def: WorkflowDefinition = {
       steps: [
         { id: "a1", type: "agent", name: "First", agentId: "ag1" },
         { id: "a2", type: "agent", name: "Second", agentId: "ag2" },
       ],
     };
-    const runAgentStep = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: false, output: null, error: "boom" });
-    const outcome = await runWorkflow(def, "start", deps({ runAgentStep }));
-
-    expect(outcome.status).toBe("failed");
-    expect(outcome.error).toBe("boom");
-    expect(outcome.steps).toHaveLength(1);
-    expect(outcome.steps[0]).toMatchObject({ status: "failed", error: "boom" });
-    expect(runAgentStep).toHaveBeenCalledTimes(1); // the second step never ran
+    const runAgentStep = vi.fn().mockResolvedValueOnce({ ok: false, output: null, error: "boom" });
+    const r = await runWorkflow(def, "start", deps({ runAgentStep }));
+    expect(r.status).toBe("failed");
+    expect(r.steps).toHaveLength(1);
+    expect(runAgentStep).toHaveBeenCalledTimes(1);
   });
 
-  it("pauses at a human_checkpoint ('awaiting_approval') and stops without approving", async () => {
+  it("never throws — a throwing resolver becomes a failed step", async () => {
+    const def: WorkflowDefinition = { steps: [{ id: "a1", type: "agent", name: "First", agentId: "ag1" }] };
+    const r = await runWorkflow(def, "start", deps({ runAgentStep: async () => { throw new Error("kaboom"); } }));
+    expect(r.status).toBe("failed");
+    expect(r.steps[0].status).toBe("failed");
+  });
+
+  it("read steps (agent + read tool_action) never pause, in any mode", async () => {
     const def: WorkflowDefinition = {
       steps: [
-        { id: "a1", type: "agent", name: "First", agentId: "ag1" },
-        { id: "c1", type: "human_checkpoint", name: "Approve", prompt: "OK?" },
-        { id: "a2", type: "agent", name: "After", agentId: "ag2" },
+        { id: "a1", type: "agent", name: "A", agentId: "ag1" },
+        { id: "t1", type: "tool_action", name: "Read", serverId: "gdrive", toolName: "search_files" },
       ],
     };
-    const runAgentStep = vi.fn(async (_s, input) => ({ ok: true, output: `out:${input}` }));
-    const outcome = await runWorkflow(def, "start", deps({ runAgentStep }));
+    for (const autonomy of ["supervised", "autonomous"] as const) {
+      const r = await runWorkflow(def, "start", deps({}), autonomy);
+      expect(r.status).toBe("completed");
+      expect(r.pending).toBeNull();
+    }
+  });
+});
 
-    expect(outcome.status).toBe("awaiting_approval");
-    expect(outcome.steps).toHaveLength(2);
-    expect(outcome.steps[1]).toMatchObject({ stepId: "c1", status: "awaiting_approval", output: null });
-    expect(runAgentStep).toHaveBeenCalledTimes(1); // the step after the checkpoint never ran
+describe("runWorkflow — checkpoints + writes pause by autonomy", () => {
+  const checkpointDef: WorkflowDefinition = {
+    steps: [
+      { id: "c1", type: "human_checkpoint", name: "Approve", prompt: "OK?" },
+      { id: "a2", type: "agent", name: "After", agentId: "ag2" },
+    ],
+  };
+  const writeDef: WorkflowDefinition = {
+    steps: [
+      { id: "w1", type: "tool_action", name: "Write", serverId: "gdrive", toolName: "create_file" },
+      { id: "a2", type: "agent", name: "After", agentId: "ag2" },
+    ],
+  };
+  const writeDeps = () => deps({ runToolActionStep: async () => ({ kind: "needs_approval" as const, pendingAction: FAKE_PENDING }) });
+
+  it("supervised: pauses at a human_checkpoint and stops", async () => {
+    const r = await runWorkflow(checkpointDef, "start", deps({}), "supervised");
+    expect(r.status).toBe("awaiting_approval");
+    expect(r.pending).toMatchObject({ kind: "checkpoint", stepId: "c1" });
+    expect(r.steps).toHaveLength(1);
+    expect(r.steps[0]).toMatchObject({ status: "awaiting_approval" });
   });
 
-  it("never throws — a throwing resolver becomes a typed failed step", async () => {
-    const def: WorkflowDefinition = {
-      steps: [{ id: "a1", type: "agent", name: "First", agentId: "ag1" }],
-    };
-    const runAgentStep = vi.fn(async () => {
-      throw new Error("kaboom");
-    });
-    const outcome = await runWorkflow(def, "start", deps({ runAgentStep }));
+  it("autonomous: auto-proceeds a human_checkpoint (auto_proceeded) and continues", async () => {
+    const r = await runWorkflow(checkpointDef, "start", deps({}), "autonomous");
+    expect(r.status).toBe("completed");
+    expect(r.steps[0]).toMatchObject({ stepId: "c1", status: "completed", approvalMode: "auto_proceeded" });
+    expect(r.steps[1]).toMatchObject({ stepId: "a2", input: "start" }); // checkpoint passed the value through
+  });
 
-    expect(outcome.status).toBe("failed");
-    expect(outcome.steps[0].status).toBe("failed");
-    expect(outcome.steps[0].error).toContain("threw");
+  it("supervised: pauses at a WRITE tool_action (needs approval, not executed)", async () => {
+    const r = await runWorkflow(writeDef, "start", writeDeps(), "supervised");
+    expect(r.status).toBe("awaiting_approval");
+    expect(r.pending).toMatchObject({ kind: "write", stepId: "w1" });
+  });
+
+  it("autonomous: STILL pauses at a write (no unattended writes in any mode)", async () => {
+    const r = await runWorkflow(writeDef, "start", writeDeps(), "autonomous");
+    expect(r.status).toBe("awaiting_approval");
+    expect(r.pending).toMatchObject({ kind: "write" });
+  });
+});
+
+describe("resumeWorkflow (decision-driven resume)", () => {
+  const writeDef: WorkflowDefinition = {
+    steps: [
+      { id: "w1", type: "tool_action", name: "Write", serverId: "gdrive", toolName: "create_file" },
+      { id: "a2", type: "agent", name: "After", agentId: "ag2" },
+    ],
+  };
+  const checkpointDef: WorkflowDefinition = {
+    steps: [
+      { id: "c1", type: "human_checkpoint", name: "Approve", prompt: "OK?" },
+      { id: "a2", type: "agent", name: "After", agentId: "ag2" },
+    ],
+  };
+  const freshCtx = (): ResolveContext => ({ runInput: "start", previousOutput: "start", outputs: new Map() });
+
+  it("approve a checkpoint → records human_approved and completes the run", async () => {
+    const r = await resumeWorkflow({
+      definition: checkpointDef,
+      autonomy: "supervised",
+      deps: deps({}),
+      pausedIndex: 0,
+      pausedKind: "checkpoint",
+      pendingAction: null,
+      decision: "approve",
+      ctx: freshCtx(),
+      claimPaused: async () => true,
+      executeApprovedWrite: async () => ({ ok: true, output: null }),
+    });
+    expect(r.claimed).toBe(true);
+    expect(r.pausedStepRecord).toMatchObject({ stepId: "c1", status: "completed", approvalMode: "human_approved" });
+    expect(r.runStatus).toBe("completed");
+    expect(r.segment?.steps[0]).toMatchObject({ stepId: "a2", input: "start" });
+  });
+
+  it("approve a write → executes it via executeApprovedWrite, records human_approved, continues", async () => {
+    const executeApprovedWrite = vi.fn(async () => ({ ok: true, output: "WROTE" }));
+    const r = await resumeWorkflow({
+      definition: writeDef,
+      autonomy: "supervised",
+      deps: deps({}),
+      pausedIndex: 0,
+      pausedKind: "write",
+      pendingAction: FAKE_PENDING,
+      decision: "approve",
+      ctx: freshCtx(),
+      claimPaused: async () => true,
+      executeApprovedWrite,
+    });
+    expect(executeApprovedWrite).toHaveBeenCalledTimes(1);
+    expect(r.pausedStepRecord).toMatchObject({ stepId: "w1", status: "completed", approvalMode: "human_approved", output: "WROTE" });
+    expect(r.runStatus).toBe("completed");
+    expect(r.segment?.steps[0]).toMatchObject({ stepId: "a2", input: "WROTE" }); // downstream consumed the write output
+  });
+
+  it("deny → run cancelled, write never executes, no continuation", async () => {
+    const executeApprovedWrite = vi.fn(async () => ({ ok: true, output: "WROTE" }));
+    const r = await resumeWorkflow({
+      definition: writeDef,
+      autonomy: "supervised",
+      deps: deps({}),
+      pausedIndex: 0,
+      pausedKind: "write",
+      pendingAction: FAKE_PENDING,
+      decision: "deny",
+      ctx: freshCtx(),
+      claimPaused: async () => true,
+      executeApprovedWrite,
+    });
+    expect(executeApprovedWrite).not.toHaveBeenCalled();
+    expect(r.runStatus).toBe("cancelled");
+    expect(r.pausedStepRecord).toMatchObject({ stepId: "w1", status: "failed" });
+    expect(r.segment).toBeNull();
+  });
+
+  it("at-most-once: a double-approve executes the write exactly once (atomic claim)", async () => {
+    let claims = 0;
+    const claimPaused = async () => {
+      claims += 1;
+      return claims === 1; // only the first caller wins
+    };
+    const executeApprovedWrite = vi.fn(async () => ({ ok: true, output: "WROTE" }));
+    const common = {
+      definition: writeDef,
+      autonomy: "supervised" as const,
+      deps: deps({}),
+      pausedIndex: 0,
+      pausedKind: "write" as const,
+      pendingAction: FAKE_PENDING,
+      decision: "approve" as const,
+      claimPaused,
+      executeApprovedWrite,
+    };
+    const r1 = await resumeWorkflow({ ...common, ctx: freshCtx() });
+    const r2 = await resumeWorkflow({ ...common, ctx: freshCtx() });
+    expect(r1.claimed).toBe(true);
+    expect(r2.claimed).toBe(false);
+    expect(executeApprovedWrite).toHaveBeenCalledTimes(1);
   });
 });

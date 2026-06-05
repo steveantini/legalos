@@ -20,6 +20,8 @@
  * union variant + the edges overlay; no router logic exists in v1.
  */
 
+import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
+
 /**
  * How a step sources a value — its whole input (agent step) or one tool argument
  * (tool_action step). The v1 DEFAULT is `previous` (the immediately-prior step's
@@ -87,6 +89,35 @@ export type WorkflowDefinition = {
   steps: WorkflowStep[];
 };
 
+// ---- Autonomy + approval (Workflows arc Step 3).
+
+/**
+ * The run-level co-pilot ↔ auto-pilot setting. Autonomy is a property of the RUN,
+ * not the definition — the same definition can run supervised or (later) more
+ * autonomously. v1 ships 'supervised' live; 'autonomous' is represented but its
+ * WRITES STILL PAUSE for approval (no unattended writes in any mode).
+ */
+export type AutonomyLevel = "supervised" | "autonomous";
+
+/** Per-step approval provenance for the audit trail. Null = no approval involved. */
+export type StepApprovalMode = "human_approved" | "auto_proceeded";
+
+/**
+ * A resolved write awaiting approval. Stores the route's token_ref ONLY (never a
+ * token); the resume re-resolves a live token through executeMcpTool. Opaque to
+ * the pure engine — it is persisted at pause and handed back at resume.
+ */
+export type PendingWriteAction = {
+  route: McpToolRoute;
+  toolInput: Record<string, unknown>;
+  toolUseId: string;
+};
+
+/** What a paused run is waiting on: a checkpoint gate, or a write to approve. */
+export type PendingApproval =
+  | { kind: "checkpoint"; stepId: string; sequence: number; prompt: string }
+  | { kind: "write"; stepId: string; sequence: number; pendingAction: PendingWriteAction };
+
 // ---- Execution records (mirrored by the workflow_runs / workflow_step_runs rows).
 
 export type WorkflowRunStatus =
@@ -114,13 +145,20 @@ export type StepRunRecord = {
   input: unknown;
   output: unknown;
   error: string | null;
+  /** How a checkpoint/write was cleared, or null for a read / still-pending step. */
+  approvalMode: StepApprovalMode | null;
   startedAt: string;
   finishedAt: string | null;
 };
 
-/** The outcome of walking a definition: a terminal run status + the step trail. */
-export type WorkflowRunOutcome = {
+/**
+ * The outcome of walking a segment of a definition: a terminal-or-paused status,
+ * the step records produced in this segment, and (when paused) what the run is
+ * waiting on. `pending` is non-null iff status is 'awaiting_approval'.
+ */
+export type SegmentResult = {
   status: Extract<WorkflowRunStatus, "completed" | "failed" | "awaiting_approval">;
   steps: StepRunRecord[];
+  pending: PendingApproval | null;
   error: string | null;
 };

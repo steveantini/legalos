@@ -18,8 +18,9 @@ import {
  *     id, a known type, and a name;
  *   - per-type shape: agent.agentId, tool_action.serverId+toolName, checkpoint.prompt;
  *   - capability resolvability + governance: agentId is a runnable agent;
- *     serverId+toolName resolves to a governed tool that is READ-classified
- *     (write tool_actions are rejected — no unattended writes in v1);
+ *     serverId+toolName resolves to a governed tool (read OR write — a write
+ *     tool_action is valid because it is approval-gated at execution, Step 3; an
+ *     UNRESOLVABLE / ungoverned tool is still rejected);
  *   - mapping integrity: every { source: "step" } reference points to a PRIOR
  *     step (which also guarantees no cycles in the linear graph).
  */
@@ -153,11 +154,12 @@ export async function validateWorkflowDefinition(
         const serverId = step.serverId;
         const toolName = step.toolName;
         capabilityChecks.push(
+          // Both read and write tools are valid: a write tool_action is permitted
+          // because it is approval-gated at execution (Step 3 — a human approves
+          // before any write runs). Only an unresolvable / ungoverned tool fails.
           deps.classifyTool(serverId, toolName).then((access) => {
             if (access === null) {
               errors.push(`${label}: tool "${toolName}" on "${serverId}" is not available or not governed.`);
-            } else if (access !== "read") {
-              errors.push(`${label}: tool "${toolName}" is a write action; write tool actions are not allowed in v1.`);
             }
           }),
         );
