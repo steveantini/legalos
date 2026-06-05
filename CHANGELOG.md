@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The platform owner can now refresh the curated content library from its public source with one button. New agents are imported into their departments, previously filtered content stays filtered, and any new uncategorized plugins or upstream content changes are surfaced for review rather than applied automatically. The button lives on a new platform Content library page that only a platform owner can see; running it again when nothing is new reads as up to date.**
+
 - **The curated content (Claude for Legal) import is now a safe, reusable operation. The plugin-to-department placement is captured as version-controlled config, so a refresh always restores agents to the right departments. A refresh never resurrects skills an admin filtered out, never loses placement or overwrites an admin's edits, and reports any new uncategorized content rather than guessing where it goes. Foundation only, with no trigger wired to it yet; the platform-owner refresh button follows next.**
 
 - **Introduced a platform administration tier: a cross-tenant platform owner capability, separate from organization roles, and a minimal, scalable platform admin area that only a platform owner can see. It is the foundation for managing the curated content library and future platform-level features. The capability is a reassignable grant rather than a higher organization role, so one person can hold both their organization role and the platform capability, and it can never be self-granted. The new area is a calm, scalable landing today; real sections drop in over the next steps. Everyone who is not a platform owner, including organization admins, sees no change.**

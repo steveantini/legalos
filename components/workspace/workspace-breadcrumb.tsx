@@ -61,6 +61,7 @@ const STATIC_SEGMENT_HREFS: Record<string, string> = {
   Settings: "/workspace/settings",
   Admin: "/workspace/admin",
   Platform: "/workspace/platform",
+  "Content library": "/workspace/platform/content",
   Trash: "/workspace/agents/trash",
   People: "/workspace/admin/people",
   "Policy & access": "/workspace/admin/policy",
@@ -174,6 +175,10 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace/platform",
     segments: () => [HOME_SEGMENT, "Platform"],
+  },
+  {
+    match: "/workspace/platform/content",
+    segments: () => [HOME_SEGMENT, "Platform", "Content library"],
   },
   {
     match: "/workspace/admin",

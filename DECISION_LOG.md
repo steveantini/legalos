@@ -3102,3 +3102,26 @@ Making the refresh safe in ISOLATION, before Step 3 wires a button to it, is the
 - The mapping is derived from live state and reported for operator confirmation; if a placement differs from the codified constant, the constant is corrected (it is version-controlled, a one-line change).
 - The legacy one-shot CLI is SUPERSEDED for refreshes (it would resurrect filtered rows and uses `--department`); a header note directs maintainers to the safe function. It remains only as a manual first-import escape hatch.
 - Also (operator data cleanup, not code): removed the stale `platform_owner` grant on `steve@antinilaw.com`, leaving `steveantini@gmail.com` as the sole platform owner, per the two-identity model (personal account = platform owner; antinilaw.com account = customer-experience test identity).
+
+## D-112 — Platform-owner C4L refresh button (C4L/platform arc Step 3)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+Step 2 made the C4L import safe and reusable (`importC4LContent`: insert-new-only, never resurrects filtered rows, places from the persisted mapping, reports drift/unmapped) but left it un-triggered. The goal of the arc — "push a button to pull the latest curated content, don't re-code each update" — needs a runtime fetch of the public C4L GitHub repo plus a platform-owner-gated trigger on the Step 1 platform surface.
+
+**Decision:**
+
+Add a runtime fetcher (`lib/content/c4l-fetch.ts`) that reads the public repo with TWO GitHub API calls (repo metadata for the default branch + one recursive git-tree) and then reads each mapped plugin's `SKILL.md` from raw.githubusercontent.com (a CDN, not subject to the API rate limit), so a refresh costs 2 API calls regardless of skill count and a manual button cannot exhaust the ~60 req/hr unauthenticated limit. A strict `^<plugin>/skills/<skill>/SKILL.md$` path filter selects only first-party plugin skills and naturally excludes `external_plugins`, `managed-agent-cookbooks`, and non-plugin dirs; every first-party plugin found is reported so upstream plugins we don't map are surfaced. Parsing reuses the original import's gray-matter parse (moved to a runtime dependency) for exact parity, so content-drift comparisons are apples-to-apples. A platform-owner-gated server action (`refreshC4LContent`) composes fetch → safe import → report and returns a PII-safe summary; the platform Content library page (`/workspace/platform/content`, the first real `PLATFORM_NAV_GROUPS` area) renders a "Refresh from source" button + the result. Unmapped upstream plugins and upstream content drift are REPORTED, never applied (conservative). The fetcher never throws (typed `{ ok: false, error }` on rate limit / network / truncated tree).
+
+**Reasoning:**
+
+Landing the trigger on Step 2's proven-safe import keeps the operator's curation intact by construction (the button can only insert new content; it can't resurrect filtered skills or overwrite edited agents). The git-tree + raw-CDN strategy is the API-frugal way to read a whole repo without authentication, and reusing the original parser avoids spurious drift reports. Surfacing decisions (apply this update? map this new plugin?) rather than making them silently matches the notify-and-approve posture the arc uses elsewhere; applying drift and assigning unmapped plugins are deliberately later actions (Steps 4-5).
+
+**Consequences:**
+
+- The platform owner self-serves content refreshes from the public source; super admins cannot. Filtered content stays filtered; existing agents are never overwritten; conversation history is untouched (insert-new-only, stable slugs).
+- Applying upstream content updates and assigning departments to unmapped plugins are future actions; the multi-vendor bucket split + provider registry (Step 4) and super-admin governance + notification (Step 5) follow.
+- `gray-matter` moved from devDependencies to dependencies (runtime use). No migration; no change to how C4L agents render or are gated.
