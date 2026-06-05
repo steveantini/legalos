@@ -5,6 +5,10 @@ import {
   type OrgMcpExecutionTarget,
 } from "@/lib/connections/mcp/connection-state";
 import {
+  classifyMcpTool,
+  type McpToolAccess,
+} from "@/lib/connections/mcp/tool-classification";
+import {
   mapMcpToolsToAnthropic,
   type McpToolRoute,
 } from "@/lib/connections/mcp/tool-mapping";
@@ -73,5 +77,54 @@ export async function resolveOrgMcpTools(): Promise<ResolvedOrgMcpTools> {
     targets,
     toolDefs: mapping.toolDefs,
     routingMap: mapping.routingMap,
+  };
+}
+
+/**
+ * The org's MCP tool set GATED for the agentic loop, with each tool already
+ * classified read/write — the single resolution both the chat route and the
+ * headless runAgent primitive (Workflows arc Step 1) consume, so the governance
+ * and read/write classification logic lives in exactly one place.
+ *
+ *   - `toolDefs` / `routingMap`: the namespaced custom-tool defs + routing,
+ *      from resolveOrgMcpTools (gate 1 ∩ gate 2 above).
+ *   - `accessByName`: namespaced tool name → 'read' | 'write' (classifyMcpTool;
+ *      a descriptor not found classifies 'write', conservatively).
+ *   - `loopEngaged`: whether the agentic loop should run (the flag is on AND a
+ *      non-empty governed tool set resolved).
+ *
+ * GATE 0 (feature flag): MCP_AGENT_TOOLS_ENABLED must be exactly "true". Default
+ * OFF; when off this returns empty WITHOUT touching the DB, so a caller that
+ * gates on it is byte-identical to the no-MCP path (the property the chat route
+ * relied on inline before this extraction).
+ */
+export type GatedOrgMcpTools = {
+  toolDefs: AnthropicCustomTool[];
+  routingMap: Record<string, McpToolRoute>;
+  accessByName: Map<string, McpToolAccess>;
+  loopEngaged: boolean;
+};
+
+export async function resolveGatedOrgMcpTools(): Promise<GatedOrgMcpTools> {
+  // Gate 0: the feature flag. Off → empty, no DB read (byte-identical no-MCP path).
+  if (process.env.MCP_AGENT_TOOLS_ENABLED !== "true") {
+    return { toolDefs: [], routingMap: {}, accessByName: new Map(), loopEngaged: false };
+  }
+
+  const resolved = await resolveOrgMcpTools();
+  const accessByName = new Map<string, McpToolAccess>();
+  const targetsByServerId = new Map(resolved.targets.map((t) => [t.serverId, t]));
+  for (const [namespaced, route] of Object.entries(resolved.routingMap)) {
+    const descriptor = targetsByServerId
+      .get(route.serverId)
+      ?.tools?.find((tool) => tool.name === route.originalToolName);
+    accessByName.set(namespaced, descriptor ? classifyMcpTool(descriptor) : "write");
+  }
+
+  return {
+    toolDefs: resolved.toolDefs,
+    routingMap: resolved.routingMap,
+    accessByName,
+    loopEngaged: resolved.toolDefs.length > 0,
   };
 }

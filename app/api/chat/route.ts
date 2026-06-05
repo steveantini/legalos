@@ -4,16 +4,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
-import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
+import { resolveGatedOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { resolveAttachmentText } from "@/lib/connections/attachment-content";
-import {
-  classifyMcpTool,
-  type McpToolAccess,
-} from "@/lib/connections/mcp/tool-classification";
-import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
 import { ALLOWED_MIME_TYPES, extractText } from "@/lib/extract/extract";
 import {
-  type AnthropicCustomTool,
   type AnthropicSystemBlock,
   type AnthropicTool,
 } from "@/lib/llm/anthropic/chat";
@@ -679,42 +673,19 @@ export async function POST(request: Request) {
       });
     }
 
-    // ---- MCP agent tools (Phase 2, 2P-6b) — DOUBLE-GATED.
-    //   GATE A (feature flag): MCP_AGENT_TOOLS_ENABLED must be exactly "true".
-    //     Default OFF — when off, the loop NEVER engages and we don't even resolve
-    //     MCP tools, so every request is byte-identical to the single-pass path
-    //     (no extra DB read). The operator flips this to kill/enable the loop with
-    //     no deploy.
-    //   GATE B (has-tools): even with the flag on, the loop engages only when the
-    //     org PERMITS the MCP category AND has a connected, healthy server
-    //     (resolveOrgMcpTools returns a non-empty tool set, D-104). Otherwise the
-    //     request takes the byte-identical single-pass path.
-    // The loop engages IFF (flag on) AND (non-empty MCP tools). Every other request
-    // is unchanged from before 2P-6b.
-    const mcpToolsFlag = process.env.MCP_AGENT_TOOLS_ENABLED === "true";
-    let mcpToolDefs: AnthropicCustomTool[] = [];
-    let mcpRoutingMap: Record<string, McpToolRoute> = {};
-    const mcpAccessByName = new Map<string, McpToolAccess>();
-    if (mcpToolsFlag) {
-      const resolved = await resolveOrgMcpTools();
-      mcpToolDefs = resolved.toolDefs;
-      mcpRoutingMap = resolved.routingMap;
-      // Classify each offered tool (read vs write) for the loop's v1 policy. A
-      // descriptor not found (shouldn't happen) classifies as write (conservative).
-      const targetsByServerId = new Map(
-        resolved.targets.map((t) => [t.serverId, t]),
-      );
-      for (const [namespaced, route] of Object.entries(resolved.routingMap)) {
-        const descriptor = targetsByServerId
-          .get(route.serverId)
-          ?.tools?.find((tool) => tool.name === route.originalToolName);
-        mcpAccessByName.set(
-          namespaced,
-          descriptor ? classifyMcpTool(descriptor) : "write",
-        );
-      }
-    }
-    const mcpLoopEngaged = mcpToolsFlag && mcpToolDefs.length > 0;
+    // ---- MCP agent tools (Phase 2, 2P-6b) — DOUBLE-GATED, resolved + classified
+    // by the shared resolveGatedOrgMcpTools (also used by the headless runAgent
+    // primitive, so the governance and read/write classification live in one
+    // place). Gate A (flag MCP_AGENT_TOOLS_ENABLED): default OFF; when off this
+    // returns empty WITHOUT a DB read, so the request is byte-identical to the
+    // single-pass path. Gate B (has-tools): with the flag on, the loop engages
+    // only when the org PERMITS the MCP category AND has a connected, healthy
+    // server (a non-empty tool set, D-104). loopEngaged folds both gates.
+    const gatedMcp = await resolveGatedOrgMcpTools();
+    const mcpToolDefs = gatedMcp.toolDefs;
+    const mcpRoutingMap = gatedMcp.routingMap;
+    const mcpAccessByName = gatedMcp.accessByName;
+    const mcpLoopEngaged = gatedMcp.loopEngaged;
 
     // ---- Vendor dispatch
     let parsedModel;

@@ -13,6 +13,10 @@ import {
   type AnthropicToolResultBlock,
 } from "@/lib/llm/anthropic/chat";
 import {
+  MCP_LOOP_WALL_CLOCK_MS,
+  MCP_MAX_TOOL_ROUNDS,
+} from "@/lib/llm/anthropic/mcp-loop-guards";
+import {
   encodeSseEvent,
   SSE_RESPONSE_HEADERS,
   type ChatSource,
@@ -46,9 +50,8 @@ import {
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
-// ---- MCP agentic tool-use loop guards (verbatim from the route, 2P-6b). ----
-const MCP_MAX_TOOL_ROUNDS = 8;
-const MCP_LOOP_WALL_CLOCK_MS = 240_000;
+// MCP agentic tool-use loop guards (MCP_MAX_TOOL_ROUNDS / MCP_LOOP_WALL_CLOCK_MS)
+// now live in lib/llm/anthropic/mcp-loop-guards.ts, shared with runAgent.
 // The v1 fallback result fed back to the model when a write can't be paused for
 // confirmation (e.g. the paused-runs table is unavailable) — nothing is sent.
 const MCP_WRITE_BLOCKED_MESSAGE =

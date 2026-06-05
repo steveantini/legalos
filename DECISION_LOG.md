@@ -3171,3 +3171,26 @@ A dedicated default-true flag is the only representation that satisfies all thre
 - Firms can disable vendor content org-wide; super admins have honest update visibility without an adoption burden. The two-layer governance (platform owner owns the content; super admin owns whether the org uses it) is complete.
 - **The C4L + platform-owner arc is COMPLETE** (platform-owner tier; safe updatable import; one-button refresh; vendor-agnostic structure; super-admin governance + transparency).
 - Migration `0059_content_provider_settings.sql` (per-org per-provider settings, RLS read-org / super-admin-write, default-permit, no seed). Deploy-tolerant: pre-migration the settings read fails to "all enabled" so the launchpad is unchanged. No change to the refresh import logic, the mapping, custody, or the vendor-agnostic structure.
+
+## D-115 — Headless runAgent primitive (Workflows arc Step 1)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+Agent execution was entangled in the streaming chat loop with no programmatic entry point: the multi-round agentic loop, credential/system-prompt/MCP-tool resolution, SSE encoding, message persistence, and the Phase 2 write-confirmation pause/resume are all coupled inside `lib/chat/assistant-stream.ts` + the chat-route preamble. Multi-step workflows (the next arc) need to run an agent and get its output without the chat UI — a workflow agent-step calls it.
+
+**Decision:**
+
+Extract a server-side, non-streaming `runAgent(agent, input) → { output, toolCalls, usage }` (`lib/agents/run-agent.ts`) that reuses the existing credential, system-prompt, and governed MCP-tool resolution and runs the same multi-round agentic read-loop under the same governance, never performs an unattended write, and writes `usage_events`. Rather than fully unify the agentic loop with chat (which would risk regressing chat's pause/resume), share at the INGREDIENT level: a new `resolveGatedOrgMcpTools()` (the org governance + read/write classification, now used by BOTH the chat route and runAgent) and shared loop guards (`mcp-loop-guards.ts`); the chat route keeps its streaming, persistence, and Phase 2 write-confirmation orchestration byte-identical (its only change is calling the shared resolver and importing the shared guards). The headless loop is a small, deliberately separate orchestration over the same shared primitives (`streamAnthropicChat`+`finalMessage()`, `executeMcpTool`, the same guards). It drives the SDK stream to completion via `finalMessage()`/`finalUsage()` without consuming the SSE events generator. Write safety: headless runs OFFER the model only READ-classified MCP tools and the loop refuses any write tool_use it receives (belt and suspenders), so no new write capability and no unattended write are introduced. `usage_events` is written via the service-role client (no request session required), attributed to org/user/agent with conversation/message null.
+
+**Reasoning:**
+
+The enabling foundation for the Workflows engine — an agent-step calls `runAgent`. Sharing the governed resolution + guards avoids forking the model/tool/governance logic, while keeping the chat loop's outer orchestration untouched is the conservative split that guarantees chat behavior-neutrality (the task's paramount constraint). Preserving the no-unattended-write posture keeps the v1 safety guarantee; building on the existing governed primitives keeps it provider-agnostic and consistent with chat. Designing `runAgent` as an I/O wrapper over a pure, dependency-injected `runAgentLoop` makes the loop unit-testable with fakes (no network/DB).
+
+**Consequences:**
+
+- Workflows (and other server-side callers) can run agents headlessly; the result carries the final text, a token/PII-safe tool trace, and summed usage + cost.
+- Write execution in a headless/workflow context is deferred to the human-checkpoint design (Step 3); until then a workflow agent-step is read-only by construction.
+- Chat is unchanged (streaming, persistence, Phase 2 pause/approve/resume, governance all byte-identical). No migration: `usage_events.conversation_id` / `message_id` are already nullable.

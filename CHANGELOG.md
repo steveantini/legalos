@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Internal foundation for multi-step workflows: agents can now be run programmatically, not only through the chat interface, returning their output, tool activity, and usage. This is the building block a workflow's agent-step will call. Headless runs use the same governance and read-only tool access as chat, never perform an unattended write, and record usage for cost tracking. The chat experience is unchanged.**
+
 - **Workspace admins can now turn the curated content library on or off for their organization from Policy and access, and can see when it was last updated. It is on by default, and turning it off hides the curated agents for everyone in the org. The last-updated line is written when the platform owner refreshes the library, so admins have honest visibility into changes without anything to do.**
 
 ### Changed
