@@ -89,6 +89,12 @@ export type RunAgentParams = {
     model?: string;
     /** Set false to run with NO MCP tools at all (still honors web_search). */
     mcpToolsEnabled?: boolean;
+    /**
+     * The workflow run this agent-step belongs to (Workflows arc Step 2), recorded
+     * on the usage_events row so workflow cost is traceable. Omitted for chat /
+     * standalone runs (the column stays null).
+     */
+    workflowRunId?: string;
   };
 };
 
@@ -451,6 +457,7 @@ export async function runAgent(
       agentId: agent.id,
       model: modelId,
       usage: result.usage,
+      workflowRunId: options?.workflowRunId,
     });
 
     return {
@@ -484,8 +491,9 @@ async function recordRunUsage(args: {
   agentId: string;
   model: string;
   usage: Omit<RunAgentUsage, "costMicroUsd">;
+  workflowRunId?: string;
 }): Promise<number> {
-  const { organizationId, userId, agentId, model, usage } = args;
+  const { organizationId, userId, agentId, model, usage, workflowRunId } = args;
 
   let costMicroUsd = 0;
   try {
@@ -513,6 +521,10 @@ async function recordRunUsage(args: {
     cache_read_tokens: usage.cacheRead,
     web_search_count: usage.webSearch,
     cost_micro_usd: costMicroUsd,
+    // Only set when a workflow run is the caller — its presence implies migration
+    // 0060 is applied (the run row exists), so the column is present. Omitted
+    // entirely for chat / standalone runs, keeping that path unchanged.
+    ...(workflowRunId ? { workflow_run_id: workflowRunId } : {}),
   };
 
   try {

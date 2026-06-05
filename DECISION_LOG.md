@@ -3194,3 +3194,26 @@ The enabling foundation for the Workflows engine — an agent-step calls `runAge
 - Workflows (and other server-side callers) can run agents headlessly; the result carries the final text, a token/PII-safe tool trace, and summed usage + cost.
 - Write execution in a headless/workflow context is deferred to the human-checkpoint design (Step 3); until then a workflow agent-step is read-only by construction.
 - Chat is unchanged (streaming, persistence, Phase 2 pause/approve/resume, governance all byte-identical). No migration: `usage_events.conversation_id` / `message_id` are already nullable.
+
+## D-116 — Workflow data model + deterministic execution engine (Workflows arc Step 2)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+The Workflows arc needs the engine itself: a way to define a multi-step workflow and execute it deterministically with a legal-grade audit trail, built so a future agentic/hybrid layer is additive rather than a rewrite. Step 1 shipped the headless `runAgent` an agent-step calls; Step 2 is the data model + engine.
+
+**Decision:**
+
+Model a workflow as a DECLARATIVE STEP-GRAPH definition (jsonb: `{ steps: Step[] }`), cleanly separated from execution. Each step has a stable `id` and a `type` tag (the typed union: `agent` / `tool_action` / `human_checkpoint`, with router/conditional representable later); v1 executes steps in array order (linear), and branching is an additive `edges`/`next` overlay keyed by step id that needs no migration (the stable ids are the seam — no unused `next` field is added now). Step-to-step data flow is an explicit input mapping with a simple default: a step's input resolves from `{ source: previous | run_input | step | literal }`, defaulting to `previous` (the prior step's output; the first step's `previous` is the run input), so linear workflows need almost no mapping config. A pure, dependency-injected engine (`lib/workflows/engine.ts` `runWorkflow`) walks the steps, resolves each input, dispatches by type — agent → the headless `runAgent` (reads only, Step 1 guarantee); tool_action → `executeMcpTool` restricted to READ-classified governed tools (no unattended writes); human_checkpoint → record `awaiting_approval` and STOP (no auto-approve; durable resume is Step 3) — fail-stops on a step failure, never throws, and returns one immutable step record per executed step. An I/O wrapper (`lib/workflows/run.ts`, invoked by the `startWorkflowRun` server action) snapshots the definition into the run at run time (so later edits never mutate historical runs), wires real resolvers (agent loading + governed MCP targets), and persists `workflow_runs` + one immutable `workflow_step_runs` row per step. A data-boundary validator (`validateWorkflowDefinition`) gates every definition — known step types, unique stable ids, prior-only mapping references, resolvable+governed capabilities, no write tool_actions — and is the SAME gate a future agent-emitted definition passes. Capability references (agentId; serverId+toolName) resolve from the existing registries (the agents table; `resolveOrgMcpTools` governance) so a newly-connected tool is a turnkey step with no engine change. Migration 0060 adds `workflow_definitions`, `workflow_runs` (with `definition_snapshot`), `workflow_step_runs`, and a nullable `usage_events.workflow_run_id` so agent-step cost is traceable to its run.
+
+**Reasoning:**
+
+Deterministic + auditable is the legal requirement; the declarative-data model, definition/execution separation, and data-boundary validation are what keep the agentic/hybrid layer additive (an orchestrator agent emits the same validated graph a human composer does — deterministic safety and agentic openness are the same mechanism). Resolving capabilities from existing registries makes new tools turnkey. Linear v1 with branching representable avoids a later rewrite. Restricting agent-steps and tool_action steps to reads preserves the no-unattended-write posture established in Step 1. A pure engine over injected resolvers makes the orchestration unit-testable with fakes (no model/MCP/DB), mirroring how `runAgent`'s loop was built.
+
+**Consequences:**
+
+- Workflows can be defined and run server-side now; the builder UI (Step 4), human-checkpoint execution / resume (Step 3), branching/routing, triggers, and C4L templates (Step 5) all build on this without re-architecting.
+- Write actions in a workflow will route through the future human-checkpoint mechanism (Step 3); v1 has no unattended writes anywhere.
+- Migration `0060_workflows.sql` (the three tables + RLS, org-scoped: the triggering user owns a run, org admins read; org-admin authoring of definitions; plus the `usage_events.workflow_run_id` column). The operator applies it. Deploy-tolerant: nothing outside the Workflows surface touches these tables, so the rest of the app is unchanged whether or not it is applied.
