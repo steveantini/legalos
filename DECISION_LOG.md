@@ -3055,3 +3055,26 @@ A second Google connection path (MCP for agents + OAuth for the home) would re-c
 - The per-user calendar arc replaces the dormant per-user-`'calendar'` `connection_grants` check in `calendar-connect-card.tsx` with the per-user-MCP path; the already-built `today-schedule.tsx` view lights up once the per-user MCP dimension exists.
 - The MCP connection model gains a per-user dimension (a real schema/identity change to the currently org-only `connections` MCP rows). This is the substantive work of the arc, reusable for per-user Gmail/Drive later.
 - Recorded in `docs/ROADMAP.md` ("Future arcs identified during Connections-phase planning") alongside the Matters and Desk arcs. The small "Calendar MCP reconnect" open item is effectively superseded by this arc.
+
+## D-110 — Platform owner as a separate cross-tenant capability (C4L/platform arc Step 1)
+
+Date: 2026-06-05
+Status: Accepted
+
+**Context:**
+
+The C4L content-library refresh (and future platform features: billing, cross-customer analytics, tenant management) needs a PLATFORM-administration tier ABOVE the org-scoped `super_admin` — legalOS-the-vendor governing the platform across customers, not a customer governing their own org. Today the top role is `super_admin`, scoped to the single org; there is no cross-tenant authority. Step 1 of the combined C4L + platform-owner arc builds that foundation (the role + gate + a minimal surface) so the later steps have a home.
+
+**Decision:**
+
+Model `platform_owner` as a SEPARATE, ASSIGNABLE cross-tenant grant — a standalone `platform_admins` table (user_id pk), NOT a rung in the org `user_role` enum. Gate it with `isCurrentUserPlatformOwner()` / `requirePlatformOwner()` (mirroring `isCurrentUserSuperAdmin` / `requireAdminUser` one tier up; a mere `super_admin` does NOT pass). Surface it in a distinct, minimal platform-admin area at `/workspace/platform` with its own `requirePlatformOwner()`-gated layout and a scalable card-style landing (driven by an empty `PLATFORM_NAV_GROUPS`, mirroring the org admin shell), reachable only via a "Platform" profile-menu entry + rail shown only to a platform owner. Grant it to the operator's existing account for now (data, by email lookup in migration 0058), reassignable later (e.g. a future legalos.com address) and grantable to future platform engineers. NOT self-grantable: the table has RLS with only a read-own SELECT policy and no write policy, so the grant is settable only by the service role (migration, or a future platform-owner-only action).
+
+**Reasoning:**
+
+Cross-tenant administration is a DIFFERENT AXIS from org roles — a platform owner is not "a higher org role" — so modeling it separately stays honest as the schema becomes truly multi-tenant, and lets one person hold both an org role (super_admin in their org) AND the platform capability without conflating the two. A standalone grant table is also the safest "not self-grantable" representation: a boolean on `users` would be writable via the existing `users_update_self` RLS policy (a self-grant hole), whereas a separate table with no write policy denies all user writes by default. Building the surface lean-but-scalable (an empty nav source + an honest "more coming" landing) lets the C4L refresh button (Step 3) and future platform features land as added entries without rework, while shipping nothing speculative now.
+
+**Consequences:**
+
+- The C4L refresh button (Step 3) and future platform features (billing, cross-tenant analytics/management) have a gated home; `platform_owner` and any org's `super_admin` remain separable concerns.
+- Migration `0058_platform_admins.sql` (cross-tenant grant, RLS read-own-only, granted to the operator). Code is deploy-tolerant: the reader fails closed to "not a platform owner" if the table/grant is absent, so the surface 404s for everyone until the migration is applied; the rest of the app is unaffected.
+- The platform surface lives under `/workspace/platform` (inheriting the workspace chrome so it matches the admin register natively) rather than a top-level `/platform` console; a separate console can come with true multi-tenancy. No change to the org admin area, the `user_role` enum, or any existing gating.

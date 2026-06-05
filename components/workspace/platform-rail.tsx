@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
-import { ADMIN_NAV_GROUPS } from "@/lib/admin/nav";
+import { PLATFORM_NAV_GROUPS } from "@/lib/platform/nav";
 import {
   ROLE_LABEL,
   getDisplayName,
@@ -18,26 +18,22 @@ import { WorkspaceNavLink } from "./workspace-nav-link";
 import { WorkspaceProfileBlock } from "./workspace-profile-block";
 
 /**
- * Admin-mode rail (Session 30). Renders alongside `WorkspaceRail` and is
- * swapped in via `RailSwitcher` whenever the current pathname is under
- * `/workspace/admin`.
+ * Platform-mode rail (C4L/platform arc, Step 1). Renders alongside the other
+ * rails and is swapped in via `RailSwitcher` whenever the current pathname is
+ * under `/workspace/platform`.
  *
- * Structure mirrors `WorkspaceRail` exactly — same outer `<nav>` chrome,
- * same brand-mark-as-link, same `WorkspaceNavLink` primitive for active
- * state, same `WorkspaceProfileBlock` at the bottom. The admin rail
- * differs only in the middle: a single top-line "Admin" link plus
- * `ADMIN_NAV_GROUPS` mapped to captioned groups. As of the Admin polish
- * arc (D-074) the captions are admin's two jobs — GOVERN (People, Policy
- * & access) and MEASURE (Insights, Evals) — so the rail itself teaches
- * the mental model. Adding or moving an area is a one-line edit to
- * `lib/admin/nav.ts`; both this rail and the admin landing pick it up
- * automatically.
+ * Structure mirrors `AdminRail` exactly — same outer `<nav>` chrome, brand mark
+ * as a link back to the workspace, `WorkspaceNavLink` primitive for active
+ * state, and `WorkspaceProfileBlock` at the bottom — so the platform surface
+ * feels native, one tier up. It differs only in the middle: a top-line
+ * "Platform" link plus `PLATFORM_NAV_GROUPS` mapped to captioned groups.
  *
- * Does NOT receive `departments` or `agents` props — admin nav has no
- * department- or agent-aware active resolution. The breadcrumb still
- * handles those for routes that need them; the rail itself doesn't.
+ * `PLATFORM_NAV_GROUPS` is empty in Step 1, so the rail shows only the top-line
+ * link today; adding a platform area (the content library lands first, Step 3)
+ * is a one-line edit to `lib/platform/nav.ts` and both this rail and the
+ * platform landing pick it up automatically.
  */
-export function AdminRail({
+export function PlatformRail({
   profile,
   isAdmin,
   isPlatformOwner,
@@ -52,35 +48,32 @@ export function AdminRail({
 
   return (
     <nav
-      aria-label="Admin"
+      aria-label="Platform"
       className="flex w-[232px] flex-col gap-[22px] overflow-auto border-r border-hairline bg-sidebar px-[14px] py-[22px]"
     >
-      {/* Brand mark — clicking exits admin mode and returns to /workspace. */}
+      {/* Brand mark — clicking exits platform mode and returns to /workspace. */}
       <Link
         href="/workspace"
         className="flex items-center gap-[10px] rounded-md px-2 pt-[2px] text-[15px] font-semibold tracking-[-0.015em] transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <span
-          aria-hidden
-          className="h-[7px] w-[7px] rounded-full bg-primary"
-        />
+        <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-primary" />
         {siteConfig.siteTitle}
       </Link>
 
-      {/* Top-line Admin link — exact-match active on the landing only. */}
+      {/* Top-line Platform link — exact-match active on the landing only. */}
       <div className="flex flex-col gap-px">
         <WorkspaceNavLink
-          href="/workspace/admin"
+          href="/workspace/platform"
           match="exact"
           className={linkBase}
           activeClassName={`${linkBase} ${linkActive}`}
         >
-          Admin
+          Platform
         </WorkspaceNavLink>
       </div>
 
-      {/* Captioned admin groups from ADMIN_NAV_GROUPS. */}
-      {ADMIN_NAV_GROUPS.map((group) => (
+      {/* Captioned platform groups from PLATFORM_NAV_GROUPS (empty in Step 1). */}
+      {PLATFORM_NAV_GROUPS.map((group) => (
         <div key={group.caption} className="flex flex-col gap-px">
           <p className={`${captionLabel} mx-2 mb-2`}>{group.caption}</p>
           {group.items.map((item) => (

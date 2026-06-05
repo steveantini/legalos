@@ -84,6 +84,16 @@ Evals stays TENANT-level (customers evaluate their own agents, since customers d
 
 Coupling: tightly tied to the business-model arc (billing implements the pricing model). Sequencing chain: Connections (models-as-a-connection) → business model (decide pricing) → platform tier (billing + the rest) → also unblocks A4b (the tenant cost/ROI lens).
 
+### C4L content library + platform-owner arc — build steps (IN PROGRESS)
+
+The combined arc that makes the static C4L content library updatable + vendor-agnostic + governed, on a real platform-administration foundation. Five steps; the platform foundation (Step 1) lands first because the C4L refresh button and future platform features (billing, cross-tenant analytics) live on it. The cross-org propagation of C4L content remains deferred (theoretical while single-tenant; see the BUILD STAGING note under the C4L decided-model block in section 2).
+
+- **Step 1 — platform_owner role + minimal platform-admin surface (SHIPPED, D-110).** A cross-tenant `platform_owner` capability modeled as a SEPARATE AXIS from the org `user_role` enum (a standalone, reassignable `platform_admins` grant, never self-grantable under RLS, migration 0058), gated by `isCurrentUserPlatformOwner()` / `requirePlatformOwner()`. A distinct, minimal platform-admin area at `/workspace/platform` (its own gated layout + a scalable card-style landing driven by an empty `PLATFORM_NAV_GROUPS`, mirroring the org admin shell one tier up), reachable via a "Platform" profile-menu entry + rail shown ONLY to a platform owner. No billing / analytics / cross-tenant management / C4L logic yet — just the role + gate + surface shell the later steps drop into. A mere org super_admin does NOT get access. **Operator: apply migration `0058_platform_admins.sql` and confirm the grant landed on steve@antinilaw.com.**
+- **Next: Step 2 — persist the C4L department mapping + make refresh filter-safe.** Move the plugin→department mapping (today only the operator's CLI `--department` args) into persisted config, and make a re-import respect existing curation filters (the `0024`-style soft-deletes) so a refresh preserves placement and never un-deletes filtered rows.
+- **Step 3 — the platform-owner C4L refresh button.** On the platform surface, a button that fetches the latest C4L from the public GitHub repo, placement-preserving (via Step 2's mapping), flagging any uncategorized agents. The first card to land in `PLATFORM_NAV_GROUPS`.
+- **Step 4 — vendor-agnostic structure.** Split the launchpad's single external bucket by `sourceId` and add a provider registry, so C4L is one provider among potential others (the `source_origin` provenance + `lib/agents/source.ts` already anticipate this).
+- **Step 5 — super-admin governance + FYI notification.** A `vendor-content` governed category in Policy & access (the proven virtual-category pattern, parallel to `mcp`) giving the customer super admin a library on/off switch, plus an FYI-update notification.
+
 ## 2. Connector follow-ups (deferred from the connector hub arc)
 
 ### Connections phase — framing (from the opening investigation)

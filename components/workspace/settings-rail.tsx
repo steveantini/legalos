@@ -48,9 +48,11 @@ import { WorkspaceProfileBlock } from "./workspace-profile-block";
 export function SettingsRail({
   profile,
   isAdmin,
+  isPlatformOwner,
 }: {
   profile: ProfileShape;
   isAdmin: boolean;
+  isPlatformOwner: boolean;
 }) {
   const displayName = getDisplayName(profile);
   const initials = getInitials(displayName);
@@ -104,6 +106,7 @@ export function SettingsRail({
         displayName={displayName}
         roleLabel={roleLabel}
         isAdmin={isAdmin}
+        isPlatformOwner={isPlatformOwner}
       />
     </nav>
   );

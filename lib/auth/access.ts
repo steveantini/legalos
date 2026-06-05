@@ -504,6 +504,57 @@ export const isCurrentUserSuperAdmin = cache(async (): Promise<boolean> => {
 });
 
 /**
+ * Returns true only for a PLATFORM OWNER — the cross-tenant platform-admin
+ * capability for legalOS-the-vendor (C4L/platform arc, migration 0058).
+ *
+ * This is a SEPARATE AXIS from the org `user_role` enum, NOT a higher org role:
+ * it reads the standalone `platform_admins` grant, so a mere `super_admin` does
+ * NOT pass, and a person may hold both their org role and this capability. The
+ * grant is read-own under RLS and is never self-grantable (the table has no
+ * write policy; see migration 0058).
+ *
+ * Tolerant of the table not existing yet (pre-migration) and of the grant being
+ * absent: any read error or empty result resolves to false, so the platform
+ * surface simply 404s for everyone until the migration is applied and the grant
+ * lands. `cache()`-wrapped like the other gates, so the layout's call and a
+ * page/action call within the same request share one round-trip.
+ */
+export const isCurrentUserPlatformOwner = cache(async (): Promise<boolean> => {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data, error } = await supabase
+    .from("platform_admins")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  // Fail closed to "not a platform owner" on any error (missing table
+  // pre-migration, or a transient read failure) — the honest, safe default.
+  if (error) return false;
+  return Boolean(data);
+});
+
+/**
+ * Gate for platform-admin routes. Redirects unauthenticated users to /login via
+ * `requireAuthUser()`; for authenticated-but-not-platform-owner users (INCLUDING
+ * org super_admins, who do not have platform access), calls `notFound()` rather
+ * than redirecting — the 404 avoids leaking the existence of the platform
+ * surface. Mirrors `requireAdminUser`, one tier up.
+ */
+export async function requirePlatformOwner() {
+  const user = await requireAuthUser();
+  const isPlatformOwner = await isCurrentUserPlatformOwner();
+  if (!isPlatformOwner) {
+    notFound();
+  }
+  return user;
+}
+
+/**
  * Slim user row for the admin User access page (Session 29). The page
  * lists every user in the caller's organization; this is the projection
  * threaded through the client list component.

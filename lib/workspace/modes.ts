@@ -16,7 +16,7 @@
  * both import it.
  */
 
-export type ModeKey = "workspace" | "settings" | "admin";
+export type ModeKey = "workspace" | "settings" | "admin" | "platform";
 
 export type Mode = {
   key: ModeKey;
@@ -26,9 +26,15 @@ export type Mode = {
   href: string;
   /** True only for modes visible to admins (gate on the isAdmin check). */
   adminGated: boolean;
+  /**
+   * True only for the cross-tenant PLATFORM mode (gate on the platform-owner
+   * check). A separate axis from `adminGated`: a platform owner sees Platform
+   * whether or not they are an org admin, and a mere org admin never does.
+   */
+  platformGated?: boolean;
 };
 
-/** Modes in display order (Workspace, Settings, Admin). */
+/** Modes in display order (Workspace, Settings, Admin, Platform). */
 export const MODES: ReadonlyArray<Mode> = [
   {
     key: "workspace",
@@ -48,6 +54,14 @@ export const MODES: ReadonlyArray<Mode> = [
     href: "/workspace/admin",
     adminGated: true,
   },
+  {
+    key: "platform",
+    label: "Platform",
+    href: "/workspace/platform",
+    // Not adminGated: a platform owner who is not an org admin still sees it.
+    adminGated: false,
+    platformGated: true,
+  },
 ];
 
 /**
@@ -57,6 +71,7 @@ export const MODES: ReadonlyArray<Mode> = [
  * rail-switcher and the profile menu.
  */
 export function getCurrentMode(pathname: string): ModeKey {
+  if (pathname.startsWith("/workspace/platform")) return "platform";
   if (pathname.startsWith("/workspace/admin")) return "admin";
   if (pathname.startsWith("/workspace/settings")) return "settings";
   return "workspace";

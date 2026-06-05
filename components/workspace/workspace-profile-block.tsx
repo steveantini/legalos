@@ -21,13 +21,14 @@ import { MODES, getCurrentMode } from "@/lib/workspace/modes";
  * keyboard-clickable and opens an account menu above the rail.
  *
  * The menu is a consistent mode switcher (D-077): it shows the same set
- * everywhere — Workspace, Settings, Admin (admins only), then Sign out —
- * with the current mode shown but marked non-clickable (the disabled
- * treatment) so it reads as "you are here" rather than being omitted. The
- * mode list and the current-mode determination both come from the shared
- * `lib/workspace/modes.ts` source, the same one the rail-switcher uses, so
- * the menu and the rail cannot drift. Admin is gated on `isAdmin` (derived
- * upstream in `app/workspace/layout.tsx` via `isCurrentUserAdmin`).
+ * everywhere — Workspace, Settings, Admin (admins only), Platform (platform
+ * owners only), then Sign out — with the current mode shown but marked
+ * non-clickable (the disabled treatment) so it reads as "you are here" rather
+ * than being omitted. The mode list and the current-mode determination both come
+ * from the shared `lib/workspace/modes.ts` source, the same one the rail-switcher
+ * uses, so the menu and the rail cannot drift. Admin is gated on `isAdmin` and
+ * Platform on `isPlatformOwner` (both derived upstream in
+ * `app/workspace/layout.tsx` via `isCurrentUserAdmin` / `isCurrentUserPlatformOwner`).
  *
  * Sign out calls the `signOut` server action via `onClick`; its internal
  * `redirect("/login")` propagates through. Behavior unchanged.
@@ -37,15 +38,21 @@ export function WorkspaceProfileBlock({
   displayName,
   roleLabel,
   isAdmin,
+  isPlatformOwner,
 }: {
   initials: string;
   displayName: string;
   roleLabel: string;
   isAdmin: boolean;
+  isPlatformOwner: boolean;
 }) {
   const pathname = usePathname();
   const currentMode = getCurrentMode(pathname);
-  const modes = MODES.filter((mode) => isAdmin || !mode.adminGated);
+  const modes = MODES.filter(
+    (mode) =>
+      (isAdmin || !mode.adminGated) &&
+      (isPlatformOwner || !mode.platformGated),
+  );
 
   return (
     <DropdownMenu>

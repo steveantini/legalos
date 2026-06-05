@@ -138,11 +138,13 @@ export async function WorkspaceRail({
   profile,
   agents,
   isAdmin,
+  isPlatformOwner,
 }: {
   departments: DepartmentWithAccess[];
   profile: ProfileShape;
   agents: AgentBreadcrumbContext[];
   isAdmin: boolean;
+  isPlatformOwner: boolean;
 }) {
   const displayName = getDisplayName(profile);
   const initials = getInitials(displayName);
@@ -303,6 +305,7 @@ export async function WorkspaceRail({
         displayName={displayName}
         roleLabel={roleLabel}
         isAdmin={isAdmin}
+        isPlatformOwner={isPlatformOwner}
       />
     </nav>
   );

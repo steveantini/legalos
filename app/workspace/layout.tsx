@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { Toaster } from "@/components/ui/sonner";
 import { AdminRail } from "@/components/workspace/admin-rail";
+import { PlatformRail } from "@/components/workspace/platform-rail";
 import { RailSwitcher } from "@/components/workspace/rail-switcher";
 import { SettingsRail } from "@/components/workspace/settings-rail";
 import { WorkspaceRail } from "@/components/workspace/workspace-rail";
@@ -11,6 +12,7 @@ import {
   getAllDepartmentsWithAccess,
   getCurrentUserProfile,
   isCurrentUserAdmin,
+  isCurrentUserPlatformOwner,
   requireAuthUser,
 } from "@/lib/auth/access";
 
@@ -58,10 +60,11 @@ export default async function WorkspaceLayout({
     redirect("/login");
   }
 
-  const [departments, agents, isAdmin] = await Promise.all([
+  const [departments, agents, isAdmin, isPlatformOwner] = await Promise.all([
     getAllDepartmentsWithAccess(authUser.id),
     getAccessibleAgentsForBreadcrumb(authUser.id),
     isCurrentUserAdmin(),
+    isCurrentUserPlatformOwner(),
   ]);
 
   return (
@@ -76,10 +79,30 @@ export default async function WorkspaceLayout({
             profile={profile}
             agents={agents}
             isAdmin={isAdmin}
+            isPlatformOwner={isPlatformOwner}
           />
         }
-        adminRail={<AdminRail profile={profile} isAdmin={isAdmin} />}
-        settingsRail={<SettingsRail profile={profile} isAdmin={isAdmin} />}
+        adminRail={
+          <AdminRail
+            profile={profile}
+            isAdmin={isAdmin}
+            isPlatformOwner={isPlatformOwner}
+          />
+        }
+        settingsRail={
+          <SettingsRail
+            profile={profile}
+            isAdmin={isAdmin}
+            isPlatformOwner={isPlatformOwner}
+          />
+        }
+        platformRail={
+          <PlatformRail
+            profile={profile}
+            isAdmin={isAdmin}
+            isPlatformOwner={isPlatformOwner}
+          />
+        }
       />
       <div className="grid min-h-0 grid-rows-[56px_1fr]">
         <WorkspaceTopBar departments={departments} agents={agents} />

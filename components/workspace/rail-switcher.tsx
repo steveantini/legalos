@@ -13,8 +13,8 @@ import { getCurrentMode } from "@/lib/workspace/modes";
  * The current mode comes from the shared `getCurrentMode` (lib/workspace/
  * modes.ts) — the same source the profile menu uses — so the rail shown and
  * the mode the menu marks current cannot drift. `getCurrentMode` owns the
- * precedence (admin, then settings, then workspace as the default, since
- * `/workspace` prefixes every mode).
+ * precedence (platform, then admin, then settings, then workspace as the
+ * default, since `/workspace` prefixes every mode).
  *
  * Rendering all rails on the server and choosing client-side lets the
  * decision live at the client boundary (where `usePathname` lives)
@@ -24,12 +24,15 @@ export function RailSwitcher({
   workspaceRail,
   adminRail,
   settingsRail,
+  platformRail,
 }: {
   workspaceRail: ReactNode;
   adminRail: ReactNode;
   settingsRail: ReactNode;
+  platformRail: ReactNode;
 }) {
   const mode = getCurrentMode(usePathname());
+  if (mode === "platform") return <>{platformRail}</>;
   if (mode === "admin") return <>{adminRail}</>;
   if (mode === "settings") return <>{settingsRail}</>;
   return <>{workspaceRail}</>;
