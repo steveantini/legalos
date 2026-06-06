@@ -29,8 +29,15 @@ import {
   deleteWorkflowDefinition,
   saveWorkflowDefinition,
 } from "@/lib/actions/workflows";
+import {
+  splitToolArgs,
+  workflowReadback,
+  type ReadbackCapabilities,
+} from "@/lib/workflows/builder-view";
+import { toolPickerKey } from "@/lib/workflows/tool-picker-options";
 import type {
   AgentOption,
+  ToolArgSpec,
   ToolOption,
   WorkflowCapabilities,
 } from "@/lib/workflows/capabilities";
@@ -71,6 +78,24 @@ function makeStep(type: WorkflowStepType): WorkflowStep {
   if (type === "agent") return { ...base, type, agentId: "" };
   if (type === "tool_action") return { ...base, type, serverId: "", toolName: "" };
   return { ...base, type, prompt: "" };
+}
+
+/**
+ * A blank agent instruction never persists: the saved canonical graph keeps
+ * the pre-D3 shape (no `instruction` key) unless the author actually wrote
+ * one, and a written one is stored trimmed.
+ */
+function withCanonicalInstructions(steps: WorkflowStep[]): WorkflowStep[] {
+  return steps.map((step) => {
+    if (step.type !== "agent" || step.instruction === undefined) return step;
+    const instruction = step.instruction.trim();
+    if (!instruction) {
+      const rest = { ...step };
+      delete rest.instruction;
+      return rest;
+    }
+    return instruction === step.instruction ? step : { ...step, instruction };
+  });
 }
 
 // ---- ValueSource <-> select-key serialization ------------------------------
@@ -232,6 +257,24 @@ function AgentStepFields({
         ) : null}
       </div>
       <div className="flex flex-col gap-2">
+        <Label htmlFor={`step-instruction-${step.id}`}>
+          What should the agent do in this step?
+        </Label>
+        <Textarea
+          id={`step-instruction-${step.id}`}
+          value={step.instruction ?? ""}
+          onChange={(e) => onChange({ ...step, instruction: e.target.value })}
+          placeholder="e.g. Review this NDA and flag unusual terms"
+          rows={2}
+          className="bg-paper-2"
+        />
+        <p className="text-[12.5px] leading-[1.5] text-muted-foreground">
+          Optional. The agent keeps its own expertise; this directs what it does
+          here. It can use your connected tools, and it pauses for your approval
+          before any action that changes another system, like sending an email.
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
         <Label>Input</Label>
         <SourcePicker
           value={step.inputMapping ?? { source: "previous" }}
@@ -240,6 +283,45 @@ function AgentStepFields({
           onChange={(src) => onChange({ ...step, inputMapping: src })}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * One tool argument: its name and type, the server's own description of it
+ * (when the discovered schema carries one), and where its value comes from.
+ */
+function ToolArgField({
+  arg,
+  value,
+  priorSteps,
+  onChange,
+}: {
+  arg: ToolArgSpec;
+  value: ValueSource | undefined;
+  priorSteps: Array<{ id: string; name: string; index: number }>;
+  onChange: (next: ValueSource | undefined) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[13px] font-medium text-foreground">{arg.name}</span>
+        <span className="text-[11.5px] text-muted-foreground">
+          {arg.type}
+          {arg.required ? " · required" : ""}
+        </span>
+      </div>
+      {arg.description ? (
+        <p className="text-[12px] leading-[1.5] text-muted-foreground">
+          {arg.description}
+        </p>
+      ) : null}
+      <SourcePicker
+        value={value}
+        priorSteps={priorSteps}
+        includeUnset
+        onChange={onChange}
+      />
     </div>
   );
 }
@@ -259,6 +341,15 @@ function ToolStepFields({
   const selected = tools.find((t) => t.serverId === step.serverId && t.toolName === step.toolName);
   const missing = Boolean(toolKey) && !selected;
   const argMapping = step.argMapping ?? {};
+  // Essentials up front; optional args behind a disclosure (builder-view.ts).
+  const { essential, advanced } = splitToolArgs(selected?.args ?? []);
+
+  function setArgSource(argName: string, src: ValueSource | undefined) {
+    const next = { ...argMapping };
+    if (src) next[argName] = src;
+    else delete next[argName];
+    onChange({ ...step, argMapping: next });
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -294,28 +385,35 @@ function ToolStepFields({
         <div className="flex flex-col gap-3">
           <Label>Inputs to the tool</Label>
           <div className="flex flex-col gap-3 rounded-lg border border-border p-3.5">
-            {selected.args.map((arg) => (
-              <div key={arg.name} className="flex flex-col gap-1.5">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[13px] font-medium text-foreground">{arg.name}</span>
-                  <span className="text-[11.5px] text-muted-foreground">
-                    {arg.type}
-                    {arg.required ? " · required" : ""}
-                  </span>
-                </div>
-                <SourcePicker
-                  value={argMapping[arg.name]}
-                  priorSteps={priorSteps}
-                  includeUnset
-                  onChange={(src) => {
-                    const next = { ...argMapping };
-                    if (src) next[arg.name] = src;
-                    else delete next[arg.name];
-                    onChange({ ...step, argMapping: next });
-                  }}
-                />
-              </div>
+            {essential.map((arg) => (
+              <ToolArgField
+                key={arg.name}
+                arg={arg}
+                value={argMapping[arg.name]}
+                priorSteps={priorSteps}
+                onChange={(src) => setArgSource(arg.name, src)}
+              />
             ))}
+            {advanced.length > 0 ? (
+              <details className="group">
+                <summary className="cursor-pointer list-none rounded font-mono text-[11px] uppercase tracking-[0.05em] text-caption transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                  More options · {advanced.length} ·{" "}
+                  <span className="group-open:hidden">show</span>
+                  <span className="hidden group-open:inline">hide</span>
+                </summary>
+                <div className="mt-3 flex flex-col gap-3">
+                  {advanced.map((arg) => (
+                    <ToolArgField
+                      key={arg.name}
+                      arg={arg}
+                      value={argMapping[arg.name]}
+                      priorSteps={priorSteps}
+                      onChange={(src) => setArgSource(arg.name, src)}
+                    />
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -357,7 +455,7 @@ export function WorkflowBuilder({
   initial: BuilderInitial;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description);
@@ -365,8 +463,29 @@ export function WorkflowBuilder({
   const [status, setStatus] = useState<"draft" | "active">(initial.status);
   const [steps, setSteps] = useState<WorkflowStep[]>(initial.steps);
   const [errors, setErrors] = useState<string[]>([]);
+  // Which save affordance is in flight (plain Save, or Save and run).
+  const [saving, setSaving] = useState<"save" | "save_run" | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletePending, startDeleteTransition] = useTransition();
+
+  // The compose-time readback: the workflow as plain language, one phrase per
+  // step, derived live from the same capabilities the pickers offer.
+  const readbackCaps = useMemo<ReadbackCapabilities>(
+    () => ({
+      agentNameById: new Map(capabilities.agents.map((a) => [a.id, a.name])),
+      toolByKey: new Map(
+        capabilities.tools.map((t) => [
+          toolPickerKey(t.serverId, t.toolName),
+          { fullLabel: t.fullLabel, access: t.access },
+        ]),
+      ),
+    }),
+    [capabilities],
+  );
+  const readback = useMemo(
+    () => workflowReadback(steps, readbackCaps),
+    [steps, readbackCaps],
+  );
 
   const priorStepsBefore = useMemo(
     () =>
@@ -421,8 +540,14 @@ export function WorkflowBuilder({
     });
   }
 
-  function save() {
+  /**
+   * Save the workflow; `thenRun` continues straight to the run-start page
+   * (the compose → try loop in one move). Only offered for an active workflow,
+   * since only active workflows can run.
+   */
+  function save(thenRun: boolean) {
     setErrors([]);
+    setSaving(thenRun ? "save_run" : "save");
     startTransition(async () => {
       const res = await saveWorkflowDefinition({
         id: initial.id,
@@ -430,13 +555,18 @@ export function WorkflowBuilder({
         description,
         departmentId,
         status,
-        steps,
+        steps: withCanonicalInstructions(steps),
       });
       if (res.ok) {
         toast.success(initial.id ? "Workflow saved." : "Workflow created.");
-        router.push("/workspace/workflows/my-workflows");
+        router.push(
+          thenRun
+            ? `/workspace/workflows/my-workflows/${res.id}/run`
+            : "/workspace/workflows/my-workflows",
+        );
         router.refresh();
       } else {
+        setSaving(null);
         setErrors(res.errors ?? (res.error ? [res.error] : ["The workflow couldn't be saved."]));
         if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -523,6 +653,10 @@ export function WorkflowBuilder({
                 <SelectItem value="active">Active</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-[12.5px] leading-[1.5] text-muted-foreground">
+              Only active workflows can be run. A draft stays editable while you
+              shape it.
+            </p>
           </div>
         </div>
       </section>
@@ -531,16 +665,24 @@ export function WorkflowBuilder({
       <section className="flex flex-col gap-4">
         <div>
           <h2 className="text-[17px] font-medium tracking-[-0.012em] text-foreground">Steps</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Run in order. Each step works on the previous step&rsquo;s output unless you
-            point it somewhere else.
+          <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
+            A workflow starts from an input you provide when you run it. Steps run
+            in order; each works on the previous step&rsquo;s output unless you point
+            it somewhere else.
           </p>
         </div>
 
         {steps.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border bg-card/50 px-4 py-6 text-center text-[13px] text-muted-foreground">
-            No steps yet. Add the first one below.
-          </p>
+          <div className="flex flex-col items-center gap-2 rounded-[14px] border border-dashed border-border bg-card/50 px-6 py-8 text-center">
+            <p className="text-[14px] font-medium text-foreground">
+              Start with an agent step
+            </p>
+            <p className="max-w-[52ch] text-[13px] leading-[1.5] text-muted-foreground">
+              Pick an agent and tell it what to do in plain language. It can read
+              from your connected tools, and it pauses for your approval before any
+              action that changes another system, like sending an email.
+            </p>
+          </div>
         ) : (
           <ol className="flex flex-col gap-3">
             {steps.map((step, index) => (
@@ -627,12 +769,11 @@ export function WorkflowBuilder({
           </ol>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => addStep("agent")}>
+        {/* Agent-first framing: the agent step is the primary path; the explicit
+            tool step is the precise, advanced option (D-123). */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" size="sm" onClick={() => addStep("agent")}>
             + Run an agent
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => addStep("tool_action")}>
-            + Take an action
           </Button>
           <Button
             type="button"
@@ -642,7 +783,39 @@ export function WorkflowBuilder({
           >
             + Human approval
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => addStep("tool_action")}
+          >
+            + Take an action (advanced)
+          </Button>
         </div>
+
+        {/* The compose-time readback: the workflow as plain language, so the
+            operator can read what it does while building it. */}
+        {steps.length > 0 ? (
+          <div className="rounded-[14px] border border-border bg-card/50 px-4 py-3.5">
+            <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-caption">
+              What this workflow does
+            </p>
+            <ol className="mt-2 flex flex-col gap-1">
+              {readback.map((phrase, i) => (
+                <li
+                  key={steps[i].id}
+                  className="flex gap-2 text-[13px] leading-[1.55] text-foreground/90"
+                >
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    {i + 1}.
+                  </span>
+                  <span>{phrase}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </section>
 
       {/* Delete / Save */}
@@ -666,8 +839,19 @@ export function WorkflowBuilder({
           >
             Cancel
           </Link>
-          <Button type="button" onClick={save} disabled={pending}>
-            {pending ? "Saving…" : "Save workflow"}
+          {/* Save and run closes the compose → try loop. Only an active
+              workflow can run, so a draft leaves this disabled (the status
+              field explains why). */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => save(true)}
+            disabled={saving !== null || status !== "active"}
+          >
+            {saving === "save_run" ? "Saving…" : "Save and run"}
+          </Button>
+          <Button type="button" onClick={() => save(false)} disabled={saving !== null}>
+            {saving === "save" ? "Saving…" : "Save workflow"}
           </Button>
         </div>
       </div>

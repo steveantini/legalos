@@ -3355,3 +3355,26 @@ Delivers agent-centric workflow writes on the proven pausable loop while preserv
 - Workflows can now contain agents that act under human approval, end to end; the run view shows the pause, the decision resumes it, and the step's tool activity is on the record.
 - D3 makes building these delightful (per-step instruction, agent-first framing, clean tool_action form) and lets the approval card disclose what will be sent.
 - **Operator: apply migration `0062_agent_write_approvals_and_step_traces.sql`.** Without it, an agent-proposed write cannot persist its pending approval (apply before relying on agent writes); the trace column degrades gracefully.
+
+## D-123 — Agent-centric workflow builder + show-what-it-will-send approval (Workflows delight pass D3, pass complete)
+
+Date: 2026-06-06
+Status: Accepted
+
+**Context:**
+
+D1/D2 made an agent step able to propose writes under human approval, but the builder still read as "configure fields": an agent step was just agent + input mapping (the agent's only task was its stored system prompt), the tool_action form showed every argument as an unexplained "Not set" picker, composing gave no plain-language sense of what the workflow would do, and the approval card showed argument key names only — even for content the agent itself authored.
+
+**Decision:**
+
+Made the builder agent-centric (the locked "C weighted toward A" direction). An agent step gains an OPTIONAL plain-language instruction ("Review this NDA and flag unusual terms") that LAYERS ON the agent's stored system prompt: at run time `composeAgentTask` (lib/workflows/agent-task.ts, pure + tested) builds the user message as the instruction (the directive) followed by the mapped input in a delimited `<step_input>` block; no instruction composes to the input alone, byte-identical to pre-D3, and the field rides the freeform definition jsonb (validator: optional text; NO migration). The step framing leads with the agent: "+ Run an agent" is the primary affordance, "+ Take an action (advanced)" is the de-emphasized precise path, and the empty state teaches "pick an agent and tell it what to do". The tool_action form became the legible advanced path: per-argument descriptions (parsed since 4a, now rendered) and an essentials-first split — required args up front, optional ones behind a "More options" disclosure (`splitToolArgs`, pure + tested; a tool with no required args shows everything). Guided composition: a compose-time plain-language readback panel ("What this workflow does", one phrase per step, derived live by `workflowReadback` in the new builder-view.ts — run-view.ts's compose-time sibling, pure + tested), a run-input explainer atop Steps, a draft/active explainer at Status, and a "Save and run" affordance (active workflows only) that saves and lands on the run-start page. And the approval card, for AGENT-proposed writes (kind 'agent_write' — D2 already persists the full args), gained an optional "Show what it will send" disclosure revealing the actual argument values (the email the agent drafted); the default render stays keys-only, and explicit tool_action writes keep the existing keys-only card (the human authored those values in the builder).
+
+**Reasoning:**
+
+Combined with D1/D2, a single agent step can now read, reason, and propose an action under approval, which dissolves the per-argument tool-wiring that made the builder undelightful; reviewing agent-authored content before approving is the purpose of the gate, so the content disclosure is the right scoped loosening of the keys-only bar (an in-UI render of the run's own persisted data to its authorized viewers — nothing new persisted or logged); all additive and backward-compatible (old instruction-less definitions execute identically; engine, pause/resume/approval mechanics, autonomy, and chat untouched).
+
+**Consequences:**
+
+- The delight pass is complete (D1–D3) and workflows are genuinely no-code and agent-centric: pick an agent, tell it what to do, read the workflow back in plain language, save and run.
+- Step 5 (C4L workflow templates + the Template Library) seeds templates into this now-delightful builder.
+- No migration; nothing for the operator to apply.

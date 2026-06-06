@@ -83,6 +83,35 @@ describe("validateWorkflowDefinition", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts an optional agent instruction and rejects a non-text one (D3)", async () => {
+    const withInstruction = await validateWorkflowDefinition(
+      {
+        steps: [
+          {
+            id: "a1",
+            type: "agent",
+            name: "Review",
+            agentId: "good-agent",
+            instruction: "Review this NDA and flag unusual terms",
+          },
+        ],
+      },
+      deps,
+    );
+    expect(withInstruction.ok).toBe(true);
+
+    const malformed = await validateWorkflowDefinition(
+      {
+        steps: [
+          { id: "a1", type: "agent", name: "Review", agentId: "good-agent", instruction: 42 },
+        ],
+      },
+      deps,
+    );
+    expect(malformed.ok).toBe(false);
+    if (!malformed.ok) expect(malformed.errors.join(" ")).toMatch(/instruction/i);
+  });
+
   it("rejects an unresolvable agentId and an unresolvable tool", async () => {
     const badAgent = await validateWorkflowDefinition(
       { steps: [{ id: "a1", type: "agent", name: "X", agentId: "ghost" }] },

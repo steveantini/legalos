@@ -42,6 +42,15 @@ export type AgentStep = {
   type: "agent";
   name: string;
   agentId: string;
+  /**
+   * Optional plain-language direction for THIS step (delight pass D3): "Review
+   * this NDA and flag unusual terms." Composed with the mapped input into the
+   * agent's user message at run time (lib/workflows/agent-task.ts) — it LAYERS
+   * ON the agent's stored system prompt (identity/expertise unchanged) as the
+   * per-use task. Omitted → the step behaves exactly as before D3 (the mapped
+   * input alone). Rides the freeform definition jsonb; no migration.
+   */
+  instruction?: string;
   /** Defaults to { source: "previous" } when omitted. */
   inputMapping?: ValueSource;
   /** Optional friendly key for this step's output. Reserved; unused by v1 logic. */

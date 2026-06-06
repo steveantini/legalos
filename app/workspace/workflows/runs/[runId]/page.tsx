@@ -229,6 +229,7 @@ export default async function WorkflowRunPage({
     action: string;
     argKeys: string[];
   } | null = null;
+  let pendingAgentWriteInput: Record<string, unknown> | null = null;
   if (pending) {
     if (pending.kind === "write") {
       const action = pending.pending_action as {
@@ -247,11 +248,12 @@ export default async function WorkflowRunPage({
       };
     } else if (pending.kind === "agent_write") {
       // An AGENT-proposed write (D2): the persisted pendingWrite carries the
-      // namespaced tool name + PII-safe argKeys. The card renders keys only;
-      // the full proposed args stay in the protected row for the later
-      // show-content disclosure (D3).
+      // namespaced tool name + PII-safe argKeys, plus the agent's ACTUAL chosen
+      // input. The card renders keys only by default; the full args feed the
+      // "Show what it will send" disclosure (D3), so the approver can read the
+      // content the agent authored before deciding.
       const action = pending.pending_action as {
-        pendingWrite?: { name?: string; argKeys?: string[] };
+        pendingWrite?: { name?: string; argKeys?: string[]; input?: unknown };
       } | null;
       const label = toolLabel(action?.pendingWrite?.name ?? "");
       pendingWrite = {
@@ -262,6 +264,10 @@ export default async function WorkflowRunPage({
           ? action.pendingWrite.argKeys
           : [],
       };
+      const input = action?.pendingWrite?.input;
+      if (typeof input === "object" && input !== null && !Array.isArray(input)) {
+        pendingAgentWriteInput = input as Record<string, unknown>;
+      }
     } else {
       pendingPrompt =
         ((pending.pending_action as { prompt?: string } | null)?.prompt ?? null);
@@ -328,6 +334,7 @@ export default async function WorkflowRunPage({
           kind={pending.kind}
           prompt={pendingPrompt}
           write={pendingWrite}
+          agentWriteInput={pendingAgentWriteInput}
           canDecide={isOwner}
         />
       ) : null}

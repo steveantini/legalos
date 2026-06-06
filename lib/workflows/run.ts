@@ -20,6 +20,7 @@ import {
   type ToolActionOutcome,
   type WorkflowEngineDeps,
 } from "@/lib/workflows/engine";
+import { composeAgentTask } from "@/lib/workflows/agent-task";
 import {
   asWorkflowDefinition,
   validateWorkflowDefinition,
@@ -119,11 +120,16 @@ function buildEngineDeps(args: {
       }
       // writes "pause" (D2): the agent may PROPOSE a write — the loop pauses
       // and the engine turns it into a pending approval. Nothing executes.
+      // The user message composes the step's optional plain-language
+      // instruction with the mapped input (D3); no instruction → the mapped
+      // input alone, byte-identical to pre-D3. The audit trail keeps the
+      // mapped input as the step's recorded input (the instruction is already
+      // in the run's definition snapshot).
       const res = await runAgent({
         agent,
         organizationId,
         userId,
-        input,
+        input: composeAgentTask(step.instruction, input),
         options: { workflowRunId, writes: "pause" },
       });
       // Check `paused` FIRST (D1's contract: the paused variant degrades to a

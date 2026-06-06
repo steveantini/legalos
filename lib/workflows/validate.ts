@@ -143,6 +143,11 @@ export async function validateWorkflowDefinition(
           }),
         );
       }
+      // The per-step instruction (D3) is optional free text — no required
+      // validation, only a shape check so a malformed definition fails loudly.
+      if (step.instruction !== undefined && typeof step.instruction !== "string") {
+        errors.push(`${label}: "instruction" must be text.`);
+      }
       if (step.inputMapping !== undefined) {
         const err = validateValueSource(step.inputMapping, priorIds, `${label} inputMapping`);
         if (err) errors.push(err);

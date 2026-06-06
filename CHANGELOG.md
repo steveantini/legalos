@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Building workflows is now far simpler: add an agent step and just tell it what to do in plain language (it can read, draft, and, with your approval, take actions like sending an email), see a plain-language summary of the whole workflow as you build it, and save and run in one step. When a workflow pauses for your approval before an agent acts, you can now see exactly what it will send. The advanced tool steps now show clear descriptions for each field, with only the essential fields up front.**
+
 - **Agent steps in a workflow can now take actions under human approval: when an agent wants to perform a write, the workflow pauses for you to approve or deny, the same way the assistant does in chat. Approving lets the agent act and continue; denying lets it finish gracefully without acting, and the run carries on. Every step now records its tool activity in the audit trail, so an agent step's reads and writes are visible in the run view's record.**
 
 - **Internal foundation: the headless agent runtime can now pause for human approval when an agent wants to take a write action, instead of refusing it, mirroring the proven chat approval pattern. Nothing executes without a decision: approving runs the action once through the governed executor and the agent continues; declining feeds back a graceful "declined" result so the agent acknowledges and finishes without acting. This is the groundwork for workflow agent steps that can act under human approval; wiring it into the workflow engine comes next, and nothing user-visible changes yet.**

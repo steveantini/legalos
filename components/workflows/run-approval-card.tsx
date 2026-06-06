@@ -6,6 +6,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { decideWorkflowApproval } from "@/lib/actions/workflows";
+import { renderRunValue } from "@/lib/workflows/run-view";
+import { cn } from "@/lib/utils";
 
 /** A pending write summarized PII-safely: friendly label + argument key NAMES only. */
 type PendingWriteDisplay = {
@@ -26,8 +28,52 @@ interface RunApprovalCardProps {
   prompt: string | null;
   /** The pending write's PII-safe summary (kind 'write' | 'agent_write'). */
   write: PendingWriteDisplay | null;
+  /**
+   * The AGENT-authored argument values (kind 'agent_write' only; null
+   * otherwise), revealed behind the "Show what it will send" disclosure so the
+   * approver reads the actual content — the email the agent drafted — before
+   * allowing it (D-123). A deliberate, scoped loosening of the keys-only bar
+   * for agent-proposed writes specifically: reviewing what the agent wrote is
+   * the purpose of the gate. Explicit tool_action writes stay keys-only (the
+   * approver authored those values in the builder). In-UI render of the run's
+   * own persisted data, shown to its authorized viewers; nothing new is
+   * persisted or logged.
+   */
+  agentWriteInput: Record<string, unknown> | null;
   /** True for the run's owner — the only authorized approver. Admins watch read-only. */
   canDecide: boolean;
+}
+
+/**
+ * The expanded "what it will send" panel: each agent-authored argument as a
+ * quiet caption key over its actual value — prose for text, mono for
+ * structured values — capped in height so a long draft scrolls in place.
+ */
+function AgentWriteContent({ input }: { input: Record<string, unknown> }) {
+  const entries = Object.keys(input)
+    .sort()
+    .map((key) => ({ key, rendered: renderRunValue(input[key]) }));
+  return (
+    <dl className="mt-2 flex max-h-72 flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-paper-2 px-3.5 py-3">
+      {entries.map(({ key, rendered }) => (
+        <div key={key}>
+          <dt className="font-mono text-[11px] uppercase tracking-[0.05em] text-caption">
+            {key}
+          </dt>
+          <dd
+            className={cn(
+              "mt-1 whitespace-pre-wrap break-words",
+              rendered?.format === "json"
+                ? "font-mono text-[12px] leading-[1.6] text-foreground/90"
+                : "text-[13px] leading-[1.55] text-foreground/90",
+            )}
+          >
+            {rendered ? rendered.text : <span className="text-muted-foreground">(empty)</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 /**
@@ -48,12 +94,14 @@ export function RunApprovalCard({
   kind,
   prompt,
   write,
+  agentWriteInput,
   canDecide,
 }: RunApprovalCardProps) {
   const router = useRouter();
   const [deciding, setDeciding] = useState<"approve" | "deny" | null>(null);
   const [settledNote, setSettledNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showingContent, setShowingContent] = useState(false);
 
   async function decide(decision: "approve" | "deny") {
     if (deciding) return;
@@ -130,6 +178,21 @@ export function RunApprovalCard({
                     ? `${write.full} · ${write.argKeys.join(", ")}`
                     : write.full}
                 </p>
+              ) : null}
+              {kind === "agent_write" && agentWriteInput ? (
+                // The agent AUTHORED this content, so the approver can read it
+                // before deciding — behind a disclosure, keys-only by default.
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    aria-expanded={showingContent}
+                    onClick={() => setShowingContent((v) => !v)}
+                    className="cursor-pointer rounded text-[12.5px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    {showingContent ? "Hide what it will send" : "Show what it will send"}
+                  </button>
+                  {showingContent ? <AgentWriteContent input={agentWriteInput} /> : null}
+                </div>
               ) : null}
             </>
           )}
