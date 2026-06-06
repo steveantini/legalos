@@ -20,6 +20,7 @@
  * union variant + the edges overlay; no router logic exists in v1.
  */
 
+import type { PendingMcpToolCall } from "@/lib/chat/mcp-confirmation";
 import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
 
 /**
@@ -113,10 +114,36 @@ export type PendingWriteAction = {
   toolUseId: string;
 };
 
-/** What a paused run is waiting on: a checkpoint gate, or a write to approve. */
+/**
+ * An AGENT-proposed write awaiting approval (delight pass D2): the proposed
+ * call plus the agent's resumable loop state, both produced by the pausable
+ * headless loop (D1). `pendingWrite` is the chat-shared PendingMcpToolCall —
+ * the FULL proposed action (actual args, kept for the later show-content
+ * disclosure) with its route carrying a token_ref POINTER only, never a token.
+ * `pauseState` is D1's RunAgentPauseState, OPAQUE to the pure engine: it is
+ * persisted at pause and handed back verbatim to the resume host, which alone
+ * knows its real type. Same trust boundary as mcp_paused_runs.loop_state.
+ */
+export type PendingAgentWriteAction = {
+  pendingWrite: PendingMcpToolCall;
+  pauseState: unknown;
+};
+
+/**
+ * What a paused run is waiting on: a checkpoint gate, an explicitly-authored
+ * tool_action write, or an agent-proposed write (distinct kinds: an agent
+ * write carries loop state and its deny lets the run CONTINUE, while a
+ * tool_action deny cancels — see D-122).
+ */
 export type PendingApproval =
   | { kind: "checkpoint"; stepId: string; sequence: number; prompt: string }
-  | { kind: "write"; stepId: string; sequence: number; pendingAction: PendingWriteAction };
+  | { kind: "write"; stepId: string; sequence: number; pendingAction: PendingWriteAction }
+  | {
+      kind: "agent_write";
+      stepId: string;
+      sequence: number;
+      pendingAction: PendingAgentWriteAction;
+    };
 
 // ---- Execution records (mirrored by the workflow_runs / workflow_step_runs rows).
 
@@ -147,6 +174,14 @@ export type StepRunRecord = {
   error: string | null;
   /** How a checkpoint/write was cleared, or null for a read / still-pending step. */
   approvalMode: StepApprovalMode | null;
+  /**
+   * The step's PII-safe tool-call trace (an agent step's reads and, with
+   * approved/denied provenance, its writes — argKeys only, never values).
+   * Opaque to the engine (jsonb-bound, mirroring messages.tool_calls); null for
+   * steps with no tool activity. Closes the audit gap where an agent step's
+   * tool activity was discarded (delight pass D2).
+   */
+  toolCalls: unknown;
   startedAt: string;
   finishedAt: string | null;
 };

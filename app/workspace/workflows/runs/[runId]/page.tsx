@@ -6,6 +6,7 @@ import { RunApprovalCard } from "@/components/workflows/run-approval-card";
 import { RunAutoRefresh } from "@/components/workflows/run-auto-refresh";
 import { StatusDotPill } from "@/components/workflows/run-status-pill";
 import { getCurrentUserProfile, requireAuthUser } from "@/lib/auth/access";
+import { toolLabel } from "@/lib/chat/tool-display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import {
@@ -50,7 +51,7 @@ type RunRow = {
 type ApprovalRow = {
   id: string;
   step_id: string;
-  kind: "checkpoint" | "write";
+  kind: "checkpoint" | "write" | "agent_write";
   pending_action: unknown;
   status: "pending" | "approved" | "denied" | "resolving";
   decided_by: string | null;
@@ -243,6 +244,23 @@ export default async function WorkflowRunPage({
         server: label.server,
         action: label.action,
         argKeys: pendingWriteArgKeys(action?.toolInput),
+      };
+    } else if (pending.kind === "agent_write") {
+      // An AGENT-proposed write (D2): the persisted pendingWrite carries the
+      // namespaced tool name + PII-safe argKeys. The card renders keys only;
+      // the full proposed args stay in the protected row for the later
+      // show-content disclosure (D3).
+      const action = pending.pending_action as {
+        pendingWrite?: { name?: string; argKeys?: string[] };
+      } | null;
+      const label = toolLabel(action?.pendingWrite?.name ?? "");
+      pendingWrite = {
+        full: label.full,
+        server: label.server,
+        action: label.action,
+        argKeys: Array.isArray(action?.pendingWrite?.argKeys)
+          ? action.pendingWrite.argKeys
+          : [],
       };
     } else {
       pendingPrompt =

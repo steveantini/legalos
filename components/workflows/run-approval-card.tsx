@@ -21,10 +21,10 @@ type PendingWriteDisplay = {
 
 interface RunApprovalCardProps {
   pendingApprovalId: string;
-  kind: "checkpoint" | "write";
+  kind: "checkpoint" | "write" | "agent_write";
   /** The checkpoint's prompt to the approver (kind 'checkpoint'). */
   prompt: string | null;
-  /** The pending write's PII-safe summary (kind 'write'). */
+  /** The pending write's PII-safe summary (kind 'write' | 'agent_write'). */
   write: PendingWriteDisplay | null;
   /** True for the run's owner — the only authorized approver. Admins watch read-only. */
   canDecide: boolean;
@@ -106,8 +106,23 @@ export function RunApprovalCard({
           ) : (
             <>
               <p className="text-[13.5px] leading-[1.5] text-foreground">
-                This run wants to {actionSentence}. Approving performs this action
-                on the connected system; denying stops the run with nothing done.
+                {kind === "agent_write" ? (
+                  // An agent-PROPOSED write: denying lets the agent finish
+                  // without acting and the run carries on (unlike an
+                  // explicitly-authored action, whose deny stops the run).
+                  <>
+                    The agent in this step wants to {actionSentence}. Approving
+                    performs this action on the connected system and lets the
+                    agent continue; denying lets the agent finish without acting,
+                    and the run carries on.
+                  </>
+                ) : (
+                  <>
+                    This run wants to {actionSentence}. Approving performs this
+                    action on the connected system; denying stops the run with
+                    nothing done.
+                  </>
+                )}
               </p>
               {write ? (
                 <p className="mt-1.5 font-mono text-[11px] uppercase tracking-[0.05em] text-caption">

@@ -661,6 +661,26 @@ const ZERO_USAGE: RunAgentUsage = {
 };
 
 /**
+ * The usage spent SINCE a pause baseline (per-field, floored at zero). The loop
+ * accumulates usage across a pause, but the pre-pause spend was already recorded
+ * when the run paused — a resume records only its increment, so the additive
+ * usage_events ledger stays honest.
+ */
+function usageIncrement(
+  after: Omit<RunAgentUsage, "costMicroUsd">,
+  before: Omit<RunAgentUsage, "costMicroUsd">,
+): Omit<RunAgentUsage, "costMicroUsd"> {
+  return {
+    tokensIn: Math.max(0, after.tokensIn - before.tokensIn),
+    tokensOut: Math.max(0, after.tokensOut - before.tokensOut),
+    cacheCreation: Math.max(0, after.cacheCreation - before.cacheCreation),
+    cacheRead: Math.max(0, after.cacheRead - before.cacheRead),
+    webSearch: Math.max(0, after.webSearch - before.webSearch),
+    mcpToolCallCount: Math.max(0, after.mcpToolCallCount - before.mcpToolCallCount),
+  };
+}
+
+/**
  * Run an agent headlessly on a task input and return its output, tool trace, and
  * usage — or, under the explicit writes "pause" policy, a paused result carrying
  * the proposed write + resumable state. Never throws — any failure resolves to
@@ -811,6 +831,162 @@ export async function runAgent(
     // Never throw across the boundary — log the detail, return a safe message.
     console.error("runAgent failed", err);
     return fail("The agent run could not be completed.");
+  }
+}
+
+export type ResumeAgentParams = {
+  agent: RunnableAgent;
+  organizationId: string;
+  userId: string;
+  /** The persisted pause state + proposed write, exactly as runAgent returned them. */
+  pauseState: RunAgentPauseState;
+  pendingWrite: PendingMcpToolCall;
+  decision: ConfirmationDecision;
+  options?: {
+    /** Override the model⇄tool round cap (default MCP_MAX_TOOL_ROUNDS). */
+    maxRounds?: number;
+    /** Override the agent's model with another vendor-prefixed id. */
+    model?: string;
+    /** The workflow run this agent-step belongs to (cost attribution). */
+    workflowRunId?: string;
+  };
+};
+
+/**
+ * Resume a paused headless run on a human decision (delight pass D2) — the
+ * real-wired counterpart of resumeAgentLoop, mirroring runAgent's wiring. The
+ * system prompt is rebuilt from the agent row and the governed MCP tools are
+ * re-resolved FRESH (the same posture as the chat confirm route: the approved
+ * write executes via its own persisted route with a live token re-resolved
+ * inside executeMcpTool; the fresh resolution covers the continuation's further
+ * tool calls). Runs under writes "pause" by definition — a continuation that
+ * proposes another write pauses again. Records only the continuation's usage
+ * INCREMENT (the pre-pause spend was recorded at pause). Never throws.
+ */
+export async function resumeAgent(
+  params: ResumeAgentParams,
+): Promise<RunAgentResult> {
+  const { agent, organizationId, userId, pauseState, pendingWrite, decision } =
+    params;
+  const options = params.options;
+
+  const fail = (error: string): RunAgentResult => ({
+    ok: false,
+    error,
+    output: pauseState.output,
+    toolCalls: pauseState.toolCalls,
+    usage: { ...pauseState.usage, costMicroUsd: 0 },
+    stopReason: null,
+  });
+
+  try {
+    const modelId = options?.model ?? agent.model;
+    const { vendor, model: vendorModelName } = parseModelId(modelId);
+    if (vendor !== "anthropic") {
+      return fail(`Unsupported model vendor: ${vendor}`);
+    }
+    const credential = await resolveModelCredential({
+      organizationId,
+      userId,
+      vendor,
+    });
+
+    const systemBlocks: AnthropicSystemBlock[] = [
+      {
+        type: "text",
+        text: buildSystemPrompt(agent.system_prompt),
+        cache_control: { type: "ephemeral" },
+      },
+    ];
+
+    const enabledTools = Array.isArray(agent.tools_enabled)
+      ? agent.tools_enabled
+      : [];
+    const offeredTools: AnthropicTool[] = [];
+    if (enabledTools.includes("web_search")) {
+      offeredTools.push({
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 5,
+      });
+    }
+    const gated = await resolveGatedOrgMcpTools();
+    // A resumed loop is in the "pause" policy by definition: writes are offered
+    // and a further proposed write pauses again.
+    offeredTools.push(...gated.toolDefs);
+
+    const outcome = await resumeAgentLoop({
+      deps: {
+        // Unused on resume (the loop re-seeds from pauseState.loopMessages),
+        // but part of the shared deps shape.
+        baseMessages: [],
+        offeredTools,
+        routingMap: gated.routingMap,
+        accessByName: gated.accessByName,
+        maxRounds: options?.maxRounds ?? MCP_MAX_TOOL_ROUNDS,
+        wallClockMs: MCP_LOOP_WALL_CLOCK_MS,
+        now: () => Date.now(),
+        writes: "pause",
+        modelTurn: async (messages, tools) => {
+          const r = streamAnthropicChat({
+            model: vendorModelName,
+            credential,
+            systemBlocks,
+            messages,
+            maxTokens: 4096,
+            tools,
+          });
+          const final = await r.finalMessage();
+          const usage = await r.finalUsage();
+          return {
+            stopReason: final.stop_reason,
+            content: final.content as Anthropic.Messages.ContentBlockParam[],
+            usage,
+          };
+        },
+        toolExec: executeMcpTool,
+      },
+      pauseState,
+      pendingWrite,
+      decision,
+    });
+
+    const costMicroUsd = await recordRunUsage({
+      organizationId,
+      userId,
+      agentId: agent.id,
+      model: modelId,
+      usage: usageIncrement(outcome.usage, pauseState.usage),
+      workflowRunId: options?.workflowRunId,
+    });
+
+    if (outcome.status === "paused") {
+      return {
+        ok: false,
+        paused: {
+          pendingWrite: outcome.pendingWrite,
+          pauseState: outcome.pauseState,
+        },
+        error: AGENT_RUN_PAUSED_ERROR,
+        output: outcome.output,
+        toolCalls: outcome.toolCalls,
+        // Accumulated usage across the whole step so far; the cost field is
+        // this continuation's increment (each segment records its own).
+        usage: { ...outcome.usage, costMicroUsd },
+        stopReason: outcome.stopReason,
+      };
+    }
+
+    return {
+      ok: true,
+      output: outcome.output,
+      toolCalls: outcome.toolCalls,
+      usage: { ...outcome.usage, costMicroUsd },
+      stopReason: outcome.stopReason,
+    };
+  } catch (err) {
+    console.error("resumeAgent failed", err);
+    return fail("The agent run could not be resumed.");
   }
 }
 

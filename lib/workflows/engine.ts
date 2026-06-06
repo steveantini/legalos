@@ -1,6 +1,7 @@
 import type {
   AgentStep,
   AutonomyLevel,
+  PendingAgentWriteAction,
   PendingWriteAction,
   SegmentResult,
   StepApprovalMode,
@@ -55,9 +56,37 @@ export type ToolActionOutcome =
   | { kind: "executed"; ok: boolean; output: unknown; error?: string }
   | { kind: "needs_approval"; pendingAction: PendingWriteAction };
 
+/**
+ * An agent-step resolver's outcome (delight pass D2): the run completed (or
+ * failed), or the agent PROPOSED A WRITE and the pausable loop paused — the
+ * engine must pause the run for approval. `toolCalls` is the step's PII-safe
+ * tool-call trace so far (opaque to the engine; persisted on the step row).
+ */
+export type AgentStepOutcome =
+  | { kind: "executed"; ok: boolean; output: unknown; error?: string; toolCalls?: unknown }
+  | {
+      kind: "needs_approval";
+      pendingAction: PendingAgentWriteAction;
+      toolCalls?: unknown;
+    };
+
 export type WorkflowEngineDeps = {
-  /** Run an agent step on a resolved text input (wraps the headless runAgent). */
-  runAgentStep: (step: AgentStep, input: string) => Promise<StepExecResult>;
+  /**
+   * Run an agent step on a resolved text input (wraps the pausable headless
+   * runAgent, writes "pause"): it completes, fails, or pauses on a proposed write.
+   */
+  runAgentStep: (step: AgentStep, input: string) => Promise<AgentStepOutcome>;
+  /**
+   * Resume a paused agent step on a human decision (wraps resumeAgent): approve
+   * executes the write once via the governed executor and the agent continues
+   * (possibly pausing again); deny lets the agent finish gracefully. Either way
+   * the outcome is a normal AgentStepOutcome.
+   */
+  resumeAgentStep: (
+    step: AgentStep,
+    pendingAction: PendingAgentWriteAction,
+    decision: "approve" | "deny",
+  ) => Promise<AgentStepOutcome>;
   /** Resolve + run a tool-action step: a read executes; a write needs approval. */
   runToolActionStep: (
     step: ToolActionStep,
@@ -119,6 +148,7 @@ export function makeStepRecord(
   approvalMode: StepApprovalMode | null,
   startedAt: string,
   finishedAt: string | null,
+  toolCalls: unknown = null,
 ): StepRunRecord {
   return {
     stepId: step.id,
@@ -129,6 +159,7 @@ export function makeStepRecord(
     output,
     error,
     approvalMode,
+    toolCalls: toolCalls ?? null,
     startedAt,
     finishedAt,
   };
@@ -182,19 +213,35 @@ export async function runWorkflowSegment(params: {
         return { status: "failed", steps: records, pending: null, error: resolved.error };
       }
       const input = toStringInput(resolved.value);
-      let res: StepExecResult;
+      let res: AgentStepOutcome;
       try {
         res = await deps.runAgentStep(step, input);
       } catch {
-        res = { ok: false, output: null, error: "The agent step threw unexpectedly." };
+        res = { kind: "executed", ok: false, output: null, error: "The agent step threw unexpectedly." };
       }
+
+      if (res.kind === "needs_approval") {
+        // The agent PROPOSED A WRITE (D2): pause for approval in EVERY autonomy
+        // mode (no unattended writes). The write does not execute here — only
+        // the resume path's injected resumer can run it, after the atomic claim.
+        records.push(
+          makeStepRecord(step, i, "awaiting_approval", input, null, null, null, startedAt, null, res.toolCalls ?? null),
+        );
+        return {
+          status: "awaiting_approval",
+          steps: records,
+          pending: { kind: "agent_write", stepId: step.id, sequence: i, pendingAction: res.pendingAction },
+          error: null,
+        };
+      }
+
       const finishedAt = deps.nowIso();
       if (!res.ok) {
         const error = res.error ?? "The agent step failed.";
-        records.push(makeStepRecord(step, i, "failed", input, null, error, null, startedAt, finishedAt));
+        records.push(makeStepRecord(step, i, "failed", input, null, error, null, startedAt, finishedAt, res.toolCalls ?? null));
         return { status: "failed", steps: records, pending: null, error };
       }
-      records.push(makeStepRecord(step, i, "completed", input, res.output, null, null, startedAt, finishedAt));
+      records.push(makeStepRecord(step, i, "completed", input, res.output, null, null, startedAt, finishedAt, res.toolCalls ?? null));
       ctx.previousOutput = res.output;
       ctx.outputs.set(step.id, res.output);
       continue;
@@ -280,14 +327,22 @@ export type ResumeResult = {
 };
 
 /**
- * Resume a paused run on a human decision (Workflows arc Step 3). Pure, with the
- * atomic claim, the write execution, and the continuation walk all INJECTED, so
+ * Resume a paused run on a human decision (Workflows arc Step 3; agent-proposed
+ * writes added in delight pass D2). Pure, with the atomic claim, the write
+ * execution, the agent-loop resume, and the continuation walk all INJECTED, so
  * the at-most-once + approve/deny logic is unit-testable with fakes.
  *
  *   - claimPaused() performs the ATOMIC pending→resolving claim and returns false
  *     when another caller already claimed it — guaranteeing at-most-once: only
  *     the winner executes the write / continues.
- *   - deny → the paused step is recorded failed; the run is 'cancelled'; STOP.
+ *   - agent_write (either decision) → resumeAgentStep drives the agent's loop:
+ *     approve executes the write once inside it and the agent continues
+ *     (possibly pausing AGAIN on a further write — multi-pause); deny lets the
+ *     agent finish gracefully. A finished agent step is recorded COMPLETED and
+ *     the run CONTINUES — an agent-proposed write's deny is "not that one,
+ *     carry on", not a hard stop (Fork 1, D-122).
+ *   - deny + checkpoint/write → the paused step is recorded failed; the run is
+ *     'cancelled'; STOP. (An explicitly-authored write's deny remains a stop.)
  *   - approve + checkpoint → the paused step is 'human_approved'; continue.
  *   - approve + write → executeApprovedWrite runs the write (live token re-resolved
  *     inside it); on success 'human_approved' + continue, on failure 'failed' + STOP.
@@ -297,8 +352,10 @@ export async function resumeWorkflow(params: {
   autonomy: AutonomyLevel;
   deps: WorkflowEngineDeps;
   pausedIndex: number;
-  pausedKind: "checkpoint" | "write";
+  pausedKind: "checkpoint" | "write" | "agent_write";
   pendingAction: PendingWriteAction | null;
+  /** The paused agent-step state (kind 'agent_write' only). */
+  pendingAgentAction?: PendingAgentWriteAction | null;
   decision: "approve" | "deny";
   ctx: ResolveContext;
   claimPaused: () => Promise<boolean>;
@@ -313,6 +370,7 @@ export async function resumeWorkflow(params: {
     pausedIndex,
     pausedKind,
     pendingAction,
+    pendingAgentAction,
     decision,
     ctx,
     claimPaused,
@@ -327,6 +385,78 @@ export async function resumeWorkflow(params: {
 
   const step = definition.steps[pausedIndex];
   const startedAt = deps.nowIso();
+
+  if (pausedKind === "agent_write") {
+    // An AGENT-proposed write (D2): both decisions resume the agent's own loop —
+    // approve executes the write inside it (the injected resumer is the only
+    // write path), deny feeds the graceful decline so the agent finishes. The
+    // agent may propose ANOTHER write either way, which pauses again.
+    if (!pendingAgentAction || step.type !== "agent") {
+      const record = makeStepRecord(step, pausedIndex, "failed", null, null, "The paused agent state was missing.", null, startedAt, deps.nowIso());
+      return { claimed: true, pausedStepRecord: record, segment: null, runStatus: "failed" };
+    }
+    let res: AgentStepOutcome;
+    try {
+      res = await deps.resumeAgentStep(step, pendingAgentAction, decision);
+    } catch {
+      res = { kind: "executed", ok: false, output: null, error: "The agent step threw unexpectedly." };
+    }
+
+    if (res.kind === "needs_approval") {
+      // Paused AGAIN (multi-pause): the step row stays awaiting_approval (its
+      // trace refreshed — the decided write is now settled in it), and a fresh
+      // pending approval surfaces. The decided approval itself is settled by
+      // the caller as usual.
+      const record = makeStepRecord(step, pausedIndex, "awaiting_approval", null, null, null, null, startedAt, null, res.toolCalls ?? null);
+      return {
+        claimed: true,
+        pausedStepRecord: record,
+        segment: {
+          status: "awaiting_approval",
+          steps: [],
+          pending: { kind: "agent_write", stepId: step.id, sequence: pausedIndex, pendingAction: res.pendingAction },
+          error: null,
+        },
+        runStatus: "awaiting_approval",
+      };
+    }
+
+    const finishedAt = deps.nowIso();
+    if (!res.ok) {
+      const error = res.error ?? "The agent step failed.";
+      const record = makeStepRecord(step, pausedIndex, "failed", null, null, error, null, startedAt, finishedAt, res.toolCalls ?? null);
+      return { claimed: true, pausedStepRecord: record, segment: null, runStatus: "failed" };
+    }
+
+    // The agent finished (after an executed write, or gracefully after a deny —
+    // Fork 1): the step COMPLETES and the run CONTINUES. Provenance: a human
+    // approval marks the step human_approved; a deny leaves the step's mode
+    // null (the approval record itself carries the denial, and the trace shows
+    // the denied write).
+    const record = makeStepRecord(
+      step,
+      pausedIndex,
+      "completed",
+      null,
+      res.output,
+      null,
+      decision === "approve" ? "human_approved" : null,
+      startedAt,
+      finishedAt,
+      res.toolCalls ?? null,
+    );
+    ctx.previousOutput = res.output;
+    ctx.outputs.set(step.id, res.output);
+
+    const segment = await runWorkflowSegment({
+      definition,
+      autonomy,
+      deps,
+      startIndex: pausedIndex + 1,
+      ctx,
+    });
+    return { claimed: true, pausedStepRecord: record, segment, runStatus: segment.status };
+  }
 
   if (decision === "deny") {
     const record = makeStepRecord(step, pausedIndex, "failed", null, null, "Declined by approver.", null, startedAt, deps.nowIso());

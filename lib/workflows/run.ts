@@ -1,7 +1,12 @@
 import "server-only";
 
 import { getCurrentUserProfile } from "@/lib/auth/access";
-import { runAgent, type RunnableAgent } from "@/lib/agents/run-agent";
+import {
+  resumeAgent,
+  runAgent,
+  type RunAgentPauseState,
+  type RunnableAgent,
+} from "@/lib/agents/run-agent";
 import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { executeMcpTool } from "@/lib/connections/mcp/execute-tool";
 import { classifyMcpTool } from "@/lib/connections/mcp/tool-classification";
@@ -10,8 +15,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   resumeWorkflow,
   runWorkflow,
+  type AgentStepOutcome,
   type ResolveContext,
-  type StepExecResult,
   type ToolActionOutcome,
   type WorkflowEngineDeps,
 } from "@/lib/workflows/engine";
@@ -22,6 +27,7 @@ import {
 import type {
   AgentStep,
   AutonomyLevel,
+  PendingAgentWriteAction,
   PendingApproval,
   PendingWriteAction,
   StepRunRecord,
@@ -39,6 +45,15 @@ import type {
  * a token), and the resume re-resolves a live token through executeMcpTool. The
  * decision uses an ATOMIC pending→resolving claim, so an approved write executes
  * at most once. NO write ever runs without a human approval (v1, any autonomy mode).
+ *
+ * Delight pass D2: an AGENT step runs the pausable loop (writes "pause"), so the
+ * agent itself can PROPOSE a write — the run pauses with the agent's resumable
+ * state + the full proposed action persisted (kind 'agent_write'), and the
+ * decision resumes the agent's loop: approve executes the write once and the
+ * agent continues (possibly pausing again); deny lets the agent finish
+ * gracefully and the RUN CONTINUES (unlike a tool_action deny, which cancels).
+ * Every step now persists its PII-safe tool-call trace (workflow_step_runs.
+ * tool_calls, migration 0062), closing the agent-step audit gap.
  *
  * Request-context governance (v1, manual run + manual decide): the same
  * user-scoped RLS path runAgent uses, with the org's MCP governance resolved once
@@ -70,37 +85,95 @@ function buildEngineDeps(args: {
   mcp: Awaited<ReturnType<typeof resolveOrgMcpTools>>;
 }): WorkflowEngineDeps {
   const { supabase, organizationId, userId, workflowRunId, mcp } = args;
+
+  /** Load + scope the runnable agent row a step points at (RLS applies). */
+  async function loadRunnableAgent(agentId: string): Promise<RunnableAgent | null> {
+    const { data: agentRow, error } = await supabase
+      .from("agents")
+      .select("id, system_prompt, model, tools_enabled, type, is_active")
+      .eq("id", agentId)
+      .maybeSingle();
+    if (
+      error ||
+      !agentRow ||
+      agentRow.type !== "native" ||
+      !agentRow.is_active ||
+      !agentRow.system_prompt ||
+      !agentRow.model
+    ) {
+      return null;
+    }
+    return {
+      id: agentRow.id,
+      system_prompt: agentRow.system_prompt,
+      model: agentRow.model,
+      tools_enabled: (agentRow.tools_enabled as string[] | null) ?? null,
+    };
+  }
+
   return {
-    runAgentStep: async (step: AgentStep, input: string): Promise<StepExecResult> => {
-      const { data: agentRow, error } = await supabase
-        .from("agents")
-        .select("id, system_prompt, model, tools_enabled, type, is_active")
-        .eq("id", step.agentId)
-        .maybeSingle();
-      if (
-        error ||
-        !agentRow ||
-        agentRow.type !== "native" ||
-        !agentRow.is_active ||
-        !agentRow.system_prompt ||
-        !agentRow.model
-      ) {
-        return { ok: false, output: null, error: "The step's agent is not available." };
+    runAgentStep: async (step: AgentStep, input: string): Promise<AgentStepOutcome> => {
+      const agent = await loadRunnableAgent(step.agentId);
+      if (!agent) {
+        return { kind: "executed", ok: false, output: null, error: "The step's agent is not available." };
       }
-      const agent: RunnableAgent = {
-        id: agentRow.id,
-        system_prompt: agentRow.system_prompt,
-        model: agentRow.model,
-        tools_enabled: (agentRow.tools_enabled as string[] | null) ?? null,
-      };
+      // writes "pause" (D2): the agent may PROPOSE a write — the loop pauses
+      // and the engine turns it into a pending approval. Nothing executes.
       const res = await runAgent({
         agent,
         organizationId,
         userId,
         input,
+        options: { workflowRunId, writes: "pause" },
+      });
+      // Check `paused` FIRST (D1's contract: the paused variant degrades to a
+      // typed failure for pause-unaware callers — this caller is aware).
+      if (res.paused) {
+        return {
+          kind: "needs_approval",
+          pendingAction: {
+            pendingWrite: res.paused.pendingWrite,
+            pauseState: res.paused.pauseState,
+          },
+          toolCalls: res.toolCalls,
+        };
+      }
+      return res.ok
+        ? { kind: "executed", ok: true, output: res.output, toolCalls: res.toolCalls }
+        : { kind: "executed", ok: false, output: null, error: res.error, toolCalls: res.toolCalls };
+    },
+
+    resumeAgentStep: async (
+      step: AgentStep,
+      pendingAction: PendingAgentWriteAction,
+      decision: "approve" | "deny",
+    ): Promise<AgentStepOutcome> => {
+      const agent = await loadRunnableAgent(step.agentId);
+      if (!agent) {
+        return { kind: "executed", ok: false, output: null, error: "The step's agent is not available." };
+      }
+      const res = await resumeAgent({
+        agent,
+        organizationId,
+        userId,
+        pauseState: pendingAction.pauseState as RunAgentPauseState,
+        pendingWrite: pendingAction.pendingWrite,
+        decision,
         options: { workflowRunId },
       });
-      return res.ok ? { ok: true, output: res.output } : { ok: false, output: null, error: res.error };
+      if (res.paused) {
+        return {
+          kind: "needs_approval",
+          pendingAction: {
+            pendingWrite: res.paused.pendingWrite,
+            pauseState: res.paused.pauseState,
+          },
+          toolCalls: res.toolCalls,
+        };
+      }
+      return res.ok
+        ? { kind: "executed", ok: true, output: res.output, toolCalls: res.toolCalls }
+        : { kind: "executed", ok: false, output: null, error: res.error, toolCalls: res.toolCalls };
     },
 
     runToolActionStep: async (
@@ -142,6 +215,28 @@ function buildEngineDeps(args: {
   };
 }
 
+/** Map a step record to its workflow_step_runs columns, with or without the trace. */
+function stepRunRow(
+  workflowRunId: string,
+  s: StepRunRecord,
+  includeTrace: boolean,
+): Record<string, unknown> {
+  return {
+    workflow_run_id: workflowRunId,
+    step_id: s.stepId,
+    step_type: s.stepType,
+    status: s.status,
+    input: s.input ?? null,
+    output: s.output ?? null,
+    error: s.error,
+    approval_mode: s.approvalMode,
+    sequence: s.sequence,
+    started_at: s.startedAt,
+    finished_at: s.finishedAt,
+    ...(includeTrace ? { tool_calls: s.toolCalls ?? null } : {}),
+  };
+}
+
 /** Insert a batch of step-run rows (the immutable audit trail) for a run. */
 async function insertStepRuns(
   supabase: SupabaseServerClient,
@@ -149,27 +244,33 @@ async function insertStepRuns(
   steps: StepRunRecord[],
 ): Promise<void> {
   if (steps.length === 0) return;
-  const { error } = await supabase.from("workflow_step_runs").insert(
-    steps.map((s) => ({
-      workflow_run_id: workflowRunId,
-      step_id: s.stepId,
-      step_type: s.stepType,
-      status: s.status,
-      input: s.input ?? null,
-      output: s.output ?? null,
-      error: s.error,
-      approval_mode: s.approvalMode,
-      sequence: s.sequence,
-      started_at: s.startedAt,
-      finished_at: s.finishedAt,
-    })),
-  );
+  const { error } = await supabase
+    .from("workflow_step_runs")
+    .insert(steps.map((s) => stepRunRow(workflowRunId, s, true)));
   if (error) {
+    // 42703 = undefined_column: tool_calls (migration 0062) not applied yet.
+    // Retry without the trace so the core audit rows still record (the same
+    // degradation pattern usage_events uses for late columns).
+    if (error.code === "42703") {
+      const { error: retryErr } = await supabase
+        .from("workflow_step_runs")
+        .insert(steps.map((s) => stepRunRow(workflowRunId, s, false)));
+      if (retryErr) {
+        console.error("workflow_step_runs insert failed", { code: retryErr.code });
+      }
+      return;
+    }
     console.error("workflow_step_runs insert failed", { code: error.code });
   }
 }
 
-/** Persist a pending approval for a paused run (token_ref only for a write). */
+/**
+ * Persist a pending approval for a paused run. Token_ref pointers only, never a
+ * token: a write's route, and an agent_write's pendingWrite route, both carry
+ * the pointer that executeMcpTool re-resolves live on resume. An agent_write's
+ * pending_action also carries the agent's resumable loop state (the owner's own
+ * run data — same trust boundary as mcp_paused_runs.loop_state).
+ */
 async function insertPendingApproval(
   supabase: SupabaseServerClient,
   workflowRunId: string,
@@ -183,7 +284,12 @@ async function insertPendingApproval(
           toolInput: pending.pendingAction.toolInput,
           toolUseId: pending.pendingAction.toolUseId,
         }
-      : { prompt: pending.prompt };
+      : pending.kind === "agent_write"
+        ? {
+            pendingWrite: pending.pendingAction.pendingWrite,
+            pauseState: pending.pendingAction.pauseState,
+          }
+        : { prompt: pending.prompt };
   const { error } = await supabase.from("workflow_pending_approvals").insert({
     workflow_run_id: workflowRunId,
     organization_id: organizationId,
@@ -387,14 +493,19 @@ export async function resumeWorkflowApproval(params: {
       pending.kind === "write"
         ? (pending.pending_action as PendingWriteAction)
         : null;
+    const pendingAgentAction =
+      pending.kind === "agent_write"
+        ? (pending.pending_action as PendingAgentWriteAction)
+        : null;
 
     const result = await resumeWorkflow({
       definition,
       autonomy,
       deps,
       pausedIndex,
-      pausedKind: pending.kind as "checkpoint" | "write",
+      pausedKind: pending.kind as "checkpoint" | "write" | "agent_write",
       pendingAction,
+      pendingAgentAction,
       decision,
       ctx,
       // ATOMIC at-most-once claim: only the caller that flips pending→resolving wins.
@@ -428,22 +539,38 @@ export async function resumeWorkflowApproval(params: {
       return { ok: false, error: "already_decided" };
     }
 
-    // Update the paused step's row to its terminal state (+ approval provenance).
+    // Update the paused step's row to its settled state (+ approval provenance
+    // + the refreshed tool-call trace). An agent step that paused AGAIN stays
+    // awaiting_approval here, its trace now showing the decided write.
     if (result.pausedStepRecord) {
       const s = result.pausedStepRecord;
+      const settled = {
+        status: s.status,
+        output: s.output ?? null,
+        error: s.error,
+        approval_mode: s.approvalMode,
+        finished_at: s.finishedAt,
+      };
       const { error: updStepErr } = await supabase
         .from("workflow_step_runs")
-        .update({
-          status: s.status,
-          output: s.output ?? null,
-          error: s.error,
-          approval_mode: s.approvalMode,
-          finished_at: s.finishedAt,
-        })
+        .update({ ...settled, tool_calls: s.toolCalls ?? null })
         .eq("workflow_run_id", run.id)
         .eq("step_id", s.stepId);
       if (updStepErr) {
-        console.error("workflow_step_runs resume update failed", { code: updStepErr.code });
+        // 42703: tool_calls (migration 0062) not applied yet — retry without
+        // the trace so the step still settles.
+        if (updStepErr.code === "42703") {
+          const { error: retryErr } = await supabase
+            .from("workflow_step_runs")
+            .update(settled)
+            .eq("workflow_run_id", run.id)
+            .eq("step_id", s.stepId);
+          if (retryErr) {
+            console.error("workflow_step_runs resume update failed", { code: retryErr.code });
+          }
+        } else {
+          console.error("workflow_step_runs resume update failed", { code: updStepErr.code });
+        }
       }
     }
 

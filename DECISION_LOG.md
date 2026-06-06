@@ -3332,3 +3332,26 @@ The chat path already proved this exact mechanism in production; a sibling pausa
 - D2 wires this into the workflow engine: an agent-step pause persists to `workflow_pending_approvals`, the decide path resumes the loop, run/step semantics encode deny-completes-the-step (vs. tool_action deny which cancels), and the agent-step audit trace (currently discarded by `run.ts`) is persisted to the step row.
 - D3 builds the agent-centric builder over it (per-step instruction, agent-first framing, clean tool_action form).
 - Agent steps will be able to act under human approval; unattended writes remain impossible in every mode.
+
+## D-122 — Agent-step approval-gated writes wired into the workflow engine (Workflows delight pass D2)
+
+Date: 2026-06-06
+Status: Accepted
+
+**Context:**
+
+D1 (D-121) made the headless agent loop pausable on a proposed write, tested in isolation. The workflow engine still ran agent steps write-refusing, tool_action writes were the only gated write path, and `run.ts` discarded `runAgent`'s tool-call trace — an agent step's tool activity was invisible in the audit trail.
+
+**Decision:**
+
+Wired the pausable loop into the engine. An agent step now runs with `writes: "pause"` (plus `workflowRunId` for cost attribution); the resolver checks the result's `paused` variant FIRST (D1's contract) and a proposed write pauses the run: the agent's resumable loop state plus the FULL proposed action (actual args for the later show-content disclosure; route token_ref pointers only, never a token — the mcp_paused_runs trust boundary) persist to `workflow_pending_approvals` under a distinct kind `'agent_write'`, and the step + run go awaiting_approval. The decision drives the agent's own loop via a new real-wired `resumeAgent` (mirroring `runAgent`'s wiring; system prompt rebuilt from the agent row, governed tools re-resolved fresh — the chat confirm route's posture; only the continuation's usage INCREMENT is recorded, keeping the additive ledger honest) behind a new injected engine dep `resumeAgentStep`: approve executes the write once through the governed executor and the agent continues, pausing again on a further write (multi-pause — the step row stays awaiting_approval with its trace refreshed, and a fresh pending approval surfaces); deny feeds the graceful decline so the agent finishes, the step COMPLETES, and the RUN CONTINUES (Fork 1) — deliberately distinct from a tool_action write deny, which still cancels (an agent-PROPOSED write's deny is "not that one, carry on"; an explicitly-authored action's deny is a stop). Fork 3 resolved as the honest distinct kind `'agent_write'` (different deny semantics + different payload shape deserve an unambiguous audit identity) at the cost of a small migration: `0062_agent_write_approvals_and_step_traces.sql` widens the kind check and adds `workflow_step_runs.tool_calls` jsonb — every step now persists its PII-safe tool-call trace (argKeys-style; writes with approved/denied provenance), closing the audit gap; reads-only agent steps record theirs too. Pre-migration, step-row writes retry without the trace (the usage_events late-column pattern) so the core trail still records. The 4b approval card gained functional `agent_write` support (keys-only render; honest deny copy: the run carries on) — the optional show-content disclosure remains D3. No validator or authoring change: agents propose writes at runtime and approval gates them, so nothing new is authored.
+
+**Reasoning:**
+
+Delivers agent-centric workflow writes on the proven pausable loop while preserving the two structural invariants: the engine still has no write-execution path (an agent write runs only inside `resumeAgentLoop`'s injected executor, after the atomic at-most-once claim), and supervised AND autonomous runs both pause on any proposed write. Graceful agent-deny is the better experience for a proposed (vs. explicitly authored) action; persisting the trace makes agent steps genuinely auditable.
+
+**Consequences:**
+
+- Workflows can now contain agents that act under human approval, end to end; the run view shows the pause, the decision resumes it, and the step's tool activity is on the record.
+- D3 makes building these delightful (per-step instruction, agent-first framing, clean tool_action form) and lets the approval card disclose what will be sent.
+- **Operator: apply migration `0062_agent_write_approvals_and_step_traces.sql`.** Without it, an agent-proposed write cannot persist its pending approval (apply before relying on agent writes); the trace column degrades gracefully.

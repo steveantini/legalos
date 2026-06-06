@@ -6,12 +6,21 @@ import {
   type ResolveContext,
   type WorkflowEngineDeps,
 } from "./engine";
-import type { PendingWriteAction, WorkflowDefinition } from "./types";
+import type {
+  PendingAgentWriteAction,
+  PendingWriteAction,
+  WorkflowDefinition,
+} from "./types";
 
 /** Deps with read-only fakes; override per test. nowIso fixed (timing not asserted). */
 function deps(over: Partial<WorkflowEngineDeps>): WorkflowEngineDeps {
   return {
-    runAgentStep: async (_step, input) => ({ ok: true, output: `out:${input}` }),
+    runAgentStep: async (_step, input) => ({
+      kind: "executed",
+      ok: true,
+      output: `out:${input}`,
+    }),
+    resumeAgentStep: async () => ({ kind: "executed", ok: true, output: "resumed" }),
     runToolActionStep: async () => ({ kind: "executed", ok: true, output: "tool-out" }),
     nowIso: () => "2026-06-05T00:00:00.000Z",
     ...over,
@@ -75,7 +84,9 @@ describe("runWorkflow (fresh walk)", () => {
         { id: "a2", type: "agent", name: "Second", agentId: "ag2" },
       ],
     };
-    const runAgentStep = vi.fn().mockResolvedValueOnce({ ok: false, output: null, error: "boom" });
+    const runAgentStep = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: "executed", ok: false, output: null, error: "boom" });
     const r = await runWorkflow(def, "start", deps({ runAgentStep }));
     expect(r.status).toBe("failed");
     expect(r.steps).toHaveLength(1);
@@ -244,5 +255,208 @@ describe("resumeWorkflow (decision-driven resume)", () => {
     expect(r1.claimed).toBe(true);
     expect(r2.claimed).toBe(false);
     expect(executeApprovedWrite).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---- Agent-proposed writes (delight pass D2) --------------------------------
+
+const FAKE_AGENT_PENDING: PendingAgentWriteAction = {
+  pendingWrite: {
+    toolUseId: "tu_aw",
+    name: "gdrive__create_file",
+    route: FAKE_ROUTE,
+    input: { name: "draft.md", content: "PRIVILEGED CONTENT" },
+    argKeys: ["content", "name"],
+  },
+  pauseState: { fake: "loop-state" },
+};
+
+const FAKE_TRACE = [{ id: "tu_aw", name: "gdrive__create_file", status: "awaiting_confirmation" }];
+
+describe("agent-step writes pause and resume (delight pass D2)", () => {
+  const agentDef: WorkflowDefinition = {
+    steps: [
+      { id: "a1", type: "agent", name: "Acting agent", agentId: "ag1" },
+      { id: "a2", type: "agent", name: "After", agentId: "ag2" },
+    ],
+  };
+  const freshCtx = (): ResolveContext => ({ runInput: "start", previousOutput: "start", outputs: new Map() });
+
+  it("an agent step that proposes a write PAUSES the run — in EVERY autonomy mode", async () => {
+    const runAgentStep = vi.fn(async () => ({
+      kind: "needs_approval" as const,
+      pendingAction: FAKE_AGENT_PENDING,
+      toolCalls: FAKE_TRACE,
+    }));
+    for (const autonomy of ["supervised", "autonomous"] as const) {
+      const r = await runWorkflow(agentDef, "start", deps({ runAgentStep }), autonomy);
+      expect(r.status).toBe("awaiting_approval");
+      // The pending approval carries the FULL proposed action + loop state.
+      expect(r.pending).toMatchObject({
+        kind: "agent_write",
+        stepId: "a1",
+        pendingAction: {
+          pendingWrite: { input: { name: "draft.md", content: "PRIVILEGED CONTENT" } },
+          pauseState: { fake: "loop-state" },
+        },
+      });
+      // The step row is awaiting approval, with its trace persisted on the record.
+      expect(r.steps).toHaveLength(1);
+      expect(r.steps[0]).toMatchObject({ stepId: "a1", status: "awaiting_approval", toolCalls: FAKE_TRACE });
+    }
+  });
+
+  it("APPROVE → resumeAgentStep drives the agent, the step completes, the run advances", async () => {
+    const resumeAgentStep = vi.fn<WorkflowEngineDeps["resumeAgentStep"]>(
+      async () => ({
+        kind: "executed" as const,
+        ok: true,
+        output: "agent-final",
+        toolCalls: [{ id: "tu_aw", status: "done" }],
+      }),
+    );
+    const executeApprovedWrite = vi.fn(); // tool_action path — must NOT be used
+    const r = await resumeWorkflow({
+      definition: agentDef,
+      autonomy: "supervised",
+      deps: deps({ resumeAgentStep }),
+      pausedIndex: 0,
+      pausedKind: "agent_write",
+      pendingAction: null,
+      pendingAgentAction: FAKE_AGENT_PENDING,
+      decision: "approve",
+      ctx: freshCtx(),
+      claimPaused: async () => true,
+      executeApprovedWrite: executeApprovedWrite as never,
+    });
+
+    expect(resumeAgentStep).toHaveBeenCalledTimes(1);
+    expect(resumeAgentStep.mock.calls[0][1]).toBe(FAKE_AGENT_PENDING);
+    expect(resumeAgentStep.mock.calls[0][2]).toBe("approve");
+    // Agent writes execute inside the resumed loop, never via the tool_action executor.
+    expect(executeApprovedWrite).not.toHaveBeenCalled();
+    expect(r.pausedStepRecord).toMatchObject({
+      stepId: "a1",
+      status: "completed",
+      approvalMode: "human_approved",
+      output: "agent-final",
+      toolCalls: [{ id: "tu_aw", status: "done" }],
+    });
+    // The run CONTINUED: the next step consumed the agent's output.
+    expect(r.runStatus).toBe("completed");
+    expect(r.segment?.steps[0]).toMatchObject({ stepId: "a2", input: "agent-final" });
+  });
+
+  it("DENY → the agent finishes gracefully, the step COMPLETES, the run CONTINUES (Fork 1)", async () => {
+    const resumeAgentStep = vi.fn<WorkflowEngineDeps["resumeAgentStep"]>(
+      async () => ({
+        kind: "executed" as const,
+        ok: true,
+        output: "I prepared the draft but you declined filing it.",
+        toolCalls: [{ id: "tu_aw", status: "denied" }],
+      }),
+    );
+    const r = await resumeWorkflow({
+      definition: agentDef,
+      autonomy: "supervised",
+      deps: deps({ resumeAgentStep }),
+      pausedIndex: 0,
+      pausedKind: "agent_write",
+      pendingAction: null,
+      pendingAgentAction: FAKE_AGENT_PENDING,
+      decision: "deny",
+      ctx: freshCtx(),
+      claimPaused: async () => true,
+      executeApprovedWrite: vi.fn() as never,
+    });
+
+    expect(resumeAgentStep.mock.calls[0][2]).toBe("deny");
+    // The step completed (no approval provenance — the approval record itself
+    // carries the denial; the trace shows the denied write) and the run went on.
+    expect(r.pausedStepRecord).toMatchObject({
+      stepId: "a1",
+      status: "completed",
+      approvalMode: null,
+      toolCalls: [{ id: "tu_aw", status: "denied" }],
+    });
+    expect(r.runStatus).toBe("completed");
+    expect(r.segment?.steps[0]).toMatchObject({ stepId: "a2" });
+    // Contrast preserved: a tool_action write deny still CANCELS (asserted in
+    // "deny → run cancelled" above).
+  });
+
+  it("multi-write: a resume that proposes ANOTHER write pauses again; the step stays awaiting", async () => {
+    const secondPending: PendingAgentWriteAction = {
+      pendingWrite: { ...FAKE_AGENT_PENDING.pendingWrite, toolUseId: "tu_aw2" },
+      pauseState: { fake: "loop-state-2" },
+    };
+    const resumeAgentStep = vi.fn(async () => ({
+      kind: "needs_approval" as const,
+      pendingAction: secondPending,
+      toolCalls: [{ id: "tu_aw", status: "done" }, { id: "tu_aw2", status: "awaiting_confirmation" }],
+    }));
+    const r = await resumeWorkflow({
+      definition: agentDef,
+      autonomy: "supervised",
+      deps: deps({ resumeAgentStep }),
+      pausedIndex: 0,
+      pausedKind: "agent_write",
+      pendingAction: null,
+      pendingAgentAction: FAKE_AGENT_PENDING,
+      decision: "approve",
+      ctx: freshCtx(),
+      claimPaused: async () => true,
+      executeApprovedWrite: vi.fn() as never,
+    });
+
+    expect(r.runStatus).toBe("awaiting_approval");
+    // The step row stays awaiting, its trace refreshed with the settled first write.
+    expect(r.pausedStepRecord).toMatchObject({ stepId: "a1", status: "awaiting_approval" });
+    expect(r.pausedStepRecord?.toolCalls).toMatchObject([
+      { id: "tu_aw", status: "done" },
+      { id: "tu_aw2", status: "awaiting_confirmation" },
+    ]);
+    // A FRESH pending approval surfaces, carrying the new proposed write.
+    expect(r.segment?.pending).toMatchObject({
+      kind: "agent_write",
+      stepId: "a1",
+      pendingAction: { pendingWrite: { toolUseId: "tu_aw2" } },
+    });
+    expect(r.segment?.steps).toHaveLength(0);
+  });
+
+  it("at-most-once holds for agent writes too: a lost claim never resumes the agent", async () => {
+    const resumeAgentStep = vi.fn();
+    const r = await resumeWorkflow({
+      definition: agentDef,
+      autonomy: "supervised",
+      deps: deps({ resumeAgentStep: resumeAgentStep as never }),
+      pausedIndex: 0,
+      pausedKind: "agent_write",
+      pendingAction: null,
+      pendingAgentAction: FAKE_AGENT_PENDING,
+      decision: "approve",
+      ctx: freshCtx(),
+      claimPaused: async () => false, // another decision already won
+      executeApprovedWrite: vi.fn() as never,
+    });
+    expect(r.claimed).toBe(false);
+    expect(resumeAgentStep).not.toHaveBeenCalled();
+  });
+
+  it("a reads-only agent step persists its tool-call trace on the completed record", async () => {
+    const trace = [{ id: "tu_r", name: "gdrive__search_files", status: "done" }];
+    const runAgentStep = vi.fn(async (_step, input: string) => ({
+      kind: "executed" as const,
+      ok: true,
+      output: `out:${input}`,
+      toolCalls: trace,
+    }));
+    const def: WorkflowDefinition = {
+      steps: [{ id: "a1", type: "agent", name: "Reader", agentId: "ag1" }],
+    };
+    const r = await runWorkflow(def, "start", deps({ runAgentStep }));
+    expect(r.status).toBe("completed");
+    expect(r.steps[0]).toMatchObject({ stepId: "a1", status: "completed", toolCalls: trace });
   });
 });
