@@ -115,7 +115,11 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
         slug: "workflows",
         href: "/workspace/workflows/my-workflows",
       },
-      { label: "Template Library", slug: "workflows-templates" },
+      {
+        label: "Template Library",
+        slug: "workflows-templates",
+        href: "/workspace/workflows/template-library",
+      },
     ],
   },
   {

@@ -23,7 +23,6 @@ const RESOURCE_AREA_LABELS: Record<string, string> = {
   matters: "Matters / Deals",
   inbox: "Inbox",
   resources: "Resources",
-  "workflows-templates": "Template Library",
   "integrations-marketplace": "Marketplace",
   "help-whats-new": "What’s New",
 };
@@ -141,6 +140,10 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace/workflows/my-workflows",
     segments: () => [HOME_SEGMENT, "Workflows", "My Workflows"],
+  },
+  {
+    match: "/workspace/workflows/template-library",
+    segments: () => [HOME_SEGMENT, "Workflows", "Template Library"],
   },
   {
     match: "/workspace/help",
