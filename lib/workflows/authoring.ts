@@ -129,3 +129,36 @@ export async function saveWorkflowDefinition(
   }
   return { ok: true, id: data.id as string };
 }
+
+export type DeleteWorkflowResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Delete a workflow definition (Workflow arc polish). A HARD delete is the
+ * schema-designed path: `workflow_runs.workflow_definition_id` is declared
+ * `on delete set null` (0060) and every run carries its own immutable
+ * `definition_snapshot`, so run history — workflow_runs, workflow_step_runs,
+ * and their approval records — survives intact and stays viewable (the run
+ * view already renders a definition-less run). Org-admin gated (re-verified
+ * here; RLS re-enforces via workflow_definitions_admin_write).
+ */
+export async function deleteWorkflowDefinition(
+  id: string,
+): Promise<DeleteWorkflowResult> {
+  if (!(await isCurrentUserOrgAdmin())) {
+    return { ok: false, error: "You don't have permission to delete workflows." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("workflow_definitions")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.error("workflow_definitions delete failed", { code: error.code });
+    return { ok: false, error: "The workflow couldn’t be deleted. Try again." };
+  }
+  if (!data) return { ok: false, error: "This workflow no longer exists." };
+  return { ok: true };
+}

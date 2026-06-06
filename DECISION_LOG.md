@@ -3287,3 +3287,25 @@ This makes the deterministic, auditable engine fully usable and trustworthy for 
 - Workflows are end-to-end usable: compose (4a) → run with chosen autonomy → watch → approve/deny → audit. Templates (Step 5), triggers, branching execution, and gated auto-writes remain future work.
 - A future run-history/analytics surface can grow from the per-workflow recent-runs list without rework; the run view already renders any run RLS grants access to.
 - The view-model module gives later surfaces (an org-wide runs list, insights) one tested vocabulary for statuses, provenance, and value rendering.
+
+## D-120 — Workflow definition delete is a hard delete; run history survives by schema design (Workflow arc polish)
+
+Date: 2026-06-06
+Status: Accepted
+
+**Context:**
+
+The builder polish pass added the missing delete-workflow action. The open question was hard delete versus a soft-delete/archive state, since workflow runs are a legal audit surface that must never lose history when a definition goes away.
+
+**Decision:**
+
+Hard delete, because the 0060 schema already encodes the contract "a run outlives its definition": `workflow_runs.workflow_definition_id` is declared `on delete set null`, and every run carries its own immutable `definition_snapshot` (plus its step rows and approval records), so deleting a definition leaves all run history intact and viewable — the run view already renders a definition-less run (generic "Workflow run" title, the back-to-workflow link hidden). The action is org-admin gated (page gate + authoring-layer re-check + the `workflow_definitions_admin_write` RLS policy), behind an explicit confirmation dialog that states runs are preserved.
+
+**Reasoning:**
+
+A soft-delete state would add a third lifecycle status overlapping the existing `archived` without adding audit value: everything the audit trail needs (the exact steps that ran, inputs/outputs, timing, approval provenance) lives on the run, not the definition. Honoring the schema's designed seam keeps one deletion semantic instead of two.
+
+**Consequences:**
+
+- The only thing lost on delete is the definition row itself: historical runs of a deleted workflow display under the generic "Workflow run" title because the snapshot stores steps, not the name. If that name matters for audit later, stamping the workflow name into the run at start time is an additive change.
+- `archived` remains the reversible "parked" state; delete is the irreversible one, and the confirmation copy distinguishes them honestly.

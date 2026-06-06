@@ -5,6 +5,14 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,7 +24,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { saveWorkflowDefinition } from "@/lib/actions/workflows";
+import { ToolPicker } from "@/components/workflows/tool-picker";
+import {
+  deleteWorkflowDefinition,
+  saveWorkflowDefinition,
+} from "@/lib/actions/workflows";
 import type {
   AgentOption,
   ToolOption,
@@ -83,6 +95,19 @@ function keyToSource(key: string, literalValue: string): ValueSource | undefined
   return undefined;
 }
 
+/** Plain-language description of where the selected source pulls its value. */
+function sourceHelp(key: string): string | null {
+  if (key === PREVIOUS_KEY) {
+    return "Uses the previous step’s output (for the first step, the run’s input).";
+  }
+  if (key === RUN_INPUT_KEY) return "Uses what you provide when you start the run.";
+  if (key === LITERAL_KEY) {
+    return "A fixed value you set here, used the same on every run.";
+  }
+  if (key.startsWith("step:")) return "Uses the output of the chosen earlier step.";
+  return null;
+}
+
 /** A picker for where a step input (or a tool argument) comes from. */
 function SourcePicker({
   value,
@@ -100,35 +125,56 @@ function SourcePicker({
       ? value.value
       : "";
   const key = sourceToKey(value);
+  // Base UI's SelectValue renders the trigger label from this map; without it
+  // the trigger shows the raw value key ("literal", "step:<uuid>").
+  const items: Record<string, string> = {
+    ...(includeUnset ? { [UNSET_KEY]: "Not set" } : {}),
+    [PREVIOUS_KEY]: "Previous step’s output",
+    [RUN_INPUT_KEY]: "The run’s input",
+    ...Object.fromEntries(
+      priorSteps.map((s) => [
+        `step:${s.id}`,
+        `Output of step ${s.index + 1}: ${s.name || "Untitled"}`,
+      ]),
+    ),
+    [LITERAL_KEY]: "Custom value",
+  };
+  const help = sourceHelp(key);
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <Select
-        value={key}
-        onValueChange={(k) => onChange(keyToSource(k ?? UNSET_KEY, literalValue))}
-      >
-        <SelectTrigger className="h-8 w-full sm:w-[260px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {includeUnset ? <SelectItem value={UNSET_KEY}>Not set</SelectItem> : null}
-          <SelectItem value={PREVIOUS_KEY}>Previous step&rsquo;s output</SelectItem>
-          <SelectItem value={RUN_INPUT_KEY}>The run&rsquo;s input</SelectItem>
-          {priorSteps.map((s) => (
-            <SelectItem key={s.id} value={`step:${s.id}`}>
-              Output of step {s.index + 1}: {s.name || "Untitled"}
-            </SelectItem>
-          ))}
-          <SelectItem value={LITERAL_KEY}>Custom value</SelectItem>
-        </SelectContent>
-      </Select>
-      {value?.source === "literal" ? (
-        <Input
-          value={literalValue}
-          onChange={(e) => onChange({ source: "literal", value: e.target.value })}
-          placeholder="Custom value"
-          className="h-8 sm:flex-1"
-        />
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Select
+          value={key}
+          items={items}
+          onValueChange={(k) => onChange(keyToSource(k ?? UNSET_KEY, literalValue))}
+        >
+          <SelectTrigger className="h-8 w-full bg-paper-2 sm:w-[280px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {includeUnset ? <SelectItem value={UNSET_KEY}>Not set</SelectItem> : null}
+            <SelectItem value={PREVIOUS_KEY}>Previous step&rsquo;s output</SelectItem>
+            <SelectItem value={RUN_INPUT_KEY}>The run&rsquo;s input</SelectItem>
+            {priorSteps.map((s) => (
+              <SelectItem key={s.id} value={`step:${s.id}`}>
+                Output of step {s.index + 1}: {s.name || "Untitled"}
+              </SelectItem>
+            ))}
+            <SelectItem value={LITERAL_KEY}>Custom value</SelectItem>
+          </SelectContent>
+        </Select>
+        {value?.source === "literal" ? (
+          <Input
+            value={literalValue}
+            onChange={(e) => onChange({ source: "literal", value: e.target.value })}
+            placeholder="Type the fixed value"
+            className="h-8 bg-paper-2 sm:flex-1"
+          />
+        ) : null}
+      </div>
+      {help ? (
+        <p className="text-[12px] leading-[1.5] text-muted-foreground">{help}</p>
       ) : null}
     </div>
   );
@@ -148,12 +194,22 @@ function AgentStepFields({
   onChange: (next: Extract<WorkflowStep, { type: "agent" }>) => void;
 }) {
   const missing = step.agentId && !agents.some((a) => a.id === step.agentId);
+  // Trigger labels resolve from this map (without it, Base UI's SelectValue
+  // shows the raw agent UUID).
+  const agentItems: Record<string, string> = {
+    ...Object.fromEntries(agents.map((a) => [a.id, a.name])),
+    ...(missing ? { [step.agentId]: "Unavailable agent" } : {}),
+  };
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label>Agent</Label>
-        <Select value={step.agentId || null} onValueChange={(v) => onChange({ ...step, agentId: v ?? "" })}>
-          <SelectTrigger className="h-8">
+        <Select
+          value={step.agentId || null}
+          items={agentItems}
+          onValueChange={(v) => onChange({ ...step, agentId: v ?? "" })}
+        >
+          <SelectTrigger className="h-8 w-full bg-paper-2">
             <SelectValue placeholder="Choose an agent" />
           </SelectTrigger>
           <SelectContent>
@@ -183,10 +239,6 @@ function AgentStepFields({
           includeUnset={false}
           onChange={(src) => onChange({ ...step, inputMapping: src })}
         />
-        <p className="text-[12.5px] text-muted-foreground">
-          What the agent works on. Defaults to the previous step&rsquo;s output (the
-          run&rsquo;s input for the first step).
-        </p>
       </div>
     </div>
   );
@@ -212,32 +264,15 @@ function ToolStepFields({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label>Tool</Label>
-        <Select
-          value={toolKey || null}
-          onValueChange={(v) => {
-            if (!v) return;
-            const [serverId, toolName] = v.split("::");
+        <ToolPicker
+          tools={tools}
+          value={toolKey}
+          onValueChange={(key) => {
+            const [serverId, toolName] = key.split("::");
             // Switching tools clears the prior argument mapping (different schema).
             onChange({ ...step, serverId, toolName, argMapping: {} });
           }}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Choose a connected tool" />
-          </SelectTrigger>
-          <SelectContent>
-            {tools.map((t) => (
-              <SelectItem key={`${t.serverId}::${t.toolName}`} value={`${t.serverId}::${t.toolName}`}>
-                {t.fullLabel}
-                {t.access === "write" ? "  (requires approval)" : ""}
-              </SelectItem>
-            ))}
-            {missing ? (
-              <SelectItem value={toolKey} disabled>
-                Unavailable tool
-              </SelectItem>
-            ) : null}
-          </SelectContent>
-        </Select>
+        />
         {missing ? (
           <p className="text-[12.5px] text-destructive">
             This tool is no longer connected. Pick another, or remove the step.
@@ -258,7 +293,7 @@ function ToolStepFields({
       {selected && selected.args.length > 0 ? (
         <div className="flex flex-col gap-3">
           <Label>Inputs to the tool</Label>
-          <div className="flex flex-col gap-3 rounded-lg border border-border bg-paper-2 p-3.5">
+          <div className="flex flex-col gap-3 rounded-lg border border-border p-3.5">
             {selected.args.map((arg) => (
               <div key={arg.name} className="flex flex-col gap-1.5">
                 <div className="flex items-baseline gap-2">
@@ -303,6 +338,7 @@ function CheckpointStepFields({
         onChange={(e) => onChange({ ...step, prompt: e.target.value })}
         placeholder="e.g. Review the draft response before it goes out."
         rows={2}
+        className="bg-paper-2"
       />
       <p className="text-[12.5px] text-muted-foreground">
         The run pauses here until a person approves or declines.
@@ -329,6 +365,8 @@ export function WorkflowBuilder({
   const [status, setStatus] = useState<"draft" | "active">(initial.status);
   const [steps, setSteps] = useState<WorkflowStep[]>(initial.steps);
   const [errors, setErrors] = useState<string[]>([]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletePending, startDeleteTransition] = useTransition();
 
   const priorStepsBefore = useMemo(
     () =>
@@ -360,6 +398,26 @@ export function WorkflowBuilder({
       const next = [...prev];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
+    });
+  }
+
+  /**
+   * Hard-delete the definition. Run history survives by design: every run
+   * keeps its own definition snapshot, and the runs FK is set-null on delete.
+   */
+  function deleteWorkflow() {
+    const id = initial.id;
+    if (!id) return;
+    startDeleteTransition(async () => {
+      const res = await deleteWorkflowDefinition(id);
+      if (res.ok) {
+        toast.success("Workflow deleted.");
+        router.push("/workspace/workflows/my-workflows");
+        router.refresh();
+      } else {
+        setConfirmingDelete(false);
+        toast.error(res.error);
+      }
     });
   }
 
@@ -410,6 +468,7 @@ export function WorkflowBuilder({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Review an inbound NDA"
+            className="bg-paper-2"
           />
         </div>
         <div className="flex flex-col gap-2">
@@ -420,6 +479,7 @@ export function WorkflowBuilder({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What this workflow does, in a sentence."
             rows={2}
+            className="bg-paper-2"
           />
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -427,9 +487,15 @@ export function WorkflowBuilder({
             <Label>Department</Label>
             <Select
               value={departmentId ?? "__org__"}
+              items={{
+                __org__: "Whole organization",
+                ...Object.fromEntries(
+                  capabilities.departments.map((d) => [d.id, d.name]),
+                ),
+              }}
               onValueChange={(v) => setDepartmentId(!v || v === "__org__" ? null : v)}
             >
-              <SelectTrigger className="h-8">
+              <SelectTrigger className="h-8 w-full bg-paper-2">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -444,8 +510,12 @@ export function WorkflowBuilder({
           </div>
           <div className="flex flex-col gap-2">
             <Label>Status</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v === "active" ? "active" : "draft")}>
-              <SelectTrigger className="h-8">
+            <Select
+              value={status}
+              items={{ draft: "Draft", active: "Active" }}
+              onValueChange={(v) => setStatus(v === "active" ? "active" : "draft")}
+            >
+              <SelectTrigger className="h-8 w-full bg-paper-2">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -527,6 +597,7 @@ export function WorkflowBuilder({
                       id={`step-name-${step.id}`}
                       value={step.name}
                       onChange={(e) => updateStep(index, { ...step, name: e.target.value })}
+                      className="bg-paper-2"
                     />
                   </div>
 
@@ -574,18 +645,69 @@ export function WorkflowBuilder({
         </div>
       </section>
 
-      {/* Save */}
-      <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
-        <Link
-          href="/workspace/workflows/my-workflows"
-          className={buttonVariants({ variant: "ghost" })}
-        >
-          Cancel
-        </Link>
-        <Button type="button" onClick={save} disabled={pending}>
-          {pending ? "Saving…" : "Save workflow"}
-        </Button>
+      {/* Delete / Save */}
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
+        <div>
+          {initial.id ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              Delete workflow
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/workspace/workflows/my-workflows"
+            className={buttonVariants({ variant: "ghost" })}
+          >
+            Cancel
+          </Link>
+          <Button type="button" onClick={save} disabled={pending}>
+            {pending ? "Saving…" : "Save workflow"}
+          </Button>
+        </div>
       </div>
+
+      <Dialog
+        open={confirmingDelete}
+        onOpenChange={(open) => {
+          if (!open && !deletePending) setConfirmingDelete(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this workflow?</DialogTitle>
+            <DialogDescription>
+              <strong>{name.trim() || "This workflow"}</strong> will be
+              permanently deleted and can no longer be run or edited. Past runs
+              are kept and remain viewable, since each run stores its own copy
+              of the steps it executed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={deletePending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={deleteWorkflow}
+              disabled={deletePending}
+            >
+              {deletePending ? "Deleting…" : "Delete workflow"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

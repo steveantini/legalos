@@ -8,7 +8,9 @@ import {
   type WorkflowRunResult,
 } from "@/lib/workflows/run";
 import {
+  deleteWorkflowDefinition as deleteWorkflowDefinitionImpl,
   saveWorkflowDefinition as saveWorkflowDefinitionImpl,
+  type DeleteWorkflowResult,
   type SaveWorkflowInput,
   type SaveWorkflowResult,
 } from "@/lib/workflows/authoring";
@@ -99,4 +101,19 @@ export async function saveWorkflowDefinition(
   // `steps` is the canonical graph; the authoring layer validates it at the data
   // boundary with the engine validator.
   return saveWorkflowDefinitionImpl({ ...parsed.data, steps: input.steps });
+}
+
+/**
+ * Delete a workflow definition (Workflow arc polish). Org-admin gated inside
+ * the authoring layer (RLS re-enforces). Run history survives: runs keep their
+ * own definition snapshot, and the runs FK is set-null on delete (0060).
+ */
+const deleteSchema = z.object({ id: z.string().uuid() });
+
+export async function deleteWorkflowDefinition(
+  id: string,
+): Promise<DeleteWorkflowResult> {
+  const parsed = deleteSchema.safeParse({ id });
+  if (!parsed.success) return { ok: false, error: "invalid_input" };
+  return deleteWorkflowDefinitionImpl(parsed.data.id);
 }
