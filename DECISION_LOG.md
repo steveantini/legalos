@@ -3309,3 +3309,26 @@ A soft-delete state would add a third lifecycle status overlapping the existing 
 
 - The only thing lost on delete is the definition row itself: historical runs of a deleted workflow display under the generic "Workflow run" title because the snapshot stores steps, not the name. If that name matters for audit later, stamping the workflow name into the run at start time is an additive change.
 - `archived` remains the reversible "parked" state; delete is the irreversible one, and the confirmation copy distinguishes them honestly.
+
+## D-121 — Pausable headless agent loop for approval-gated writes (Workflows delight pass D1)
+
+Date: 2026-06-06
+Status: Accepted
+
+**Context:**
+
+The Workflows delight pass makes the builder agent-centric: an agent step must be able to take a WRITE action under human approval, but `runAgent` refused all writes (read-only tools offered; a stray write fed back a "not performed" result). The Phase 2 chat path already runs the exact needed mechanism in production — pause mid-agent-loop on a write, persist resumable state plus the pending call, atomically claim a decision, execute via the governed executor, resume. The design session locked the architecture: unify at the level of the CONTRACT (agents may propose writes; nothing executes without a human decision; the same governed executor performs approved writes; provenance recorded) with TWO HOSTS, not by fusing the chat loop and the headless loop (the chat loop is inseparable from SSE/persistence/citations and its pause/resume must stay byte-identical).
+
+**Decision:**
+
+Grew `runAgentLoop` to optionally pause on a write (`writes: "pause"`) and resume on a human decision. A pause returns a `paused` outcome carrying resumable loop state (the chat LoopState shape minus SSE concerns: loop messages including the paused assistant turn, partial tool results, the pending tool_use id, accumulated output/trace/usage, round) plus the FULL pending write in the chat-shared `PendingMcpToolCall` shape (actual args kept at full fidelity for the later show-content disclosure — Fork 2; argKeys for the default keys-only render). `resumeAgentLoop` executes an approved write exactly once via the INJECTED executor (`executeMcpTool` in real wiring, live token re-resolved from the route's token_ref) and continues the loop, pausing again on further writes (multi-pause, mirroring chat); on deny it feeds the shared graceful "declined, do not retry" result so the agent acknowledges and finishes — a completed outcome, not a failure (Fork 1). The loop stays pure/dependency-injected and is tested in isolation with fakes (pause, approve, deny, multi-write, trace/usage survival, default-policy regression). Shared pure pieces: `PendingMcpToolCall`, `assembleDecisionToolResult`, `executedWriteTraceFields`, `ConfirmationDecision` (lib/chat/mcp-confirmation.ts), plus the existing classification and executor — no chat-loop code copied or fused. The default `writes: "refuse"` keeps all current callers and chat byte-identical; a paused `RunAgentResult` deliberately reads as `ok: false` with a typed error so a pause-unaware caller degrades safely, while pause-aware hosts check `paused` first. No migration (loop-level; persistence is D2).
+
+**Reasoning:**
+
+The chat path already proved this exact mechanism in production; a sibling pausable loop delivers agent-centric workflow writes without regression risk and keeps a future true unification open. The structural property is preserved: this module has NO write-execution path of its own — a write runs only through the injected executor, only on an approve decision, and the at-most-once guarantee stays in the host's atomic claim.
+
+**Consequences:**
+
+- D2 wires this into the workflow engine: an agent-step pause persists to `workflow_pending_approvals`, the decide path resumes the loop, run/step semantics encode deny-completes-the-step (vs. tool_action deny which cancels), and the agent-step audit trace (currently discarded by `run.ts`) is persisted to the step row.
+- D3 builds the agent-centric builder over it (per-step instruction, agent-first framing, clean tool_action form).
+- Agent steps will be able to act under human approval; unattended writes remain impossible in every mode.
