@@ -7,20 +7,23 @@ import {
   getUserPreferenceAction,
   setUserPreferenceAction,
 } from "@/lib/actions/user-preferences";
-import {
-  type CollapsedSectionsValue,
-  deptCollapsedSectionsKey,
-} from "@/lib/preferences/keys";
+import { type CollapsedSectionsValue } from "@/lib/preferences/keys";
 
 interface CollapsibleSectionProps {
   /** Section heading text (e.g., "Department Agents"). */
   title: string;
   /** The CollapsedSectionsValue key this section's state stores under (per-vendor
    *  content sections use `external:<sourceId>`; the legacy keys are
-   *  departmentAgents / externalAgents / myAgents). */
+   *  departmentAgents / externalAgents / myAgents; the Workflows screen uses
+   *  `templates`). */
   sectionKey: string;
-  /** Department slug for the preference key. */
-  departmentSlug: string;
+  /**
+   * The full preference key the surface persists its collapsed-sections map
+   * under (e.g. `deptCollapsedSectionsKey(slug)` on a launchpad,
+   * `workflowsCollapsedSectionsKey` on the Workflows screen). The stored value
+   * is a CollapsedSectionsValue keyed by `sectionKey`.
+   */
+  preferenceKey: string;
   /** Whether the section starts collapsed (from the server-fetched preference). */
   defaultCollapsed: boolean;
   /** Optional content to the right of the title — typically a count badge. */
@@ -31,7 +34,8 @@ interface CollapsibleSectionProps {
 }
 
 /**
- * Collapsible launchpad section. The whole header row is the toggle —
+ * Collapsible content section (the launchpad sectioning idiom, also used by
+ * the Workflows screen). The whole header row is the toggle —
  * keyboard-accessible by default (Enter/Space toggle), rotating chevron
  * + `aria-expanded` for screen readers. Visual style matches the prior
  * non-collapsible section headers (mono-caps, hairline underline) so
@@ -42,16 +46,16 @@ interface CollapsibleSectionProps {
  * `grid-rows-[1fr]` ↔ `grid-rows-[0fr]` pattern (Tailwind-native way to
  * animate `height: auto` without measuring content).
  *
- * Persistence is one preference row per department: key is
- * `ui:dept:<slug>:collapsed_sections`, value merges the three section
- * flags. Read-modify-write on every toggle so the other sections'
- * flags survive (single-tab single-user, so the race window is
- * effectively zero — the merge keeps it correct anyway).
+ * Persistence is one preference row per surface (the caller's
+ * `preferenceKey`), whose value merges every section's flag. Read-modify-write
+ * on every toggle so the other sections' flags survive (single-tab
+ * single-user, so the race window is effectively zero — the merge keeps it
+ * correct anyway).
  */
 export function CollapsibleSection({
   title,
   sectionKey,
-  departmentSlug,
+  preferenceKey,
   defaultCollapsed,
   meta,
   visible = true,
@@ -67,7 +71,7 @@ export function CollapsibleSection({
     const next = !collapsed;
     setCollapsed(next);
     startTransition(async () => {
-      await persistCollapsedState(departmentSlug, sectionKey, next);
+      await persistCollapsedState(preferenceKey, sectionKey, next);
     });
   };
 
@@ -104,17 +108,16 @@ export function CollapsibleSection({
 }
 
 /**
- * Read-modify-write the per-department preference row so each section
- * only mutates its own field. The merge happens on the read side so two
+ * Read-modify-write the surface's preference row so each section only
+ * mutates its own field. The merge happens on the read side so two
  * rapid toggles on different sections don't clobber each other (the
  * second read sees the first write).
  */
 async function persistCollapsedState(
-  departmentSlug: string,
+  prefKey: string,
   sectionKey: string,
   collapsed: boolean,
 ): Promise<void> {
-  const prefKey = deptCollapsedSectionsKey(departmentSlug);
   const current =
     await getUserPreferenceAction<CollapsedSectionsValue>(prefKey);
   const base: CollapsedSectionsValue =

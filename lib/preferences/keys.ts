@@ -51,6 +51,15 @@ export type CollapsedSectionsValue = {
 };
 
 /**
+ * Per-user preference key for the Workflows screen's collapsed sections.
+ * Single global key (the screen is one surface, unlike the per-department
+ * launchpad). Stored value matches `CollapsedSectionsValue`; the known
+ * section key is `templates` (the "Start from a template" section that sits
+ * under the user's workflow list).
+ */
+export const workflowsCollapsedSectionsKey = "ui:workflows:collapsed_sections";
+
+/**
  * Per-user preference key for rail group collapsed state. Single global
  * key (not per-department, unlike the launchpad's collapsed-sections
  * preference) because the rail is global chrome — the same rail renders

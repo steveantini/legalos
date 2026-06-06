@@ -11,7 +11,10 @@ import {
 } from "@/lib/agents/source";
 import type { LaunchpadAgent } from "@/lib/auth/access";
 import { VENDOR_CONTENT_PROVIDERS } from "@/lib/content/vendor-registry";
-import type { CollapsedSectionsValue } from "@/lib/preferences/keys";
+import {
+  deptCollapsedSectionsKey,
+  type CollapsedSectionsValue,
+} from "@/lib/preferences/keys";
 
 interface DepartmentLaunchpadContentProps {
   departmentAgents: LaunchpadAgent[];
@@ -75,6 +78,10 @@ export function DepartmentLaunchpadContent({
       </span>
     ) : null;
 
+  // The per-department preference row all of this launchpad's sections
+  // persist their collapsed state under.
+  const collapsePrefKey = deptCollapsedSectionsKey(departmentSlug);
+
   // Empty-state shape when a department has NO external agents from any vendor:
   // ONE empty section, not one-per-registered-provider. With the sole provider
   // today (Claude for Legal) this renders the exact same section the old single
@@ -99,7 +106,7 @@ export function DepartmentLaunchpadContent({
       <CollapsibleSection
         title="Department Agents"
         sectionKey="departmentAgents"
-        departmentSlug={departmentSlug}
+        preferenceKey={collapsePrefKey}
         defaultCollapsed={initialCollapsedState.departmentAgents ?? false}
         visible={departmentAgents.length > 0}
         meta={countMeta(departmentAgents.length)}
@@ -128,7 +135,7 @@ export function DepartmentLaunchpadContent({
               key={group.sourceId}
               title={group.displayLabel}
               sectionKey={key}
-              departmentSlug={departmentSlug}
+              preferenceKey={collapsePrefKey}
               defaultCollapsed={initialCollapsedState[key] ?? false}
               meta={countMeta(group.agents.length)}
             >
@@ -145,7 +152,7 @@ export function DepartmentLaunchpadContent({
         <CollapsibleSection
           title={emptyExternalTitle}
           sectionKey={emptyExternalSectionKey}
-          departmentSlug={departmentSlug}
+          preferenceKey={collapsePrefKey}
           defaultCollapsed={initialCollapsedState[emptyExternalSectionKey] ?? false}
         >
           <div className="rounded-[14px] bg-muted p-8 text-center">
@@ -161,7 +168,7 @@ export function DepartmentLaunchpadContent({
       <CollapsibleSection
         title="My Agents"
         sectionKey="myAgents"
-        departmentSlug={departmentSlug}
+        preferenceKey={collapsePrefKey}
         defaultCollapsed={initialCollapsedState.myAgents ?? false}
         meta={countMeta(myAgents.length)}
       >

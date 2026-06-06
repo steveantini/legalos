@@ -3401,3 +3401,25 @@ Agent-centric instructions dissolve the need for branching execution in the comm
 - THE WORKFLOWS ARC IS COMPLETE: compose by hand or start from a template, run with chosen autonomy, approve actions along the way (reading exactly what an agent will send), and review the immutable audit trail.
 - Recorded future work: branching/router execution; portable cross-org template recipes; scheduled/webhook triggers; the gated full-autonomy write tier; Help → Guides content; external-connector (ai-tool-handoff) templates.
 - **Operator: apply migration `0063_workflow_templates.sql`, then run `npm run seed-workflow-templates`** (re-runnable; reports inserted/updated/skipped per template).
+
+## D-125 — Merge Template Library into an adaptive My Workflows screen
+
+Date: 2026-06-06
+Status: Accepted
+
+**Context:**
+
+Step 5 shipped templates as their own screen with their own rail leaf, making the Workflows group two destinations: the daily-driver list and a library a user visits rarely (most often exactly once, at first run — when My Workflows is an empty list and the value is sitting one navigation step away).
+
+**Decision:**
+
+Combined the two screens into one adaptive surface at the My Workflows route. The user's workflows LEAD; the templates appear as a distinct, collapsible "Start from a template" section below (the launchpad's CollapsibleSection idiom — generalized from a department-specific `departmentSlug` prop to a caller-supplied `preferenceKey`, with a new `ui:workflows:collapsed_sections` preference persisting the collapse per user). With ZERO workflows, the templates take primacy: the empty state IS the template gallery ("You don't have any workflows yet. Start from one of these."), alongside the blank New workflow affordance. Templates keep their fork-only distinction — "Use this template" copies into a user-owned draft (forkWorkflowTemplate, unchanged); no run/edit-in-place of a template from this screen. The rail's Workflows group collapses to the single "My Workflows" leaf; the standalone /workspace/workflows/template-library route remains only as a permanent REDIRECT to the combined screen (old deep-links land correctly; its breadcrumb entry retired), and the group landing folds to one card.
+
+**Reasoning:**
+
+One coherent surface mirroring the launchpad's sectioning and the home page's honest empty states: templates are the natural first-run starting point and should greet the empty state rather than hide behind a second navigation hop, then recede (collapsible) once the user has their own workflows — while the template-vs-workflow distinction (read-only starting point vs editable owned workflow, fork-first) stays structurally intact.
+
+**Consequences:**
+
+- Simpler navigation (one Workflows destination); templates double as the onboarding empty state.
+- Navigation + screen composition only: no change to the templates, the seed, forkWorkflowTemplate, the engine, the builder, run/audit/approve, RLS, or any data model; no migration.

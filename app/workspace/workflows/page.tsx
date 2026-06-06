@@ -6,9 +6,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Group landing for the Workflows resource group. Both surfaces are live:
- * "My Workflows" (Steps 4a-4b: build, run, watch, and approve) and the
- * "Template Library" (Step 5: ready-made workflows to fork and adapt).
+ * Group landing for the Workflows resource group. One surface: the adaptive
+ * My Workflows screen (build, run, watch, approve — with the ready-made
+ * templates folded in as its "Start from a template" section, which leads
+ * when the user has no workflows yet).
  */
 export default function WorkflowsPage() {
   return (
@@ -32,20 +33,8 @@ export default function WorkflowsPage() {
           </h2>
           <p className="text-[13px] leading-[1.45] text-muted-foreground">
             Compose multi-step workflows with no code, from the agents and tools
-            your organization already has. Build, run, and follow them here.
-          </p>
-        </Link>
-        <Link
-          href="/workspace/workflows/template-library"
-          className="flex min-h-[160px] flex-col gap-3 rounded-[14px] border border-border bg-card p-[22px] transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          <h2 className="text-[19px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
-            Template Library
-          </h2>
-          <p className="text-[13px] leading-[1.45] text-muted-foreground">
-            Ready-made workflows to start from: review an inbound NDA, review
-            any contract, or review and respond. Copy one into your workflows,
-            adapt it, and run it.
+            your organization already has, or start from a ready-made template.
+            Build, run, and follow them here.
           </p>
         </Link>
       </div>

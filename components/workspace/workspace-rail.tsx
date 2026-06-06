@@ -111,14 +111,12 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     groupKey: "workflows",
     leaves: [
       {
+        // The single Workflows leaf: the adaptive My Workflows screen, which
+        // also carries the templates (the former Template Library is folded in
+        // as its "Start from a template" section).
         label: "My Workflows",
         slug: "workflows",
         href: "/workspace/workflows/my-workflows",
-      },
-      {
-        label: "Template Library",
-        slug: "workflows-templates",
-        href: "/workspace/workflows/template-library",
       },
     ],
   },

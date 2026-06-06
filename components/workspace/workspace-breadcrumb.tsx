@@ -142,10 +142,6 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     segments: () => [HOME_SEGMENT, "Workflows", "My Workflows"],
   },
   {
-    match: "/workspace/workflows/template-library",
-    segments: () => [HOME_SEGMENT, "Workflows", "Template Library"],
-  },
-  {
     match: "/workspace/help",
     segments: () => [HOME_SEGMENT, "Help"],
   },

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Workflows is now one screen: your workflows lead, with a collapsible "Start from a template" section below, and when you have no workflows yet the ready-made templates greet you as the starting point. The separate Template Library entry is folded in (old links land in the right place), and templates keep their fork-first behavior: using one copies it into a workflow you own.**
+
 ### Added
 
 - **The Template Library is live: start from a ready-made workflow like "Review an inbound NDA," "Review a contract (any type)," or "Review and respond," fork it into your workflows with one click, then edit, activate, and run it. The templates are built from plain-language agent steps, so each one reads clearly at a glance and is easy to understand and adapt. This completes the Workflows arc.**
