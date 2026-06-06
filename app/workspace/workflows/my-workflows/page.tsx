@@ -56,9 +56,12 @@ export default async function MyWorkflowsPage() {
   const canAuthor = await isCurrentUserOrgAdmin();
 
   const supabase = await createSupabaseServerClient();
+  // Templates live in the Template Library, not here (Step 5): My Workflows
+  // shows what the org composed and owns, including forks of templates.
   const { data } = await supabase
     .from("workflow_definitions")
     .select("id, name, description, status, definition, updated_at")
+    .neq("status", "template")
     .order("updated_at", { ascending: false });
   const workflows = (data ?? []) as WorkflowRow[];
 

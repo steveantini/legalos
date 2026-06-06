@@ -3378,3 +3378,26 @@ Combined with D1/D2, a single agent step can now read, reason, and propose an ac
 - The delight pass is complete (D1–D3) and workflows are genuinely no-code and agent-centric: pick an agent, tell it what to do, read the workflow back in plain language, save and run.
 - Step 5 (C4L workflow templates + the Template Library) seeds templates into this now-delightful builder.
 - No migration; nothing for the operator to apply.
+
+## D-124 — Template Library + agent-centric starter templates (Workflows arc Step 5, arc complete)
+
+Date: 2026-06-06
+Status: Accepted
+
+**Context:**
+
+The Workflows arc had everything except a starting point: engine (Steps 1-3), builder + run/audit/approve (4a/4b), and the delight pass (D1-D3) made workflows composable in plain language, but a new org (or the operator demoing) still faced an empty My Workflows page, and the Template Library card on the Workflows landing was a coming-soon stub. The deferred C4L orchestration skills (notably the `commercial-legal/review` router, filtered out at import as not agent-shaped) were the seed material — but the router implies branching, which the engine deliberately does not have.
+
+**Decision:**
+
+Shipped the Template Library as org-specific, forkable, linear, agent-centric workflow templates. STORAGE (Option i): a template IS a workflow_definitions row flagged by a new `status` value `'template'` (migration 0063 widens the status check and adds a `template_slug` seed key with a per-org unique index) — same shape, same validator, same builder-compatible jsonb, and structurally NOT runnable, since executeWorkflowRun requires status 'active' (fork first, then activate the fork). FORK: `forkWorkflowTemplate` copies the template into a new user-owned DRAFT through the existing `saveWorkflowDefinition` path, so it passes the same live validation and org-admin authoring gate; the fork keeps the template's name, does not copy template_slug, and opens straight in the builder (templates are filtered out of My Workflows, and the edit page refuses to open one — the library is their only surface). SEED: `npm run seed-workflow-templates` (operator-run, service role, idempotent on (org, template_slug)) takes pure, unit-tested SPECS from `lib/workflows/templates.ts` that reference agents by stable SLUG — resolved to the org's real agent ids at seed time, never hardcoded; a template whose agent is missing is skipped with a report, and each resolved definition re-passes validateWorkflowDefinition before writing. Three starters seeded: "Review an inbound NDA" (the C4L nda-review leaf + a checkpoint), "Review a contract (any type)" (the FLAGSHIP: one instructed agent step — `enterprise-agreement-review`, the most general active reviewer since the C4L router was deliberately filtered — whose instruction carries classify-and-review, the agent routing in its own reasoning, NO branching engine), and "Review and respond" (review → checkpoint → the C4L stakeholder-summary leaf instructed to draft a counterparty cover email and, with approval, send it — exercising the D2 approval gate and the D3 show-what-it-will-send disclosure end to end).
+
+**Reasoning:**
+
+Agent-centric instructions dissolve the need for branching execution in the common review-routing case, exactly as they dissolved per-argument tool-wiring in D3 — so the arc closes without a branching engine. Org-specific Option-A templates are immediately useful to a single-tenant operator and are the strongest guided-compose lever (each template doubles as a worked example of the D3 model); the slug-based spec + per-org resolution in the seed is already the resolution seam a future portable cross-org "recipe" model would reuse, so that model stays additive and deferred until multi-tenant.
+
+**Consequences:**
+
+- THE WORKFLOWS ARC IS COMPLETE: compose by hand or start from a template, run with chosen autonomy, approve actions along the way (reading exactly what an agent will send), and review the immutable audit trail.
+- Recorded future work: branching/router execution; portable cross-org template recipes; scheduled/webhook triggers; the gated full-autonomy write tier; Help → Guides content; external-connector (ai-tool-handoff) templates.
+- **Operator: apply migration `0063_workflow_templates.sql`, then run `npm run seed-workflow-templates`** (re-runnable; reports inserted/updated/skipped per template).

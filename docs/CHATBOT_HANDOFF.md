@@ -12,7 +12,7 @@ Repo: `/Users/stevenantini/Projects/legalos`. Sibling repos used as reference ma
 
 ## Current state (admin arc close-out — read this first)
 
-This section is the current honest state as of the admin arc close-out (A7). The historical record (polish phase, prior arcs, key files) follows below and remains accurate; read this first so the current state is not reconstructed from the history.
+This section is the current honest state as of the admin arc close-out (A7), PLUS one arc completed after it: the **Workflows arc is COMPLETE (2026-06-06, D-115 through D-124)** — headless agent runtime, declarative workflow engine with durable approval pause/resume, no-code agent-centric builder, run/audit/approve surfaces, and the Template Library with forkable starter templates; see docs/ROADMAP.md (the Workflows section) for the full record and the deliberately-deferred items (branching, portable recipes, triggers, full autonomy). The historical record (polish phase, prior arcs, key files) follows below and remains accurate; read this first so the current state is not reconstructed from the history.
 
 ### Where the product is
 

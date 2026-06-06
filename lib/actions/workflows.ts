@@ -9,6 +9,7 @@ import {
 } from "@/lib/workflows/run";
 import {
   deleteWorkflowDefinition as deleteWorkflowDefinitionImpl,
+  forkWorkflowTemplate as forkWorkflowTemplateImpl,
   saveWorkflowDefinition as saveWorkflowDefinitionImpl,
   type DeleteWorkflowResult,
   type SaveWorkflowInput,
@@ -101,6 +102,22 @@ export async function saveWorkflowDefinition(
   // `steps` is the canonical graph; the authoring layer validates it at the data
   // boundary with the engine validator.
   return saveWorkflowDefinitionImpl({ ...parsed.data, steps: input.steps });
+}
+
+/**
+ * Fork a workflow template into a new user-owned draft (Workflows arc Step 5).
+ * Org-admin gated inside the authoring layer (the same gate as authoring a
+ * workflow by hand; RLS re-enforces); validated with the same live engine
+ * validator before the draft persists.
+ */
+const forkSchema = z.object({ templateId: z.string().uuid() });
+
+export async function forkWorkflowTemplate(
+  templateId: string,
+): Promise<SaveWorkflowResult> {
+  const parsed = forkSchema.safeParse({ templateId });
+  if (!parsed.success) return { ok: false, error: "invalid_input" };
+  return forkWorkflowTemplateImpl(parsed.data.templateId);
 }
 
 /**

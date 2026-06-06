@@ -16,7 +16,7 @@ type DefinitionRow = {
   name: string;
   description: string | null;
   department_id: string | null;
-  status: "draft" | "active" | "archived";
+  status: "draft" | "active" | "archived" | "template";
   definition: { steps?: WorkflowStep[] } | null;
 };
 
@@ -37,6 +37,11 @@ export default async function EditWorkflowPage({
     .maybeSingle();
   if (!data) notFound();
   const row = data as DefinitionRow;
+
+  // A TEMPLATE is never edited here (Step 5): the builder's save would flip
+  // its status and corrupt the seeded row. The Template Library is its
+  // surface; "Use this template" forks an editable copy that opens here.
+  if (row.status === "template") notFound();
 
   // An archived workflow opens in the builder as a draft for re-editing; the
   // status select lets the author re-activate it.

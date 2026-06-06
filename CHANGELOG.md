@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The Template Library is live: start from a ready-made workflow like "Review an inbound NDA," "Review a contract (any type)," or "Review and respond," fork it into your workflows with one click, then edit, activate, and run it. The templates are built from plain-language agent steps, so each one reads clearly at a glance and is easy to understand and adapt. This completes the Workflows arc.**
+
 - **Building workflows is now far simpler: add an agent step and just tell it what to do in plain language (it can read, draft, and, with your approval, take actions like sending an email), see a plain-language summary of the whole workflow as you build it, and save and run in one step. When a workflow pauses for your approval before an agent acts, you can now see exactly what it will send. The advanced tool steps now show clear descriptions for each field, with only the essential fields up front.**
 
 - **Agent steps in a workflow can now take actions under human approval: when an agent wants to perform a write, the workflow pauses for you to approve or deny, the same way the assistant does in chat. Approving lets the agent act and continue; denying lets it finish gracefully without acting, and the run carries on. Every step now records its tool activity in the audit trail, so an agent step's reads and writes are visible in the run view's record.**

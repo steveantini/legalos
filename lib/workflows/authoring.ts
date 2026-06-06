@@ -130,6 +130,48 @@ export async function saveWorkflowDefinition(
   return { ok: true, id: data.id as string };
 }
 
+/**
+ * Fork a workflow template into a new user-owned DRAFT workflow (Workflows
+ * arc Step 5). The fork is a normal, fully-owned workflow_definitions row —
+ * no link back to the template (template_slug is deliberately not copied) —
+ * created through saveWorkflowDefinition, so it passes the SAME live
+ * validation as any authored workflow (an agent that has gone missing since
+ * seeding fails the fork honestly instead of producing a broken draft) and
+ * the same org-admin authoring gate (RLS re-enforces). The name is kept
+ * verbatim (you are creating "Review an inbound NDA", not a copy of your own
+ * work); the builder opens next, where it is immediately editable.
+ */
+export async function forkWorkflowTemplate(
+  templateId: string,
+): Promise<SaveWorkflowResult> {
+  if (!(await isCurrentUserOrgAdmin())) {
+    return { ok: false, error: "You don't have permission to create workflows." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("workflow_definitions")
+    .select("id, name, description, department_id, definition")
+    .eq("id", templateId)
+    .eq("status", "template")
+    .maybeSingle();
+  if (error) {
+    console.error("workflow template fetch failed", { code: error.code });
+    return { ok: false, error: "The template couldn't be loaded. Try again." };
+  }
+  if (!data) return { ok: false, error: "This template no longer exists." };
+
+  const definition = data.definition as { steps?: WorkflowStep[] } | null;
+  return saveWorkflowDefinition({
+    id: null,
+    name: data.name as string,
+    description: (data.description as string | null) ?? "",
+    departmentId: (data.department_id as string | null) ?? null,
+    status: "draft",
+    steps: Array.isArray(definition?.steps) ? definition.steps : [],
+  });
+}
+
 export type DeleteWorkflowResult = { ok: true } | { ok: false; error: string };
 
 /**
