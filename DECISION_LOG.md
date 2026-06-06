@@ -3264,3 +3264,26 @@ A form/list editor over the canonical graph is the foundationally sound v1: it p
 - Admins can compose, save, and edit workflows now; running, watching, auditing, and approving land in 4b; the Template Library (Step 5) stays a coming-soon card.
 - The builder reads `getWorkflowCapabilities()`, so connecting a new tool or adding an agent immediately widens what a workflow can do, with no builder change.
 - A canvas builder, if ever wanted, is a new editor over the same canonical graph — not a rewrite.
+
+## D-119 — Workflow run, audit, and approval UI (Workflows arc Step 4b)
+
+Date: 2026-06-06
+Status: Accepted
+
+**Context:**
+
+Steps 1-3 shipped the engine (headless runAgent; the data model and deterministic execution; durable human checkpoints, approved writes, and run-level autonomy), and Step 4a shipped composing and saving workflows. The two run-side server actions (`startWorkflowRun`, `decideWorkflowApproval`) were live but had no UI: nobody could run a workflow, watch it, read its audit trail, or decide a pending approval.
+
+**Decision:**
+
+Build the run experience entirely OVER the existing engine actions, with no engine change. Three surfaces: (1) a run-start page (`/workspace/workflows/my-workflows/[id]/run`, plus a "Run" affordance on My Workflows cards for active workflows) where any member who can read the definition provides the run input and chooses the RUN-level autonomy (supervised default, with plain-language explanations; even autonomous runs pause before any write, per Step 3), with this workflow's recent runs listed below; (2) a run view (`/workspace/workflows/runs/[runId]`) rendering the run header (status, autonomy, who started it, timing) and the step-by-step timeline — the run's frozen `definition_snapshot` merged with the immutable `workflow_step_runs` rows, so unreached steps are visible as pending/not-run — showing each step's friendly type (reusing the chat tool-naming), status, the input it consumed and output it produced (prose for agent text, mono JSON for tool data, long content behind a disclosure), timing, and approval provenance ("Approved by you" / "Proceeded automatically" / "Denied by …"); (3) an approval card (mirroring the chat write-confirmation register) that appears when the run is awaiting approval: a checkpoint shows its prompt, a write shows the friendly tool label plus argument KEY NAMES only (never values — the chat PII bar), and Approve resumes the run (the write executes through the governed executor with a live re-resolved token) while Deny cancels it. Only the run's owner can decide (RLS-enforced; admins watch read-only), and a decision that lost the atomic at-most-once claim settles the card calmly as already-decided. Refresh model: the run executes server-side inside the actions and the view renders persisted state; a non-terminal run mounts a quiet visibility-gated poll (`router.refresh()` every 7s) and decisions refresh immediately — no streaming in v1. The timeline derivation, status/provenance/duration/value formatting, and PII-safe arg-key summary live in a pure, unit-tested view-model module (`lib/workflows/run-view.ts`). No migration.
+
+**Reasoning:**
+
+This makes the deterministic, auditable engine fully usable and trustworthy for legal: the run view IS the audit surface a lawyer relies on, so it renders the immutable per-step records completely and legibly, with human-versus-automatic provenance explicit. Reusing the proven chat confirmation register (and its keys-only PII bar) keeps the decision moment consistent across the product. Keeping autonomy a run-time choice preserves the Step 3/4a architectural separation (the same definition can run supervised or autonomous). Persisted-state-plus-poll is the honest fit for a server-side, pause-based execution model; streaming would add machinery without adding truth.
+
+**Consequences:**
+
+- Workflows are end-to-end usable: compose (4a) → run with chosen autonomy → watch → approve/deny → audit. Templates (Step 5), triggers, branching execution, and gated auto-writes remain future work.
+- A future run-history/analytics surface can grow from the per-workflow recent-runs list without rework; the run view already renders any run RLS grants access to.
+- The view-model module gives later surfaces (an org-wide runs list, insights) one tested vocabulary for statuses, provenance, and value rendering.

@@ -8,9 +8,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Group landing for the Workflows resource group. "My Workflows" is now live
- * (Step 4a) and renders as a real link card into the builder surface; "Template
- * Library" is still pre-ship (Step 5) and renders as a `ComingSoonCard`.
+ * Group landing for the Workflows resource group. "My Workflows" is live
+ * (Steps 4a-4b: build, run, watch, and approve) and renders as a real link
+ * card; "Template Library" is still pre-ship (Step 5) and renders as a
+ * `ComingSoonCard`.
  */
 export default function WorkflowsPage() {
   return (
@@ -34,7 +35,7 @@ export default function WorkflowsPage() {
           </h2>
           <p className="text-[13px] leading-[1.45] text-muted-foreground">
             Compose multi-step workflows with no code, from the agents and tools
-            your organization already has. Build, save, and manage them here.
+            your organization already has. Build, run, and follow them here.
           </p>
         </Link>
         <ComingSoonCard

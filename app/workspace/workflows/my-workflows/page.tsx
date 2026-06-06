@@ -108,20 +108,35 @@ export default async function MyWorkflowsPage() {
                 </p>
               </>
             );
+            const canRun = wf.status === "active";
             return (
-              <li key={wf.id}>
-                {canAuthor ? (
-                  <Link
-                    href={`/workspace/workflows/my-workflows/${wf.id}/edit`}
-                    className="block rounded-[14px] border border-border bg-card p-5 transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  >
-                    {meta}
-                  </Link>
-                ) : (
-                  <div className="rounded-[14px] border border-border bg-card p-5">
-                    {meta}
+              <li
+                key={wf.id}
+                className="rounded-[14px] border border-border bg-card p-5"
+              >
+                {meta}
+                {canRun || canAuthor ? (
+                  <div className="mt-4 flex items-center gap-2">
+                    {canRun ? (
+                      <Link
+                        href={`/workspace/workflows/my-workflows/${wf.id}/run`}
+                        aria-label={`Run ${wf.name}`}
+                        className={buttonVariants({ variant: "outline", size: "sm" })}
+                      >
+                        Run
+                      </Link>
+                    ) : null}
+                    {canAuthor ? (
+                      <Link
+                        href={`/workspace/workflows/my-workflows/${wf.id}/edit`}
+                        aria-label={`Edit ${wf.name}`}
+                        className={buttonVariants({ variant: "ghost", size: "sm" })}
+                      >
+                        Edit
+                      </Link>
+                    ) : null}
                   </div>
-                )}
+                ) : null}
               </li>
             );
           })}

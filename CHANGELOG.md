@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **You can now run workflows and watch them work: start a workflow with your input and chosen level of autonomy, follow each step as it runs, see a complete audit trail of what every step did, and approve or deny when the workflow pauses for a human at a checkpoint or before it takes any action.**
+
 - **You can now build workflows with no code. The My Workflows page lets an admin compose an ordered sequence of steps (run an agent, take an action on a connected tool, or pause for human approval), choosing from the agents and tools your organization already has, so a newly connected tool appears automatically. Each workflow is saved and validated against the same checks the engine uses, so what you build is exactly what will run. Running them comes next.**
 
 - **Workflows can now include human approval checkpoints and can take write actions safely: a workflow pauses for a person to approve before it continues, or before it performs any write, and the approval is recorded in the audit trail. An autonomy setting lays the groundwork for supervised versus more autonomous runs, with writes always requiring approval for now, so no workflow ever takes an unattended write action.**
