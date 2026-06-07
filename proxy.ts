@@ -12,6 +12,30 @@ import { safeNextPath } from "@/lib/url/safe-next";
 const PUBLIC_PATHS = ["/login", "/auth"];
 
 /**
+ * Marketing pages, matched exactly. They live in the `app/(marketing)/`
+ * route group, whose segment never appears in the URL, so the proxy
+ * cannot infer them — each public marketing path is listed explicitly.
+ * All are linked from the public landing footer and must be reachable
+ * anonymously (before D-126 they were accidentally login-gated, bouncing
+ * visitors to /login). `/security` stays listed even though it now
+ * permanently redirects to /trust: the proxy runs first, and an anonymous
+ * hit must reach the route's 308 instead of a /login bounce.
+ */
+const PUBLIC_MARKETING_PATHS = [
+  "/about",
+  "/blog",
+  "/contact",
+  "/documentation",
+  "/faq",
+  "/integrations",
+  "/legal",
+  "/mission",
+  "/pricing",
+  "/security",
+  "/trust",
+];
+
+/**
  * Auth gate + first-login user provisioning.
  *
  * Next.js 16 renamed the file convention from `middleware.ts` to `proxy.ts`
@@ -54,7 +78,9 @@ export async function proxy(request: NextRequest) {
   // `/` is matched exactly so the prefix-style PUBLIC_PATHS check below
   // doesn't accidentally allowlist every path that starts with `/`.
   const isPublicPath =
-    pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+    pathname === "/" ||
+    PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
+    PUBLIC_MARKETING_PATHS.includes(pathname);
 
   if (!user && !isPublicPath) {
     const requestedPath = request.nextUrl.pathname + request.nextUrl.search;

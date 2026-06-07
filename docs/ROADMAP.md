@@ -323,9 +323,9 @@ Requirements: panel positioning (left of the message thread, persistent across c
 
 The rail brand mark currently uses a 7px filled dot placeholder + "legalOS Workspace" wordmark. The concentric circles motif from the landing page (the marketing visual identity) would be a delightful brand-continuity moment between marketing and product if scaled and refined for the rail. Slot reserved; visual design needed before engineering. Governed by the brand-scarcity principle (D-053): the rail brand mark is the natural third placement for the motif, after the landing page and the chat ThinkingGlyph.
 
-## 11. Template Library concept definition
+## 11. Template Library concept definition — CLOSED (Workflows arc Step 5, 2026-06-06)
 
-Workflows group's "Template Library" leaf is currently a coming-soon card. The actual concept is undefined: most likely workflow templates (multi-step workflows users can adopt and customize), but could be agent templates or prompt templates. Decide concept before building. Related to item 3 (skill library surface); both involve reusable artifact libraries and could share design thought.
+Resolved as workflow templates: org-specific, forkable starter workflows shipped as the Template Library (D-124), then merged into the adaptive My Workflows screen (D-125). The original concept question (workflow vs agent vs prompt templates) was decided in favor of workflow templates; agent/prompt template libraries remain related to item 3 (skill library surface) if ever pursued.
 
 ## 12. Tracker-UI surface
 
@@ -360,6 +360,10 @@ Tracking who created / edited / deleted / forked which agent and when. No audit_
 Deferred and low priority. The product calls the home "Home" (the breadcrumb's first segment was renamed from "workspace" to "home" via the HOME_SEGMENT constant during the workspace home arc), but the URL namespace is still /workspace. Renaming it to /home would mean a directory rename of app/workspace (about 21 route directories), updating every internal link, redirect, and proxy reference, and adding a legacy redirect from /workspace/* to /home/* so existing links and bookmarks do not break.
 
 This is cosmetic only for a gated app: the URL-label mismatch is not an inconsistency, because URLs are infrastructure and labels are product language, and the two are allowed to differ. Captured here with the reasoning so it is not re-litigated; it sits at the bottom of the main list as low-priority polish.
+
+## 20. Marketing page content (tiered)
+
+The 10 coming-soon marketing stubs get real content in tiers. **Tier 1a SHIPPED (2026-06-07, D-126): the Trust Center at /trust**, built on a verified data-handling inventory, replacing the Security stub (which now 308-redirects) and taking the footer's Company-column slot as "Trust". Remaining: Tier 1b (About, Mission, Integrations, FAQ, Contact), Tier 2 (Pricing, Blog, Documentation), Tier 3 (Legal: the formal Terms / Privacy / DPA documents). The deeper retention/deletion/export/compliance work the Trust Center honestly defers (hard-delete purge job, account deletion and data export, GDPR/CCPA readiness, SOC 2) remains item 5 (privacy and security), not a marketing task. Standing rule from D-126: marketing claims must never drift ahead of the architecture; substantive changes to data handling or the approval model update /trust in the same commit.
 
 ---
 

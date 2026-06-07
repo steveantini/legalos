@@ -36,8 +36,8 @@ export default async function TrashPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-semibold">Trash</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Soft-deleted agents stay here for 30 days. After that, they are
-          permanently removed.
+          Deleted agents stay here for 30 days and can be restored at any
+          time in that window. After 30 days they can no longer be restored.
         </p>
       </header>
 

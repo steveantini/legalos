@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     template: "%s · legalOS",
   },
   description:
-    "An operating system for legal departments — AI-native entry point for the workflows, agents, and tools in-house legal teams use day-to-day.",
+    "An operating system for legal departments: the AI-native entry point for the workflows, agents, and tools in-house legal teams use day-to-day.",
 };
 
 export default function RootLayout({

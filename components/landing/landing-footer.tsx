@@ -29,7 +29,7 @@ const COMPANY_LINKS = [
   { label: "About", href: "/about" },
   { label: "Our Mission", href: "/mission" },
   { label: "Legal", href: "/legal" },
-  { label: "Security", href: "/security" },
+  { label: "Trust", href: "/trust" },
   { label: "Contact", href: "/contact" },
 ] as const;
 

@@ -3423,3 +3423,27 @@ One coherent surface mirroring the launchpad's sectioning and the home page's ho
 
 - Simpler navigation (one Workflows destination); templates double as the onboarding empty state.
 - Navigation + screen composition only: no change to the templates, the seed, forkWorkflowTemplate, the engine, the builder, run/audit/approve, RLS, or any data model; no migration.
+
+## D-126 — Trust Center page (marketing Tier 1a)
+
+Date: 2026-06-07
+Status: Accepted
+
+**Context:**
+
+The 10 marketing pages under `app/(marketing)/` were all coming-soon stubs while the product behind them shipped a substantial, articulable security architecture (docs/SECURITY_ARCHITECTURE.md). A verified data-handling inventory (what is collected, where it goes, what is encrypted, what deletion actually does) was produced against the codebase as planning input. Marketing content is now being built in tiers; Tier 1a is the Trust Center, the centerpiece.
+
+**Decision:**
+
+Shipped a real Trust Center at /trust, built strictly on the verified data-handling inventory, structured as three pillars (security, privacy and data handling, control and accountability) plus a closing live-vs-roadmap honesty section. Every claim was re-verified against code before publication: RLS on every table, force-RLS service-role-only connection_secrets, AES-256-GCM with a server-only key, token_ref custody, the trusted-only MCP registry, invite-only access, three-layer enforcement, write approval even in autonomous workflow mode, no model training, Anthropic-only inference. The page claims no hard delete, no GDPR/CCPA readiness, no SOC 2, and discloses plainly that organization administrators can access the organization's conversations and that a small set of infrastructure providers (Vercel, Supabase, Anthropic, plus Google when an org connects Google Workspace) support the product; the subprocessors are named inline rather than linking to a legal page that does not exist yet. The footer Security link became Trust, /security 308-redirects to /trust, and two adjacent honesty fixes shipped in the same commit: the landing metadata em dash and a Trash message that promised permanent deletion after 30 days that no purge job performs (copy now states only the restore window).
+
+**Reasoning:**
+
+Trust content for a legal product must rest on verified fact, not aspiration. The security architecture and the human-in-the-loop control model are genuine differentiators that are safe to publish because they are code-backed; retention, deletion, export, and compliance are honestly deferred to the privacy/security initiative (roadmap item 5) and the page says so. Publishing the admin-access and subprocessor facts up front costs nothing and earns credibility; burying them would cost both.
+
+**Consequences:**
+
+- Trust Center live at /trust in the marketing register (Aperture tokens, single editorial column, no new styling system).
+- About/Mission/Connections/FAQ/Contact follow in Tier 1b; Pricing/Blog/Documentation in Tier 2; the formal legal documents (Terms, Privacy, DPA) in Tier 3.
+- This page must never drift ahead of the architecture: changes to data handling, the approval model, or the subprocessor set require a same-commit update here.
+- Discovered and fixed in the same commit: the proxy's public-path allowlist never included the marketing pages (the `(marketing)` route-group segment is invisible in URLs), so all 10 were accidentally login-gated and footer clicks bounced anonymous visitors to /login. proxy.ts now exact-match allowlists the marketing paths (PUBLIC_MARKETING_PATHS), keeping /security listed so its 308 is reachable ahead of the auth gate.

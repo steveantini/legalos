@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "legalOS — operating system for legal departments",
+    absolute: "legalOS, the operating system for legal departments",
   },
   description:
     "One place for the agents, workflows, and tools your team uses every day, built around how legal work actually happens.",
