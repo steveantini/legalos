@@ -20,6 +20,9 @@ interface MarketingPageShellProps {
   title: string;
   /** Optional lead paragraph rendered directly under the h1. */
   lead?: string;
+  /** Back-link target; defaults to the landing. Sub-pages point at their hub. */
+  backHref?: string;
+  backLabel?: string;
   children: React.ReactNode;
 }
 
@@ -27,6 +30,8 @@ export function MarketingPageShell({
   label,
   title,
   lead,
+  backHref = "/",
+  backLabel = "← Back to legalOS",
   children,
 }: MarketingPageShellProps) {
   return (
@@ -60,10 +65,10 @@ export function MarketingPageShell({
         {children}
 
         <Link
-          href="/"
+          href={backHref}
           className="mt-16 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          ← Back to legalOS
+          {backLabel}
         </Link>
       </main>
     </div>

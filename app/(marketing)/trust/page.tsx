@@ -8,13 +8,17 @@ export const metadata: Metadata = {
 };
 
 /**
- * Trust Center — the first marketing page with real content (Tier 1a),
- * replacing the coming-soon Security stub (which now redirects here).
+ * Trust Center hub — the summary of the three pillars, each linking to
+ * a deeper sub-page (D-129): /trust/security, /trust/privacy, and
+ * /trust/control. Shipped as Tier 1a (D-126), replacing the coming-soon
+ * Security stub (which redirects here).
  *
- * Every security and privacy claim on this page was verified against the
- * codebase and docs/SECURITY_ARCHITECTURE.md before publication (see
- * D-126). When the architecture changes, this page must change with it:
- * never let the copy here drift ahead of what the product actually does.
+ * Every security and privacy claim on this page and its sub-pages is
+ * DERIVED FROM the source-of-truth docs (docs/SECURITY_ARCHITECTURE.md
+ * and the data-handling inventory) and was verified against the
+ * codebase before publication. When the architecture changes, these
+ * pages must change with it in the same effort: never let the copy
+ * here drift ahead of what the product actually does (D-129).
  *
  * Standalone editorial treatment in the marketing register: the landing
  * surface's tokens and type, a minimal brand header, a single reading
@@ -26,6 +30,9 @@ interface Pillar {
   title: string;
   tagline: string;
   paragraphs: string[];
+  /** The pillar's deeper sub-page. */
+  href: string;
+  linkLabel: string;
 }
 
 const PILLARS: Pillar[] = [
@@ -33,6 +40,8 @@ const PILLARS: Pillar[] = [
     kicker: "Pillar one",
     title: "Security",
     tagline: "How your data is protected.",
+    href: "/trust/security",
+    linkLabel: "See the security posture",
     paragraphs: [
       "legalOS was built with security in the architecture from the first line of code, not added afterward. Every record is isolated at the database level, so one organization can never reach another’s data, and this is enforced by the database itself rather than by application logic. Credentials and connection secrets are encrypted with AES-256-GCM, and the keys to read them live only on the server. The database table that holds them is locked to server-side access alone. Access tokens are never exposed to the browser. Connections to outside systems are limited to official first-party servers, or servers your own organization hosts, never an arbitrary third party. Access is invite-only, with no public signup. Sensitive changes are enforced in three places at once: the interface, the server, and the database.",
     ],
@@ -41,6 +50,8 @@ const PILLARS: Pillar[] = [
     kicker: "Pillar two",
     title: "Privacy and data handling",
     tagline: "How your data is used.",
+    href: "/trust/privacy",
+    linkLabel: "Read how data is handled",
     paragraphs: [
       "Your data is yours, and legalOS treats it that way. legalOS does not sell your data, and legalOS does not train any models on it. There is no model training of any kind in the product. When you send work to an AI model, that inference is performed through Anthropic’s API under Anthropic’s commercial terms, which you can review. If you bring your own model key, that request runs under your own provider account and your own agreement, so the data boundary is yours to set. legalOS collects only what the product needs to work, and your administrators govern what your agents and connections can reach.",
       "Two things we state plainly rather than bury. Your organization’s administrators can access the conversations and work within your organization, because the work product belongs to the organization, not to any one user. And legalOS relies on a small set of infrastructure providers: Vercel for hosting, Supabase for data storage and authentication, and Anthropic for AI inference. When your organization connects Google Workspace, Google joins that list by your choice.",
@@ -50,6 +61,8 @@ const PILLARS: Pillar[] = [
     kicker: "Pillar three",
     title: "Control and accountability",
     tagline: "How you stay in command of the work.",
+    href: "/trust/control",
+    linkLabel: "How control and accountability work",
     paragraphs: [
       "This is the pillar most tools do not have, and it is the heart of what trust means for legal work. AI in legalOS does not act on its own. An agent can read and reason freely, but it cannot take an action that changes anything, such as sending a message, creating a document, or modifying a connected system, without a person approving that specific action first. This holds even when a workflow is set to run on its own. Reading and reasoning can proceed, but any action that changes a connected system still pauses for a human. Every step a workflow takes is recorded in order: what ran, what it produced, and whether a person approved it or it proceeded automatically. It is designed as an immutable record you can review. Your administrators decide which models, connections, and capabilities are available to your organization. You are never asked to take the software’s judgment on faith, because the software cannot act without you.",
     ],
@@ -118,6 +131,15 @@ export default function TrustPage() {
                 </p>
               ))}
             </div>
+            <Link
+              href={pillar.href}
+              className="mt-7 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {pillar.linkLabel}{" "}
+              <span aria-hidden className="text-primary">
+                →
+              </span>
+            </Link>
           </section>
         ))}
 

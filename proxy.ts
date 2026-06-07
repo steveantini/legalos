@@ -35,6 +35,9 @@ const PUBLIC_MARKETING_PATHS = [
   "/pricing",
   "/security",
   "/trust",
+  "/trust/security",
+  "/trust/control",
+  "/trust/privacy",
 ];
 
 /**

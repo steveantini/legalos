@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The Trust Center now goes deeper: the security posture, how control and accountability work, and how data is handled each have a full page behind the Trust hub, all written to match the architecture and honest about what is live versus on the roadmap. The control page distinguishes the workflow step history (designed as an immutable record) from the people-audit trail (append-only at the database layer), and the data handling page states plainly who can see your data and what retention controls do not exist yet.**
+
 - **The public site now feels like one smooth app: the landing still plays its full intro the first time you arrive, but returning to it from another page now settles in quickly instead of replaying the whole sequence (the brand glyph picks up mid-pulse rather than restarting its opening), and moving between pages crossfades gently instead of swapping hard. All motion respects reduced-motion.**
 
 - **Five marketing pages are now real: About, Mission, Connections (renamed from Integrations, with the old link redirecting), FAQ, and Contact. Together they describe what legalOS is, who it is for (in-house legal departments and law firms equally), how it connects to your tools (Google Workspace and your own AI model, where reading is direct and any action that changes something requires a person's approval), and where the product is headed, honest about what is live today. Contact stays a truthful placeholder until a real channel exists.**

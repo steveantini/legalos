@@ -3493,3 +3493,29 @@ Fixes the choreography-replays-on-every-return bug while preserving the crafted 
 - The public surface feels continuous; cold arrival is visually identical to before; brand scarcity (D-053) untouched (transitions use no glyph; the only glyph change suppresses a replay).
 - The surface stays zero-JS except the existing glyph plus the thin arrival wrapper.
 - The (marketing) layout is the future seam for shared chrome lifting.
+
+## D-129 — Trust Center sub-pages (security posture, control and accountability, privacy and data handling)
+
+Date: 2026-06-07
+Status: Accepted
+
+**Context:**
+
+The Trust Center hub (D-126) summarized the three pillars in one page. A legal buyer wants to verify, not take a summary on faith, and the architecture has genuine depth worth showing: docs/SECURITY_ARCHITECTURE.md holds ten code-backed claims, and the data-handling inventory was re-confirmed current at HEAD (zero security-relevant deltas since it was produced). A grounding read surfaced both sources plus the precise control/audit facts before any copy was written.
+
+**Decision:**
+
+Built three deeper Trust sub-pages on the shared marketing shell, with the /trust hub now linking to them from each pillar: /trust/security (isolation by default, credential handling, the trusted-only connection boundary as the centerpiece, three-layer enforcement, invite-only access, and an explicit "what is still ahead" section naming SOC 2, security headers, and org-level rate limiting as roadmap), /trust/control (read-open/act-approved with the deliberately cautious classification, no-unattended-writes even in autonomous mode with at-most-once execution, the run record with its frozen definition snapshot, and admin governance), and /trust/privacy (no selling, no training, the egress map naming Vercel/Supabase/Anthropic and Google-when-connected, the admin-access and Vercel-telemetry disclosures stated plainly, the retention/deletion gaps stated honestly, and data sovereignty framed as direction). The two audit registers are kept deliberately distinct: the workflow step history is "designed as an immutable record" (application design, not policy-enforced; never "tamper-proof"), while the people-audit trail is genuinely append-only at the database layer (written only by the SECURITY DEFINER triggers that enforce the rules; no user insert/update/delete path exists). One precision fix was applied during verification: the drafted "last administrator cannot be removed" was tightened to "last super administrator," matching the actual trigger protection. The Privacy page's reference to formal legal terms deliberately does not link to the still-stub Legal page. No Slack mention anywhere; all agent-capability phrasing is capability-level and independent of the MCP feature-flag state. The three sub-routes joined PUBLIC_MARKETING_PATHS.
+
+**Standing rule (the keep-current discipline):**
+
+The Trust pages (hub + sub-pages) are DERIVED FROM the source-of-truth docs: docs/SECURITY_ARCHITECTURE.md for security/control claims and the data-handling inventory for privacy/data claims. They are part of the done-definition for any future feature touching security, data handling, connections, the write-approval model, or the audit trail: when such a feature ships, the relevant Trust page is updated in the same effort. A periodic trust-page accuracy sweep re-verifies the pages against the source docs and the code. Drift on a trust page is worse than absence.
+
+**Reasoning:**
+
+Depth grounded in real architecture is a genuine trust asset for a product asking legal teams for privileged work, and honesty about gaps (retention, certifications, headers) earns more than silence would. The keep-current rule makes accuracy a structural property rather than a recurring favor.
+
+**Consequences:**
+
+- The Trust Center is a hub plus three sub-pages; the formal legal documents remain Tier 3; the compliance/retention builds the Privacy page describes remain roadmap item 5.
+- The pages iterate as the product evolves, under the standing rule above.
