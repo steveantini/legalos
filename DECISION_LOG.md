@@ -3519,3 +3519,25 @@ Depth grounded in real architecture is a genuine trust asset for a product askin
 
 - The Trust Center is a hub plus three sub-pages; the formal legal documents remain Tier 3; the compliance/retention builds the Privacy page describes remain roadmap item 5.
 - The pages iterate as the product evolves, under the standing rule above.
+
+## D-130 — Marketing pages left-anchored and tightened; /trust harmonized onto the shared shell
+
+Date: 2026-06-07
+Status: Accepted
+
+**Context:**
+
+The shared marketing shell centered its reading column (mx-auto), while the landing hero and the product's settings register are deliberately left-anchored; the centered column also left the shell's brand header (which sits on the landing gutter) and the h1 on different left edges at wide viewports. The pages also read spread out, with generous top/bottom padding and large inter-section gaps. The /trust hub still carried its own inline copy of the shell idiom (flagged for harmonization in D-127/D-129).
+
+**Decision:**
+
+Changed the shared shell from a centered column to a LEFT-ANCHORED one on the landing's gutter (padded main on px-6 / min-[720px]:px-10 with an inner max-w-[640px] line-length cap, the landing hero's own structure), fixing the brand/h1 edge mismatch. Tightened the vertical rhythm at the shell level (page padding pt-16/24→pt-10/14, pb-24→pb-16; sections mt-16/pt-12→mt-10/pt-8; lead mt-8→mt-6; paragraph gaps space-y-5→space-y-4; closing and back-link proportionally), with matching page-level tightening on the FAQ items and Contact body. Refactored /trust to consume the shell, with MarketingSection gaining optional kicker/tagline props to carry the hub's pillar structure; the hub's content is byte-identical, only the layout container changed. Coming-soon stubs keep their intentional centered placeholder treatment until rebuilt (Tier 2/3).
+
+**Reasoning:**
+
+Brand coherence: the public surface now shares one alignment language with the landing and the product's left-justified register, and the marketing pages stop being the only centered surface. The density pass removes the scrolling excess without cramming (the register's hairlines, type scale, and tokens are unchanged). Harmonizing /trust removes the last duplicated copy of the idiom so future shell changes propagate from one file.
+
+**Consequences:**
+
+- All nine reading pages (about, mission, connections, faq, contact, trust, and the three trust sub-pages) are left-anchored and tighter via the shell; layout changes now have a single home.
+- Layout/density only: no copy, headings, sections, links, or claims changed anywhere.

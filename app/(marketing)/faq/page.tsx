@@ -101,7 +101,7 @@ export default function FAQPage() {
     >
       <dl>
         {FAQ_ITEMS.map((item) => (
-          <div key={item.question} className="mt-12 border-t border-hairline pt-10">
+          <div key={item.question} className="mt-8 border-t border-hairline pt-6">
             <dt className="text-[19px] font-semibold leading-snug tracking-tight text-foreground">
               {item.question}
             </dt>

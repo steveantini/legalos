@@ -23,7 +23,7 @@ export default function ContactPage() {
       title="Contact"
       lead="A direct contact channel is on the way."
     >
-      <p className="mt-8 text-[15px] leading-[1.75] text-ink-2">
+      <p className="mt-6 text-[15px] leading-[1.75] text-ink-2">
         legalOS is early, and invite-only for now. A proper way to reach us,
         for demos, partnerships, and press, is coming soon and will live
         here. In the meantime, the request access option on the home page is

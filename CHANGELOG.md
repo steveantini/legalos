@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The marketing pages now align left to match the landing and the rest of the product instead of floating centered (the brand mark and the page title now share a left edge), and they read more compactly with less scrolling. The Trust hub was harmonized onto the shared page shell, so future layout changes propagate everywhere from one place. Layout and spacing only; no content changed.**
+
 - **Workflows is now one screen: your workflows lead, with a collapsible "Start from a template" section below, and when you have no workflows yet the ready-made templates greet you as the starting point. The separate Template Library entry is folded in (old links land in the right place), and templates keep their fork-first behavior: using one copies it into a workflow you own.**
 
 ### Added

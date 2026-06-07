@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import {
+  MarketingPageShell,
+  MarketingSection,
+} from "@/components/marketing/marketing-page";
+
 export const metadata: Metadata = {
   title: "Trust Center",
   description:
@@ -11,7 +16,9 @@ export const metadata: Metadata = {
  * Trust Center hub — the summary of the three pillars, each linking to
  * a deeper sub-page (D-129): /trust/security, /trust/privacy, and
  * /trust/control. Shipped as Tier 1a (D-126), replacing the coming-soon
- * Security stub (which redirects here).
+ * Security stub (which redirects here). Harmonized onto the shared
+ * marketing shell in D-130 (the inline copy of the idiom is gone; the
+ * shell owns layout and rhythm).
  *
  * Every security and privacy claim on this page and its sub-pages is
  * DERIVED FROM the source-of-truth docs (docs/SECURITY_ARCHITECTURE.md
@@ -19,10 +26,6 @@ export const metadata: Metadata = {
  * codebase before publication. When the architecture changes, these
  * pages must change with it in the same effort: never let the copy
  * here drift ahead of what the product actually does (D-129).
- *
- * Standalone editorial treatment in the marketing register: the landing
- * surface's tokens and type, a minimal brand header, a single reading
- * column. Server component — no client-side interactivity.
  */
 
 interface Pillar {
@@ -76,93 +79,38 @@ const CLOSING_PARAGRAPHS = [
 
 export default function TrustPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="px-6 pt-7 min-[720px]:px-10">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-[10px] text-[15px] font-semibold tracking-[-0.015em] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    <MarketingPageShell
+      label="Company · Trust"
+      title="Trust Center"
+      lead="For an in-house legal department or a law firm, trust is not a feature. It is the precondition for using the software at all. Your matters are privileged, and the information you hold about the business, its people, and the clients it serves is confidential. That work cannot be handed to a black box. legalOS is built so that trust is verifiable rather than asked for. Three pillars hold that promise. Your data is secure, your data is handled with care, and you stay in control of the work."
+    >
+      {PILLARS.map((pillar) => (
+        <MarketingSection
+          key={pillar.title}
+          kicker={pillar.kicker}
+          title={pillar.title}
+          tagline={pillar.tagline}
         >
-          <span
-            aria-hidden
-            className="inline-block h-[7px] w-[7px] rounded-full bg-primary"
-          />
-          legalOS
-        </Link>
-      </header>
-
-      <main className="mx-auto w-full max-w-[680px] px-6 pb-24 pt-16 min-[720px]:pt-24">
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
-          Company · Trust
-        </p>
-
-        <h1 className="mt-5 text-5xl font-semibold leading-tight tracking-tight text-foreground md:text-6xl">
-          Trust Center
-        </h1>
-
-        <p className="mt-8 text-[17px] leading-[1.65] text-ink-2">
-          For an in-house legal department or a law firm, trust is not a
-          feature. It is the precondition for using the software at all. Your
-          matters are privileged, and the information you hold about the
-          business, its people, and the clients it serves is confidential.
-          That work cannot be handed to a black box. legalOS is built so that
-          trust is verifiable rather than asked for. Three pillars hold that
-          promise. Your data is secure, your data is handled with care, and
-          you stay in control of the work.
-        </p>
-
-        {PILLARS.map((pillar) => (
-          <section
-            key={pillar.title}
-            className="mt-16 border-t border-hairline pt-12"
+          {pillar.paragraphs.map((paragraph, i) => (
+            <p key={i}>{paragraph}</p>
+          ))}
+          <Link
+            href={pillar.href}
+            className="!mt-5 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-caption">
-              {pillar.kicker}
-            </p>
-            <h2 className="mt-4 text-[28px] font-semibold leading-tight tracking-tight text-foreground min-[720px]:text-[32px]">
-              {pillar.title}
-            </h2>
-            <p className="mt-2 text-[16px] text-muted-foreground">
-              {pillar.tagline}
-            </p>
-            <div className="mt-6 space-y-5">
-              {pillar.paragraphs.map((paragraph, i) => (
-                <p key={i} className="text-[15px] leading-[1.75] text-ink-2">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-            <Link
-              href={pillar.href}
-              className="mt-7 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              {pillar.linkLabel}{" "}
-              <span aria-hidden className="text-primary">
-                →
-              </span>
-            </Link>
-          </section>
+            {pillar.linkLabel}{" "}
+            <span aria-hidden className="text-primary">
+              →
+            </span>
+          </Link>
+        </MarketingSection>
+      ))}
+
+      <MarketingSection title="Three pillars, one promise.">
+        {CLOSING_PARAGRAPHS.map((paragraph, i) => (
+          <p key={i}>{paragraph}</p>
         ))}
-
-        <section className="mt-16 border-t border-hairline pt-12">
-          <h2 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground min-[720px]:text-[32px]">
-            Three pillars, one promise.
-          </h2>
-          <div className="mt-6 space-y-5">
-            {CLOSING_PARAGRAPHS.map((paragraph, i) => (
-              <p key={i} className="text-[15px] leading-[1.75] text-ink-2">
-                {paragraph}
-              </p>
-            ))}
-          </div>
-        </section>
-
-        <Link
-          href="/"
-          className="mt-16 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          ← Back to legalOS
-        </Link>
-      </main>
-    </div>
+      </MarketingSection>
+    </MarketingPageShell>
   );
 }
