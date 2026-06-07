@@ -1,16 +1,11 @@
-import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 
-import { MarketingComingSoon } from "@/components/marketing/marketing-coming-soon";
-
-export const metadata: Metadata = {
-  title: "Integrations",
-};
-
+/**
+ * The Integrations stub became the Connections page at /connections
+ * (marketing Tier 1b, D-127), matching the in-product vocabulary. A
+ * permanent (308) redirect keeps any old /integrations link landing on
+ * the live page, mirroring the /security → /trust pattern from Tier 1a.
+ */
 export default function IntegrationsPage() {
-  return (
-    <MarketingComingSoon
-      label="Integrations"
-      description="The systems legalOS will connect to, coming as the integrations surface is built out. Until then, agents work inside legalOS rather than across your wider stack."
-    />
-  );
+  permanentRedirect("/connections");
 }

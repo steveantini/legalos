@@ -15,7 +15,7 @@ import Link from "next/link";
 
 const PRODUCT_LINKS = [
   { label: "Workspace", href: "/workspace" },
-  { label: "Integrations", href: "/integrations" },
+  { label: "Connections", href: "/connections" },
   { label: "Pricing", href: "/pricing" },
 ] as const;
 

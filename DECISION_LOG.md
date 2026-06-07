@@ -3447,3 +3447,26 @@ Trust content for a legal product must rest on verified fact, not aspiration. Th
 - About/Mission/Connections/FAQ/Contact follow in Tier 1b; Pricing/Blog/Documentation in Tier 2; the formal legal documents (Terms, Privacy, DPA) in Tier 3.
 - This page must never drift ahead of the architecture: changes to data handling, the approval model, or the subprocessor set require a same-commit update here.
 - Discovered and fixed in the same commit: the proxy's public-path allowlist never included the marketing pages (the `(marketing)` route-group segment is invisible in URLs), so all 10 were accidentally login-gated and footer clicks bounced anonymous visitors to /login. proxy.ts now exact-match allowlists the marketing paths (PUBLIC_MARKETING_PATHS), keeping /security listed so its 308 is reachable ahead of the auth gate.
+
+## D-127 — Marketing Tier 1b pages (About, Mission, Connections, FAQ, Contact)
+
+Date: 2026-06-07
+Status: Accepted
+
+**Context:**
+
+Tier 1a shipped the Trust Center and established the marketing editorial idiom plus the public-path allowlist. Five more stubs were ready for real content; the marketing surface still under-claimed a product whose thesis (agency, control, security, model-agnostic, the sovereign self-hosted future) was nowhere stated publicly.
+
+**Decision:**
+
+Shipped five real marketing pages in the app's editorial register, on a shared shell (`components/marketing/marketing-page.tsx`) extracted from the Trust Center idiom: About (what legalOS is, who it serves, what we believe), Mission (useful now; model-agnostic, control-first, private-by-design; the sovereign self-hosted future), Connections, FAQ (seven plain question-and-answer pairs, zero-JS), and Contact (an honest coming-soon-lite with no email address and no form until a real channel exists). Integrations was renamed to Connections to match the in-product vocabulary, with the route moved to /connections and /integrations 308-redirecting (the /security → /trust pattern); the footer Product column and the proxy allowlist follow. In-house legal departments and law firms are treated as equals throughout. The Connections capability claims (Google Drive/Gmail/Calendar via the trusted first-party MCP registry, reads execute directly while writes pause for human approval, encrypted credential custody, BYO model under the customer's own agreement) were re-verified against the connection/MCP code before publication.
+
+**Reasoning:**
+
+Truth-raising the under-claiming marketing surface on verified ground: every capability sentence is code-backed, the future-facing sections are explicitly framed as direction rather than shipped product, no em dashes, honest-state throughout (Contact promises nothing it cannot do). One shared shell keeps the five pages and future tiers in a single idiom a maintainer edits in one place.
+
+**Consequences:**
+
+- Tier 2 (Pricing, Blog, Documentation honest shells) and Tier 3 (Legal documents) remain; the landing transition polish is the next UX commit on this surface.
+- The Trust Center still carries its own inline copy of the idiom; harmonize onto the shared shell whenever it is next touched.
+- The Connections page, like the Trust Center, must never drift ahead of the architecture: connection capability changes update /connections in the same commit.
