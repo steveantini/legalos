@@ -353,13 +353,72 @@
   animation: landing-line-unmask 1ms linear 3060ms both;
 }
 
+/* ---------------------------------------------------------------------------
+   Marketing-surface transition layer (D-128)
+   ---------------------------------------------------------------------------
+   Two pieces, both on the existing --ease-soft vocabulary:
+
+   1. `marketing-page-enter` — applied by app/(marketing)/template.tsx,
+      which remounts on every in-segment navigation, so each incoming
+      page fades in (~200ms, +2px rise). The outgoing page is held
+      until the new one is ready, so over the shared paper background
+      the swap reads as a gentle crossfade.
+
+   2. Arrival-aware landing states — the landing stage carries
+      data-arrival="cold" on a hard document load (full choreography,
+      untouched) or data-arrival="return" on an in-app navigation back
+      (choreography collapsed to its settled end-state behind one
+      ~360ms fade). Whenever the landing is the destination, the
+      page-enter fade stands down (`:has` below): on cold so the
+      entrance choreography is the only motion (identical to the
+      pre-transition-layer behavior), on return so the settle fade is
+      the single fade rather than two stacked ones.
+
+   The override rules are intentionally unlayered author CSS, so they
+   win over the @utility-layer animations without !important; the
+   reduced-motion guard below still trumps everything. */
+
+@keyframes marketing-page-enter {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@utility marketing-page-enter {
+  animation: marketing-page-enter 200ms var(--ease-soft) both;
+}
+
+/* The landing owns its arrival motion; the page-enter fade stands down. */
+.marketing-page-enter:has([data-arrival]) {
+  animation: none;
+}
+
+/* Return visit: every choreographed element sits at its settled
+   end-state from the first frame… */
+[data-arrival="return"] .landing-el-in,
+[data-arrival="return"] .landing-el-up,
+[data-arrival="return"] .landing-dot-in,
+[data-arrival="return"] .landing-line-up,
+[data-arrival="return"] .landing-line-mask {
+  animation: none;
+  opacity: 1;
+  transform: none;
+  clip-path: none;
+}
+
+/* …behind a single quick settle fade on the stage. */
+[data-arrival="return"].landing-stage-in {
+  animation: landing-stage-in var(--duration-hover) var(--ease-soft) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-stage-in,
+  [data-arrival="return"].landing-stage-in,
   .landing-el-in,
   .landing-el-up,
   .landing-dot-in,
   .landing-line-up,
-  .landing-line-mask {
+  .landing-line-mask,
+  .marketing-page-enter {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;

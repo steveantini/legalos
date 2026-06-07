@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { isReturnVisit } from "@/lib/landing/arrival";
+
 /**
  * Decorative landing-page glyph (Session 22 Step B).
  *
@@ -46,13 +48,35 @@ import { useEffect, useRef, useState } from "react";
  * `landing-ring-pulse-opening` (animation: none, opacity: 0). Users
  * with motion sensitivity see only the static reference rings +
  * center dot regardless of phase.
+ *
+ * Return visits (D-128): an in-app navigation back to the landing
+ * skips the opening phase entirely — the opening rings never render,
+ * the first settled pulse fires immediately, and the 5s interval runs
+ * from mount. SSR and a cold hydration both read `isReturnVisit()` as
+ * false, so the cold path (and its server HTML) is unchanged.
  */
 export function LandingGlyph() {
+  // Read once per mount: a soft-nav return mounts with the flag already
+  // set; a cold load (and its SSR pass) reads false.
+  const startSettled = isReturnVisit();
+
   const [pulseKey, setPulseKey] = useState(0);
-  const [hasFiredFirstPulse, setHasFiredFirstPulse] = useState(false);
+  const [hasFiredFirstPulse, setHasFiredFirstPulse] = useState(startSettled);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (startSettled) {
+      // Settled from the first frame: the initial pulse is already
+      // rendering (hasFiredFirstPulse initialized true); just keep the
+      // 5s cadence going.
+      intervalRef.current = setInterval(() => {
+        setPulseKey((k) => k + 1);
+      }, 5000);
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
+    }
+
     const startTimeout = setTimeout(() => {
       intervalRef.current = setInterval(() => {
         setHasFiredFirstPulse(true);
@@ -64,7 +88,7 @@ export function LandingGlyph() {
       clearTimeout(startTimeout);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []);
+  }, [startSettled]);
 
   return (
     <div
@@ -125,48 +149,52 @@ export function LandingGlyph() {
           strokeWidth="1"
         />
 
-        <circle
-          cx="110"
-          cy="110"
-          r="92"
-          fill="none"
-          stroke="var(--primary)"
-          strokeWidth="1"
-          className="landing-ring-pulse-opening"
-          style={{
-            transformBox: "fill-box",
-            transformOrigin: "center",
-            animationDelay: "0s",
-          }}
-        />
-        <circle
-          cx="110"
-          cy="110"
-          r="92"
-          fill="none"
-          stroke="var(--primary)"
-          strokeWidth="1"
-          className="landing-ring-pulse-opening"
-          style={{
-            transformBox: "fill-box",
-            transformOrigin: "center",
-            animationDelay: "1.4s",
-          }}
-        />
-        <circle
-          cx="110"
-          cy="110"
-          r="92"
-          fill="none"
-          stroke="var(--primary)"
-          strokeWidth="1"
-          className="landing-ring-pulse-opening"
-          style={{
-            transformBox: "fill-box",
-            transformOrigin: "center",
-            animationDelay: "2.8s",
-          }}
-        />
+        {!startSettled && (
+          <>
+            <circle
+              cx="110"
+              cy="110"
+              r="92"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="1"
+              className="landing-ring-pulse-opening"
+              style={{
+                transformBox: "fill-box",
+                transformOrigin: "center",
+                animationDelay: "0s",
+              }}
+            />
+            <circle
+              cx="110"
+              cy="110"
+              r="92"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="1"
+              className="landing-ring-pulse-opening"
+              style={{
+                transformBox: "fill-box",
+                transformOrigin: "center",
+                animationDelay: "1.4s",
+              }}
+            />
+            <circle
+              cx="110"
+              cy="110"
+              r="92"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="1"
+              className="landing-ring-pulse-opening"
+              style={{
+                transformBox: "fill-box",
+                transformOrigin: "center",
+                animationDelay: "2.8s",
+              }}
+            />
+          </>
+        )}
 
         {hasFiredFirstPulse && (
           <circle

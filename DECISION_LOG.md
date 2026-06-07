@@ -3470,3 +3470,26 @@ Truth-raising the under-claiming marketing surface on verified ground: every cap
 - Tier 2 (Pricing, Blog, Documentation honest shells) and Tier 3 (Legal documents) remain; the landing transition polish is the next UX commit on this surface.
 - The Trust Center still carries its own inline copy of the idiom; harmonize onto the shared shell whenever it is next touched.
 - The Connections page, like the Trust Center, must never drift ahead of the architecture: connection capability changes update /connections in the same commit.
+
+## D-128 — Marketing-surface page transitions (cold-vs-return + crossfade)
+
+Date: 2026-06-07
+Status: Accepted
+
+**Context:**
+
+The landing's ~3.7s entrance choreography is pure CSS keyed to element mount, so it replayed in full on every in-app return to `/` (and the glyph restarted its ~19.6s opening phase). The landing also lived at app/page.tsx, outside the (marketing) route group, so no shared segment covered the public surface and there was nowhere for a transition layer to live. A design investigation weighed CSS-first vs framer-motion vs the View Transitions API.
+
+**Decision:**
+
+Unified the public surface under the (marketing) segment: the landing moved to app/(marketing)/page.tsx (route groups don't affect URLs; force-dynamic, metadata, and the proxy allowlist all unchanged), with a minimal pass-through layout.tsx and a server-component template.tsx that replays a ~200ms fade-and-rise (`marketing-page-enter`, --ease-soft) on every in-segment navigation; the outgoing page is held until the incoming one is ready (Next default, the operator's old-page-held preference; deliberately no marketing loading.tsx). Cold-vs-return on the landing rides a module-scope flag (lib/landing/arrival.ts, unit-tested) read by a thin client wrapper (LandingArrival) that stamps data-arrival on the stage: SSR and a cold hydration both read "cold" by construction (the flag is only set from client effects), so cold load is unchanged and hydration-mismatch-free, while a soft-nav return renders "return" from its first client frame. CSS keyed on the return state collapses every choreographed element to its settled end-state behind a single ~360ms (--duration-hover) settle fade, and the glyph reads the same flag to skip its opening phase and start in settled 5s-pulse mode (a clean branch: opening rings never render, first pulse fires immediately). The page-enter fade stands down whenever the landing is the destination (`:has([data-arrival])`), both on cold (the choreography is the only motion, identical to before) and on return (one settle fade, not two stacked). All new utilities joined the existing prefers-reduced-motion collapse-to-end-state guard.
+
+**Reasoning:**
+
+Fixes the choreography-replays-on-every-return bug while preserving the crafted cold first impression exactly. The alternatives were rejected on merit: framer-motion needs the FrozenRouter hack plus ~tens of kb of client JS on a zero-JS surface for what is ultimately a fade; Next's experimental.viewTransition flips the entire product onto an experimental React channel, an unacceptable blast radius for a marketing transition. Module scope is precisely the needed lifetime for arrival detection (persists across soft navs, resets on hard load) with hydration safety by construction, where sessionStorage would flash. The template.tsx seam leaves a clean, localized upgrade path to userland View Transitions if a true simultaneous crossfade is ever wanted.
+
+**Consequences:**
+
+- The public surface feels continuous; cold arrival is visually identical to before; brand scarcity (D-053) untouched (transitions use no glyph; the only glyph change suppresses a replay).
+- The surface stays zero-JS except the existing glyph plus the thin arrival wrapper.
+- The (marketing) layout is the future seam for shared chrome lifting.
