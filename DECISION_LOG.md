@@ -3563,3 +3563,32 @@ A narrow reading column with no right-hand counterweight should be centered, not
 
 - All nine reading pages (about, mission, connections, faq, contact, trust, and the three trust sub-pages) are centered again at a 736px measure, retaining D-130's tighter rhythm and the /trust shell.
 - Layout only: no copy, headings, sections, links, or claims changed anywhere.
+
+## D-132 — Demo Org foundation (is_demo flag + seeded mirror org)
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+Demo access wants a handful of prospects to log in and actually USE the product without any risk to the operator's real org. The scoping investigation (D-049 / `docs/DEMO_ACCESS_SCOPING.md`, refined) settled the model: a SHARED, SEEDED Demo Org (not per-session, not read-only-on-real-data), with demo users as super_admin of a disposable, fully RLS-isolated org. A separate org gives total isolation for free (every org-scoped table gates on `current_org_id()`), and super_admin of a throwaway org delivers the complete experience — including the admin surfaces — with zero read-only-enforcement build. This entry is Step 1: the safety foundation.
+
+**Decision:**
+
+Added `organizations.is_demo boolean not null default false` (migration 0064) and an idempotent, operator-run seed (`supabase/seed/demo-org.sql`) that stands up a single Demo Org ("Demo Workspace", slug `demo`, `is_demo = true`) and SQL-copies the real org's STRUCTURE into it: the active departments (by slug) and the non-deleted agents (department remapped by slug; `is_template` and `source_origin`/C4L provenance preserved; `created_by` and `forked_from_agent_id` nulled so no demo row points at the real org's users/agents). The migration flips NO existing row — every current org, the real "Your Company, Inc." included, stays `false`; ONLY the Demo Org is ever `true`. The seed is structurally one-directional: it RESOLVES the real org as the oldest `is_demo = false` org and only READS it, and only ever WRITES (INSERT / ON CONFLICT UPDATE) to the Demo Org id, with paranoid assertions (real org found and non-demo; demo id resolved and not equal to the real id) that abort the transaction otherwise. Re-running re-syncs the Demo Org's structure from the real org with no duplicates and no change to the real org. Workflow templates were deliberately deferred from this seed: their `definition` jsonb embeds resolved agent ids, so copying them means a fiddly agentId remap that cannot be verified against live data from here; the clean follow-up is an `--org-id` flag on the already-slug-resolving `scripts/seed-workflow-templates.ts`, not untested jsonb SQL in a safety-critical foundation. No users are created (Step 2).
+
+**Reasoning:**
+
+A separate org is the simplest path to full isolation and the full super_admin experience with no enforcement code. SQL-copy mirrors the real structure without patching the C4L/template import scripts (which hardcode the oldest org). `is_demo` is the cornerstone of Step 2's reset safety: the reset script will refuse to operate on any org where `is_demo` is not true, so a "reset the demo" action can never touch real data — which is exactly why the flag's defaults and one-directional seed had to be exactly right here.
+
+**Alternatives considered:**
+
+- Per-session isolated demo orgs with TTL cleanup (the original D-049 design): richer (pristine per prospect, auto-cleaned) but a full feature build; kept as the documented additive future.
+- Reusing the existing invitation UI to invite into the Demo Org: rejected for now because the invite action invites into the actor's OWN org only, and email delivery is parked on a verified domain (D-081); Step 2's synthetic-email + server-side magic-link link sidesteps both.
+- Including templates via jsonb-remap SQL now: rejected as fiddly and unverifiable against live data in a safety-critical seed; deferred to a tested script flag.
+
+**Consequences:**
+
+- Step 2 adds the `/demo/<token>` access link (synthetic user + server-side magic-link, no email) and the paranoidly real-org-safe reset script (wipe + re-seed, guarded on `is_demo = true`).
+- The full per-session-isolated model (D-049) remains a documented future.
+- Operator runs: apply migration 0064, then run `supabase/seed/demo-org.sql` in the SQL Editor (idempotent; re-run any time to re-mirror).

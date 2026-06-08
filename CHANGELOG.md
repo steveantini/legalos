@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Internal: added a demo-organization flag and a seed that stands up an isolated Demo Workspace mirroring the real org's departments and agents, the foundation for letting prospects explore the product safely. (Step 1 of demo access: the `organizations.is_demo` flag and an idempotent, operator-run seed; the access link and reset tooling come next.)**
+
 ### Changed
 
 - **The marketing pages are centered again on a slightly wider reading column, after the brief left-anchored version left too much empty space on the right for a single narrow column. The tighter vertical spacing from the previous change stays, and the Trust hub continues to use the shared page shell. Layout only; no content changed.**
