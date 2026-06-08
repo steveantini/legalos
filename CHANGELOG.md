@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Demo access is live: a shareable demo link signs a prospect into an isolated Demo Workspace as an administrator so they can explore the whole product safely, no email required, and a reset tool restores the demo to a clean state when needed, with strict safeguards so it can only ever affect the demo. (Step 2 of demo access: the `/demo/<token>` access link with single-use hashed tokens, a `mint-demo-token` script, and a paranoid `reset-demo-org` script with soft and hard modes.)**
+
 - **Internal: added a demo-organization flag and a seed that stands up an isolated Demo Workspace mirroring the real org's departments and agents, the foundation for letting prospects explore the product safely. (Step 1 of demo access: the `organizations.is_demo` flag and an idempotent, operator-run seed; the access link and reset tooling come next.)**
 
 ### Changed

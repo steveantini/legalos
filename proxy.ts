@@ -7,9 +7,12 @@ import { safeNextPath } from "@/lib/url/safe-next";
  * Paths accessible without an auth session. Everything else is gated.
  * `/auth` covers the magic-link callback at /auth/callback. `/` is the
  * marketing landing (Session 22 Step B) and is public so anonymous
- * visitors see the landing instead of being bounced to /login.
+ * visitors see the landing instead of being bounced to /login. `/demo`
+ * covers the demo access link (/demo/<token>) and its /demo/unavailable
+ * page: an unauthenticated prospect must reach the consume route, which
+ * establishes their session server-side and then redirects into /workspace.
  */
-const PUBLIC_PATHS = ["/login", "/auth"];
+const PUBLIC_PATHS = ["/login", "/auth", "/demo"];
 
 /**
  * Marketing pages, matched exactly. They live in the `app/(marketing)/`

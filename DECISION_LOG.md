@@ -3592,3 +3592,38 @@ A separate org is the simplest path to full isolation and the full super_admin e
 - Step 2 adds the `/demo/<token>` access link (synthetic user + server-side magic-link, no email) and the paranoidly real-org-safe reset script (wipe + re-seed, guarded on `is_demo = true`).
 - The full per-session-isolated model (D-049) remains a documented future.
 - Operator runs: apply migration 0064, then run `supabase/seed/demo-org.sql` in the SQL Editor (idempotent; re-run any time to re-mirror).
+
+## D-133 — Demo access link + reset tooling
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+Step 1 (D-132) stood up a seeded, RLS-isolated Demo Org. Step 2 needs the access path and the reset tooling. Two carried-in constraints shaped it: invites cannot be EMAILED (the verified-domain blocker, D-081), and the demo must be safely resettable by a service-role script that bypasses RLS.
+
+**Decision:**
+
+Built the D-049 ACCESS SLICE pointed at the one shared Demo Org. A new `demo_invitations` table (migration 0065) holds single-use tokens, storing only a SHA-256 HASH of the token (the raw token is shown once at mint and never persisted); RLS mirrors invitations. `npm run mint-demo-token` resolves the Demo Org as the single `is_demo = true` org (aborting on zero or more than one), generates 32 bytes of entropy, stores the hash, and prints the `/demo/<token>` URL once. The `/demo/[token]` route (public via the proxy's `/demo` allowlist) consumes a token with the service-role key: it rate-limits (defense in depth behind the 256-bit token), ATOMICALLY claims the token (one `update … where status='pending' … returning`, so a race/replay creates no second user), creates a synthetic `demo-<uuid>@legalos-internal.invalid` user (unroutable `.invalid` TLD, no email ever sent), provisions it as super_admin of the Demo Org with dept_admin on every demo department, and mints the session by generating a magic link and verifying its token hash server-side (the SSR client writes the session cookies into the route-handler response, mirroring /auth/callback). Any failure redirects to a generic `/demo/unavailable` page; the raw token is never logged.
+
+The reset is `npm run reset-demo-org -- --org-id=<id> [--hard] [--yes]`, the most dangerous code in the effort (service-role bypasses RLS). Its layered guard (pure + unit-tested in `lib/demo/reset-plan.ts`) requires an explicit `--org-id` (no default), the org must exist and be `is_demo = true`, the id must not equal the real org id (oldest `is_demo = false`), it is re-asserted by re-reading `is_demo` immediately before the destructive block, a slug-typed confirmation is required unless `--yes`, and every delete/update is bound to the validated demo org id (the deletion plan is returned as data and tested to be wholly org-scoped). Soft reset (default) clears accumulated rows (conversations→messages, workflows, usage, attachments, audits, user-created agents) and restores the seeded structure (the guarded `seed_demo_org_structure()` SQL function, 0065, reusing the Step-1 copy logic), the org-scoped settings (`default_model`→null, `content_provider_settings`→default, default departments→baseline), and every demo user's super_admin + all-departments baseline, while KEEPING demo users so their links keep working. Hard reset (`--hard`) deletes the demo users (auth + cascade) then the demo org row (cascading its data + tokens), re-creates the org, and re-seeds. Both only READ the real org (inside the SQL function) and only WRITE the demo org.
+
+**Reasoning:**
+
+Demo users get the full super_admin experience safely because the org is isolated (Step-1 RLS) and disposable. The synthetic-email + server-side magic-link trick is what makes "no email" possible, sidestepping the parked invite-email domain entirely. The reset is guarded to be structurally incapable of touching a real org: the guard is a pure, tested function; the destructive plan is org-scoped data; and the shared restore lives in one SECURITY DEFINER function that refuses a non-demo target.
+
+**Known limitation (flagged, not fixed here):**
+
+`connection_policy` is a GLOBAL singleton (one row, no `organization_id`), so a demo super_admin can change it and affect the real org, and the reset deliberately does NOT touch it (writing it would violate one-directional safety). A follow-up should make `connection_policy` org-scoped before exposing the demo to untrusted prospects. This contradiction between the request (reset `connection_policy` to baseline) and the safety rule (only ever write the demo org) was resolved in favor of safety.
+
+**Alternatives considered:**
+
+- An in-app demo-token admin UI: deferred (future platform-tier); a service-role mint script is sufficient now.
+- A DB-backed, IP-persisting rate limiter: rejected to avoid storing IPs (PII); an in-memory per-instance limiter is adequate behind the 256-bit single-use token.
+- Re-implementing the structure copy in TypeScript for the reset: rejected in favor of one reusable, guarded SQL function (`seed_demo_org_structure`), keeping the copy logic in a single place.
+
+**Consequences:**
+
+- Prospects can be handed a `/demo/<token>` link to explore the full product as super_admin of an isolated, disposable org; a messy demo resets in one command.
+- Deferred/future: a demo-token admin UI; a TTL cleanup cron / auto-delete of stale demo users; seeding workflow templates into the demo org (the `--org-id` follow-up on `seed-workflow-templates.ts`); org-scoping `connection_policy`; and the full per-session-isolated model (D-049).
+- Operator runs: apply migration 0065; `npm run mint-demo-token` to mint a link; `npm run reset-demo-org -- --org-id=<demo_org_id> [--hard]` to reset.

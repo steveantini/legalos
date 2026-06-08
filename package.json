@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "import-c4l": "tsx scripts/import-c4l-plugin.ts",
-    "seed-workflow-templates": "tsx scripts/seed-workflow-templates.ts"
+    "seed-workflow-templates": "tsx scripts/seed-workflow-templates.ts",
+    "mint-demo-token": "tsx scripts/mint-demo-token.ts",
+    "reset-demo-org": "tsx scripts/reset-demo-org.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
