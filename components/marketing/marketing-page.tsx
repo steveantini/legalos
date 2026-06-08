@@ -4,16 +4,18 @@ import Link from "next/link";
  * Shared editorial shell for real (non-stub) marketing pages, extracted
  * from the Trust Center idiom (Tier 1a, D-126): a minimal brand header
  * linking home, a mono-caps "Section · Page" label, an h1, an optional
- * one-paragraph lead, the caller's content in a single reading column,
- * and a quiet back link.
+ * one-paragraph lead, the caller's content in a single ~736px reading
+ * column, and a quiet back link.
  *
- * The reading column is LEFT-ANCHORED on the landing's gutter (px-6,
- * px-10 from 720px), exactly like the landing hero, with a max-width
- * capping line length on the right (D-130). The brand header sits on
- * the same gutter, so the brand mark and the h1 share a left edge.
- * Every page consuming the shell (including the Trust hub, harmonized
- * in D-130) inherits the alignment and rhythm from here; layout changes
- * belong in this file, not on pages.
+ * The reading column is CENTERED in the viewport (mx-auto), the right
+ * convention for a single narrow prose measure: left-anchoring it left
+ * too much whitespace on the right (D-131). The brand header sits on the
+ * landing's gutter (px-6, px-10 from 720px), so the brand mark stays
+ * pinned to the edge while the column floats centered, exactly as it
+ * read before the brief left-anchor experiment. Every page consuming
+ * the shell (including the Trust hub, harmonized in D-130) inherits the
+ * alignment and rhythm from here; layout changes belong in this file,
+ * not on pages.
  *
  * Server components only — no client-side interactivity.
  */
@@ -54,7 +56,7 @@ export function MarketingPageShell({
       </header>
 
       <main className="px-6 pb-16 pt-10 min-[720px]:px-10 min-[720px]:pt-14">
-        <div className="w-full max-w-[640px]">
+        <div className="mx-auto w-full max-w-[736px]">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
             {label}
           </p>

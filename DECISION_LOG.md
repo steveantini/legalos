@@ -3541,3 +3541,25 @@ Brand coherence: the public surface now shares one alignment language with the l
 
 - All nine reading pages (about, mission, connections, faq, contact, trust, and the three trust sub-pages) are left-anchored and tighter via the shell; layout changes now have a single home.
 - Layout/density only: no copy, headings, sections, links, or claims changed anywhere.
+
+## D-131 — Marketing reading column reverted to centered, slightly wider; D-130 tightening and /trust shell kept
+
+Date: 2026-06-08
+Status: Accepted (revises the alignment half of D-130)
+
+**Context:**
+
+The D-130 left-anchor pinned the marketing reading column to the landing's gutter. For the landing hero, which spans the full viewport and balances its left-anchored text against the right-hand glyph, that is correct. For a single narrow prose measure with nothing on the right, it left a large empty band on the right edge and read as unbalanced. Centering is the established convention for a lone reading column (and the Kindred house style).
+
+**Decision:**
+
+Reverted the shared shell's reading column from left-anchored back to CENTERED (restored `mx-auto` on the inner column wrapper) and nudged its max-width from 640px to 736px so the centered measure carries a touch more presence without hurting readability. Kept everything else from D-130: the tightened vertical rhythm (page/section/lead/gap padding all unchanged from D-130), and the /trust harmonization onto the shared shell. The brand header is unchanged: it stays pinned to the landing gutter (px-6 / min-[720px]:px-10) while the column floats centered, the same relationship that read fine before the brief left-anchor experiment.
+
+**Reasoning:**
+
+A narrow reading column with no right-hand counterweight should be centered, not gutter-pinned; the left-anchor borrowed the hero's structure without the hero's right-side balance. The slightly wider measure gives the centered column more presence. The density win from D-130 was real and is preserved; only the alignment is reversed.
+
+**Consequences:**
+
+- All nine reading pages (about, mission, connections, faq, contact, trust, and the three trust sub-pages) are centered again at a 736px measure, retaining D-130's tighter rhythm and the /trust shell.
+- Layout only: no copy, headings, sections, links, or claims changed anywhere.
