@@ -3641,7 +3641,7 @@ The marketing footer pages fill in tiers (D-126 through D-130). Tiers 1a/1b ship
 
 Replaced the Blog and Documentation coming-soon stubs with real honest-shell pages on the shared `components/marketing/marketing-page.tsx`, so both inherit the centered ~736px column, tight spacing, and the "Section · Page" mono-caps label idiom. Both follow the short-page pattern established by Contact (lead prop + one body paragraph + `MarketingClosing`). Blog is candid that there are no posts yet and links to About and Mission in the meantime; Documentation describes the guides that are coming (getting started, agents and workflows, connecting tools, administration) and offers direct help to early users, pointing at the home-page request-access option. Pricing was LEFT as the minimal `MarketingComingSoon` stub (no numbers, no model explanation) pending the business-model arc; its existing copy is already minimal, so it was not changed. The footer already linked Blog and Documentation to these routes, so no footer change was needed and no stale labels remain. No em dashes; equal in-house/firm register.
 
-**One copy fix:** the supplied Blog closing line ended "...what we are building any." (a truncation typo); it was set to the smallest faithful reading, "...what we are building anyway."
+**One copy fix:** the supplied Blog closing line ended "...what we are building any." (a truncation typo); it was finalized as "...what we are building, and why." (About covers the what, Mission the why).
 
 **Reasoning:**
 

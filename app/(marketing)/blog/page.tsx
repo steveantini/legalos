@@ -34,7 +34,7 @@ export default function BlogPage() {
         Until then, the{" "}
         <MarketingProseLink href="/about">About</MarketingProseLink> and{" "}
         <MarketingProseLink href="/mission">Mission</MarketingProseLink> pages
-        say the most about what we are building anyway.
+        say the most about what we are building, and why.
       </MarketingClosing>
     </MarketingPageShell>
   );
