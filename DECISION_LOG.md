@@ -3627,3 +3627,28 @@ Demo users get the full super_admin experience safely because the org is isolate
 - Prospects can be handed a `/demo/<token>` link to explore the full product as super_admin of an isolated, disposable org; a messy demo resets in one command.
 - Deferred/future: a demo-token admin UI; a TTL cleanup cron / auto-delete of stale demo users; seeding workflow templates into the demo org (the `--org-id` follow-up on `seed-workflow-templates.ts`); org-scoping `connection_policy`; and the full per-session-isolated model (D-049).
 - Operator runs: apply migration 0065; `npm run mint-demo-token` to mint a link; `npm run reset-demo-org -- --org-id=<demo_org_id> [--hard]` to reset.
+
+## D-134 — Marketing Tier 2 (Blog + Documentation honest shells; Pricing kept coming-soon)
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+The marketing footer pages fill in tiers (D-126 through D-130). Tiers 1a/1b shipped Trust, About, Mission, Connections, FAQ, and Contact on the shared editorial shell. Tier 2 is Blog and Documentation. Pricing is the operator's call to keep minimal until the business-model arc decides a real model.
+
+**Decision:**
+
+Replaced the Blog and Documentation coming-soon stubs with real honest-shell pages on the shared `components/marketing/marketing-page.tsx`, so both inherit the centered ~736px column, tight spacing, and the "Section · Page" mono-caps label idiom. Both follow the short-page pattern established by Contact (lead prop + one body paragraph + `MarketingClosing`). Blog is candid that there are no posts yet and links to About and Mission in the meantime; Documentation describes the guides that are coming (getting started, agents and workflows, connecting tools, administration) and offers direct help to early users, pointing at the home-page request-access option. Pricing was LEFT as the minimal `MarketingComingSoon` stub (no numbers, no model explanation) pending the business-model arc; its existing copy is already minimal, so it was not changed. The footer already linked Blog and Documentation to these routes, so no footer change was needed and no stale labels remain. No em dashes; equal in-house/firm register.
+
+**One copy fix:** the supplied Blog closing line ended "...what we are building any." (a truncation typo); it was set to the smallest faithful reading, "...what we are building anyway."
+
+**Reasoning:**
+
+Honest shells beat placeholders: they say plainly what is not there yet and route the reader somewhere useful, which reads as deliberate rather than unfinished. Building on the shared shell keeps the marketing surface coherent and means future layout changes propagate from one file.
+
+**Consequences:**
+
+- /blog and /documentation are real public pages in the marketing register; /pricing stays a coming-soon stub.
+- Tier 3 (the formal Legal documents: Terms / Privacy / DPA) remains; a real Pricing page is gated on the business-model arc.
+- Layout/content only: no schema, no real posts or documentation content, no landing/workspace changes.
