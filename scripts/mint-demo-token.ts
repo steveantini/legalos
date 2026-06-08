@@ -29,6 +29,7 @@ import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 
 import { generateDemoToken } from "@/lib/demo/token";
+import { resolveSiteUrl } from "@/lib/url/site-url";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
@@ -54,13 +55,6 @@ function parseArgs(): { by: string | undefined } {
     if (arg.startsWith("--by=")) by = arg.slice("--by=".length);
   }
   return { by };
-}
-
-function resolveSiteUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
-  if (explicit && explicit.trim() !== "") return explicit.replace(/\/$/, "");
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
 }
 
 async function main(): Promise<void> {

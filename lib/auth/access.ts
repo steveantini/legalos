@@ -31,11 +31,28 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * request (e.g., a layout + its child page) resolve to the same auth
  * lookup. Per-request memoization only — does not leak across requests.
  */
-export const requireAuthUser = cache(async () => {
+/**
+ * The current auth user, or null. The single `supabase.auth.getUser()` round-trip
+ * shared by every auth helper in this module (perf item 16): each helper calls
+ * this rather than its own getUser(), so a request that runs several helpers (the
+ * workspace layout runs four) hits the auth server ONCE instead of once per
+ * helper.
+ *
+ * Wrapped in React's `cache()`, which is REQUEST-SCOPED in the server-render
+ * context: the memo lives only for the current request and is never shared across
+ * requests, so one request's user can never leak into another's. The user is
+ * derived from the request's own cookies via createSupabaseServerClient.
+ */
+export const getAuthUser = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  return user;
+});
+
+export const requireAuthUser = cache(async () => {
+  const user = await getAuthUser();
 
   if (!user) {
     redirect("/login");
@@ -53,15 +70,13 @@ export const requireAuthUser = cache(async () => {
  * `requireAuthUser` above).
  */
 export const getCurrentUserProfile = cache(async () => {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const authUser = await getAuthUser();
 
   if (!authUser) {
     return null;
   }
 
+  const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("users")
     .select(
@@ -376,15 +391,13 @@ export const getAccessibleAgentsForBreadcrumb = cache(
  * department existence through differentiated error handling.
  */
 export async function getDepartmentIfAccessible(slug: string) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   if (!user) {
     return null;
   }
 
+  const supabase = await createSupabaseServerClient();
   const { data: department } = await supabase
     .from("departments")
     .select("id, slug, name, description")
@@ -426,29 +439,23 @@ export async function getDepartmentIfAccessible(slug: string) {
  * this shows up on a page-load flame graph.
  */
 export const isCurrentUserAdmin = cache(async (): Promise<boolean> => {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
+  // Org role comes from the shared profile (perf item 16: no separate getUser or
+  // role round-trip). A null profile means the user has no public.users row, in
+  // which case they cannot hold a dept_admin role either, since
+  // user_department_roles.user_id is a foreign key to users, so the answer is
+  // definitively false — identical to the prior behavior.
+  const profile = await getCurrentUserProfile();
+  if (!profile) return false;
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (
-    profile &&
-    (profile.role === "super_admin" || profile.role === "org_admin")
-  ) {
+  if (profile.role === "super_admin" || profile.role === "org_admin") {
     return true;
   }
 
+  const supabase = await createSupabaseServerClient();
   const { data: deptAdmin } = await supabase
     .from("user_department_roles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("user_id", profile.id)
     .eq("role", "dept_admin")
     .limit(1)
     .maybeSingle();
@@ -470,18 +477,9 @@ export const isCurrentUserAdmin = cache(async (): Promise<boolean> => {
  * that surface for users whose writes get rejected.
  */
 export const isCurrentUserOrgAdmin = cache(async (): Promise<boolean> => {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
+  // Derived from the shared profile (perf item 16); identical result to the prior
+  // getUser + role query.
+  const profile = await getCurrentUserProfile();
   return profile?.role === "super_admin" || profile?.role === "org_admin";
 });
 
@@ -497,18 +495,9 @@ export const isCurrentUserOrgAdmin = cache(async (): Promise<boolean> => {
  * cannot save, rather than being shown controls whose writes RLS rejects.
  */
 export const isCurrentUserSuperAdmin = cache(async (): Promise<boolean> => {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
+  // Derived from the shared profile (perf item 16); identical result to the prior
+  // getUser + role query.
+  const profile = await getCurrentUserProfile();
   return profile?.role === "super_admin";
 });
 
@@ -529,12 +518,12 @@ export const isCurrentUserSuperAdmin = cache(async (): Promise<boolean> => {
  * page/action call within the same request share one round-trip.
  */
 export const isCurrentUserPlatformOwner = cache(async (): Promise<boolean> => {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // platform_admins is a separate table (not in the profile), so this keeps its
+  // own query but shares the single getAuthUser() round-trip (perf item 16).
+  const user = await getAuthUser();
   if (!user) return false;
 
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("platform_admins")
     .select("user_id")

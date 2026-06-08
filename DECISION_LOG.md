@@ -3725,3 +3725,25 @@ Stale docs that mislead a new engineer or a future session are a real, quiet lia
 
 - The onboarding and reference docs are current; the security claims are consistent across the internal docs and the customer-facing Trust pages; the demo doc no longer risks a future session building the rejected design; SETUP would stand up a working app.
 - Documentation only (plus the one obsolete-comment removal): no behavior change, no migration. The remaining code-health cleanup items (lint signal, perf item 16, resolveSiteUrl, dead files, targeted tests) are tracked under ROADMAP item 6.
+
+## D-138 — Cleanup mechanical hygiene (lint signal, auth perf, URL unify, dead files)
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+The item-6 health census surfaced four low-risk mechanical cleanups. The standing lint baseline was "17 problems," but 16 were noise in `docs/design/aperture/` historical design-canvas artifacts, so a real new lint error would hide in the count. The workspace layout made four separate `supabase.auth.getUser()` round-trips per navigation (perf item 16). `resolveSiteUrl` had drifted into two implementations (the lib version did not strip a trailing slash; the mint-script copy did), a latent trailing-slash bug. And four files were genuinely dead (zero importers).
+
+**Decision:**
+
+Excluded `docs/design/**` from ESLint (those `.jsx` files are not app code and are not built) and resolved the one real finding, `chat-interface.tsx`'s `react-hooks/set-state-in-effect`, by suppressing it with a documented reason, consistent with the precedent in the admin metrics modals: the warning fires on a localStorage draft-restore in an effect, which must stay an effect rather than a lazy initializer to avoid an SSR hydration mismatch, so the rule is a false positive here and a real fix would be wrong. Lint dropped from 17 to 0. Collapsed the per-navigation `getUser()` calls into one request-scoped, `cache()`-wrapped `getAuthUser()` that every auth helper calls, and derived the org-role checks (`isCurrentUserAdmin` / `isCurrentUserOrgAdmin` / `isCurrentUserSuperAdmin`) from the already-cached `getCurrentUserProfile()` rather than re-querying. Behavior is identical (the same role value; a null profile provably cannot hold a `dept_admin` role since `user_department_roles.user_id` is a foreign key to `users`); the `cache()` is request-scoped in the server-render context and never leaks across requests; the proxy's own `getUser()` stays separate because it runs in the middleware execution context with a different client. On the workspace layout path, `getUser()` went from four calls to one. Unified `resolveSiteUrl` on the trailing-slash-stripping behavior (and treating an empty env var as unset, which the script copy did too), with the mint script now importing the shared lib helper. Deleted four confirmed-dead files (`components/ui/scroll-area.tsx`, `components/workspace/compact-agent-card.tsx`, `components/workspace/continue-working-section.tsx`, `lib/supabase/browser.ts`) after re-confirming zero importers, and removed a now-dangling comment reference to `CompactAgentCard`.
+
+**Reasoning:**
+
+Low-risk hygiene that improves signal, performance, and clarity without behavior change. A meaningful lint baseline catches real regressions; one shared auth lookup removes redundant round-trips on every navigation; one correct URL helper removes a latent edge-case bug; less dead code is less to read. The targeted tests and the heavier test-harness and Supabase-types investments are deliberately separate.
+
+**Consequences:**
+
+- Lint baseline is 0; fewer auth round-trips per navigation; one correct URL helper; four fewer dead files.
+- The targeted tests (privilege-escalation gate, `lib/workflows/run.ts`) follow in a separate Commit B; the live-Postgres RLS harness and the generated-types play remain deferred-future (ROADMAP item 6).

@@ -206,6 +206,8 @@ export function ChatInterface({
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(DRAFT_STORAGE_KEY(agentId));
     if (stored && stored.length > 0) {
+      // localStorage draft restore must run in an effect, not a lazy initializer, to avoid an SSR hydration mismatch; same pattern as the admin metrics modals.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraft(stored);
       requestAnimationFrame(() => {
         const el = textareaRef.current;

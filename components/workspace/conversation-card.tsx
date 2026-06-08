@@ -31,11 +31,10 @@ function formatRelative(iso: string): string {
 /**
  * Conversation card for the home's "Continue working" row. Deep-links
  * back into the chat surface at the exact conversation (`?c=<id>`).
- * Higher-information than `CompactAgentCard`, so it adopts the full
- * department-card hover treatment from polish #15 (-2px lift, the
- * slate-blue-tinted shadow). Conversation titles are never populated in
- * this product, so the agent name is the primary label and the first
- * user message (truncated upstream) is the supporting snippet.
+ * Adopts the full department-card hover treatment from polish #15 (-2px
+ * lift, the slate-blue-tinted shadow). Conversation titles are never
+ * populated in this product, so the agent name is the primary label and
+ * the first user message (truncated upstream) is the supporting snippet.
  */
 export function ConversationCard({
   conversationId,
