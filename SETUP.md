@@ -104,18 +104,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 ```
 
-### 3d. Run the initial schema
+### 3d. Apply the migrations
 
-Open the Supabase dashboard → **SQL Editor** → **New query**. Paste the contents of `supabase/migrations/0001_initial_schema.sql` (which is the `supabase-schema-v0.sql` file from this setup bundle, renamed and placed in the migrations folder) and click **Run**.
+Apply **every** migration in `supabase/migrations/`, in filename order (`0001_initial_schema.sql` through the latest), each as a separate query in the Supabase dashboard → **SQL Editor**. The migrations are append-only and ordered; applying only the first leaves you with a first-phase schema that is missing chat, the agents runtime, attachments, connections, the admin area, workflows, and demo access. The repo is intentionally unlinked from the Supabase CLI, so apply them by hand in the dashboard (never `supabase db push`).
 
-You should see the following tables created:
-- `organizations`
-- `users`
-- `departments`
-- `user_department_roles`
-- `agents`
+After `0001`, you should see the core tables created (`organizations`, `users`, `departments`, `user_department_roles`, `agents`); the later migrations add many more (conversations, messages, usage_events, attachments, connections, workflow tables, the demo tables, and so on).
 
-Every table has RLS enabled and policies in place. Verify this in **Authentication → Policies** — every table should show at least one policy.
+Every table has RLS enabled and policies in place. Verify this in **Authentication → Policies** — every table should show at least one policy (the encrypted-secrets tables are intentionally policy-less and force-RLS, reachable only by the service role).
 
 ### 3e. Enable magic link auth
 
@@ -131,53 +126,17 @@ In the Supabase dashboard:
    Part 4 will add the production Vercel URL once you have one — you
    can't fill it in until after the first deploy gives you a URL.
 
-### 3f. Seed your first organization, department, and admin user
+### 3f. Seed your organization, departments, agents, and admin user
 
-In **SQL Editor**, run:
+Use the project's maintained seed files in `supabase/seed/` rather than hand-written SQL, since they are the source of truth for the current organization, department set, and baseline agents, and they stay in sync as the schema evolves. Run them in the **SQL Editor** in this order:
 
-```sql
--- 1. Create your organization
-insert into organizations (id, name, slug)
-values (gen_random_uuid(), 'Your Company, Inc.', 'your-company')
-returning id;
--- Copy the returned id; you'll paste it into the next queries.
+1. **Sign in once first**, so your `auth.users` row exists (the org seed promotes that user to admin and will raise an error if it can't find them):
+   - Start the dev server: `npm run dev`.
+   - Go to `http://localhost:3000/login` and sign in with email + magic link; click the link to land authenticated.
+2. **Run `supabase/seed/0001_org_and_departments.sql`.** First replace `ADMIN_EMAIL_REPLACE_ME` at the top with the email you just signed in with. This creates the organization ("Your Company, Inc."), its current department set, promotes your user to `org_admin`, and grants you `dept_admin` on every department. It is idempotent (safe to re-run).
+3. **Run `supabase/seed/0002_commercial_agents.sql`** to seed the baseline Commercial agents.
 
--- 2. Create the eight starting departments (replace ORG_ID with the id from step 1)
-insert into departments (organization_id, slug, name, description, sort_order) values
-  ('ORG_ID', 'commercial', 'Commercial', 'Contract review, vendor agreements, commercial operations.', 1),
-  ('ORG_ID', 'public-sector', 'Public Sector', 'Government relations, regulatory affairs, public-sector contracts, and policy advocacy.', 2),
-  ('ORG_ID', 'ma', 'Mergers & Acquisitions', 'Deal diligence, merger agreements, integration planning.', 3),
-  ('ORG_ID', 'privacy', 'Privacy', 'Data privacy, DPAs, regulatory compliance (GDPR, CCPA, etc.).', 4),
-  ('ORG_ID', 'product', 'Product', 'Product launches, feature reviews, terms updates, and product-counsel partnerships.', 5),
-  ('ORG_ID', 'compliance', 'Compliance', 'Compliance program management, regulatory monitoring, and audit support.', 6),
-  ('ORG_ID', 'operations', 'Operations', 'Internal operations, vendor management, procurement, and corporate transactions.', 7),
-  ('ORG_ID', 'general-tools', 'General Tools', 'general purpose agentic tools', 8);
-```
-
-Then create your first admin user. The cleanest way:
-
-1. Start the dev server: `npm run dev`.
-2. Go to `http://localhost:3000/login` and sign up with email + magic link.
-3. Check your inbox, click the magic link, and you'll land authenticated.
-4. In Supabase SQL Editor, promote yourself to `org_admin`:
-
-```sql
--- Replace YOUR_EMAIL and ORG_ID
-insert into users (id, organization_id, email, role)
-select au.id, 'ORG_ID', au.email, 'org_admin'
-from auth.users au
-where au.email = 'YOUR_EMAIL'
-on conflict (id) do update set role = 'org_admin';
-
--- Grant yourself access to all eight departments
-insert into user_department_roles (user_id, department_id, role)
-select u.id, d.id, 'dept_admin'
-from users u
-cross join departments d
-where u.email = 'YOUR_EMAIL' and d.organization_id = 'ORG_ID';
-```
-
-Refresh the app. You should now see the admin nav and all eight departments.
+Refresh the app. You should now see the admin nav and the seeded departments. (The department set is whatever the seed creates; do not hand-maintain a separate list. The current product taxonomy is described in `PROJECT_OUTLINE.md`.)
 
 #### Alternative: production-only setup (no local dev)
 
@@ -189,12 +148,12 @@ directly in the dashboard:
    user**. Enter the admin email. You can either set a temporary password
    or leave "Auto confirm user" checked and rely on magic-link sign-in
    later.
-2. Run the organization + departments SQL block above against the prod
-   project.
-3. Run the user promotion + `user_department_roles` SQL block above —
-   it joins on `auth.users` by email, so the user you just created in
-   step 1 will be picked up.
-4. The seeded `public.users` row remains intact; the RPC's idempotent
+2. Run `supabase/seed/0001_org_and_departments.sql` against the prod
+   project, with `ADMIN_EMAIL_REPLACE_ME` set to the email you just
+   created. It seeds the organization and departments and promotes that
+   user (it joins on `auth.users` by email, so the user from step 1 is
+   picked up). Then run `supabase/seed/0002_commercial_agents.sql`.
+3. The seeded `public.users` row remains intact; the RPC's idempotent
    guard means first sign-in is a no-op for the admin user. (For
    non-admin users created later via magic-link signup, the RPC creates
    their `public.users` row on first sign-in.)
@@ -353,14 +312,14 @@ The template ships with three presets: Carbon (IBM-inspired, `#0f62fe`), Modern 
 
 Departments are database rows, not code. To add a new department:
 
-1. Insert a row into the `departments` table (see the seed block above for the pattern).
+1. Insert a row into the `departments` table (see `supabase/seed/0001_org_and_departments.sql` for the pattern, and the migrations that evolved the set).
 2. That's it. The app picks it up on next page load.
 
-To remove a department, soft-delete it by setting `is_active = false`. Do not hard-delete — existing agents and analytics events reference it.
+To remove a department, soft-delete it by setting `deleted_at` (the read paths filter on `deleted_at IS NULL`). Do not hard-delete, since existing agents and usage events reference it.
 
 ### Agents
 
-Once Phase 5's Agent Admin UI is built, agents can be created and edited in-app by `org_admin` or `dept_admin` users. Until then, seed agents directly in SQL:
+Agents can be created and edited in-app today (users fork and own My Agents; admins manage department agents). You can also seed agents directly in SQL, which is how the baseline Commercial agents and the Claude for Legal imports are provisioned:
 
 ```sql
 insert into agents (
@@ -387,10 +346,10 @@ For a native agent, set `type = 'native'`, leave `external_url` null, and popula
 ## Troubleshooting
 
 **Login works but I can't see any departments after logging in.**
-Check the `user_department_roles` table — your user needs at least one row per department they should see. The admin seed block in 3f grants access to all eight.
+Check the `user_department_roles` table. Your user needs at least one row per department they should see. The org seed (`supabase/seed/0001_org_and_departments.sql`, run in 3f) grants the admin user access to every department.
 
 **"Could not find the function public.xyz" or missing table errors.**
-The schema migration didn't run cleanly. Re-run `supabase/migrations/0001_initial_schema.sql` in the SQL editor. Check the query log for errors.
+A migration didn't run cleanly, or not all migrations were applied. Confirm every file in `supabase/migrations/` has been run in order, and re-run any that errored. Check the query log for errors.
 
 **RLS policy is blocking me from seeing my own data.**
 This is the policies doing their job, but wrong. Check that your user row exists in `public.users` (not just `auth.users`) with the correct `organization_id` and `role`. The seed block in 3f handles this.

@@ -375,7 +375,7 @@ Work, grouped:
 
 Decisions adopted: D-056 (home as value-mirror with honest empty states), D-057 (Reading-1 build-and-gate pattern), D-058 (typed connection-helper pattern), D-059 (calculator stays localStorage for v1), D-060 (no serif), D-061 (Tools removed, status-strip may return).
 
-What flips the dormant gates live: the Share and connector hub (roadmap item 1) builds the OAuth/integration layer that sets isCalendarConnected and isMattersConnected true, at which point Today and Matters render real data with no further UI work. That item is now the top roadmap priority.
+What flips the dormant gates live: the Share and connector hub builds the OAuth/integration layer that sets isCalendarConnected and isMattersConnected true, at which point Today and Matters render real data with no further UI work. The connector hub has since shipped Google Drive OAuth and live Drive reads; the Calendar and Matters home gates stay dormant until their own connectors land.
 
 Working lessons carried forward this arc:
 
@@ -410,15 +410,15 @@ For the fresh chat to know where things live:
 - `scripts/import-c4l-plugin.ts` — the C4L import script (operator runs manually)
 - `docs/C4L_DEFERRED_SKILLS.md` — authoritative reference for every C4L skill audited, where it landed, and why
 - `docs/REBRANDING.md` — the bounded checklist for changing the product name or domain (name = display-text find/replace; domain = one env var `NEXT_PUBLIC_SITE_URL` plus updating OAuth redirect URIs in the external provider consoles; architecture/secrets unaffected). The name and domain are placeholders today, so a future session will likely need this.
-- `docs/PHASE2_MCP_TOOLUSE.md` — the AUTHORITATIVE design lock for MCP Phase 2 (agent tool-use): tool namespacing + routing, two-layer per-agent governance, v1 run-reads/block-writes policy, the iteration/wall-clock guards, token accounting, tracing, the 7-step build order (2P-1 … 2P-7), the gating principle, and the history-replay correctness trap. Every Phase 2 step builds to this spec (D-100). 2P-0 (lock) and 2P-1 (the execution-resolution reader `getOrgMcpExecutionTargets`) shipped; next is 2P-2.
-- `supabase/migrations/` — all schema changes; current HEAD is 0050
+- `docs/PHASE2_MCP_TOOLUSE.md` — the AUTHORITATIVE design lock for MCP Phase 2 (agent tool-use): tool namespacing + routing, two-layer per-agent governance, v1 run-reads/block-writes policy, the iteration/wall-clock guards, token accounting, tracing, the 7-step build order (2P-1 … 2P-7), the gating principle, and the history-replay correctness trap. Every Phase 2 step built to this spec (D-100). MCP Phase 2 is COMPLETE: an agent connects a trusted MCP server and uses its tools mid-conversation, with read tools auto-running and write tools pausing for per-action human approval (the full 2P-1 through 2P-7 build).
+- `supabase/migrations/` — all schema changes; see the directory for the current set (latest is 0066, the connection org-scoping fix)
 - `supabase/seed/0001_org_and_departments.sql` — canonical post-migrations state; comment header documents the four-group taxonomy
 - `app/workspace/admin/` — the admin section: People, Policy & access, Audit log (Govern); Insights, Evals (Measure). `lib/admin/nav.ts` is the single nav source feeding the admin rail and landing.
 - `lib/workspace/admin/insights/` (org-wide usage math + sample fixture) and `lib/workspace/admin/audit/` (the unified role/status audit feed) — the MEASURE/GOVERN data modules added in the admin arc.
 
 ## Migration history summary
 
-Current HEAD on main: 0050. All migrations applied to the live Supabase database via the dashboard SQL editor (the project's standard migration-application path; the repo is intentionally unlinked, so never `supabase db push`). The admin-arc migrations (0047/0048/0049/0050) are applied and verified live. Seed file maintained in sync via per-migration updates (most recently in commit 94ddcc0 for polish #7).
+Current HEAD on main: 0066 (the per-organization connection scoping fix). All migrations applied to the live Supabase database via the dashboard SQL editor (the project's standard migration-application path; the repo is intentionally unlinked, so never `supabase db push`). The migrations after the admin arc cover the connections BYO-model/MCP work, workflows (0060 through 0063), demo access (0064/0065), and the connection org-scoping fix (0066). The seed files in `supabase/seed/` are maintained in sync as the schema evolves.
 
 Recent migrations of note:
 - 0047 — organizations.default_model (A2b org default model)
@@ -446,7 +446,7 @@ See `docs/ROADMAP.md` for the authoritative ordered list of pending work items. 
 
 ## How a fresh chat opens
 
-The admin arc is CLOSED (A7). Its GOVERN side is complete (Policy & access, People, Audit log) and its MEASURE side is intentionally deferred (Insights A4a a functional placeholder pending a delight pass; A4b deferred pending the business model; Evals A5 deferred as an open design question). See the "Current state" section at the top of this file for the full honest state, and docs/ROADMAP.md for the ordered next work. All prior arcs remain closed: the polish phase, workspace home and rail restructure, chat page redesign, Word export, chat attachments, workspace home revamp and Matters, and the Share & connector hub. The product is in a stable state with no active arc in progress.
+The admin arc is CLOSED (A7). Its GOVERN side is complete (Policy & access, People, Audit log) and its MEASURE side is intentionally deferred (Insights A4a a functional placeholder pending a delight pass; A4b deferred pending the business model; Evals A5 deferred as an open design question). Several arcs shipped AFTER the admin arc and are also closed: the Claude for Legal content library and the platform-owner tier; the full Workflows arc (no-code builder, deterministic engine, human-approved writes, runs and audit, starter templates); the entire public marketing surface (the Trust Center hub and sub-pages, About, Mission, Connections, FAQ, Contact, Blog, Documentation, and the Legal document drafts); demo access (a shared, seeded, RLS-isolated Demo Org with a no-email access link and reset tooling, D-132/D-133); and the multi-tenant security fix that scopes connections and the connection policy per organization (D-136). The earlier arcs remain closed too: the polish phase, workspace home and rail restructure, chat page redesign, Word export, chat attachments, workspace home revamp and Matters, MCP Phase 2, and the Share & connector hub. See the "Current state" section at the top of this file and docs/ROADMAP.md for the ordered next work: per ROADMAP, the next major arc is the Connections phase (models-as-a-connection lifecycle), and a documentation and code-health cleanup pass (ROADMAP item 6) is in progress.
 
 A fresh chat session at this point opens to a project waiting for the operator's next direction. The chat should:
 

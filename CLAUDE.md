@@ -10,9 +10,9 @@ Adoption is a first-class concern. The UI is deliberately simple, clean, modern,
 
 ### Current Phase
 
-**Phase 2 complete; Admin arc closed (2026-06-01).** Three-tier agent architecture (Canonical Department Agents, Claude for Legal imports, user-owned My Agents) across a 13-department launchpad behind RBAC; native chat with prompt caching, web search, attached references, per-message markdown download, soft delete + 30-day undo. The Share and connector hub shipped (Settings peer mode, Connections, Google Drive OAuth end to end, live Drive reads, the Drive picker). The Admin arc (A1–A7) shipped its GOVERN side complete: Policy & access (capability ceiling, allowed categories, org default model), People (roster, role editor, soft-deactivation, invitation), and the Audit log. Claude Opus 4.8 is the flagship and system/org default on a single canonical models source.
+**Current state (2026-06-08).** Phase 2 and the Admin GOVERN arc are complete, and since then the following have shipped: the Claude for Legal content library and the platform-owner tier; the full Workflows arc (no-code builder, the deterministic engine, human-approved writes, runs and audit, and a starter Template Library); the entire public marketing surface (the Trust Center hub and sub-pages, About, Mission, Connections, FAQ, Contact, Blog, Documentation, and the Legal document drafts); demo access (a shared, seeded, RLS-isolated Demo Org with a no-email access link and reset tooling, D-132/D-133); and a multi-tenant security fix that scopes connections and the connection policy (including bring-your-own model keys) per organization (D-136, migration 0066). The three-tier agent architecture (Canonical Department Agents, Claude for Legal imports, user-owned My Agents) behind RBAC, native chat with prompt caching, web search, attached references, per-message markdown download, and soft delete with 30-day undo are all live. Claude Opus 4.8 is the flagship and system/org default on a single canonical models source.
 
-**Near-term sequence.** The Admin arc's MEASURE side is intentionally deferred: Insights A4a shipped as a functional placeholder pending a delight pass; the Insights cost/ROI lens (A4b) is gated on the Business model & pricing arc; Evals (A5) is deferred as an open design question. The natural next major arc is the Connections phase (models-as-a-connection, the notify-and-approve lifecycle, model-retirement handling), which gates the business-model arc, which gates A4b. See `docs/CHATBOT_HANDOFF.md` (Current state section) and `docs/ROADMAP.md` for the full honest state and the deferred arcs. Recorded so the intent survives across sessions.
+**What's next.** `docs/ROADMAP.md` is the live source of truth for the next-up work and the deferred arcs (rather than a phase label here, which keeps drifting). In brief: the Connections phase (models-as-a-connection lifecycle) gates the Business model and pricing arc, which gates the Insights cost/ROI lens (A4b); the Admin MEASURE side (A4a delight pass, A4b, Evals A5) is intentionally deferred; and a documentation and code-health cleanup pass (ROADMAP item 6) is in progress. See `docs/ROADMAP.md` and `docs/CHATBOT_HANDOFF.md` for the full honest state.
 
 ---
 
@@ -104,7 +104,7 @@ legalos/
 ├── config/
 │   └── site.ts                   # Branding, company name
 ├── supabase/
-│   ├── migrations/               # SQL migrations (currently through 0041)
+│   ├── migrations/               # SQL migrations (see the directory for the current set)
 │   └── seed/                     # Seed SQL (departments, baseline agents)
 ├── styles/                       # See styles/README.md → DECISION_LOG D-016
 ├── .claude/
@@ -226,7 +226,7 @@ A comprehensive em-dash sweep of existing external-facing copy is tracked as a p
 - **Role checks on every sensitive server action.** Client-side role checks are UX, not security — the server re-verifies.
 - **No PII in logs.** Log user IDs (UUIDs), never emails, names, or message content. Redact before structured logging.
 - **No client-rendered markdown without sanitization.** Chat responses are sanitized before render to prevent prompt-injection-driven XSS.
-- **Rate limiting on every route handler that calls Anthropic.** Per-user and per-org limits.
+- **Rate limiting on Anthropic-calling routes.** A per-user limit is enforced today (20 messages per user per minute, `lib/llm/rate-limit.ts`, wired into `/api/chat`). Known gaps to close, stated honestly: the agentic continuation route `/api/chat/confirm` is not yet rate-limited, and a per-organization limit does not exist yet. Extending the per-user limit to every Anthropic-calling route and adding per-org limits are the standard to reach, not a present guarantee.
 - **CORS locked** to the app's own origin. No wildcard origins in production.
 - **Input validation with Zod** at every trust boundary.
 - **Admin routes double-gated:** the Next.js proxy (`proxy.ts`) checks role, and RLS policies re-enforce at the DB level.
@@ -245,7 +245,7 @@ This app handles attorney work product, and in some future deployments may handl
 - **Prompt injection defense:** system prompts include explicit instructions that user-supplied content is data, not instructions. Tool-use flows (when added) verify every action with the user.
 - **Cost tracking from day one of native agents.** Every Anthropic call logs tokens in / tokens out / model / user / department / agent ID to a `usage_events` table.
 - **Rate limiting per user and per organization.** Default tier limits configurable per deployment.
-- **Conversations are scoped by user.** A user can never see another user's conversations, even within the same department. RLS enforces this.
+- **Conversations are scoped by user, with admin access to the organization's work.** A plain user cannot see another user's conversations, even within the same department; RLS enforces this. Organization administrators (org_admin and super_admin) can access the organization's conversations, because the work product belongs to the organization, not to an individual user. This is the honest framing the Trust and privacy pages state, and RLS enforces both scopes: per-user for users, org-wide read for admins.
 - **No training on customer data.** Anthropic API calls use the standard API, which does not train on inputs. Document this clearly in the privacy page.
 
 ---

@@ -3523,7 +3523,7 @@ Depth grounded in real architecture is a genuine trust asset for a product askin
 ## D-130 — Marketing pages left-anchored and tightened; /trust harmonized onto the shared shell
 
 Date: 2026-06-07
-Status: Accepted
+Status: Partially superseded by D-131 (the left-anchor alignment was reversed back to centered; the vertical-spacing tightening and the /trust shell harmonization were kept)
 
 **Context:**
 
@@ -3703,3 +3703,25 @@ Cross-tenant isolation of connector governance and, critically, inference creden
 - Per-org connection governance and BYO keys; the credential and governance dimensions are safe for demos shown to untrusted prospects.
 - The first cross-org isolation tests establish the pattern; a live-Postgres RLS harness is the next test investment.
 - Deploy: the operator applies migration 0066 (it backfills existing connections and the policy to the real org). The companion code tolerates the pre-migration schema (the BYO resolver try/catches to the managed key; the policy read fails closed), so there is no data risk in either order; apply promptly so enforcement is not degraded.
+
+## D-137 — Documentation truth pass
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+A long build stretch (the C4L/platform-owner work, the full Workflows arc, all the marketing tiers, demo access, and the multi-tenant security fix) outran the onboarding and reference docs. A read-only health census found the core docs 4-5 arcs behind, with several actively misleading: a migration count and "current phase" that omitted everything since the admin arc, three overstated security claims that contradicted the honest customer-facing Trust pages, a demo-access design doc that described the rejected per-session model as if it were the build spec, and a SETUP guide that would stand up a first-phase shell rather than a working app.
+
+**Decision:**
+
+Corrected the docs to match the verified current state (B1 through B11 from the census). CLAUDE.md: the migration note now points to the directory rather than a hardcoded number; the "Current Phase" block reflects the arcs that shipped and points to ROADMAP as the live source of "what's next"; and three security claims were reframed from false present-tense guarantees to honest reality plus stated goals (rate limiting is described as the per-user limit that exists with the confirm-route gap noted and per-org limiting framed as a goal; conversation access is described accurately, where a plain user cannot see another's conversations but organization administrators can access the organization's work, matching the Trust pages). CHATBOT_HANDOFF, README, and PROJECT_OUTLINE were caught up to the current state (shipped arcs, current HEAD, the data-model table noted as maintained through ~0046 with the migrations directory as the source of truth). SETUP was reworked to actually stand up a working app (apply all migrations in order; use the maintained seed files; the agent admin is built, not future). DEMO_ACCESS_SCOPING gained a prominent supersede note pointing to the shipped shared-Demo-Org model (D-132/D-133), keeping the per-session design clearly labeled as an additive future. D-130 was marked partially superseded by D-131 (the alignment reversal). SECURITY_ARCHITECTURE was updated for the org-scoped connection fix (D-136), per its own standing rule to update in the same change as the architecture. The one code touch was removing an obsolete TODO comment in lib/llm/parse-model-id.ts (a Vitest runner now exists).
+
+**Reasoning:**
+
+Stale docs that mislead a new engineer or a future session are a real, quiet liability, especially overstated security claims that contradict the honest customer-facing Trust pages and a design doc that would lead a future session to build the rejected design. The standing accuracy discipline that governs the customer-facing surfaces applies to the internal docs too.
+
+**Consequences:**
+
+- The onboarding and reference docs are current; the security claims are consistent across the internal docs and the customer-facing Trust pages; the demo doc no longer risks a future session building the rejected design; SETUP would stand up a working app.
+- Documentation only (plus the one obsolete-comment removal): no behavior change, no migration. The remaining code-health cleanup items (lint signal, perf item 16, resolveSiteUrl, dead files, targeted tests) are tracked under ROADMAP item 6.

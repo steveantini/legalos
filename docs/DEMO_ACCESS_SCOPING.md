@@ -1,5 +1,20 @@
 # Demo access — scoping doc
 
+> **SUPERSEDED NOTE (2026-06-08): this is NOT the design that shipped.** Demo
+> access shipped as a SHARED, seeded, RLS-isolated Demo Org, not the per-session
+> isolated model described below. What exists today (D-132 and D-133): one Demo
+> Org seeded by `supabase/seed/demo-org.sql` and flagged `organizations.is_demo`
+> (migration 0064); a `/demo/<token>` route (`app/demo/[token]/route.ts`) that
+> signs a prospect in as super_admin of that shared org with a single-use,
+> SHA-256-hashed token (migration 0065, `demo_invitations`) and no email; minting
+> via `npm run mint-demo-token` and resetting via `npm run reset-demo-org`. There
+> is NO per-session org-per-user, NO `/demo/invite/[token]`, NO `lib/demo/seed.ts`,
+> and NO TTL cleanup cron. The per-session design preserved below is a legitimate
+> ADDITIVE-FUTURE option (richer isolation if shared-org noise ever warrants it),
+> kept here as the spec for THAT future work only. Do not build from the text
+> below as if it were the current design. See ROADMAP item 21 and D-132/D-133 for
+> what is live.
+
 Internal scoping for the per-session-isolated demo access feature. Status: ready to implement; deferred until prioritized. When this session is queued, this doc is the build spec — implementation should follow without re-litigating decisions.
 
 See D-049 in `DECISION_LOG.md` for the architectural decision and rejected alternatives.

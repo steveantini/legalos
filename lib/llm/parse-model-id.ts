@@ -13,9 +13,6 @@
  * rows can exist anywhere (agents.model, conversations.model_snapshot,
  * usage_events.model), the fallback is safe to remove in a future cleanup
  * session.
- *
- * TODO(test): unit-test this with Vitest once a test runner is set up. The
- * parser is exercised end-to-end by the chat smoke test until then.
  */
 
 export type ParsedModelId = {

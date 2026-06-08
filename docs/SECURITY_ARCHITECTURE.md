@@ -130,6 +130,16 @@ detected and surfaced for explicit approval rather than auto-applied — the sha
 is detect, the owner reviews, an explicit apply, audited, never automatic.
 (Connections-phase design; ROADMAP.)
 
+These governance surfaces are scoped per organization at the database layer.
+`connection_policy` and `connections` (including any bring-your-own model key)
+each carry an `organization_id`; row-level security confines every read and write
+to the caller's own organization, and the service-role model-credential resolver
+filters by organization, so one organization's super admin cannot change another
+organization's connector governance or route another organization's inference. An
+earlier single-tenant build had these as a global policy row and a globally
+resolved key; the per-organization scoping closed that gap when the second tenant
+(the Demo Org) went live. (DECISION_LOG D-136; migration 0066.)
+
 ### 8. Honest-state UI
 
 **Claim.** The product tells the truth about its own state. A feature that is
