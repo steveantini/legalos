@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The Legal section is now a hub with draft Terms of Service, Privacy Policy, Data Processing Agreement, and Subprocessors documents, each clearly marked as a draft for review, grounded in how the product actually handles data and honest about commitments still being built.**
+
 - **The Blog and Documentation pages are now real, honest pages rather than placeholders: Blog says plainly that there are no posts yet and points to About and Mission; Documentation describes the guides that are coming and offers direct help to early users in the meantime. Pricing remains a simple coming soon until the pricing model is decided.**
 
 - **Demo access is live: a shareable demo link signs a prospect into an isolated Demo Workspace as an administrator so they can explore the whole product safely, no email required, and a reset tool restores the demo to a clean state when needed, with strict safeguards so it can only ever affect the demo. (Step 2 of demo access: the `/demo/<token>` access link with single-use hashed tokens, a `mint-demo-token` script, and a paranoid `reset-demo-org` script with soft and hard modes.)**

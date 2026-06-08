@@ -156,3 +156,100 @@ export function MarketingProseLink({
     </Link>
   );
 }
+
+/**
+ * Prominent "draft, not yet effective" banner for the Legal document pages
+ * (Tier 3, D-135). A distinct caution callout, set apart from the document
+ * body in the caution palette, so a logged-out visitor can never mistake a
+ * draft for binding, effective terms. Sits at the top of each document page.
+ */
+export function MarketingDraftBanner({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      role="note"
+      className="mt-7 rounded-lg border border-warn-fg/40 bg-warn-bg px-5 py-4"
+    >
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-warn-fg-deep">
+        Draft · Not yet effective
+      </p>
+      <p className="mt-2 text-[13.5px] leading-[1.6] text-warn-fg-deep">
+        {children}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * A reviewer note for the Legal drafts: a "[Draft note: ...]" annotation
+ * rendered as a visually-distinct aside (tinted fill, caution accent, muted
+ * smaller type, mono label), so it is unmistakably an annotation for the
+ * operator and counsel and NOT part of the legal text. Placed inside a
+ * section's body, after the clause it annotates.
+ */
+export function MarketingDraftNote({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <aside className="rounded-md border border-hairline border-l-[3px] border-l-warn-fg bg-paper-2 px-4 py-3">
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-warn-fg-deep">
+        Draft note
+      </p>
+      <p className="mt-1.5 text-[13px] leading-[1.6] text-muted-foreground">
+        {children}
+      </p>
+    </aside>
+  );
+}
+
+/**
+ * A bracketed fill-in placeholder in a draft document (e.g. [Effective date]).
+ * Rendered verbatim, but visually marked as an intentional fill-in so it is
+ * never mistaken for a real value. The drafts deliberately leave these blank
+ * rather than inventing entity names, jurisdictions, dates, or figures.
+ */
+export function MarketingPlaceholder({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="rounded-[3px] bg-paper-2 px-1 py-px font-mono text-[0.85em] text-caption">
+      {children}
+    </span>
+  );
+}
+
+interface MarketingLegalSectionProps {
+  number: number;
+  title: string;
+  children: React.ReactNode;
+}
+
+/**
+ * One numbered section of a legal document (Tier 3). A lighter heading than
+ * MarketingSection, since a legal document carries many sections, with a
+ * hairline divider and the reading type set on the body wrapper. Children are
+ * the clause paragraphs plus any <MarketingDraftNote> annotations.
+ */
+export function MarketingLegalSection({
+  number,
+  title,
+  children,
+}: MarketingLegalSectionProps) {
+  return (
+    <section className="mt-8 border-t border-hairline pt-6">
+      <h2 className="text-[17px] font-semibold leading-snug tracking-tight text-foreground">
+        <span className="text-caption">{number}.</span> {title}
+      </h2>
+      <div className="mt-3 space-y-3 text-[15px] leading-[1.75] text-ink-2">
+        {children}
+      </div>
+    </section>
+  );
+}

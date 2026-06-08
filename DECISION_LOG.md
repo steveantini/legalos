@@ -3652,3 +3652,26 @@ Honest shells beat placeholders: they say plainly what is not there yet and rout
 - /blog and /documentation are real public pages in the marketing register; /pricing stays a coming-soon stub.
 - Tier 3 (the formal Legal documents: Terms / Privacy / DPA) remains; a real Pricing page is gated on the business-model arc.
 - Layout/content only: no schema, no real posts or documentation content, no landing/workspace changes.
+
+## D-135 — Legal document drafts (marketing Tier 3)
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+The final marketing tier is the Legal documents. /legal was a coming-soon stub. The structure mirrors Trust: a hub plus document sub-pages. The documents must be public yet unmistakably not effective, must stay true to how the product actually handles data, and must not invent unsettled specifics.
+
+**Decision:**
+
+Shipped /legal as a hub with four draft documents on the shared marketing shell: Terms of Service (/legal/terms), Privacy Policy (/legal/privacy), Data Processing Agreement (/legal/dpa), and Subprocessors (/legal/subprocessors). The documents were drafted at ideal-state commitment level while keeping all factual statements true to the verified data-handling inventory, with bracketed placeholders for undetermined specifics (entity, jurisdiction, contacts, dates, pricing/liability/indemnity) and visible reviewer notes flagging every clause that requires an operational capability or decision before the document can be made effective. All four document pages carry a prominent DRAFT-NOT-EFFECTIVE banner. The shared shell gained four minimal primitives to render the long-form documents in-register: a draft banner (caution palette), a draft-note reviewer callout (tinted aside, mono label, muted type, clearly not body text), a numbered legal section (lighter than MarketingSection), and a placeholder span (marks bracketed fill-ins as intentional, never invented). The Subprocessors table is a one-off styled table on its page rather than a shell primitive. The em-dash in the supplied banner heading ("DRAFT — NOT YET EFFECTIVE") was recast to the marketing label idiom's middle dot ("DRAFT · NOT YET EFFECTIVE") to honor the no-em-dash rule; the document bodies were reproduced faithfully from the operator-approved draft, with curly quotes and apostrophes for the register. The four sub-routes joined PUBLIC_MARKETING_PATHS; the footer Legal link already pointed at the hub; marketing routes are not tracked by the workspace breadcrumb, so no breadcrumb entries were needed (consistent with the Trust sub-pages).
+
+**Reasoning:**
+
+Complete, serious starting documents grounded in product truth give the operator and counsel something real to review, without overstating. The flagged operational gaps (deletion and return, breach detection and notification, data-subject-request assistance, subprocessor-change notification) map to the privacy/security initiative (item 5) and must be built before the documents go effective. Marking everything draft, and rendering the reviewer notes as visibly distinct annotations, prevents a logged-out visitor from mistaking a draft for binding terms.
+
+**Consequences:**
+
+- The marketing footer is fully populated (Trust, About, Mission, Connections, FAQ, Contact, Blog, Documentation real; Pricing intentional coming-soon; Legal live in draft).
+- Finalizing Legal requires counsel review, placeholder fills, and the item-5 operational builds; the documents are derived from the product's truth and to be kept current as it evolves (the same standing-rule discipline as the Trust pages, D-129).
+- Content + four shell primitives only: no schema, no migration, no landing/workspace changes, and none of the operational capabilities the draft notes reference were built here.
