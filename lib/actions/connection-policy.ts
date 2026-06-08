@@ -35,8 +35,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ConnectionPolicyResult = { ok: true } | { ok: false; error: string };
 
-const POLICY_ID = 1;
-
 const updateSchema = z.object({
   // The ceiling reduces to a single decision: is write permitted on top of read?
   allowWrite: z.boolean(),
@@ -68,21 +66,37 @@ export async function updateConnectionPolicyAction(
   );
   const allowedProviders = deriveAllowedProviders(allowedCategories);
 
-  // 4. Write the singleton. RLS re-checks super_admin; updated_by stamps the actor.
+  // 4. Write THIS org's policy row (0066: one row per org). Resolve the actor's
+  //    org so the upsert targets their row (creating it if the org has none yet);
+  //    RLS re-checks super_admin AND organization_id = current_org_id(), so a
+  //    super_admin can only ever write their own org's policy. updated_by stamps
+  //    the actor.
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase
-    .from("connection_policy")
-    .update({
+  const { data: profile } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+  const organizationId = (profile as { organization_id: string } | null)
+    ?.organization_id;
+  if (!organizationId) {
+    return { ok: false, error: "Could not save the policy. Try again." };
+  }
+
+  const { error } = await supabase.from("connection_policy").upsert(
+    {
+      organization_id: organizationId,
       default_capability_ceiling: ceiling,
       allowed_categories: allowedCategories,
       allowed_providers: allowedProviders,
       updated_by_user_id: user?.id ?? null,
-    })
-    .eq("id", POLICY_ID);
+    },
+    { onConflict: "organization_id" },
+  );
 
   if (error) {
     console.error("updateConnectionPolicyAction failed", { code: error.code });

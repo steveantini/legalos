@@ -69,7 +69,7 @@ export async function saveWorkflowDefinition(
     return { ok: false, errors: ["Add at least one step before activating."] };
   }
   if (steps.length > 0) {
-    const mcp = await resolveOrgMcpTools();
+    const mcp = await resolveOrgMcpTools(organizationId);
     const validation = await validateWorkflowDefinition(
       { steps },
       {

@@ -753,7 +753,7 @@ export async function runAgent(
       loopEngaged: false,
     };
     if (options?.mcpToolsEnabled !== false) {
-      gated = await resolveGatedOrgMcpTools();
+      gated = await resolveGatedOrgMcpTools(organizationId);
       for (const def of gated.toolDefs) {
         if (writes === "pause" || gated.accessByName.get(def.name) === "read") {
           offeredTools.push(def);
@@ -910,7 +910,7 @@ export async function resumeAgent(
         max_uses: 5,
       });
     }
-    const gated = await resolveGatedOrgMcpTools();
+    const gated = await resolveGatedOrgMcpTools(organizationId);
     // A resumed loop is in the "pause" policy by definition: writes are offered
     // and a further proposed write pauses again.
     offeredTools.push(...gated.toolDefs);

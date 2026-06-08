@@ -344,7 +344,7 @@ export async function executeWorkflowRun(params: {
     if (defRow.status !== "active") return { ok: false, error: "not_runnable" };
 
     const definition = defRow.definition;
-    const mcp = await resolveOrgMcpTools();
+    const mcp = await resolveOrgMcpTools(organizationId);
 
     // Re-validate at the data boundary with LIVE resolvers (the same gate a future
     // agent-emitted definition passes). Write tool_actions are now permitted —
@@ -492,7 +492,7 @@ export async function resumeWorkflowApproval(params: {
     const previousOutput = before.length > 0 ? before[before.length - 1].output : run.run_input;
     const ctx: ResolveContext = { runInput: run.run_input, previousOutput, outputs };
 
-    const mcp = await resolveOrgMcpTools();
+    const mcp = await resolveOrgMcpTools(organizationId);
     const deps = buildEngineDeps({ supabase, organizationId, userId, workflowRunId: run.id, mcp });
 
     const pendingAction =

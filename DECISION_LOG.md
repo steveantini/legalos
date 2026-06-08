@@ -3675,3 +3675,31 @@ Complete, serious starting documents grounded in product truth give the operator
 - The marketing footer is fully populated (Trust, About, Mission, Connections, FAQ, Contact, Blog, Documentation real; Pricing intentional coming-soon; Legal live in draft).
 - Finalizing Legal requires counsel review, placeholder fills, and the item-5 operational builds; the documents are derived from the product's truth and to be kept current as it evolves (the same standing-rule discipline as the Trust pages, D-129).
 - Content + four shell primitives only: no schema, no migration, no landing/workspace changes, and none of the operational capabilities the draft notes reference were built here.
+
+## D-136 — Org-scope connections and connection_policy (multi-tenant security fix)
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+`connections` and `connection_policy` were built when there was only one organization and never carried an `organization_id`. The live Demo Org (the first real second tenant, D-132/D-133) made the gap real, as the health census (item 6) found: `connection_policy` was a global singleton (`id integer primary key check (id = 1)`) any super_admin could rewrite for every org; and `connections` had no org column, so a `scope='org'` bring-your-own model key rode a globally-unique index and the chat-route resolver (`resolveByoCredential`, service-role, vendor-only) read it globally, meaning one tenant's saved key could route every org's inference, including the real org's privileged work product. This was the must-fix gating demos to untrusted prospects.
+
+**Decision:**
+
+Added `organization_id` to both tables and scoped everything by it (migration 0066). For `connections`: a `BEFORE INSERT` trigger fills `organization_id` from `current_org_id()` (all three connection inserts run through the RLS-scoped server client, so the trigger plus the org-fenced `WITH CHECK` make the OAuth, MCP, and BYO-model insert flows correct with no change to that delicate code); the three RLS policies gained `organization_id = current_org_id()` (the read fence stops a super_admin seeing other orgs' connections; the org-write fence stops writing them); and the BYO active-per-vendor unique index is now per-org. For `connection_policy`: the singleton `id` was dropped in favor of `organization_id` as the primary key (one row per org), RLS read/write scoped to the caller's org, and `getConnectionPolicy` now reads the caller's org row (RLS-scoped, no `id` filter), returning the permissive seeded default for an org with no row yet and failing closed only on a read error. The model-credential resolver and every service-role connection read (`resolveByoCredential`, `getOrgModelConnectionState`, `getOrgMcpConnections`, `getOrgMcpExecutionTargets`, and `resolveOrgMcpTools`/`resolveGatedOrgMcpTools` with their chat/workflow/run-agent callers) now take and filter by `organizationId`; the policy write upserts the actor's org row. Existing rows were backfilled to the real org (oldest `is_demo = false`), so its behavior is unchanged, and every other existing org got an explicit default policy row, so no org inherits another's. `connection_secrets` (RLS-forced, service-role-only, reached only via an org-scoped connection's `token_ref`) and `connection_grants` (scoped by connection ownership; a cross-org grant is inert once the connections read is org-fenced) were assessed as adequately scoped and left unchanged. The project's first cross-org isolation tests were added at the resolver level (the BYO key resolver never returns another org's credential; the policy default-vs-fail-closed fork).
+
+**Reasoning:**
+
+Cross-tenant isolation of connector governance and, critically, inference credentials is required before exposing the demo to untrusted prospects. Doing the fence at the resolver level (the explicit `organization_id` filter on the service-role reads that bypass RLS) plus RLS on the tables makes isolation enforced rather than incidental. The insert trigger plus org-fenced RLS was chosen over editing each insert site so the delicate OAuth/MCP flows stay untouched while a future insert site is org-scoped by construction.
+
+**Alternatives considered:**
+
+- Editing every connection insert site to set `organization_id` explicitly: rejected in favor of the trigger, which is lower-risk to the OAuth flows and makes a forgotten future insert impossible to commit (NOT NULL + WITH CHECK).
+- A full live-Postgres RLS test harness in this commit: deferred; the resolver-level tests cover the service-role path (which bypasses RLS and so depends on the explicit filter), and a live-DB harness to assert the org-fenced policies deny a cross-org read/write at the database layer is the additive next step.
+
+**Consequences:**
+
+- Per-org connection governance and BYO keys; the credential and governance dimensions are safe for demos shown to untrusted prospects.
+- The first cross-org isolation tests establish the pattern; a live-Postgres RLS harness is the next test investment.
+- Deploy: the operator applies migration 0066 (it backfills existing connections and the policy to the real org). The companion code tolerates the pre-migration schema (the BYO resolver try/catches to the managed key; the policy read fails closed), so there is no data risk in either order; apply promptly so enforcement is not degraded.

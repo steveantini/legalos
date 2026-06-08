@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCurrentUserProfile } from "@/lib/auth/access";
 import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { classifyMcpTool } from "@/lib/connections/mcp/tool-classification";
 import { serverPrefix } from "@/lib/connections/mcp/tool-mapping";
@@ -120,6 +121,11 @@ export function mcpTargetsToToolOptions(targets: OrgMcpExecutionTarget[]): ToolO
 export async function getWorkflowCapabilities(): Promise<WorkflowCapabilities> {
   const supabase = await createSupabaseServerClient();
 
+  // The viewing user's org (0066): resolveOrgMcpTools reads MCP execution targets
+  // via the service-role client, so it must be scoped to this org explicitly.
+  const profile = await getCurrentUserProfile();
+  const organizationId = profile?.organization_id ?? "";
+
   const [agentsResult, departmentsResult, mcp] = await Promise.all([
     supabase
       .from("agents")
@@ -128,7 +134,7 @@ export async function getWorkflowCapabilities(): Promise<WorkflowCapabilities> {
       .eq("is_active", true)
       .order("name", { ascending: true }),
     supabase.from("departments").select("id, name").order("sort_order", { ascending: true }),
-    resolveOrgMcpTools(),
+    resolveOrgMcpTools(organizationId),
   ]);
 
   const agents: AgentOption[] = (agentsResult.data ?? []).map((a) => ({

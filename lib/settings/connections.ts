@@ -56,9 +56,9 @@ export type ConnectionGrant = {
   updated_at: string;
 };
 
-/** The singleton `connection_policy` row. */
+/** A `connection_policy` row — one per organization (0066). */
 export type ConnectionPolicy = {
-  id: number;
+  organization_id: string;
   allowed_categories: string[];
   allowed_providers: string[];
   default_capability_ceiling: Capability[];

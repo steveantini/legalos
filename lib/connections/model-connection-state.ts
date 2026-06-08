@@ -13,6 +13,10 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  * non-super-admins. Only the non-sensitive masked hint
  * (provider_account_label, the key's last 4) is returned — never the key.
  *
+ * ORG SCOPING (0066): the service-role client bypasses RLS, so this MUST filter by
+ * organizationId (the viewing admin's org) — otherwise it would surface another
+ * org's model-connection state.
+ *
  * Returns null when the org has no model connection for the vendor (the default
  * managed state, nothing stored). A returned row distinguishes:
  *   - credentialSource 'byo'     → the org's own key is active.
@@ -29,12 +33,14 @@ export type OrgModelConnectionState = {
 
 export async function getOrgModelConnectionState(
   vendor: string,
+  organizationId: string,
 ): Promise<OrgModelConnectionState | null> {
   try {
     const admin = createSupabaseAdminClient();
     const { data, error } = await admin
       .from("connections")
       .select("credential_source, provider_account_label")
+      .eq("organization_id", organizationId)
       .eq("scope", "org")
       .is("owner_user_id", null)
       .eq("provider_id", vendor)

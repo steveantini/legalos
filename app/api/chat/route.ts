@@ -681,7 +681,7 @@ export async function POST(request: Request) {
     // single-pass path. Gate B (has-tools): with the flag on, the loop engages
     // only when the org PERMITS the MCP category AND has a connected, healthy
     // server (a non-empty tool set, D-104). loopEngaged folds both gates.
-    const gatedMcp = await resolveGatedOrgMcpTools();
+    const gatedMcp = await resolveGatedOrgMcpTools(agent.organization_id);
     const mcpToolDefs = gatedMcp.toolDefs;
     const mcpRoutingMap = gatedMcp.routingMap;
     const mcpAccessByName = gatedMcp.accessByName;

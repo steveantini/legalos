@@ -62,13 +62,17 @@ const EMPTY: ResolvedOrgMcpTools = { targets: [], toolDefs: [], routingMap: {} }
  * tool set. Returns toolDefs + routingMap (the single clean call for 2P-6) plus the
  * targets.
  */
-export async function resolveOrgMcpTools(): Promise<ResolvedOrgMcpTools> {
+export async function resolveOrgMcpTools(
+  organizationId: string,
+): Promise<ResolvedOrgMcpTools> {
   // Gate 1: org-wide Allowed-connections policy must permit the MCP category.
+  // (isCategoryAllowed reads policy via the RLS-scoped client, so it is already
+  // org-scoped; the explicit organizationId below scopes the service-role read.)
   if (!(await isCategoryAllowed(MCP_CATEGORY_ID))) {
     return EMPTY;
   }
-  // Gate 2: connected + healthy servers (active-only).
-  const targets = await getOrgMcpExecutionTargets();
+  // Gate 2: connected + healthy servers (active-only), scoped to this org (0066).
+  const targets = await getOrgMcpExecutionTargets(organizationId);
   if (targets.length === 0) {
     return EMPTY;
   }
@@ -105,13 +109,15 @@ export type GatedOrgMcpTools = {
   loopEngaged: boolean;
 };
 
-export async function resolveGatedOrgMcpTools(): Promise<GatedOrgMcpTools> {
+export async function resolveGatedOrgMcpTools(
+  organizationId: string,
+): Promise<GatedOrgMcpTools> {
   // Gate 0: the feature flag. Off → empty, no DB read (byte-identical no-MCP path).
   if (process.env.MCP_AGENT_TOOLS_ENABLED !== "true") {
     return { toolDefs: [], routingMap: {}, accessByName: new Map(), loopEngaged: false };
   }
 
-  const resolved = await resolveOrgMcpTools();
+  const resolved = await resolveOrgMcpTools(organizationId);
   const accessByName = new Map<string, McpToolAccess>();
   const targetsByServerId = new Map(resolved.targets.map((t) => [t.serverId, t]));
   for (const [namespaced, route] of Object.entries(resolved.routingMap)) {

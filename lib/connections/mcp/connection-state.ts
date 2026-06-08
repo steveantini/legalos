@@ -70,7 +70,9 @@ function toConnection(row: McpRow): OrgMcpConnection {
  * tool catalog. Returns an empty array when none (or on read failure), so the
  * caller degrades gracefully.
  */
-export async function getOrgMcpConnections(): Promise<OrgMcpConnection[]> {
+export async function getOrgMcpConnections(
+  organizationId: string,
+): Promise<OrgMcpConnection[]> {
   const admin = createSupabaseAdminClient();
 
   // Try with discovered_tools; if the column is absent (pre-migration), retry
@@ -81,12 +83,14 @@ export async function getOrgMcpConnections(): Promise<OrgMcpConnection[]> {
   // vanishing. The status rides on each row so the UI can render the difference.
   // (The EXECUTION reader, getOrgMcpExecutionTargets, deliberately stays
   // active-only — an unhealthy connection must never be offered to an agent.)
+  // ORG SCOPING (0066): service-role bypasses RLS, so filter by organizationId.
   const displayStatuses = ["active", "error"];
   const withTools = await admin
     .from("connections")
     .select(
       "provider_id, provider_account_label, base_url, status, discovered_tools",
     )
+    .eq("organization_id", organizationId)
     .eq("scope", "org")
     .is("owner_user_id", null)
     .eq("capability_category", "mcp")
@@ -98,6 +102,7 @@ export async function getOrgMcpConnections(): Promise<OrgMcpConnection[]> {
   const withoutTools = await admin
     .from("connections")
     .select("provider_id, provider_account_label, base_url, status")
+    .eq("organization_id", organizationId)
     .eq("scope", "org")
     .is("owner_user_id", null)
     .eq("capability_category", "mcp")
@@ -165,15 +170,11 @@ function toExecutionTarget(row: McpExecutionRow): OrgMcpExecutionTarget | null {
  * mint a token and call the server, plus the derived trust tier and tool catalog.
  * Returns an empty array when none (or on read failure), so the caller degrades.
  *
- * Org scoping: this reads only `scope='org'`, owner-less, mcp, active connections —
- * the platform's single-tenant org boundary, the same scoping getOrgMcpConnections
- * and getOrgModelConnectionState use. The `connections` table has NO organization_id
- * column today (single-tenant by design), so there is deliberately no organizationId
- * parameter: a param implying an org filter the schema can't honor would be a false,
- * security-relevant contract on a service-role reader that returns token references.
- * When the multi-tenant-ready migration adds connections.organization_id, add an
- * organizationId parameter and an `.eq('organization_id', organizationId)` filter
- * here; the call site (the 2P-6 loop) then threads agent.organization_id through.
+ * Org scoping (0066): this reads only `scope='org'`, owner-less, mcp, active
+ * connections, SCOPED to organizationId. The read uses the service-role client and
+ * returns token references, so the org filter is security-load-bearing: without it
+ * the agentic loop could route through another org's MCP connection. The call site
+ * (the 2P-6 loop) threads agent.organization_id through.
  *
  * Service-role: org MCP connections are grant-less and RLS-forced, and the token
  * reference points into the service-role-only connection_secrets, so this reads via
@@ -181,11 +182,12 @@ function toExecutionTarget(row: McpExecutionRow): OrgMcpExecutionTarget | null {
  * returns only references (connectionId, tokenRef), never a decrypted token.
  *
  * Nothing calls this yet — it is scaffolding under the locked Phase 2 design
- * (D-100); the agentic loop (2P-6) is its first consumer.
+ * (D-100); the agentic loop (2P-6) is its first consumer. The organizationId
+ * parameter is in place now so that first consumer is org-correct by construction.
  */
-export async function getOrgMcpExecutionTargets(): Promise<
-  OrgMcpExecutionTarget[]
-> {
+export async function getOrgMcpExecutionTargets(
+  organizationId: string,
+): Promise<OrgMcpExecutionTarget[]> {
   const admin = createSupabaseAdminClient();
 
   // Tolerant of discovered_tools being absent (pre-migration), mirroring
@@ -193,6 +195,7 @@ export async function getOrgMcpExecutionTargets(): Promise<
   const withTools = await admin
     .from("connections")
     .select("id, provider_id, token_ref, base_url, discovered_tools")
+    .eq("organization_id", organizationId)
     .eq("scope", "org")
     .is("owner_user_id", null)
     .eq("capability_category", "mcp")
@@ -207,6 +210,7 @@ export async function getOrgMcpExecutionTargets(): Promise<
   const withoutTools = await admin
     .from("connections")
     .select("id, provider_id, token_ref, base_url")
+    .eq("organization_id", organizationId)
     .eq("scope", "org")
     .is("owner_user_id", null)
     .eq("capability_category", "mcp")

@@ -542,7 +542,7 @@ describe("resolveGatedOrgMcpTools (flag gate)", () => {
     const prior = process.env.MCP_AGENT_TOOLS_ENABLED;
     delete process.env.MCP_AGENT_TOOLS_ENABLED;
     try {
-      const gated = await resolveGatedOrgMcpTools();
+      const gated = await resolveGatedOrgMcpTools("test-org");
       expect(gated.loopEngaged).toBe(false);
       expect(gated.toolDefs).toHaveLength(0);
       expect(gated.accessByName.size).toBe(0);

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Connection policy and connections (including bring-your-own model keys) are now scoped per organization, closing a gap where one organization's administrator could affect another organization's connector governance or inference credentials; this gap became reachable once the demo organization went live and is now fixed.**
+
 ### Added
 
 - **The Legal section is now a hub with draft Terms of Service, Privacy Policy, Data Processing Agreement, and Subprocessors documents, each clearly marked as a draft for review, grounded in how the product actually handles data and honest about commitments still being built.**

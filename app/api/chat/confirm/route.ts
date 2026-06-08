@@ -117,7 +117,7 @@ export async function POST(request: Request) {
     // route (above); this resolution covers any remaining reads and further tool
     // calls the continuation makes. A server disconnected since the pause simply
     // yields no tools — the loop still completes with a final text answer.
-    const resolved = await resolveOrgMcpTools();
+    const resolved = await resolveOrgMcpTools(run.organization_id);
     const mcpAccessByName = new Map<string, McpToolAccess>();
     const targetsByServerId = new Map(
       resolved.targets.map((t) => [t.serverId, t]),

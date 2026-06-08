@@ -9,6 +9,7 @@ import { McpConnectionsEditor } from "@/components/admin/policy/mcp-connections-
 import { ModelConnectionEditor } from "@/components/admin/policy/model-connection-editor";
 import { PolicyEditor } from "@/components/admin/policy/policy-editor";
 import {
+  getCurrentUserProfile,
   getOrganizationDefaultModel,
   isCurrentUserSuperAdmin,
 } from "@/lib/auth/access";
@@ -69,13 +70,21 @@ export default async function AdminPolicyPage({
 }) {
   const canEdit = await isCurrentUserSuperAdmin();
 
+  // The viewing admin's org (0066): the model/MCP connection-state reads are
+  // service-role (they bypass RLS), so they must be scoped to this org explicitly.
+  const profile = await getCurrentUserProfile();
+  const organizationId = profile?.organization_id ?? "";
+
   // The org default model, the model-connection state, and the MCP connections
   // all live independent of the connection policy, so they load and render even
   // if the policy read fails. The MCP read is service-side (the page awaits it),
   // so the connections are present on first paint — no client fetch to sequence.
   const orgDefaultModel = await getOrganizationDefaultModel();
-  const anthropicModelConnection = await getOrgModelConnectionState("anthropic");
-  const mcpConnections = await getOrgMcpConnections();
+  const anthropicModelConnection = await getOrgModelConnectionState(
+    "anthropic",
+    organizationId,
+  );
+  const mcpConnections = await getOrgMcpConnections(organizationId);
   const firstPartyMcpGroups = listFirstPartyServersByProvider();
 
   // Vendor content governance (Step 5): one row per registered provider, with its
@@ -101,14 +110,30 @@ export default async function AdminPolicyPage({
   const mcpError =
     typeof params.mcp_error === "string" ? params.mcp_error : undefined;
 
+  // RLS scopes this to the caller's own org policy row (0066), so no filter is
+  // needed. A read ERROR shows the calm error state; a genuinely ABSENT row (a
+  // new org with no policy yet) falls back to the seeded permissive default so the
+  // editor opens in the out-of-box state rather than reading as a failure.
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("connection_policy")
     .select("allowed_categories, default_capability_ceiling")
-    .eq("id", 1)
     .maybeSingle();
 
-  const loadFailed = Boolean(error) || data === null;
+  const loadFailed = Boolean(error);
+  const policyRow = (data as {
+    allowed_categories: string[] | null;
+    default_capability_ceiling: string[] | null;
+  } | null) ?? {
+    allowed_categories: [
+      "file-storage",
+      "calendar",
+      "mail",
+      "messaging",
+      "matter-management",
+    ],
+    default_capability_ceiling: ["read"],
+  };
 
   const categories = [
     ...CAPABILITY_GROUPS.map((group) => ({
@@ -160,10 +185,10 @@ export default async function AdminPolicyPage({
         <PolicyEditor
           categories={categories}
           initialAllowWrite={(
-            (data.default_capability_ceiling ?? []) as string[]
+            (policyRow.default_capability_ceiling ?? []) as string[]
           ).includes("write")}
           initialAllowedCategories={
-            (data.allowed_categories ?? []) as string[]
+            (policyRow.allowed_categories ?? []) as string[]
           }
           canEdit={canEdit}
         />

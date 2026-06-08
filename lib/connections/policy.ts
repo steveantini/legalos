@@ -33,19 +33,37 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * defense-in-depth layers.
  */
 
-const POLICY_ID = 1;
-
-// Fail-closed default, used ONLY if the singleton policy row can't be read
-// (missing or a transient DB error). Empty arrays deny everything: no category
-// or provider is allowed and nothing may be granted. The row is seeded by
-// migration 0044, so normal operation always returns the real policy; this
-// default exists so a read failure denies rather than silently permitting
-// (backend-security.md: fail closed).
+// Fail-closed default, used ONLY when the policy row can't be READ (a transient
+// DB error). Empty arrays deny everything: no category or provider is allowed and
+// nothing may be granted, so a read FAILURE denies rather than silently
+// permitting (backend-security.md: fail closed).
 const FAIL_CLOSED_POLICY: ConnectionPolicy = {
-  id: POLICY_ID,
+  organization_id: "",
   allowed_categories: [],
   allowed_providers: [],
   default_capability_ceiling: [],
+  updated_by_user_id: null,
+  updated_at: "",
+};
+
+// Permissive-but-safe default, used when an org genuinely has NO policy row (a
+// new org created after the 0066 migration; every existing org was backfilled a
+// row). These match the seeded default from migration 0044 (all categories and
+// providers allowed, read-only ceiling), so a new org behaves exactly as the
+// single-tenant product did out of the box. This is NOT a cross-org leak: it is a
+// per-org constant, never another org's stored policy. Distinct from the
+// fail-closed sentinel above, which is only for an actual read error.
+const PERMISSIVE_DEFAULT_POLICY: ConnectionPolicy = {
+  organization_id: "",
+  allowed_categories: [
+    "file-storage",
+    "calendar",
+    "mail",
+    "messaging",
+    "matter-management",
+  ],
+  allowed_providers: ["google-drive", "google-calendar", "gmail", "slack"],
+  default_capability_ceiling: ["read"] as Capability[],
   updated_by_user_id: null,
   updated_at: "",
 };
@@ -71,18 +89,24 @@ type GrantConnectionRow = {
  */
 export const getConnectionPolicy = cache(async (): Promise<ConnectionPolicy> => {
   const supabase = await createSupabaseServerClient();
+  // RLS scopes this to the caller's OWN org row (0066), so no org filter is
+  // needed or wanted here — current_org_id() in the policy does the scoping.
   const { data, error } = await supabase
     .from("connection_policy")
     .select(
-      "id, allowed_categories, allowed_providers, default_capability_ceiling, updated_by_user_id, updated_at",
+      "organization_id, allowed_categories, allowed_providers, default_capability_ceiling, updated_by_user_id, updated_at",
     )
-    .eq("id", POLICY_ID)
     .maybeSingle();
 
-  if (error || !data) return FAIL_CLOSED_POLICY;
+  // A read ERROR fails closed (deny). A genuinely ABSENT row (data null, no
+  // error) means this org has no policy yet — return the permissive seeded
+  // default so a new org behaves like the out-of-box product, never another
+  // org's policy.
+  if (error) return FAIL_CLOSED_POLICY;
+  if (!data) return PERMISSIVE_DEFAULT_POLICY;
 
   const row = data as {
-    id: number;
+    organization_id: string;
     allowed_categories: string[] | null;
     allowed_providers: string[] | null;
     default_capability_ceiling: string[] | null;
@@ -91,7 +115,7 @@ export const getConnectionPolicy = cache(async (): Promise<ConnectionPolicy> => 
   };
 
   return {
-    id: row.id,
+    organization_id: row.organization_id,
     allowed_categories: row.allowed_categories ?? [],
     allowed_providers: row.allowed_providers ?? [],
     default_capability_ceiling: (row.default_capability_ceiling ?? []) as Capability[],

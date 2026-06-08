@@ -33,7 +33,7 @@ export async function resolveModelCredential(params: {
   userId: string;
   vendor: string;
 }): Promise<ModelCredential> {
-  const { vendor } = params;
+  const { vendor, organizationId } = params;
 
   // 1. The vendor must be a known model provider. Rejecting here (rather than
   //    falling through to a default key) is the no-foot-gun guarantee: an
@@ -50,7 +50,7 @@ export async function resolveModelCredential(params: {
   //    service-role-only connection_secrets table. The lookup is tolerant of the
   //    feature being absent (pre-migration columns, a query error, or no row) and
   //    falls through to managed, so chat is never interrupted.
-  const byo = await resolveByoCredential(vendor);
+  const byo = await resolveByoCredential(vendor, organizationId);
   if (byo) return byo;
 
   // 3. Managed mode: the platform key for the vendor.
@@ -75,8 +75,16 @@ export async function resolveModelCredential(params: {
 }
 
 /**
- * Resolve a bring-your-own model credential for a vendor, or null if the org has
- * no active BYO model connection for it (or the feature is not yet available).
+ * Resolve a bring-your-own model credential for a vendor, scoped to the given
+ * organization, or null if that org has no active BYO model connection for it (or
+ * the feature is not yet available).
+ *
+ * ORG SCOPING (0066, the security fix): this read uses the SERVICE-ROLE client,
+ * which BYPASSES RLS, so it MUST filter by organization_id explicitly. Without it,
+ * one tenant's saved key would resolve for every org's inference. The org id is
+ * the requesting context's org (the chat conversation's / the agent's org),
+ * threaded from resolveModelCredential's caller, so the real org resolves only the
+ * real org's key and a different org resolves only its own (or none).
  *
  * Service-role throughout: the org model connection is grant-less and thus
  * super-admin-read-only under RLS, and connection_secrets is service-role-only.
@@ -87,16 +95,18 @@ export async function resolveModelCredential(params: {
  */
 async function resolveByoCredential(
   vendor: string,
+  organizationId: string,
 ): Promise<ModelCredential | null> {
   try {
     const admin = createSupabaseAdminClient();
 
-    // The active org BYO model connection for this vendor. The unique partial
-    // index (migration 0051) guarantees at most one active org model connection
-    // per vendor, so this is deterministic.
+    // The active org BYO model connection for this vendor, SCOPED TO THIS ORG.
+    // The per-org unique partial index (migration 0066) guarantees at most one
+    // active org model connection per vendor per org, so this is deterministic.
     const { data: connection, error: connectionError } = await admin
       .from("connections")
       .select("token_ref, base_url")
+      .eq("organization_id", organizationId)
       .eq("scope", "org")
       .is("owner_user_id", null)
       .eq("provider_id", vendor)
