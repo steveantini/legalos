@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The platform owner now has a cross-customer analytics view, centered on adoption and engagement health. A per-customer table surfaces each customer's activation rate, usage trend, the agents nobody is using, and how recently they were active, so a customer drifting toward churn is visible at a glance; alongside it sit an overall usage pulse and a cost summary shown only at the platform tier. It is built on a new reusable metric layer (each metric is a named database view, locked to server-only access, read inside per-tile server components behind the platform-owner gate, with no API endpoint or client data hook), so adding the next metric is a view, a registry line, and a tile. Demo organizations are excluded. (Analytics arc, Step 1.)**
+
 ### Security
 
 - **Connection policy and connections (including bring-your-own model keys) are now scoped per organization, closing a gap where one organization's administrator could affect another organization's connector governance or inference credentials; this gap became reachable once the demo organization went live and is now fixed.**

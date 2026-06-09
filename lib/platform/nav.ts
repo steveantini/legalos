@@ -6,9 +6,10 @@
  * `lib/admin/nav.ts` one tier up — cross-tenant platform administration rather
  * than org administration.
  *
- * The content library landed in Step 3 (the first real area). More arrive in
- * later steps (billing / cross-tenant analytics); each is one entry here and
- * both the rail and landing pick it up. The shape matches `AdminNavGroup` /
+ * The content library landed first; cross-customer analytics is the second area
+ * (analytics arc, Step 1). More arrive in later steps (billing, the rest of the
+ * analytics groups); each is one entry here and both the rail and landing pick
+ * it up. The shape matches `AdminNavGroup` /
  * `AdminNavItem` so a future shared landing/rail abstraction can consume both
  * without divergence.
  *
@@ -36,6 +37,17 @@ export const PLATFORM_NAV_GROUPS: ReadonlyArray<PlatformNavGroup> = [
         href: "/workspace/platform/content",
         description:
           "The curated agent libraries legalOS ships, and refreshing them from source.",
+      },
+    ],
+  },
+  {
+    caption: "Analytics",
+    items: [
+      {
+        label: "Customer analytics",
+        href: "/workspace/platform/analytics",
+        description:
+          "Adoption and engagement health across customers, the usage pulse, and platform cost.",
       },
     ],
   },

@@ -3773,3 +3773,40 @@ Locking in the intended behavior of these security- and correctness-critical pat
 
 - The suite is at 217 tests. The item-6 cleanup pass is complete except the deferred-future investments (a live-Postgres RLS integration harness; a generated-Supabase-types pass to drop the `as never` casts).
 - The org-scoping rule in `admin-roles` is app-enforced and tested; the cross-org RLS enforcement at the database layer remains for the deferred RLS harness.
+
+## D-140 — Metric-layer framework + platform adoption/engagement analytics (analytics arc Step 1)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context:**
+
+The platform-owner tier's first real feature is cross-customer analytics. The reference design is Kindred's metric-layer pattern (a metric is a named SQL view → a registry entry → a declarative tile, triple-gated, with per-tile loading), but Kindred's shape assumes a separate Python/FastAPI backend legalOS does not have (an HTTP `/api/operator/metrics/{key}` endpoint plus a client `useAdminData` hook). legalOS is RSC-first with a server-only service-role client, so the pattern had to be adapted to the native stack before committing. A design-check confirmed the shape; the guiding philosophy is "measure what we value, not value what we can measure," with ruthless restraint on how many tiles earn their place.
+
+**Decision:**
+
+Adopted Kindred's metric-layer IDEA in a legalOS-native shape, and built the first slice end to end.
+
+- A metric is a named SQL VIEW (migration 0067: `operator_org_health`, `operator_usage_daily`, `operator_usage_summary`), locked service-role-only via `revoke all ... from anon, authenticated` + `grant select ... to service_role`. The views intentionally bypass RLS (owner-rights, `security_invoker` deliberately OFF) so they can aggregate across organizations — a conscious departure from the usual "security_invoker = true on views" guidance, justified by the cross-tenant purpose and made safe by the GRANT lock (Supabase's default privileges would otherwise expose an RLS-bypassing public view to every logged-in user). Demo orgs are excluded by a single clearly-isolated `is_demo = false` predicate per view, so a future "include demo" variant is one line, not a rewrite.
+- The views are read ONLY through the server-only service-role admin client (`lib/supabase/admin.ts`), inside per-tile async server components wrapped in their own `<Suspense>`, all behind `requirePlatformOwner()`. There is NO API route and NO client data hook (Kindred's separate-backend pieces, correctly not copied) — three independent gates (locked view + server-only client + platform-owner route) and, crucially, no endpoint for a non-platform-owner to reach.
+- A registry (`lib/platform/metrics/registry.ts`) of pure-data MetricDefs (string FormatTokens, no functions, so defs stay serializable), a `formatMetric` token formatter, a missing-view-tolerant read helper (a not-yet-applied view degrades to a calm empty state, never a 500), and new declarative render primitives (`MetricTile`/`MetricStatRow`/`MetricChart`/`MetricTable`) drawn with hand-rolled SVG — no charting dependency (recharts deferred until interactivity earns it), matching the house style (sparkline.tsx, the Insights bars).
+- The first slice is the platform Analytics page (`/workspace/platform/analytics`, auto-surfaced by adding one `PLATFORM_NAV_GROUPS` entry): the per-customer adoption/engagement-health hero (the churn early-warning table — activation rate, usage trend, unused agents, and a calm last-active recency signal that warns only when a customer with seats has genuinely gone quiet, never alarmist-red for healthy states), an overall 30-day usage-pulse line, and a scalar summary where cost is shown (platform tier only). Restraint held: three tiles, no extra breakdowns.
+- Recorded a STANDING RULE: never add a service-role-backed `/api` metrics route to satisfy a client-side window toggle — pre-fetch windows server-side (the impact-band resolution); if any route handler ever fronts a service-role view, it must independently re-assert `requirePlatformOwner()`. Broadened the admin client's documented sanctioned use from "only the secrets table" to also cover these analytics views.
+
+**Reasoning:**
+
+Centering the platform view on adoption/engagement makes the leading churn indicator legible (the measurement philosophy), and the RSC/locked-view pattern is the stack-native one: it is the safer seam (no endpoint to leak through), scalable (adding a metric is turnkey — a view, a registry line, a tile), and consistent with how the lower altitudes already render. Hand-rolled SVG avoids a dependency for charts that today are a single line and a table.
+
+**Alternatives considered:**
+
+- Kindred's route-handler + client-fetch-hook seam: rejected — it would stand up an HTTP route fronting service-role data that must be independently re-gated and can be mis-secured, where the RSC seam has nothing to expose.
+- `security_invoker = on` views: rejected — would re-apply the caller's RLS and collapse every other org's rows to zero, defeating cross-tenant aggregation.
+- Adding recharts: deferred — the first slice (a pulse line + a table) doesn't need axes/tooltips/multi-series; revisit when interactivity earns the dependency.
+- Migrating the JS-computed home Impact / org Insights onto the metric layer now: explicitly deferred — they run correctly under the user's RLS client (cross-tenant aggregation is the only altitude that REQUIRES the locked-view pattern); they will share the presentation primitives without changing their data seam.
+
+**Consequences:**
+
+- The framework is reusable for Step 2 (cost-by-org/model, adoption funnels) and beyond; each new metric is a view + a registry line + a tile.
+- Impact/Insights stay JS-computed but will adopt the shared presentation primitives for visual coherence across the three altitudes.
+- The data-capture gaps the design-check surfaced (no outcome/time-saved signal, no session/DAU signal, no external-agent-click capture, no quality signal) are a separate new arc (ROADMAP item 5a); recharts, the hybrid productivity calculator, the super-admin Insights reframe, and the marketing/README surfacing remain later steps in the analytics arc.
+- **Operator: apply migration `0067_platform_analytics_views.sql`**, then view `/workspace/platform/analytics` as the platform owner.

@@ -5,17 +5,24 @@ import { z } from "zod";
 
 /**
  * Supabase service-role client. BYPASSES Row-Level Security entirely, so it is
- * the only access path to tables that have RLS enabled with no policies (deny
- * to anon/authenticated). The first and currently only such table is
- * `connection_secrets` (migration 0045), which holds encrypted OAuth tokens
- * that no client role may ever read.
+ * the access path to objects that the client roles can never reach. There are
+ * two deliberate, sanctioned uses today:
+ *
+ *   1. `connection_secrets` (migration 0045) — RLS enabled with no policies, so
+ *      it denies anon/authenticated outright; holds encrypted OAuth tokens that
+ *      no client role may ever read.
+ *   2. The cross-tenant platform-analytics views `operator_*` (migration 0067) —
+ *      these aggregate ACROSS organizations, so they intentionally bypass RLS
+ *      (owner-rights) and are GRANTed to service_role only. They are read here
+ *      exclusively inside per-tile server components behind requirePlatformOwner().
+ *
+ * Both are narrow, intentional bypasses, not creeping misuse. Adding a third use
+ * deserves the same scrutiny: prefer `createSupabaseServerClient` for anything
+ * user- or org-scoped, so RLS stays the last line of defense.
  *
  * The `"server-only"` import makes this a build error if it is ever imported
  * into a client component — the service-role key must never reach the browser
- * bundle (supabase.md gotcha #2). Use this client narrowly: only for the
- * secrets table, never as a convenient way to skip RLS on user-scoped tables
- * (use `createSupabaseServerClient` for those, so RLS stays the last line of
- * defense).
+ * bundle (supabase.md gotcha #2).
  *
  * The env parse runs per-call (not at module load) so production builds can
  * succeed without secrets baked in, matching `lib/supabase/server.ts`. No
