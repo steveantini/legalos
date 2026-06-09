@@ -3909,3 +3909,21 @@ One presentation system is the scalable, coherent, maintainable choice long-term
 
 - The three altitudes are coherent and maintained as one presentation system; the shared kit lives at `components/metrics/` (presentation), the platform data path at `lib/platform/metrics` (service-role).
 - The marketing-landing + README surfacing is the only remaining analytics-arc item; it closes the arc.
+
+## D-145 — Analytics arc close (marketing landing + README surfacing)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context / Decision:**
+
+Surfaced the customer-facing measurement features (individual impact, org adoption/engagement insights, the productivity/ROI calculator) on the marketing landing in its established voice and respecting the entrance choreography (a `LandingMeasurement` band between the hero and the footer, fading in via the existing `landing-el-in` utility at 3500ms so the cold-load reveal stays top-down and the return-settle and reduced-motion guards cover it with no new CSS), and reflected the measurement layer in the README. Kept the platform-owner cross-tenant analytics out of customer-facing marketing (it is an internal operator tool) and kept the measured-vs-estimated line honest: impact and adoption figures are real measured usage; the return is an estimate the customer shapes with their own assumptions, and the landing says so plainly.
+
+**Reasoning:**
+
+The standing requirement that shipped features be reflected externally, done last so the copy is honest about what's real. Helping customers SEE the value they are getting is a genuine differentiator worth surfacing truthfully.
+
+**Consequences:**
+
+- The analytics arc is complete end to end (platform analytics, hybrid calculator, individual Impact, presentation unification, external surfacing).
+- The data-capture arc (5a) remains for deeper measurement signals.
