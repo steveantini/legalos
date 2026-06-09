@@ -3834,3 +3834,28 @@ Completes the platform-owner view around the measurement philosophy — adoption
 
 - Platform analytics are complete for now. Remaining in the arc: the hybrid productivity calculator, the super-admin Insights reframe, and the marketing/README surfacing.
 - **Operator: apply migration `0068_platform_analytics_cost_and_funnels.sql`**, verifying the real-customer views exclude the Demo Org and that `operator_demo_conversion` is NOT zeroed (it returns the demo funnel).
+
+## D-142 — Hybrid productivity calculator (org-scoped, measured-vs-estimate)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context:**
+
+The Productivity Calculator was a fully manual what-if estimator with everything hand-typed and state in localStorage (`launchpad_calculator_data`) — single-browser, not multi-admin, and presenting an ROI with no measured backing. The hybrid-calculator step (analytics arc) makes it an honest blended tool and sets up Step B (feeding the dormant individual Impact cells).
+
+**Decision:**
+
+Promoted the task book from localStorage to an org-scoped DB store (`productivity_task_book`, one JSONB config row per org, migration 0069; RLS read by org members, write by super admins, mirroring the connection-policy / content-settings write gate). The store holds only the human-supplied assumptions (team members + salaries, task-type definitions with per-run time-without/time-with estimates and an optional agent mapping, and the now-editable cost-per-user). The run VOLUME is read live from `usage_events` (per task type's mapped agent, exact head counts over the trailing 12 months, org-scoped) and is never stored. Every input and output is labeled measured (real usage) or estimate (assumption), and the methodology modal explains the blend plainly. Super admins edit and save; other admins see it read-only.
+
+**Mapping chosen (reported per Constraint C, since the original task-row model did not cleanly carry measured run counts):** the task row is reframed as **task type → agent**, where the measured volume drives the result: a task type's annual hours saved = (estimated minutes saved per run / 60) × measured runs per year; savings = hours × the blended fully-loaded hourly rate (the average of members' `salary/2080×1.3`); platform cost = team size × the editable cost-per-user; ROI = (savings − cost) / cost. The CORE methodology functions (`hourlyRateFromSalary`, `rowSavings`, `platformCost`, `roiPercent`, and `hoursSaved` reused as the per-run minute delta) are byte-identical; the deliberate change is that the original's single annual time delta becomes per-run-delta × measured volume, which is the whole point of the hybrid (measured volume, estimated per-time). A task type with no agent mapping falls back to a hand-entered run-count estimate (labeled estimate), and a mapped agent with no usage reads as a measured zero — no fabricated values. localStorage import was not offered (single-operator local what-if data); the book starts fresh from the DB.
+
+**Reasoning:**
+
+Honest-state demands the tool be explicit that the ROI blends measured activity with human assumptions rather than implying a fully measured figure; org-scoping makes it persistent and multi-admin and is the substrate Step B reads per-user. Keeping the rate/savings/cost/ROI methodology identical preserves comparability with the prior tool while the data source and labeling change.
+
+**Consequences:**
+
+- The calculator is now a credible blended tool, DB-backed and org-shared. The pure blend (`lib/workspace/admin/calculator/compute.ts`) is unit-tested (suite at 236).
+- Step B lights up the dormant home-Impact "Hours saved" / "Cost saved" cells from this task book; the super-admin Insights reframe and the marketing/README surfacing close the arc.
+- **Operator: apply migration `0069_productivity_task_book.sql`**, then open `/workspace/admin/calculator` as a super admin — the run counts pre-fill from real usage (measured), the assumptions are hand-entered (estimate), and the saved book survives reload and is visible to other admins.

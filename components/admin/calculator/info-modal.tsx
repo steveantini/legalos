@@ -8,7 +8,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export type InfoTopic = "hourly-rate" | "total-roi" | "agent-cost";
+export type InfoTopic =
+  | "hourly-rate"
+  | "total-roi"
+  | "agent-cost"
+  | "methodology";
 
 interface InfoModalProps {
   topic: InfoTopic | null;
@@ -22,12 +26,16 @@ const STATIC_CONTENT: Record<
   { title: string; body: string }
 > = {
   "hourly-rate": {
-    title: "Fully Loaded Hourly Rate",
-    body: "An estimate of the true cost of an employee per hour. Formula: (Annual Salary / 2080) * 1.3",
+    title: "Blended hourly rate",
+    body: "An estimate of the true cost of an employee per hour, averaged across your team. Formula: (annual salary / 2080) * 1.3, averaged over the team members you enter. Salaries are your estimates.",
   },
   "total-roi": {
-    title: "Total ROI Calculation",
-    body: "The overall Return on Investment for the tool. Formula: ((Total Savings - Annual Cost) / Annual Cost) * 100%",
+    title: "Total ROI",
+    body: "The overall return on investment. Formula: ((total savings - annual cost) / annual cost) * 100%. Because savings blend measured usage with your estimates, the ROI is an informed estimate, not a fully measured figure.",
+  },
+  methodology: {
+    title: "How this is calculated",
+    body: "Run volumes are measured from your organization's actual usage over the last 12 months (the agent runs recorded as you use the product). Salary and the time saved per run are your estimates. Each task's annual hours saved = (your estimated minutes saved per run / 60) * the measured runs per year; savings = hours saved * the blended fully-loaded hourly rate; platform cost = team size * your cost per user; ROI = (savings - cost) / cost. The resulting hours, cost, and ROI therefore blend measured activity with your assumptions: the volume is real, the time saved and rates are estimates.",
   },
 };
 
@@ -41,7 +49,7 @@ export function InfoModal({
     topic === "agent-cost"
       ? {
           title: costLabel,
-          body: `${costDescription} Cost is automatically calculated based on the number of team members entered.`,
+          body: `${costDescription} This is your estimate. The total cost is this value times the number of team members entered.`,
         }
       : topic
         ? STATIC_CONTENT[topic]
