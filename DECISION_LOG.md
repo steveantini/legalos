@@ -3859,3 +3859,29 @@ Honest-state demands the tool be explicit that the ROI blends measured activity 
 - The calculator is now a credible blended tool, DB-backed and org-shared. The pure blend (`lib/workspace/admin/calculator/compute.ts`) is unit-tested (suite at 236).
 - Step B lights up the dormant home-Impact "Hours saved" / "Cost saved" cells from this task book; the super-admin Insights reframe and the marketing/README surfacing close the arc.
 - **Operator: apply migration `0069_productivity_task_book.sql`**, then open `/workspace/admin/calculator` as a super admin — the run counts pre-fill from real usage (measured), the assumptions are hand-entered (estimate), and the saved book survives reload and is visible to other admins.
+
+## D-143 — Individual Impact hours/cost-saved cells (calculator Step B)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context:**
+
+The home Impact card had two dormant cells ("Hours saved" / "Estimated cost saved") showing a "Setup needed" placeholder, waiting for the calculator's task book to move to the database. Step A shipped that org-scoped task book (D-142); the data now exists to fill the cells per user.
+
+**Decision:**
+
+Lit up the two cells per user. Hours saved = the user's MEASURED run volume (from `usage_events`, via the existing impact-math spine, with the same Week/Month/YTD calendar windows) × the org task book's ESTIMATED per-run time delta; cost saved = hours × the blended org-average fully-loaded rate. The blend reuses Step A's `computeTaskBook` (the user's per-agent run counts for the window as the measured-runs map), so there is no duplicated rate or time-delta math, and no new migration (it reads the 0069 book + `usage_events`). The cells respect the timeframe toggle (all three pre-fetched server-side) and show a delta vs. the prior window like Agent runs.
+
+**Rate choice:** the org-average rate (the average of the task book members' fully-loaded rates), NOT a per-person salary — it works for every user regardless of whether they are a named member, stays consistent, and avoids implying an individual's specific salary on their personal card.
+
+**Honest states (preserved):** no task book, or a book with no agent-mapped task type, or no member salary (no rate) → the honest "Setup needed" cell with the admin-only "Set up" link; a computable book with zero user runs → an honest zero, not setup-needed; the "Set up" link appears only in the setup-needed state. The honesty marker is kept light for the motivational card: a one-line footnote ("Estimated from your usage and your team's assumptions") rather than a heavy disclaimer, with the figures shown at low precision (hours to one decimal under ten, cost in whole dollars) so they read as an informed estimate, not false precision. No fabricated figures.
+
+**Reasoning:**
+
+Completes the measured-blend value story at the individual altitude and makes the Impact card fully live, while honest-state keeps it credible (the figure is explicitly measured volume × estimated time/rate). The savings logic was extracted to a small pure module (`lib/workspace/home/savings.ts`) and unit-tested (suite at 244).
+
+**Consequences:**
+
+- The home Impact card is fully live; the super-admin Insights reframe and the marketing/README surfacing close the analytics arc.
+- No migration or operator step is required for this step (it reads the existing 0069 task book). The cells light up for a user as soon as a super admin configures the book (a task type mapped to an agent + a member salary).

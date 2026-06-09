@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import type {
   ImpactBandData,
+  SavingsCell,
   Timeframe,
   TimeframeData,
 } from "@/lib/workspace/home/impact-math";
@@ -33,9 +34,10 @@ type ImpactBandClientProps = {
  * toggle on the heading row, the stats grid needs no inner top rule. Putting
  * the toggle on the heading row matches the pattern the Matters section uses
  * and reclaims the height the old in-container toggle row cost.
- * Two cells (Agent runs, Top agent) show real data; two (Hours saved,
- * Estimated cost saved) stay "Setup needed" until the calculator's task book
- * is promoted to the database (separate sub-arc).
+ * Agent runs and Top agent are measured from usage_events. Hours saved and
+ * Estimated cost saved (calculator Step B) blend the user's measured run volume
+ * with the org task book's estimated time/rate; they show live figures once an
+ * admin configures the book, and an honest "Setup needed" cell until then.
  *
  * Default timeframe is Week on every load; persisting the last choice is a v2
  * concern.
@@ -63,20 +65,47 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-paper-2">
         <div className="grid grid-cols-2">
           <div className="border-b border-r border-hairline">
-            <ImpactCell
-              mode="setup-needed"
-              label="Hours saved"
-              ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
-              ariaLabel="Set up hours saved tracking"
-            />
+            {current.hoursSaved ? (
+              <ImpactCell
+                mode="value"
+                label="Hours saved"
+                value={formatHoursValue(current.hoursSaved.current)}
+                suffix="hrs"
+                delta={formatSavingsDelta(
+                  current.hoursSaved,
+                  current.comparisonLabel,
+                  formatHoursMagnitude,
+                )}
+              />
+            ) : (
+              <ImpactCell
+                mode="setup-needed"
+                label="Hours saved"
+                ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
+                ariaLabel="Set up hours saved tracking"
+              />
+            )}
           </div>
           <div className="border-b border-hairline">
-            <ImpactCell
-              mode="setup-needed"
-              label="Estimated cost saved"
-              ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
-              ariaLabel="Set up estimated cost saved tracking"
-            />
+            {current.costSaved ? (
+              <ImpactCell
+                mode="value"
+                label="Estimated cost saved"
+                value={formatCostValue(current.costSaved.current)}
+                delta={formatSavingsDelta(
+                  current.costSaved,
+                  current.comparisonLabel,
+                  formatCostMagnitude,
+                )}
+              />
+            ) : (
+              <ImpactCell
+                mode="setup-needed"
+                label="Estimated cost saved"
+                ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
+                ariaLabel="Set up estimated cost saved tracking"
+              />
+            )}
           </div>
           <div className="border-r border-hairline">
             <ImpactCell
@@ -102,7 +131,9 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
 
         <div className="mt-auto flex items-baseline justify-between border-t border-hairline px-6 py-2.5">
           <span className="text-[12px] text-caption">
-            Calculated from your role’s task book.
+            {current.hoursSaved
+              ? "Estimated from your usage and your team’s assumptions."
+              : "Set up the task book to estimate savings."}
           </span>
           {isAdmin && (
             <Link
@@ -132,6 +163,44 @@ function formatRunsDelta(timeframe: TimeframeData): string | undefined {
   }
   const sign = agentRuns.delta >= 0 ? "+" : "";
   return `${sign}${agentRuns.delta} ${comparisonLabel}`;
+}
+
+/**
+ * Hours/cost saved are blended estimates (measured volume × estimated time/rate),
+ * so they're shown with low precision befitting a motivational figure: hours get
+ * one decimal under 10 and round above; cost is whole dollars.
+ */
+function formatHoursValue(n: number): string {
+  if (n <= 0) return "0";
+  return formatHoursMagnitude(n);
+}
+
+function formatHoursMagnitude(n: number): string {
+  return n < 10 ? n.toFixed(1) : Math.round(n).toLocaleString();
+}
+
+function formatCostValue(n: number): string {
+  return `$${Math.round(Math.max(n, 0)).toLocaleString()}`;
+}
+
+function formatCostMagnitude(n: number): string {
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+/**
+ * Delta line for a savings cell, mirroring the Agent-runs delta: hidden for YTD
+ * (no comparison) and when both windows are empty, so an idle user never sees a
+ * forlorn "+0".
+ */
+function formatSavingsDelta(
+  cell: SavingsCell,
+  comparisonLabel: string | null,
+  magnitude: (n: number) => string,
+): string | undefined {
+  if (comparisonLabel === null || cell.delta === null) return undefined;
+  if (cell.current === 0 && (cell.previous ?? 0) === 0) return undefined;
+  const sign = cell.delta >= 0 ? "+" : "-";
+  return `${sign}${magnitude(Math.abs(cell.delta))} ${comparisonLabel}`;
 }
 
 /** Trailing noun for the Top-agent secondary line, per timeframe. */

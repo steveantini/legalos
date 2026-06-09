@@ -1,4 +1,10 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { MeasuredRuns } from "@/lib/workspace/admin/calculator/compute";
+import { getTaskBook } from "@/lib/workspace/admin/calculator/store";
+
+import { type SavingsCell, savingsCells } from "./savings";
+
+export type { SavingsCell };
 
 type ServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -8,13 +14,15 @@ type ServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 export type Timeframe = "week" | "month" | "ytd";
 
 /**
- * Data for one timeframe. Only the two cells backed by real data are
- * modeled here — Agent runs and Top agent, both sourced from the user's
- * `usage_events` rows. Hours saved and Cost saved are intentionally absent:
- * they ship as "Setup needed" placeholder cells until the calculator's task
- * book is promoted from localStorage to the database (a separate sub-arc).
+ * Data for one timeframe. Agent runs and Top agent are MEASURED from the user's
+ * `usage_events` rows. Hours saved and Cost saved (calculator Step B) are a
+ * blend: the user's measured run volume × the org task book's estimated per-run
+ * time delta, costed at the blended org-average rate. They are `null` until an
+ * admin configures the org task book (the honest setup-needed state).
  */
 export type TimeframeData = {
+  hoursSaved: SavingsCell | null;
+  costSaved: SavingsCell | null;
   agentRuns: {
     /** Runs in the current window. */
     current: number;
@@ -77,6 +85,10 @@ type RawTimeframe = {
   topAgentId: string | null;
   topAgentRuns: number;
   comparisonLabel: string | null;
+  /** The user's per-agent run counts in the current window (for the savings blend). */
+  runsByAgent: MeasuredRuns;
+  /** Same for the comparison window, or null when there is none (YTD). */
+  runsByAgentPrev: MeasuredRuns | null;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -87,6 +99,9 @@ function emptyTimeframe(
   bucketCount: number,
 ): TimeframeData {
   return {
+    // Setup-needed (null) on the error path: we genuinely can't compute savings.
+    hoursSaved: null,
+    costSaved: null,
     agentRuns: {
       current: 0,
       previous: null,
@@ -179,23 +194,40 @@ async function loadTimeframe(
     .gte("created_at", currentStartIso)
     .lt("created_at", nowIso);
 
-  const previousCountQuery =
-    cfg.previousStart && cfg.previousEnd
-      ? supabase
-          .from("usage_events")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", userId)
-          .gte("created_at", cfg.previousStart.toISOString())
-          .lt("created_at", cfg.previousEnd.toISOString())
-      : null;
+  const hasComparison = Boolean(cfg.previousStart && cfg.previousEnd);
 
-  const [currentRes, rawRes, previousRes] = await Promise.all([
+  const previousCountQuery = hasComparison
+    ? supabase
+        .from("usage_events")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", cfg.previousStart!.toISOString())
+        .lt("created_at", cfg.previousEnd!.toISOString())
+    : null;
+
+  // Per-agent counts for the comparison window feed the savings delta (Step B).
+  const previousRawQuery = hasComparison
+    ? supabase
+        .from("usage_events")
+        .select("agent_id")
+        .eq("user_id", userId)
+        .gte("created_at", cfg.previousStart!.toISOString())
+        .lt("created_at", cfg.previousEnd!.toISOString())
+    : null;
+
+  const [currentRes, rawRes, previousRes, previousRawRes] = await Promise.all([
     currentCountQuery,
     rawRowsQuery,
     previousCountQuery ?? Promise.resolve(null),
+    previousRawQuery ?? Promise.resolve(null),
   ]);
 
-  if (currentRes.error || rawRes.error || (previousRes && previousRes.error)) {
+  if (
+    currentRes.error ||
+    rawRes.error ||
+    (previousRes && previousRes.error) ||
+    (previousRawRes && previousRawRes.error)
+  ) {
     throw new Error("usage_events read failed");
   }
 
@@ -209,6 +241,15 @@ async function loadTimeframe(
     if (row.agent_id) {
       runsByAgent.set(row.agent_id, (runsByAgent.get(row.agent_id) ?? 0) + 1);
     }
+  }
+
+  let runsByAgentPrev: MeasuredRuns | null = null;
+  if (previousRawRes) {
+    const prev = new Map<string, number>();
+    for (const row of previousRawRes.data ?? []) {
+      if (row.agent_id) prev.set(row.agent_id, (prev.get(row.agent_id) ?? 0) + 1);
+    }
+    runsByAgentPrev = Object.fromEntries(prev);
   }
 
   const sparkline = bucketCounts(
@@ -236,6 +277,8 @@ async function loadTimeframe(
     topAgentId,
     topAgentRuns,
     comparisonLabel: cfg.comparisonLabel,
+    runsByAgent: Object.fromEntries(runsByAgent),
+    runsByAgentPrev,
   };
 }
 
@@ -303,10 +346,11 @@ export async function getImpactBandData(
       comparisonLabel: null,
     };
 
-    const [weekRaw, monthRaw, ytdRaw] = await Promise.all([
+    const [weekRaw, monthRaw, ytdRaw, taskBook] = await Promise.all([
       loadTimeframe(supabase, userId, now, weekCfg),
       loadTimeframe(supabase, userId, now, monthCfg),
       loadTimeframe(supabase, userId, now, ytdCfg),
+      getTaskBook(),
     ]);
 
     // One batched name lookup for every distinct top agent across the three
@@ -333,21 +377,26 @@ export async function getImpactBandData(
     // branch only fires on a genuinely empty window. If the agent is no
     // longer readable (access revoked, hard edge case), fall back to the
     // same label ContinueWorking uses rather than dropping the stat.
-    const assemble = (raw: RawTimeframe): TimeframeData => ({
-      agentRuns: {
-        current: raw.current,
-        previous: raw.previous,
-        delta: raw.previous === null ? null : raw.current - raw.previous,
-        sparkline: raw.sparkline,
-      },
-      topAgent: {
-        name: raw.topAgentId
-          ? (nameById.get(raw.topAgentId) ?? "Untitled agent")
-          : null,
-        runsCurrent: raw.topAgentRuns,
-      },
-      comparisonLabel: raw.comparisonLabel,
-    });
+    const assemble = (raw: RawTimeframe): TimeframeData => {
+      const savings = savingsCells(taskBook, raw.runsByAgent, raw.runsByAgentPrev);
+      return {
+        hoursSaved: savings.hoursSaved,
+        costSaved: savings.costSaved,
+        agentRuns: {
+          current: raw.current,
+          previous: raw.previous,
+          delta: raw.previous === null ? null : raw.current - raw.previous,
+          sparkline: raw.sparkline,
+        },
+        topAgent: {
+          name: raw.topAgentId
+            ? (nameById.get(raw.topAgentId) ?? "Untitled agent")
+            : null,
+          runsCurrent: raw.topAgentRuns,
+        },
+        comparisonLabel: raw.comparisonLabel,
+      };
+    };
 
     return {
       week: assemble(weekRaw),
