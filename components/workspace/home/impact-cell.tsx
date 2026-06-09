@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { MetricStat } from "@/components/metrics/metric-stat-row";
+
 type ImpactCellBase = {
-  /** Eyebrow text; rendered uppercased + tracked by the wrapper. */
+  /** Eyebrow text; rendered uppercased + tracked. */
   label: string;
 };
 
@@ -41,41 +43,40 @@ type ImpactCellProps =
   | ImpactCellSetupProps;
 
 /**
- * One cell of the impact band. Three modes: `value` (a big number with an
- * optional unit and delta), `text` (a primary/secondary label
- * pair, used for Top agent), and `setup-needed` (a reduced-weight
- * placeholder with a "Set up →" link, used for cells awaiting the
- * calculator's task book). The mono caption label is shared across all
- * three.
+ * One cell of the impact band. Three modes: `value` (a number with an optional
+ * unit and delta), `text` (a primary/secondary pair, used for Top agent), and
+ * `setup-needed` (a placeholder with a "Set up →" link).
+ *
+ * The `value` cell renders through the shared `MetricStat` primitive (presentation
+ * unification), so it reads as the same family as Insights and the platform
+ * analytics; the motivational delta uses the primary tone. The `text` and
+ * `setup-needed` cells stay bespoke variants — Top agent's name+count and the
+ * setup link don't map onto a generic scalar tile, and forcing them would lose
+ * the admin "Set up" affordance.
  */
 export function ImpactCell(props: ImpactCellProps) {
+  if (props.mode === "value") {
+    return (
+      <div className="px-6 py-3">
+        <MetricStat
+          label={props.label}
+          value={props.value}
+          suffix={props.suffix}
+          hint={props.delta}
+          hintTone="primary"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="px-6 py-3">
       <p className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-caption">
         {props.label}
       </p>
-      {props.mode === "value" && <ValueCell {...props} />}
       {props.mode === "text" && <TextCell {...props} />}
       {props.mode === "setup-needed" && <SetupNeededCell {...props} />}
     </div>
-  );
-}
-
-function ValueCell({ value, suffix, delta }: ImpactCellValueProps) {
-  return (
-    <>
-      <div className="mb-1.5 flex items-baseline gap-1.5">
-        <span className="text-[28px] font-normal leading-none tracking-[-0.025em] text-foreground tabular-nums">
-          {value}
-        </span>
-        {suffix && (
-          <span className="font-mono text-[14px] font-medium text-caption">
-            {suffix}
-          </span>
-        )}
-      </div>
-      {delta && <p className="text-[11.5px] font-medium text-primary">{delta}</p>}
-    </>
   );
 }
 

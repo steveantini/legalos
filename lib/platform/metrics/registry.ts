@@ -13,7 +13,10 @@
  * server components, so it never has to).
  */
 
-import type { FormatToken } from "./format";
+import type { FormatToken } from "@/components/metrics/format";
+import type { MetricColumn } from "@/components/metrics/types";
+
+export type { MetricColumn };
 
 export type MetricKind = "scalar" | "timeseries" | "table";
 
@@ -22,22 +25,6 @@ export interface MetricStat {
   key: string;
   label: string;
   format: FormatToken;
-}
-
-/**
- * One column of a table metric. `sub` renders a muted secondary value under the
- * primary (e.g. "4 / 6" beneath an activation rate) — another field + token, so
- * the column stays pure data. `signal: "recency"` marks the cell as the calm
- * at-risk recency signal; the table reads the named companion fields to decide
- * whether a customer has gone quiet (see MetricTable).
- */
-export interface MetricColumn {
-  key: string;
-  label: string;
-  format: FormatToken;
-  align?: "start" | "end";
-  sub?: { key: string; format: FormatToken };
-  signal?: "recency";
 }
 
 export interface MetricDef {

@@ -1,4 +1,16 @@
-import type { MetricValue } from "@/lib/platform/metrics/format";
+import { MetricChart, MetricChartSkeleton } from "@/components/metrics/metric-chart";
+import type { MetricValue } from "@/components/metrics/format";
+import {
+  MetricStatRow,
+  MetricStatRowSkeleton,
+  type StatItem,
+} from "@/components/metrics/metric-stat-row";
+import { MetricTable, MetricTableSkeleton } from "@/components/metrics/metric-table";
+import {
+  MetricTile,
+  MetricTileMessage,
+  MetricTileSkeleton,
+} from "@/components/metrics/metric-tile";
 import {
   METRICS,
   type ConnectorAdoptionRow,
@@ -12,19 +24,6 @@ import {
   type UsageSummaryRow,
 } from "@/lib/platform/metrics/registry";
 import { readMetricView } from "@/lib/platform/metrics/read";
-
-import { MetricChart, MetricChartSkeleton } from "@/components/platform/metrics/metric-chart";
-import {
-  MetricStatRow,
-  MetricStatRowSkeleton,
-  type StatItem,
-} from "@/components/platform/metrics/metric-stat-row";
-import { MetricTable, MetricTableSkeleton } from "@/components/platform/metrics/metric-table";
-import {
-  MetricTile,
-  MetricTileMessage,
-  MetricTileSkeleton,
-} from "@/components/platform/metrics/metric-tile";
 
 /**
  * The platform Analytics tiles (analytics arc, Steps 1-2). Each is an async

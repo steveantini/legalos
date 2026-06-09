@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The three measurement views (your personal impact on the home page, your organization's insights, and the cross-customer platform view) now share one consistent visual language, so they read as one coherent family. The organization insights are reframed to lead with adoption and engagement (who is active, how usage is trending, and which agents are not being used yet) and now link to the Productivity Calculator for the value in dollars. This is a presentation change only: the underlying numbers, their windows, and crucially their privacy scoping are unchanged. Each view keeps reading data strictly within its own scope, so an administrator still sees only their organization and a person only their own data.**
+
 ### Added
 
 - **The home Impact card now shows each person their estimated hours and cost saved. The figures are computed from that person's own real usage (how often they ran each tracked task) blended with the organization's time-saved-per-task and rate assumptions, respect the week / month / year-to-date toggle with a change versus the prior window, and read as an honest estimate rather than a precise measurement. Until an administrator configures the organization's task book the two cells keep their honest setup state, and a person with no runs sees a true zero rather than a fabricated number. (Analytics arc, productivity calculator Step B.)**

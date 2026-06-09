@@ -1,5 +1,5 @@
-import { type MetricValue, formatMetric } from "@/lib/platform/metrics/format";
-import type { MetricColumn } from "@/lib/platform/metrics/registry";
+import { type MetricValue, formatMetric } from "./format";
+import type { MetricColumn } from "./types";
 
 import { MetricSkeletonBlock, MetricTileMessage } from "./metric-tile";
 

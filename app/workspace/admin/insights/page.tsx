@@ -46,9 +46,11 @@ export default async function AdminInsightsPage() {
           Insights
         </h1>
         <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          How your organization uses legalOS, measured from real activity. This is
-          the usage and adoption view; a cost and value view follows. The activity
-          shown is native-agent usage inside legalOS.
+          How your organization is adopting and engaging with legalOS, measured
+          from real activity: who is active, how usage is trending, and which
+          agents are not being used yet. The value in dollars lives in the
+          Productivity Calculator. The activity shown is native-agent usage inside
+          legalOS.
         </p>
       </header>
 

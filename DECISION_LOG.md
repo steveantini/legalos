@@ -3885,3 +3885,27 @@ Completes the measured-blend value story at the individual altitude and makes th
 
 - The home Impact card is fully live; the super-admin Insights reframe and the marketing/README surfacing close the analytics arc.
 - No migration or operator step is required for this step (it reads the existing 0069 task book). The cells light up for a user as soon as a super admin configures the book (a task type mapped to an agent + a member salary).
+
+## D-144 — Presentation unification across the three measurement altitudes + Insights adoption reframe
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context:**
+
+Three measurement altitudes existed with three different rendering systems: the platform-owner analytics (built on the new metric primitives), org Insights (A4a, bespoke rendering), and the home Impact card (bespoke cells). For long-term coherence and maintainability they should share one presentation system. The hard constraint: the data SEAMS must stay separate by altitude for security — the platform tier reads service-role-locked views (it must bypass RLS to aggregate cross-tenant), while Insights and Impact MUST keep reading through the viewer's own RLS-scoped client. Unifying the data path would punch a hole in org-level isolation.
+
+**Decision:**
+
+Unified the PRESENTATION, kept the DATA SEAMS deliberately separate. Moved the shareable presentation primitives (MetricTile / MetricStatRow / MetricChart / MetricTable + the format tokens + the MetricColumn type) out of `components/platform/metrics` and `lib/platform/metrics/format` into a neutral kit at `components/metrics/`, decoupled from the platform-only registry + service-role `read` seam (which stay under `lib/platform/metrics`). Re-rendered org Insights and the home Impact card through that kit. Extracted a shared single-tile `MetricStat` from `MetricStatRow` so the Impact value cells render through the same component (with a primary-toned hint for the motivational delta); the Impact Top-agent (text) and setup-needed cells stay small bespoke variants since they don't map onto a generic scalar tile and forcing them would lose the admin "Set up" affordance. Reframed Insights to lead with adoption/engagement (active people, the agent-runs trend, the adoption gap = agents never run) with the breakdowns rendered as MetricTables; dropped the by-model breakdown (model and cost live at the platform tier; org Insights leads with adoption), kept cost withheld at the org altitude, preserved the sample-data toggle and the calm "No usage yet" zero-state, and added a link to the Productivity Calculator for the value/ROI story.
+
+**Presentation-only guarantee (verified):** no data-source or aggregation file was touched (`insights-math.ts`, `impact-math.ts`, `savings.ts`, the calculator `compute`/`math`), so the displayed numbers, windows, and deltas are identical before and after — only the rendering changed. The security check confirmed no service-role read (`createSupabaseAdminClient` / the platform `read` helper / `operator_*` views) exists anywhere in the shared primitives or the org/individual altitudes; Insights and Impact still read through `createSupabaseServerClient` (RLS-scoped).
+
+**Reasoning:**
+
+One presentation system is the scalable, coherent, maintainable choice long-term (a new metric renders the same way at any altitude). The data-seam separation is an intrinsic security requirement, not a compromise: cross-tenant aggregation is the only altitude that may bypass RLS, and it is the only one that reads the locked views; org and individual must stay RLS-scoped. Decoupling the primitives from the platform read path means the lower altitudes consume the components without inheriting cross-tenant access.
+
+**Consequences:**
+
+- The three altitudes are coherent and maintained as one presentation system; the shared kit lives at `components/metrics/` (presentation), the platform data path at `lib/platform/metrics` (service-role).
+- The marketing-landing + README surfacing is the only remaining analytics-arc item; it closes the arc.
