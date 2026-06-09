@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The product now has a Features page (/features) touring the workspace, agents and departments, workflows, connections, measurement, and admin and governance, every section describing shipped capability. The measurement story moved there from the landing, which returns to its focused hero with its original entrance choreography (a single capability does not belong as a section on the thesis page). The standalone Connections page folded into the tour with a permanent redirect, and the footer was rebalanced: Product carries Features and Pricing (the workspace deep-link is gone, a marketing footer should not link into the app), Resources leads with Trust followed by Documentation, Blog, and FAQ, and Company carries About, Mission, Legal, and Contact.**
+
 - **The three measurement views (your personal impact on the home page, your organization's insights, and the cross-customer platform view) now share one consistent visual language, so they read as one coherent family. The organization insights are reframed to lead with adoption and engagement (who is active, how usage is trending, and which agents are not being used yet) and now link to the Productivity Calculator for the value in dollars. This is a presentation change only: the underlying numbers, their windows, and crucially their privacy scoping are unchanged. Each view keeps reading data strictly within its own scope, so an administrator still sees only their organization and a person only their own data.**
 
 ### Added

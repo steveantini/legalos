@@ -3927,3 +3927,22 @@ The standing requirement that shipped features be reflected externally, done las
 
 - The analytics arc is complete end to end (platform analytics, hybrid calculator, individual Impact, presentation unification, external surfacing).
 - The data-capture arc (5a) remains for deeper measurement signals.
+
+## D-146 — Features page + landing/footer restructure (measurement relocated)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context / Decision:**
+
+Removed the measurement section from the landing (a single feature as a hero-page section was off-brand; the landing is the thesis), restoring the landing to hero-only with its entrance choreography byte-identical to its pre-D-145 state. Built /features as the product tour where measurement is one capability among the real features (the workspace, agents and departments, workflows, connections, measurement, admin and governance), each section anchored (`MarketingSection` gained an optional `id`) and honest to shipped capability, with the measured-vs-estimated line carried over intact. Folded the standalone Connections page in: /connections 308-redirects to /features#connections (the established /security → /trust pattern), and /integrations was retargeted from /connections to /features#connections so old links cost one hop instead of chaining. /features joined PUBLIC_MARKETING_PATHS; /connections and /integrations stay listed so their 308s remain reachable anonymously. Removed the footer's Workspace deep-link (a marketing footer should not link into the app) and rebalanced the footer to Product (Features, Pricing) / Resources (Trust first, Documentation, Blog, FAQ) / Company (About, Mission, Legal, Contact). Trust placed under Resources deliberately: the trust center is reference material a prospect studies, and leading Resources with it states the priority honestly.
+
+**Reasoning:**
+
+The landing stays pure thesis; features get a proper tour home that also scaffolds the future per-feature demo videos (an embed slots into a section when real footage exists; no placeholder video UI until then, per honest-state); and the footer reads intentional (2/4/4) with every item in a semantically defensible home.
+
+**Consequences:**
+
+- /features is the capability story's home and the video scaffold; /connections and /integrations redirect there.
+- The landing choreography is restored to its pre-measurement-section behavior.
+- The Features page inherits the D-126 standing rule: its claims must never drift ahead of the architecture.

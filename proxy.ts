@@ -20,10 +20,10 @@ const PUBLIC_PATHS = ["/login", "/auth", "/demo"];
  * cannot infer them — each public marketing path is listed explicitly.
  * All are linked from the public landing footer and must be reachable
  * anonymously (before D-126 they were accidentally login-gated, bouncing
- * visitors to /login). `/security` and `/integrations` stay listed even
- * though they now permanently redirect (to /trust and /connections): the
- * proxy runs first, and an anonymous hit must reach the route's 308
- * instead of a /login bounce.
+ * visitors to /login). `/security`, `/integrations`, and `/connections`
+ * stay listed even though they now permanently redirect (to /trust and
+ * to /features#connections): the proxy runs first, and an anonymous hit
+ * must reach the route's 308 instead of a /login bounce.
  */
 const PUBLIC_MARKETING_PATHS = [
   "/about",
@@ -32,6 +32,7 @@ const PUBLIC_MARKETING_PATHS = [
   "/contact",
   "/documentation",
   "/faq",
+  "/features",
   "/integrations",
   "/legal",
   "/legal/terms",

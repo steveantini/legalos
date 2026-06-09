@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { LandingArrival } from "@/components/landing/landing-arrival";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingHero } from "@/components/landing/landing-hero";
-import { LandingMeasurement } from "@/components/landing/landing-measurement";
 import { LandingTopbar } from "@/components/landing/landing-topbar";
 
 /**
@@ -47,7 +46,6 @@ export default function RootLanding() {
       <LandingTopbar />
       <main>
         <LandingHero />
-        <LandingMeasurement />
       </main>
       <LandingFooter />
     </LandingArrival>

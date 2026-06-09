@@ -13,13 +13,19 @@ import Link from "next/link";
  * (no scale-in animation) — only the topbar's dot animates.
  */
 
+/**
+ * Column balance is deliberate (D-146): Product carries the two pages
+ * about the product itself (no /workspace deep-link — a marketing footer
+ * should not link into the app); Resources leads with Trust, the most
+ * substantive reference for this buyer; Company holds the who-we-are set.
+ */
 const PRODUCT_LINKS = [
-  { label: "Workspace", href: "/workspace" },
-  { label: "Connections", href: "/connections" },
+  { label: "Features", href: "/features" },
   { label: "Pricing", href: "/pricing" },
 ] as const;
 
 const RESOURCE_LINKS = [
+  { label: "Trust", href: "/trust" },
   { label: "Documentation", href: "/documentation" },
   { label: "Blog", href: "/blog" },
   { label: "FAQ", href: "/faq" },
@@ -27,9 +33,8 @@ const RESOURCE_LINKS = [
 
 const COMPANY_LINKS = [
   { label: "About", href: "/about" },
-  { label: "Our Mission", href: "/mission" },
+  { label: "Mission", href: "/mission" },
   { label: "Legal", href: "/legal" },
-  { label: "Trust", href: "/trust" },
   { label: "Contact", href: "/contact" },
 ] as const;
 

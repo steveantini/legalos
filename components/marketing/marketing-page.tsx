@@ -89,6 +89,8 @@ interface MarketingSectionProps {
   title: string;
   /** Optional quiet subtitle line under the heading. */
   tagline?: string;
+  /** Optional anchor id so the section is directly linkable (e.g. /features#connections). */
+  id?: string;
   children: React.ReactNode;
 }
 
@@ -102,10 +104,11 @@ export function MarketingSection({
   kicker,
   title,
   tagline,
+  id,
   children,
 }: MarketingSectionProps) {
   return (
-    <section className="mt-10 border-t border-hairline pt-8">
+    <section id={id} className="mt-10 scroll-mt-6 border-t border-hairline pt-8">
       {kicker ? (
         <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-caption">
           {kicker}
