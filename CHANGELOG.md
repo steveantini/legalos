@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- **Internal: brought the roadmap current to the shipped state, marking the auth-layer optimization and the rail platform-owner badge done, reflecting the completed Workflows arc and code-health cleanup pass, recording the deferred-future investments and small open follow-ups, and clearing a backlog entry the invitation feature already covers.**
+
 - **Internal: brought the project's onboarding and reference docs back in line with the current state of the codebase after a long build stretch, correcting stale phase and migration references, a few overstated security claims (now matching the honest Trust documentation), the demo-access design doc (so it reflects what shipped rather than the rejected design), and the setup guide (so a fresh checkout would actually work).**
 
 ### Changed
