@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Internal: made the lint signal meaningful by excluding historical design artifacts and resolving the one real lint issue, reduced redundant authentication lookups on every workspace navigation, unified a duplicated site-URL helper (fixing a trailing-slash edge case), and removed four dead files.**
 
+- **Internal: added tests for the privilege-escalation gate (only a super admin can grant super admin; the last super admin cannot be removed) and the workflow run orchestrator, covering two safety-critical paths that were previously verified only indirectly.**
+
 ### Added
 
 - **The Legal section is now a hub with draft Terms of Service, Privacy Policy, Data Processing Agreement, and Subprocessors documents, each clearly marked as a draft for review, grounded in how the product actually handles data and honest about commitments still being built.**

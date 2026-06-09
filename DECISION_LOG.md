@@ -3747,3 +3747,29 @@ Low-risk hygiene that improves signal, performance, and clarity without behavior
 
 - Lint baseline is 0; fewer auth round-trips per navigation; one correct URL helper; four fewer dead files.
 - The targeted tests (privilege-escalation gate, `lib/workflows/run.ts`) follow in a separate Commit B; the live-Postgres RLS harness and the generated-types play remain deferred-future (ROADMAP item 6).
+
+## D-139 — Targeted tests for the privilege-escalation gate and workflow run orchestrator
+
+Date: 2026-06-08
+Status: Accepted
+
+**Context:**
+
+The item-6 census found the entire `lib/actions/*` server-action layer untested, most importantly the privilege-escalation gate (which CLAUDE.md mandates testing), and the workflow run orchestrator `lib/workflows/run.ts` (the persistence/orchestration around the already-tested pure engine). These were the two highest-value targeted-test gaps; the heavier live-Postgres RLS harness and the Supabase-types play were explicitly deferred.
+
+**Decision:**
+
+Added Vitest coverage for both, test-only, using the project's established in-memory mock pattern (a faithful Supabase fake, as in model-credential.test.ts), so the actual decision/orchestration logic runs over controlled data. `lib/actions/admin-roles.test.ts` (11 tests) covers the role-change gate: not-signed-in and not-an-org-admin rejection, input validation, org-scoping (a target in a different org is rejected at the app layer), the super_admin-grant restriction (an org_admin granting super_admin is rejected; a super_admin granting it is allowed), the org_admin-cannot-change-a-super_admin rule, the last-active-super-admin lockout (demoting the last super_admin is rejected; allowed when another active super_admin remains), an ordinary in-authority change, and the no-op path. `lib/workflows/run.test.ts` (15 tests) covers the orchestrator around the mocked pure engine: the unauthenticated / not-found / not-runnable / invalid-definition gates, the run/step/pending-approval persistence on completed and awaiting-approval segments, the internal_error path on an insert failure, the already-decided behavior (a non-pending approval and a lost atomic claim), and the never-throws contract.
+
+**Finding (surfaced, nothing silently changed):**
+
+The app-layer privilege gate is REAL and substantial — it independently enforces authority, org-scoping, the super_admin-grant restriction, the org_admin-cannot-touch-a-super_admin rule, and the last-active-super-admin count, not merely relying on the database trigger. So the defense-in-depth CLAUDE.md mandates is genuinely present at the app layer. No defect or gap surfaced in either path; the tests pass against the code's existing behavior, with no change to the code under test.
+
+**Reasoning:**
+
+Locking in the intended behavior of these security- and correctness-critical paths closes the highest-value coverage gaps the census found, and verifies (rather than assumes) that the app-layer gate exists.
+
+**Consequences:**
+
+- The suite is at 217 tests. The item-6 cleanup pass is complete except the deferred-future investments (a live-Postgres RLS integration harness; a generated-Supabase-types pass to drop the `as never` casts).
+- The org-scoping rule in `admin-roles` is app-enforced and tested; the cross-org RLS enforcement at the database layer remains for the deferred RLS harness.
