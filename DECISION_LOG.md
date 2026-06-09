@@ -3810,3 +3810,27 @@ Centering the platform view on adoption/engagement makes the leading churn indic
 - Impact/Insights stay JS-computed but will adopt the shared presentation primitives for visual coherence across the three altitudes.
 - The data-capture gaps the design-check surfaced (no outcome/time-saved signal, no session/DAU signal, no external-agent-click capture, no quality signal) are a separate new arc (ROADMAP item 5a); recharts, the hybrid productivity calculator, the super-admin Insights reframe, and the marketing/README surfacing remain later steps in the analytics arc.
 - **Operator: apply migration `0067_platform_analytics_views.sql`**, then view `/workspace/platform/analytics` as the platform owner.
+
+## D-141 — Platform analytics cost + adoption funnels (analytics arc Step 2)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context:**
+
+Step 1 (D-140) shipped the metric-layer framework and the adoption/engagement-health hero. Step 2 completes the platform-owner analytics view by adding the two remaining groups on the same framework (a view + a registry line + a tile each), held to the same restraint principle.
+
+**Decision:**
+
+Added a **Cost group** — `operator_cost_daily` (spend-over-time timeseries), `operator_cost_by_org` (30-day spend per customer, highest first), and `operator_cost_summary` (today, this week, and a naive projected-monthly = trailing-30-day spend) — and an **Adoption-funnels group** — `operator_invite_funnel` (invitation acceptance over resolved invites, effective expiry computed like the app), `operator_connector_adoption` (real customers with an active connection vs. total), and `operator_demo_conversion` (demo links consumed vs. minted). All on migration 0068, service-role-locked via REVOKE/GRANT, `security_invoker` not set, real-customer views demo-excluded on the same isolated predicate. **Cost-by-model was deliberately held** — an engineering curiosity, not a business-health signal. Cost was also moved out of the engagement summary into its own Cost group so the same 30-day figure is not shown twice under two labels. The page is organised into three legible groups (Engagement / Cost / Adoption) with the health table as the centerpiece; the stat-row primitive gained an optional supporting-hint line and an adaptive column count, and the tile shell an h3 option for grouped headings.
+
+**`operator_demo_conversion` is intentionally demo-focused** — it is the one analytics view that does NOT apply the `is_demo` exclusion, because it measures the demo funnel itself (every `demo_invitations` row belongs to the Demo Org by nature; excluding demo would zero it out). Flagged at the view and in the migration header.
+
+**Reasoning:**
+
+Completes the platform-owner view around the measurement philosophy — adoption/engagement health leads, cost is the operational reality, funnels are the activation story — while holding restraint (no cost-by-model, no drill-downs, no latency/perf), so the page reads as useful and legible rather than a wall of tiles. The framework made this a fast, additive build with no new dependency, no API route, and no client data hook.
+
+**Consequences:**
+
+- Platform analytics are complete for now. Remaining in the arc: the hybrid productivity calculator, the super-admin Insights reframe, and the marketing/README surfacing.
+- **Operator: apply migration `0068_platform_analytics_cost_and_funnels.sql`**, verifying the real-customer views exclude the Demo Org and that `operator_demo_conversion` is NOT zeroed (it returns the demo funnel).

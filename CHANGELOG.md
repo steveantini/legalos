@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The platform analytics now include cost and adoption funnels, completing the platform-owner analytics view. The Cost group shows spend over time, spend by customer, and a projected monthly figure (the trailing-30-day run rate), all visible only at the platform tier; the Adoption group shows invitation acceptance, connector adoption, and demo-link conversion, the activation signals that complement the per-customer health table. The page is organized into legible Engagement, Cost, and Adoption groups with the health table as the centerpiece, and stays deliberately restrained: no per-model cost breakdown, no drill-downs. (Analytics arc, Step 2.)**
+
 - **The platform owner now has a cross-customer analytics view, centered on adoption and engagement health. A per-customer table surfaces each customer's activation rate, usage trend, the agents nobody is using, and how recently they were active, so a customer drifting toward churn is visible at a glance; alongside it sit an overall usage pulse and a cost summary shown only at the platform tier. It is built on a new reusable metric layer (each metric is a named database view, locked to server-only access, read inside per-tile server components behind the platform-owner gate, with no API endpoint or client data hook), so adding the next metric is a view, a registry line, and a tile. Demo organizations are excluded. (Analytics arc, Step 1.)**
 
 ### Security

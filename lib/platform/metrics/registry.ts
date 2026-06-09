@@ -67,11 +67,12 @@ export const METRICS = {
     kind: "scalar",
     view: "operator_usage_summary",
     window: { days: 30 },
+    // Cost is deliberately NOT shown here — it has its own Cost group (Step 2),
+    // so the same 30-day figure is not presented twice under two labels.
     stats: [
       { key: "active_orgs", label: "Active customers", format: "int" },
       { key: "active_users_30d", label: "Active users", format: "int" },
       { key: "runs_30d", label: "Agent runs", format: "compact" },
-      { key: "cost_micro_usd_30d", label: "Cost", format: "usd" },
     ],
   },
   org_health: {
@@ -119,6 +120,66 @@ export const METRICS = {
     x: "day",
     series: { key: "runs", label: "Agent runs", format: "int" },
   },
+
+  // ── Cost group (Step 2) — shown only at the platform tier ──
+  cost_summary: {
+    key: "cost_summary",
+    kind: "scalar",
+    view: "operator_cost_summary",
+    window: { days: 30 },
+    stats: [
+      { key: "cost_today_micro_usd", label: "Today", format: "usd" },
+      { key: "cost_week_micro_usd", label: "This week", format: "usd" },
+      {
+        key: "projected_monthly_micro_usd",
+        label: "Projected monthly",
+        format: "usd",
+      },
+    ],
+  },
+  cost_by_org: {
+    key: "cost_by_org",
+    kind: "table",
+    view: "operator_cost_by_org",
+    window: { days: 30 },
+    columns: [
+      { key: "name", label: "Customer", format: "text", align: "start" },
+      {
+        key: "cost_micro_usd_30d",
+        label: "Spend (30d)",
+        format: "usd",
+        align: "end",
+      },
+    ],
+  },
+  cost_daily: {
+    key: "cost_daily",
+    kind: "timeseries",
+    view: "operator_cost_daily",
+    window: { days: 30 },
+    x: "day",
+    series: { key: "cost_micro_usd", label: "Spend", format: "usd" },
+  },
+
+  // ── Adoption-funnels group (Step 2) — activation signals ──
+  invite_funnel: {
+    key: "invite_funnel",
+    kind: "scalar",
+    view: "operator_invite_funnel",
+    stats: [{ key: "acceptance_rate", label: "Invite acceptance", format: "percent" }],
+  },
+  connector_adoption: {
+    key: "connector_adoption",
+    kind: "scalar",
+    view: "operator_connector_adoption",
+    stats: [{ key: "adoption_rate", label: "Connector adoption", format: "percent" }],
+  },
+  demo_conversion: {
+    key: "demo_conversion",
+    kind: "scalar",
+    view: "operator_demo_conversion",
+    stats: [{ key: "conversion_rate", label: "Demo conversion", format: "percent" }],
+  },
 } satisfies Record<string, MetricDef>;
 
 // ── Row shapes the views return (so the tiles read typed rows, not `any`) ──
@@ -149,4 +210,41 @@ export interface UsageDailyRow {
   runs: number;
   active_users: number;
   active_orgs: number;
+}
+
+export interface CostSummaryRow {
+  cost_today_micro_usd: number;
+  cost_week_micro_usd: number;
+  projected_monthly_micro_usd: number;
+}
+
+export interface CostByOrgRow {
+  organization_id: string;
+  name: string;
+  cost_micro_usd_30d: number;
+}
+
+export interface CostDailyRow {
+  day: string;
+  cost_micro_usd: number;
+}
+
+export interface InviteFunnelRow {
+  pending: number;
+  accepted: number;
+  revoked: number;
+  expired: number;
+  acceptance_rate: number;
+}
+
+export interface ConnectorAdoptionRow {
+  total_orgs: number;
+  orgs_connected: number;
+  adoption_rate: number;
+}
+
+export interface DemoConversionRow {
+  minted: number;
+  consumed: number;
+  conversion_rate: number;
 }

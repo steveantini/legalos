@@ -16,17 +16,21 @@ import type { ReactNode } from "react";
 export function MetricTile({
   title,
   hint,
+  headingLevel = "h2",
   children,
 }: {
   title: string;
   hint?: string;
+  /** "h3" when the tile sits under a grouped section heading (Step 2). */
+  headingLevel?: "h2" | "h3";
   children: ReactNode;
 }) {
+  const Heading = headingLevel;
   return (
     <section aria-label={title}>
-      <h2 className="text-[17px] font-medium tracking-[-0.005em] text-foreground">
+      <Heading className="text-[17px] font-medium tracking-[-0.005em] text-foreground">
         {title}
-      </h2>
+      </Heading>
       {hint ? (
         <p className="mt-1 text-[13px] leading-[1.5] text-caption">{hint}</p>
       ) : null}
@@ -63,17 +67,20 @@ export function MetricSkeletonBlock({ className }: { className?: string }) {
 export function MetricTileSkeleton({
   title,
   hint,
+  headingLevel = "h2",
   children,
 }: {
   title: string;
   hint?: string;
+  headingLevel?: "h2" | "h3";
   children: ReactNode;
 }) {
+  const Heading = headingLevel;
   return (
     <section aria-label={title} aria-busy>
-      <h2 className="text-[17px] font-medium tracking-[-0.005em] text-foreground">
+      <Heading className="text-[17px] font-medium tracking-[-0.005em] text-foreground">
         {title}
-      </h2>
+      </Heading>
       {hint ? (
         <p className="mt-1 text-[13px] leading-[1.5] text-caption">{hint}</p>
       ) : null}

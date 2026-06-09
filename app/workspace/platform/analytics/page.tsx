@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import {
+  AdoptionFunnelsTile,
+  AdoptionFunnelsTileSkeleton,
+  CostByOrgTile,
+  CostByOrgTileSkeleton,
+  CostDailyTile,
+  CostDailyTileSkeleton,
+  CostSummaryTile,
+  CostSummaryTileSkeleton,
   OrgHealthTile,
   OrgHealthTileSkeleton,
   UsagePulseTile,
@@ -9,32 +17,46 @@ import {
   UsageSummaryTile,
   UsageSummaryTileSkeleton,
 } from "@/components/platform/analytics/analytics-tiles";
+import { captionLabel } from "@/lib/workspace/rail-styles";
 
 export const metadata: Metadata = {
   title: "Analytics",
 };
 
 /**
- * Platform Analytics (analytics arc, Step 1) — the cross-customer adoption and
- * engagement view, the first slice of the metric-layer framework.
+ * Platform Analytics (analytics arc, Steps 1-2) — the cross-customer view on the
+ * metric-layer framework. Gated by the platform layout's requirePlatformOwner():
+ * a non-platform-owner, including an org super_admin, gets a 404.
  *
- * Gated by the platform layout's requirePlatformOwner(): a non-platform-owner,
- * including an org super_admin, gets a 404, never this page. Each tile is an
- * async server component that reads a service-role-locked view (migration 0067)
- * through the server-only admin client, wrapped here in its own <Suspense> so the
- * surface streams in tile by tile with per-tile skeletons (the impact-band
- * loading model, one tier up). There is no API route or client data hook — the
- * reads stay on the server with nothing to leak through (DECISION_LOG D-140).
+ * Each tile is an async server component reading a service-role-locked view
+ * (migrations 0067-0068) through the server-only admin client, wrapped in its own
+ * <Suspense> so the surface streams in tile by tile. There is no API route or
+ * client data hook — the reads stay on the server with nothing to leak through
+ * (DECISION_LOG D-140).
  *
- * Order is context → detail → shape: the at-a-glance 30-day totals, then the
- * per-customer health table (the centerpiece, given the most room), then the
- * usage-pulse line. The layout owns the 896px left-justified <main>; this renders
- * a fragment inside it in the established platform register.
+ * The tiles are organised into three calm groups so the page stays scannable now
+ * that it carries more: Engagement (the adoption/engagement-health table is the
+ * centerpiece, alongside the totals and usage pulse), Cost (shown only at this
+ * platform tier), and Adoption (the activation funnels). Group captions are h2;
+ * the tiles render at h3 beneath them. The layout owns the 896px left-justified
+ * <main>; this renders a fragment inside it.
  *
  * force-dynamic because analytics must always be live — the views read now() and
  * must never be served from a stale render.
  */
 export const dynamic = "force-dynamic";
+
+function Group({ caption, children }: { caption: string; children: ReactNode }) {
+  const id = `analytics-${caption.toLowerCase()}`;
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id} className={`${captionLabel} mb-6`}>
+        {caption}
+      </h2>
+      <div className="flex flex-col gap-12">{children}</div>
+    </section>
+  );
+}
 
 export default function PlatformAnalyticsPage() {
   return (
@@ -50,18 +72,36 @@ export default function PlatformAnalyticsPage() {
         </p>
       </header>
 
-      <div className="mt-12 flex flex-col gap-14">
-        <Suspense fallback={<UsageSummaryTileSkeleton />}>
-          <UsageSummaryTile />
-        </Suspense>
+      <div className="mt-12 flex flex-col gap-16">
+        <Group caption="Engagement">
+          <Suspense fallback={<UsageSummaryTileSkeleton />}>
+            <UsageSummaryTile />
+          </Suspense>
+          <Suspense fallback={<OrgHealthTileSkeleton />}>
+            <OrgHealthTile />
+          </Suspense>
+          <Suspense fallback={<UsagePulseTileSkeleton />}>
+            <UsagePulseTile />
+          </Suspense>
+        </Group>
 
-        <Suspense fallback={<OrgHealthTileSkeleton />}>
-          <OrgHealthTile />
-        </Suspense>
+        <Group caption="Cost">
+          <Suspense fallback={<CostSummaryTileSkeleton />}>
+            <CostSummaryTile />
+          </Suspense>
+          <Suspense fallback={<CostByOrgTileSkeleton />}>
+            <CostByOrgTile />
+          </Suspense>
+          <Suspense fallback={<CostDailyTileSkeleton />}>
+            <CostDailyTile />
+          </Suspense>
+        </Group>
 
-        <Suspense fallback={<UsagePulseTileSkeleton />}>
-          <UsagePulseTile />
-        </Suspense>
+        <Group caption="Adoption">
+          <Suspense fallback={<AdoptionFunnelsTileSkeleton />}>
+            <AdoptionFunnelsTile />
+          </Suspense>
+        </Group>
       </div>
     </>
   );
