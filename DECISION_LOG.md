@@ -3946,3 +3946,22 @@ The landing stays pure thesis; features get a proper tour home that also scaffol
 - /features is the capability story's home and the video scaffold; /connections and /integrations redirect there.
 - The landing choreography is restored to its pre-measurement-section behavior.
 - The Features page inherits the D-126 standing rule: its claims must never drift ahead of the architecture.
+
+## D-147 — Default model updated to Claude Fable 5; calculator surfaced in admin nav
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context / Decision:**
+
+Verified the Claude Fable 5 model ID and per-token pricing (including cache rates) against Anthropic's official docs (platform.claude.com models overview + pricing page, fetched 2026-06-09, the model's GA date): id `claude-fable-5`, $10 input / $50 output per MTok, $12.50 five-minute cache write, $1 cache read, 1M context at standard pricing, 128K max output, same request surface as Opus 4.8 (no sampling params, adaptive thinking always on; this integration sends neither, so no request changes were needed). Added it to the canonical models source (`lib/llm/models.ts`), which feeds the pricing map (`cost_micro_usd`), validation, and every picker from one place; made it the code default (`DEFAULT_MODEL_FALLBACK`) and the composer quick-pick flagship (Opus 4.8 moves to the full picker, preserving the one-per-tier quick-pick rule); and set both organizations' `default_model` (real + demo, so prospects experience the best model) via operator-run scoped UPDATEs (data, not a migration). Confirmed the managed and BYO inference paths are model-agnostic: the BYO resolver is vendor-level (org-scoped per D-136) and the model id passes through to the SDK call unchanged. Also added the productivity calculator to the admin MEASURE navigation between Insights and Evals (labeled "Productivity"), fixing a discoverability gap where a shipped tool was reachable only by direct URL; one edit in `lib/admin/nav.ts` covers both the rail and the Admin landing.
+
+**Reasoning:**
+
+The default should be the best available model, and pricing accuracy protects the cost analytics (an unmapped model would throw in `computeCostMicroUsd` and record cost 0, silently corrupting the platform Cost group). Nav discoverability is part of a feature's done-definition; the gap is the lesson.
+
+**Consequences:**
+
+- Agents default to Fable 5; existing conversations keep their frozen model snapshot.
+- The calculator is findable under Measure (the value-story reading order: Insights = what's happening, Productivity = what it's worth, Evals = is it good).
+- Model-lifecycle automation (discovery, notify-and-approve, retirement) remains future Connections-phase work.

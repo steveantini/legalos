@@ -51,32 +51,52 @@ export type ModelDefinition = {
 
 /**
  * The canonical model list. Order = the agent form's full picker order
- * (flagship first, which is also the default for new agents). Opus 4.8 is the
- * current flagship; Opus 4.7 / 4.6 remain available in the full picker but not
- * the composer quick-pick. Sonnet 4.6 and Haiku 4.5 are unchanged.
+ * (flagship first, which is also the default for new agents). Fable 5 is the
+ * current flagship; Opus 4.8 / 4.7 / 4.6 remain available in the full picker
+ * but not the composer quick-pick (the quick-pick stays one-per-tier:
+ * flagship / balanced / fast). Sonnet 4.6 and Haiku 4.5 are unchanged.
  *
- * Opus 4.8 pricing matches Opus 4.7 (verified against Anthropic's pricing page,
- * June 2026): $5 / $25 per million in / out, same five-minute cache rates.
+ * Fable 5 id and pricing verified against Anthropic's official docs
+ * (platform.claude.com models overview + pricing, 2026-06-09): id
+ * `claude-fable-5`, $10 / $50 per million in / out, $12.50 five-minute
+ * cache write, $1 cache read, 1M context at standard pricing (no
+ * long-context premium), 128K max output. Same request surface as
+ * Opus 4.8 (no sampling params, adaptive thinking always on), which this
+ * integration already satisfies: we send neither sampling params nor a
+ * `thinking` field.
  */
 export const MODELS: readonly ModelDefinition[] = [
+  {
+    id: "anthropic/claude-fable-5",
+    displayName: "Claude Fable 5",
+    shortDisplayName: "Fable 5",
+    helper: "Newest and most capable. The default for new agents.",
+    pricing: {
+      inputPerMillion: 10,
+      outputPerMillion: 50,
+      cacheWritePerMillion: 12.5,
+      cacheReadPerMillion: 1,
+    },
+    inComposerQuickPick: true,
+  },
   {
     id: "anthropic/claude-opus-4-8",
     displayName: "Claude Opus 4.8",
     shortDisplayName: "Opus 4.8",
-    helper: "Newest and most capable. The default for new agents.",
+    helper: "Previous flagship. Strong reasoning at a lower cost.",
     pricing: {
       inputPerMillion: 5,
       outputPerMillion: 25,
       cacheWritePerMillion: 6.25,
       cacheReadPerMillion: 0.5,
     },
-    inComposerQuickPick: true,
+    inComposerQuickPick: false,
   },
   {
     id: "anthropic/claude-opus-4-7",
     displayName: "Claude Opus 4.7",
     shortDisplayName: "Opus 4.7",
-    helper: "Previous flagship. Strong reasoning for hard tasks.",
+    helper: "Earlier Opus generation. Strong reasoning for hard tasks.",
     pricing: {
       inputPerMillion: 5,
       outputPerMillion: 25,
@@ -134,7 +154,7 @@ export const MODELS: readonly ModelDefinition[] = [
  * codebase. NOT used in the run path: existing conversations keep their frozen
  * model snapshot regardless of this value.
  */
-export const DEFAULT_MODEL_FALLBACK = "anthropic/claude-opus-4-8";
+export const DEFAULT_MODEL_FALLBACK = "anthropic/claude-fable-5";
 
 /** Lookup by id, for display and pricing resolution. */
 export const MODEL_BY_ID: Record<string, ModelDefinition> = Object.fromEntries(

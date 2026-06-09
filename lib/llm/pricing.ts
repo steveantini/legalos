@@ -14,8 +14,8 @@
  * each vendor's entry carries its own rates.
  *
  * NOTE on Opus-generation tokenization: Anthropic introduced a new tokenizer
- * with Opus 4.7 (carried forward to Opus 4.8) that can produce up to ~35% more
- * tokens for the same source text vs. older models. Real cost per request can
+ * with Opus 4.7 (carried forward to Opus 4.8 and Fable 5) that can produce up
+ * to ~35% more tokens for the same source text vs. older models. Real cost per request can
  * vary noticeably even at the same listed rate. usage_events.tokens_in /
  * tokens_out are the source of truth for billed cost — never estimate cost from
  * character counts or pre-tokenizer rules of thumb.

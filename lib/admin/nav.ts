@@ -63,6 +63,12 @@ export const ADMIN_NAV_GROUPS: ReadonlyArray<AdminNavGroup> = [
           "How your organization uses legalOS, and the time and cost it saves.",
       },
       {
+        label: "Productivity",
+        href: "/workspace/admin/calculator",
+        description:
+          "Estimate the time and cost legalOS saves, from your real usage and your assumptions.",
+      },
+      {
         label: "Evals",
         href: "/workspace/admin/evals",
         description: "How you check that outputs meet your standard.",

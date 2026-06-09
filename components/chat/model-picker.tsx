@@ -31,11 +31,11 @@ interface ModelPickerProps {
  * Three-model quick-pick by design (D-030 surprise (3)): the composer
  * surfaces one-per-tier common-case picks (flagship / balanced / fast),
  * derived from the canonical models source's `inComposerQuickPick` flag —
- * today Opus 4.8, Sonnet 4.6, and Haiku 4.5. The off-pick Opus generations
- * (4.7, 4.6) stay reachable through the full edit form. The trigger label is
- * read-through — it shows the agent's current model even if it's outside the
- * quick-pick, so a power user who picked Opus 4.7 via the form sees their
- * actual current model in the trigger.
+ * today Fable 5, Sonnet 4.6, and Haiku 4.5. The off-pick Opus generations
+ * (4.8, 4.7, 4.6) stay reachable through the full edit form. The trigger
+ * label is read-through — it shows the agent's current model even if it's
+ * outside the quick-pick, so a power user who picked Opus 4.8 via the form
+ * sees their actual current model in the trigger.
  *
  * Optimistic update: trigger label flips immediately on selection,
  * action runs in a transition, label reverts on action failure with a

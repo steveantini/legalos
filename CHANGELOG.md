@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **legalOS now runs on Claude Fable 5, Anthropic's newest and most capable model, as the default for new agents. The model identifier and its per-token pricing, including the prompt-cache rates, were verified against Anthropic's official documentation and added to the canonical models source, so recorded costs and the cost analytics stay accurate for the new model. Fable 5 leads the model pickers and the composer quick-pick; Opus 4.8 and the older Opus generations remain available in the full picker. Existing conversations keep their frozen model.**
+
 ### Changed
+
+- **The Productivity Calculator now appears in the admin navigation, under Measure between Insights and Evals, labeled Productivity. The tool shipped without a navigation entry and was reachable only by direct link or through Insights; a real shipped tool must be findable in the nav.**
 
 - **The product now has a Features page (/features) touring the workspace, agents and departments, workflows, connections, measurement, and admin and governance, every section describing shipped capability. The measurement story moved there from the landing, which returns to its focused hero with its original entrance choreography (a single capability does not belong as a section on the thesis page). The standalone Connections page folded into the tour with a permanent redirect, and the footer was rebalanced: Product carries Features and Pricing (the workspace deep-link is gone, a marketing footer should not link into the app), Resources leads with Trust followed by Documentation, Blog, and FAQ, and Company carries About, Mission, Legal, and Contact.**
 
