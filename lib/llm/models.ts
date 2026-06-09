@@ -47,14 +47,25 @@ export type ModelDefinition = {
    * models stay reachable through the agent form's full picker.
    */
   inComposerQuickPick: boolean;
+  /**
+   * Whether this model is offered for NEW selection (pickers, the org
+   * default-model control, fresh agent creation). Unselectable models stay
+   * in this list so their pricing keeps computing for historical
+   * usage_events and their display names keep rendering, and so existing
+   * agents configured on them keep saving (the agent write actions validate
+   * against the full known set, not the selectable subset). An agent on an
+   * unselectable model keeps working; it just can't be newly chosen.
+   */
+  selectable: boolean;
 };
 
 /**
  * The canonical model list. Order = the agent form's full picker order
- * (flagship first, which is also the default for new agents). Fable 5 is the
- * current flagship; Opus 4.8 / 4.7 / 4.6 remain available in the full picker
- * but not the composer quick-pick (the quick-pick stays one-per-tier:
- * flagship / balanced / fast). Sonnet 4.6 and Haiku 4.5 are unchanged.
+ * (flagship first, which is also the default for new agents). The selectable
+ * set is exactly one per tier: Fable 5 (flagship), Sonnet 4.6 (balanced),
+ * Haiku 4.5 (fast). The Opus generations (4.8 / 4.7 / 4.6) are retained but
+ * unselectable: their pricing must keep computing for historical
+ * usage_events, and agents already configured on them keep working.
  *
  * Fable 5 id and pricing verified against Anthropic's official docs
  * (platform.claude.com models overview + pricing, 2026-06-09): id
@@ -78,6 +89,7 @@ export const MODELS: readonly ModelDefinition[] = [
       cacheReadPerMillion: 1,
     },
     inComposerQuickPick: true,
+    selectable: true,
   },
   {
     id: "anthropic/claude-opus-4-8",
@@ -91,6 +103,7 @@ export const MODELS: readonly ModelDefinition[] = [
       cacheReadPerMillion: 0.5,
     },
     inComposerQuickPick: false,
+    selectable: false,
   },
   {
     id: "anthropic/claude-opus-4-7",
@@ -104,6 +117,7 @@ export const MODELS: readonly ModelDefinition[] = [
       cacheReadPerMillion: 0.5,
     },
     inComposerQuickPick: false,
+    selectable: false,
   },
   {
     id: "anthropic/claude-opus-4-6",
@@ -117,6 +131,7 @@ export const MODELS: readonly ModelDefinition[] = [
       cacheReadPerMillion: 0.5,
     },
     inComposerQuickPick: false,
+    selectable: false,
   },
   {
     id: "anthropic/claude-sonnet-4-6",
@@ -130,6 +145,7 @@ export const MODELS: readonly ModelDefinition[] = [
       cacheReadPerMillion: 0.3,
     },
     inComposerQuickPick: true,
+    selectable: true,
   },
   {
     id: "anthropic/claude-haiku-4-5-20251001",
@@ -143,6 +159,7 @@ export const MODELS: readonly ModelDefinition[] = [
       cacheReadPerMillion: 0.1,
     },
     inComposerQuickPick: true,
+    selectable: true,
   },
 ];
 
@@ -162,18 +179,40 @@ export const MODEL_BY_ID: Record<string, ModelDefinition> = Object.fromEntries(
 );
 
 /**
- * Every supported model id, in canonical order. The validation trust boundary
- * (the agent server actions' `z.enum`) and the default-model save action both
- * derive their accepted set from this.
+ * Every KNOWN model id, in canonical order — the selectable set plus the
+ * retained unselectable ones. The agent server actions' `z.enum` validates
+ * against this, deliberately: an existing agent configured on an
+ * unselectable model must keep saving (its model rides along on every edit
+ * submit). NEW-selection surfaces validate against SELECTABLE_MODEL_IDS
+ * instead.
  */
 export const SUPPORTED_MODEL_IDS: string[] = MODELS.map((model) => model.id);
+
+/**
+ * The models offered for new selection, in canonical order. Every picker
+ * (agent form, org default-model control) renders from this; the
+ * default-model save action validates against the id list.
+ */
+export const SELECTABLE_MODELS: readonly ModelDefinition[] = MODELS.filter(
+  (model) => model.selectable,
+);
+
+/** The selectable ids, for new-selection validation (z.enum). */
+export const SELECTABLE_MODEL_IDS: string[] = SELECTABLE_MODELS.map(
+  (model) => model.id,
+);
 
 /** The composer quick-pick ids (flagship / balanced / fast), in canonical order. */
 export const COMPOSER_MODEL_IDS: string[] = MODELS.filter(
   (model) => model.inComposerQuickPick,
 ).map((model) => model.id);
 
-/** Whether a model id is one the product currently supports. */
+/** Whether a model id is one the product knows about (incl. unselectable). */
 export function isSupportedModel(id: string): boolean {
   return id in MODEL_BY_ID;
+}
+
+/** Whether a model id may be newly selected. */
+export function isSelectableModel(id: string): boolean {
+  return MODEL_BY_ID[id]?.selectable === true;
 }

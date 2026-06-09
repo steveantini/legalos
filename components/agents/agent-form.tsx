@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentFormResult } from "@/lib/actions/agents";
 import { modelDisplayName } from "@/lib/llm/model-label";
-import { MODELS } from "@/lib/llm/models";
+import { isSelectableModel, SELECTABLE_MODELS } from "@/lib/llm/models";
 
 type ExistingAttachment = {
   attachmentId: string;
@@ -31,12 +31,15 @@ type ExistingAttachment = {
 };
 
 /**
- * The full model picker's options, derived from the canonical models source
- * (lib/llm/models.ts) in its display order (flagship first). The Zod schema in
- * the server action validates against the same source, so this list is UX, not
- * a security gate, and can never drift from what the server accepts.
+ * The full model picker's options, derived from the canonical models source's
+ * SELECTABLE set (lib/llm/models.ts) in its display order (flagship first).
+ * The server action's Zod schema validates against the broader KNOWN set so an
+ * existing agent on a legacy (unselectable) model keeps saving; the picker
+ * additionally surfaces such a legacy current model as one extra option (see
+ * the render) so the trigger shows the truth and keeping it is possible — it
+ * just can't be chosen for any other agent.
  */
-const MODEL_OPTIONS = MODELS.map((model) => ({
+const MODEL_OPTIONS = SELECTABLE_MODELS.map((model) => ({
   value: model.id,
   helper: model.helper,
 }));
@@ -253,6 +256,21 @@ export function AgentForm({
             <SelectValue placeholder="Select a model" />
           </SelectTrigger>
           <SelectContent>
+            {/* An agent already on a legacy (unselectable) model keeps it as
+                an option, so the trigger shows the real current model and an
+                edit can leave it unchanged. The option only exists when it IS
+                the current model, so it can never be newly chosen elsewhere. */}
+            {!isSelectableModel(defaults.model) ? (
+              <SelectItem value={defaults.model}>
+                <div className="flex flex-col">
+                  <span>{modelDisplayName(defaults.model)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    No longer offered for new selection. This agent keeps it
+                    until you change it.
+                  </span>
+                </div>
+              </SelectItem>
+            ) : null}
             {MODEL_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 <div className="flex flex-col">

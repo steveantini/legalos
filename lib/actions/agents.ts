@@ -20,6 +20,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * 30 days remain in the DB until a future cron job hard-deletes them.
  */
 
+// Deliberately the full KNOWN set, not the selectable subset: an agent
+// already configured on a legacy (unselectable) model resubmits that model on
+// every edit, and rejecting it would break editing the agent. The pickers
+// offer only SELECTABLE_MODELS; new-selection-only actions (the org default)
+// validate against SELECTABLE_MODEL_IDS.
 const SUPPORTED_MODELS = SUPPORTED_MODEL_IDS as [string, ...string[]];
 
 /**

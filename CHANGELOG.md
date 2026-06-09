@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The selectable model list is trimmed to exactly three, one clear choice per tier: Claude Fable 5 (flagship), Claude Sonnet 4.6 (balanced), and Claude Haiku 4.5 (fast). Every model picker (the agent form, the composer, the admin default-model control) now offers only these. Agents and conversations already configured on an older Opus model keep working, their historical usage keeps computing accurate cost, and such an agent shows its real current model in the pickers; the older models simply can no longer be newly selected.**
+
 - **The Productivity Calculator now appears in the admin navigation, under Measure between Insights and Evals, labeled Productivity. The tool shipped without a navigation entry and was reachable only by direct link or through Insights; a real shipped tool must be findable in the nav.**
 
 - **The product now has a Features page (/features) touring the workspace, agents and departments, workflows, connections, measurement, and admin and governance, every section describing shipped capability. The measurement story moved there from the landing, which returns to its focused hero with its original entrance choreography (a single capability does not belong as a section on the thesis page). The standalone Connections page folded into the tour with a permanent redirect, and the footer was rebalanced: Product carries Features and Pricing (the workspace deep-link is gone, a marketing footer should not link into the app), Resources leads with Trust followed by Documentation, Blog, and FAQ, and Company carries About, Mission, Legal, and Contact.**

@@ -3965,3 +3965,22 @@ The default should be the best available model, and pricing accuracy protects th
 - Agents default to Fable 5; existing conversations keep their frozen model snapshot.
 - The calculator is findable under Measure (the value-story reading order: Insights = what's happening, Productivity = what it's worth, Evals = is it good).
 - Model-lifecycle automation (discovery, notify-and-approve, retirement) remains future Connections-phase work.
+
+## D-148 — Selectable models trimmed to one per tier (Fable 5 / Sonnet 4.6 / Haiku 4.5)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context / Decision:**
+
+Trimmed the selectable model set to exactly three, one clear choice per tier: Claude Fable 5 (flagship), Claude Sonnet 4.6 (balanced), Claude Haiku 4.5 (fast). Implemented as a `selectable` flag on the canonical models source (`lib/llm/models.ts`) rather than deleting entries: the Opus generations (4.8 / 4.7 / 4.6) stay in the list, unselectable, so `MODEL_PRICING` keeps computing accurate `cost_micro_usd` for historical `usage_events`, display names keep rendering, and agents already configured on them keep working. The validation split is deliberate and documented at both sites: the agent write actions keep validating against the full KNOWN set (an existing agent resubmits its model on every edit, and rejecting it would break editing), while new-selection surfaces use the SELECTABLE subset — the pickers render `SELECTABLE_MODELS`, the org default-model action validates `SELECTABLE_MODEL_IDS`, and a fresh agent falls back to `DEFAULT_MODEL_FALLBACK` if the org default is ever unselectable. An agent or org default still on a legacy model renders honestly: the agent form shows it as one extra option ("No longer offered for new selection; this agent keeps it until you change it") that exists only when it IS the current model; the admin default-model control shows it as a disabled item so the trigger states the truth while only current models can be chosen; the composer quick-pick trigger is read-through as before.
+
+**Reasoning:**
+
+One clear choice per tier removes decision noise from every picker, while pricing retention protects the cost analytics and the keep-working guarantee for existing references.
+
+**Consequences:**
+
+- Every selection surface offers exactly Fable 5 / Sonnet 4.6 / Haiku 4.5.
+- Legacy Opus references keep working end to end (chat, editing, cost computation, display); they cannot be newly chosen.
+- Re-offering a model later is flipping `selectable` back to true.

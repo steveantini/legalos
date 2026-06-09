@@ -12,7 +12,11 @@ import {
 } from "@/components/ui/select";
 import { updateDefaultModelAction } from "@/lib/actions/default-model";
 import { modelDisplayName } from "@/lib/llm/model-label";
-import { DEFAULT_MODEL_FALLBACK, MODELS } from "@/lib/llm/models";
+import {
+  DEFAULT_MODEL_FALLBACK,
+  isSelectableModel,
+  SELECTABLE_MODELS,
+} from "@/lib/llm/models";
 
 /**
  * The org default-model control (admin Policy & access, A2b) — a third
@@ -20,9 +24,13 @@ import { DEFAULT_MODEL_FALLBACK, MODELS } from "@/lib/llm/models";
  * categories. Sets the model NEW agents start with; it does not change existing
  * agents or running conversations.
  *
- * Options come from the canonical models source (lib/llm/models.ts), the same
- * list the agent pickers and validation use — the future models-as-a-connection
- * seam — never a local array. Super admins (`canEdit`) get an interactive picker
+ * Options come from the canonical models source's SELECTABLE set
+ * (lib/llm/models.ts), the same list the agent pickers use — the future
+ * models-as-a-connection seam — never a local array. If the stored default is
+ * a legacy model no longer offered (unselectable), it still renders as the
+ * current value via a disabled item, so the control stays honest about what
+ * is in effect while only the selectable set can be newly chosen.
+ * Super admins (`canEdit`) get an interactive picker
  * with the established admin idiom: optimistic update in a transition, revert and
  * `toast.error` on failure, a quiet `toast.success` on save. Every other admin
  * sees the effective model rendered read only.
@@ -98,7 +106,19 @@ export function DefaultModelEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {MODELS.map((model) => (
+              {/* A legacy current value renders (disabled) so the trigger can
+                  show what is actually in effect; it cannot be re-chosen. */}
+              {!isSelectableModel(selected) ? (
+                <SelectItem value={selected} disabled>
+                  <div className="flex flex-col">
+                    <span>{modelDisplayName(selected)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      No longer offered. Choose a current model below.
+                    </span>
+                  </div>
+                </SelectItem>
+              ) : null}
+              {SELECTABLE_MODELS.map((model) => (
                 <SelectItem key={model.id} value={model.id}>
                   <div className="flex flex-col">
                     <span>{model.displayName}</span>

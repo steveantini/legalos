@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { isCurrentUserSuperAdmin } from "@/lib/auth/access";
-import { SUPPORTED_MODEL_IDS } from "@/lib/llm/models";
+import { SELECTABLE_MODEL_IDS } from "@/lib/llm/models";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -17,10 +17,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * not the sole gate. The org default is governance and cost-shaping (Opus costs
  * ~1.7x Sonnet), so it sits at the same super-admin tier as the connection policy.
  *
- * The model is validated against the canonical models source (lib/llm/models.ts),
- * the same set the agent-form validation accepts, so a malformed or hostile
- * client can never store an unsupported id. The write affects new agents only —
- * existing agents and running conversations keep their model (run path unchanged).
+ * The model is validated against the SELECTABLE set from the canonical models
+ * source (lib/llm/models.ts): setting the org default is always a new
+ * selection, so unselectable legacy models are rejected here even though the
+ * agent write actions still accept them for existing agents. The write affects
+ * new agents only — existing agents and running conversations keep their model
+ * (run path unchanged).
  *
  * The file exports only this async function (no type exports) per D-072. The
  * local result type is erased; the action's return type still flows to the
@@ -30,7 +32,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 type DefaultModelResult = { ok: true } | { ok: false; error: string };
 
 const updateSchema = z.object({
-  model: z.enum(SUPPORTED_MODEL_IDS as [string, ...string[]], {
+  model: z.enum(SELECTABLE_MODEL_IDS as [string, ...string[]], {
     message: "Unsupported model.",
   }),
 });
