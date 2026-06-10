@@ -14,8 +14,9 @@ interface CollapsibleSectionProps {
   title: string;
   /**
    * Optional one-line subline trailing beside the heading (e.g., "Vetted
-   * and tested by your department."). Renders muted at 13px on the title
-   * row; on narrow viewports it wraps, whole, below the title rather
+   * and tested by your department."). Renders muted at 12px on the title
+   * row (a step below body text, so the mono-caps title keeps the lead);
+   * on narrow viewports it wraps, whole, below the title rather
    * than truncating. Stays visible when the section is collapsed so the
    * orientation it provides survives the collapse, and sits outside the
    * toggle button so the button's accessible name stays the title.
@@ -126,7 +127,7 @@ export function CollapsibleSection({
             </h2>
           </button>
           {description ? (
-            <p className="relative text-[13px] leading-[1.5] text-muted-foreground before:absolute before:-left-[18px] before:w-[18px] before:text-center before:content-['·']">
+            <p className="relative text-[12px] leading-[1.5] text-muted-foreground before:absolute before:-left-[18px] before:w-[18px] before:text-center before:content-['·']">
               {description}
             </p>
           ) : null}
