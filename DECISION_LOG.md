@@ -4002,3 +4002,5 @@ Cold-user comprehension of the trust hierarchy (department-approved / Anthropic'
 
 - The label is a claim the product grows into further as Evals ships.
 - The My agents and Claude for Legal empty states were trimmed so subline + empty copy read as one thought rather than repeating each other.
+
+**Follow-up (2026-06-09):** the sublines moved from below the title to trailing beside it on the same row (the header reads as one quiet line; on narrow viewports flex-wrap drops the subline whole below the title rather than truncating, and the count badge stays pinned to the title line), and the Approved agents subline was reworded to "Vetted and tested by your department." so the label's word is not repeated in its own description.

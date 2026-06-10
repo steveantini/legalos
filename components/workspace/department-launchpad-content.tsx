@@ -110,7 +110,7 @@ export function DepartmentLaunchpadContent({
           that doesn't exist). */}
       <CollapsibleSection
         title="Approved agents"
-        description="Vetted and approved by your department."
+        description="Vetted and tested by your department."
         sectionKey="departmentAgents"
         preferenceKey={collapsePrefKey}
         defaultCollapsed={initialCollapsedState.departmentAgents ?? false}

@@ -13,10 +13,11 @@ interface CollapsibleSectionProps {
   /** Section heading text (e.g., "Approved agents"). */
   title: string;
   /**
-   * Optional one-line subline under the heading (e.g., "Vetted and
-   * approved by your department."). Renders muted at 13px, aligned with
-   * the title, and stays visible when the section is collapsed so the
-   * orientation it provides survives the collapse. Sits outside the
+   * Optional one-line subline trailing beside the heading (e.g., "Vetted
+   * and tested by your department."). Renders muted at 13px on the title
+   * row; on narrow viewports it wraps, whole, below the title rather
+   * than truncating. Stays visible when the section is collapsed so the
+   * orientation it provides survives the collapse, and sits outside the
    * toggle button so the button's accessible name stays the title.
    */
   description?: string;
@@ -86,29 +87,36 @@ export function CollapsibleSection({
 
   return (
     <section className="flex flex-col">
-      <div className="border-b border-hairline pb-[10px]">
-        <button
-          type="button"
-          onClick={handleToggle}
-          aria-expanded={!collapsed}
-          aria-controls={contentId}
-          className="group flex w-full items-center gap-2 text-left transition-colors hover:[&_h2]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          <ChevronDownIcon
-            className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsed ? "-rotate-90" : "rotate-0"}`}
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors duration-release ease-release motion-reduce:transition-none group-hover:duration-hover group-hover:ease-soft">
-            {title}
-          </h2>
-          {meta ? <span className="ml-auto">{meta}</span> : null}
-        </button>
-        {description ? (
-          <p className="mt-[6px] pl-[22px] text-[13px] leading-[1.5] text-muted-foreground">
-            {description}
-          </p>
-        ) : null}
+      {/* Header row: toggle button (chevron + title) with the subline
+          trailing beside it and the count pinned right. The button + subline
+          pair lives in a wrapping sub-row, so on a viewport too narrow for
+          both, flex-wrap drops the subline, whole, below the title (no
+          truncation) while the count stays on the title line. */}
+      <div className="flex items-baseline gap-2 border-b border-hairline pb-[10px]">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-1">
+          <button
+            type="button"
+            onClick={handleToggle}
+            aria-expanded={!collapsed}
+            aria-controls={contentId}
+            className="group flex items-center gap-2 text-left transition-colors hover:[&_h2]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <ChevronDownIcon
+              className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsed ? "-rotate-90" : "rotate-0"}`}
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors duration-release ease-release motion-reduce:transition-none group-hover:duration-hover group-hover:ease-soft">
+              {title}
+            </h2>
+          </button>
+          {description ? (
+            <p className="text-[13px] leading-[1.5] text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {meta ? <span className="shrink-0">{meta}</span> : null}
       </div>
 
       <div
