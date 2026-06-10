@@ -19,7 +19,7 @@ import {
  *   - Org-admin viewers see their own user-owned deletions PLUS all
  *     template deletions in the org (Pattern B canonicals soft-
  *     deleted via the launchpad overflow menu). Template rows render
- *     a "Department Agent" chip next to the name so admins can scan
+ *     an "Approved agent" chip next to the name so admins can scan
  *     personal trash from template trash at a glance.
  *
  * Beyond-30-day rows are filtered out by the query and remain in the
@@ -59,7 +59,7 @@ export default async function TrashPage() {
                         aria-hidden
                         className="h-[5px] w-[5px] rounded-full bg-primary"
                       />
-                      Department Agent
+                      Approved agent
                     </span>
                   ) : null}
                 </div>

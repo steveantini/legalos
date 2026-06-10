@@ -63,8 +63,8 @@ interface AgentCardProps {
   canManageTemplates?: boolean;
   /**
    * True when this card represents an agent the current user owns and
-   * can edit / delete. The My Agents bucket passes this true; the
-   * Department Agents bucket passes it false. Menus only render when
+   * can edit / delete. The My agents bucket passes this true; the
+   * Approved agents bucket passes it false. Menus only render when
    * explicitly enabled.
    */
   isMyAgent?: boolean;
@@ -367,7 +367,7 @@ function EditableAgentCard({
       </>
     );
   } else if (isAdminMode) {
-    dialogTitle = "Delete Department Agent?";
+    dialogTitle = "Delete approved agent?";
     dialogBody = (
       <>
         <strong>{agent.name}</strong> will be moved to the trash. Other

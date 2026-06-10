@@ -117,7 +117,7 @@ Every agent in the system is one of three tiers:
 2. **Personal (My) agents** — `is_template=false`, `created_by=<uid>`, `source_origin=null`. User's own agents, freely editable by their owner.
 3. **Claude for Legal (C4L) agents** — `is_template=true`, `created_by=null`, `source_origin='claude-for-legal:<plugin>/<skill>'`. Imported from Anthropic's open-source Claude for Legal. Hybrid edit model: read-only for name/description/system_prompt/web_search; editable for model/references/export_format; admin-only access to the edit form.
 
-The three tiers render as three sections on the department launchpad: Department Agents (Canonical), Claude for Legal (C4L), My Agents (Personal).
+The three tiers render as three sections on the department launchpad: Approved agents (Canonical), Claude for Legal (C4L), My agents (Personal). Each heading carries a one-line subline stating its trust posture (vetted by your department / Anthropic’s curated library / your own).
 
 ### 13 departments organized into a four-group taxonomy
 
@@ -211,7 +211,7 @@ The polish phase ran from the creation of the polish list through polish #17 (se
 
 2. **Card affordance consistency between department and agent cards.** Resolved in commit cfb8174 via Option (a): the pencil-icon visibility on department cards was brought into parity with the agent-card kebab visibility model (`opacity-40` at rest, brighten on hover, brighten on focus-within, shared bare `transition-opacity`). Trigger-shape symmetry (pencil vs. kebab) was deliberately NOT pursued because the department card has exactly one admin action today (Edit description), making a kebab-with-one-item a UX regression vs. the direct pencil affordance (2 clicks vs. 1).
 
-   Future revisit: when a second department admin action lands (e.g., rename department, archive department, manage department agents from the card), the kebab swap becomes the right call — at 2+ actions the kebab earns its weight. Add the second action as part of that future scope; the kebab refactor follows.
+   Future revisit: when a second department admin action lands (e.g., rename department, archive department, manage the department's agents from the card), the kebab swap becomes the right call — at 2+ actions the kebab earns its weight. Add the second action as part of that future scope; the kebab refactor follows.
 
 3. **Delete-dialog C4L copy — CLOSED via commit 7bfe669.** Three-variant branching by source_origin: Canonical keeps the forked-copies-unaffected reassurance; C4L drops it (sentence-case title "Delete Claude for Legal agent?"); personal agents unchanged. The agent prop type in agent-card.tsx now threads source_origin; isC4L is derived at the dialog level; isAdminMode + isC4L combine to select among three title + body variants.
 

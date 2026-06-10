@@ -74,9 +74,9 @@ interface ChatInterfaceProps {
   isOwner: boolean;
   /**
    * True when the agent is a Pattern B canonical template (Session 27).
-   * AgentHeader uses this to render the "Department Agent" chip in the
-   * meta row and to branch the top-right action slot between Edit
-   * (admin) and Customize (non-admin).
+   * AgentHeader uses this to branch the top-right action slot between
+   * Edit (admin) and Customize (non-admin). (The template chip the meta
+   * row once rendered was dropped in the chat page redesign.)
    */
   isTemplate?: boolean;
   /**

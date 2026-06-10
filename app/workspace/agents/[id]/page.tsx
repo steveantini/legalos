@@ -64,8 +64,8 @@ export default async function AgentChatPage({
   const webSearchEnabled =
     Array.isArray(agent.tools_enabled) &&
     (agent.tools_enabled as unknown[]).includes("web_search");
-  // Templates surface a "Department Agent" chip and an Edit-vs-Customize
-  // top-right action in AgentHeader. canManageTemplates is only fetched
+  // Templates surface an Edit-vs-Customize top-right action in
+  // AgentHeader. canManageTemplates is only fetched
   // when the agent is a template (templates with no admin viewer get the
   // Customize button; admin viewers get the Edit link instead).
   const isTemplate = agent.is_template;

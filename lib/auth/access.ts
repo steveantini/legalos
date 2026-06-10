@@ -782,9 +782,9 @@ export interface LaunchpadAgent {
   sort_order: number;
   /**
    * True when this row is a system template (Pattern B canonical agent
-   * activated by migration 0019). The launchpad's Department Agents
+   * activated by migration 0019). The launchpad's Approved agents
    * bucket surfaces these as chat-first cards with admin-only Edit /
-   * Delete affordances. False for user-owned agents in the My Agents
+   * Delete affordances. False for user-owned agents in the My agents
    * bucket.
    */
   is_template: boolean;
@@ -972,7 +972,7 @@ export interface DeletedAgent {
   deleted_at: string;
   /**
    * True when the deleted row is a system template (Pattern B). The
-   * trash page renders a "Department Agent" chip on these rows so admins
+   * trash page renders an "Approved agent" chip on these rows so admins
    * can scan their own personal trash from template trash at a glance.
    */
   is_template: boolean;

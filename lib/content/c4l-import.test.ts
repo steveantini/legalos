@@ -12,6 +12,7 @@ import type { VendorContentProvider } from "./vendor-registry";
 const PROVIDER: VendorContentProvider = {
   providerId: "claude-for-legal",
   displayLabel: "Claude for Legal",
+  launchpadSubline: "A curated library of Anthropic’s legal agents, ready to use.",
   sourceRepo: "https://github.com/anthropics/claude-for-legal",
   pluginDepartmentMap: {
     "commercial-legal": "commercial",

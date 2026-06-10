@@ -353,7 +353,7 @@ The sync pipeline (Shape B, future) should use this doc as input — skills list
 - They have NO YAML state file (unlike trackers, which maintain persistent state).
 - They have NO delegation to other skills (unlike routers, which orchestrate sub-tasks). The mode flag just selects between related but distinct substantive workflows the same skill knows how to perform.
 
-Multi-mode action skills are imported as plain Department Agents. The mode flag is a runtime detail that doesn't affect classification. This note exists so future audits don't mistake the pattern for a new category.
+Multi-mode action skills are imported as plain approved (canonical) agents. The mode flag is a runtime detail that doesn't affect classification. This note exists so future audits don't mistake the pattern for a new category.
 
 ## Tracker-shape skills (imported as agents for v1; candidates for future tracker UI)
 

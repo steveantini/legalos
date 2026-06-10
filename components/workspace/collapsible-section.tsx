@@ -10,8 +10,16 @@ import {
 import { type CollapsedSectionsValue } from "@/lib/preferences/keys";
 
 interface CollapsibleSectionProps {
-  /** Section heading text (e.g., "Department Agents"). */
+  /** Section heading text (e.g., "Approved agents"). */
   title: string;
+  /**
+   * Optional one-line subline under the heading (e.g., "Vetted and
+   * approved by your department."). Renders muted at 13px, aligned with
+   * the title, and stays visible when the section is collapsed so the
+   * orientation it provides survives the collapse. Sits outside the
+   * toggle button so the button's accessible name stays the title.
+   */
+  description?: string;
   /** The CollapsedSectionsValue key this section's state stores under (per-vendor
    *  content sections use `external:<sourceId>`; the legacy keys are
    *  departmentAgents / externalAgents / myAgents; the Workflows screen uses
@@ -54,6 +62,7 @@ interface CollapsibleSectionProps {
  */
 export function CollapsibleSection({
   title,
+  description,
   sectionKey,
   preferenceKey,
   defaultCollapsed,
@@ -77,23 +86,30 @@ export function CollapsibleSection({
 
   return (
     <section className="flex flex-col">
-      <button
-        type="button"
-        onClick={handleToggle}
-        aria-expanded={!collapsed}
-        aria-controls={contentId}
-        className="group flex w-full items-center gap-2 border-b border-hairline pb-[10px] text-left transition-colors hover:[&_h2]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
-        <ChevronDownIcon
-          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsed ? "-rotate-90" : "rotate-0"}`}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
-        <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors duration-release ease-release motion-reduce:transition-none group-hover:duration-hover group-hover:ease-soft">
-          {title}
-        </h2>
-        {meta ? <span className="ml-auto">{meta}</span> : null}
-      </button>
+      <div className="border-b border-hairline pb-[10px]">
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-expanded={!collapsed}
+          aria-controls={contentId}
+          className="group flex w-full items-center gap-2 text-left transition-colors hover:[&_h2]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <ChevronDownIcon
+            className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsed ? "-rotate-90" : "rotate-0"}`}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors duration-release ease-release motion-reduce:transition-none group-hover:duration-hover group-hover:ease-soft">
+            {title}
+          </h2>
+          {meta ? <span className="ml-auto">{meta}</span> : null}
+        </button>
+        {description ? (
+          <p className="mt-[6px] pl-[22px] text-[13px] leading-[1.5] text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
 
       <div
         id={contentId}

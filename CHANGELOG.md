@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The agent groups on the department launchpad now explain themselves. "Department Agents" is renamed Approved agents, and all three groups carry a quiet one-line subline: Approved agents are vetted and approved by your department, Claude for Legal is a curated library of Anthropic's legal agents ready to use, and My agents are your own to shape and experiment with. A brand-new user now reads the trust model at a glance, without training. The rename carries through every user-facing surface (the group heading, the trash chip, the delete dialog, the admin create flow, the details panel's source label). Presentation copy only; internal identifiers and data are unchanged. (D-149)**
+
 - **The selectable model list is trimmed to exactly three, one clear choice per tier: Claude Fable 5 (flagship), Claude Sonnet 4.6 (balanced), and Claude Haiku 4.5 (fast). Every model picker (the agent form, the composer, the admin default-model control) now offers only these. Agents and conversations already configured on an older Opus model keep working, their historical usage keeps computing accurate cost, and such an agent shows its real current model in the pickers; the older models simply can no longer be newly selected.**
 
 - **The Productivity Calculator now appears in the admin navigation, under Measure between Insights and Evals, labeled Productivity. The tool shipped without a navigation entry and was reachable only by direct link or through Insights; a real shipped tool must be findable in the nav.**

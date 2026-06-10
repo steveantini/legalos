@@ -38,7 +38,7 @@ interface PageProps {
  *   prompt / model / tools_enabled with a name suffix " (My Copy)".
  *   Action: `createAgentAction` (creates a user-owned fork).
  * - **Template create** — `?department=<slug>&as_template=true`.
- *   Admin-only path (Session 27). Heading is "New Department Agent"
+ *   Admin-only path (Session 27). Heading is "New approved agent"
  *   and the action submits to `createTemplateAgentAction`, which
  *   creates a Pattern B canonical row with `is_template = true` and
  *   `created_by = null`. Non-admin access to this flow falls through
@@ -134,14 +134,14 @@ export default async function NewAgentPage({ searchParams }: PageProps) {
   // so the admin sees the org-wide stakes; fork-from-template keeps the
   // Session-8f-A copy; blank-create is unchanged.
   const heading = isAsTemplate
-    ? "New Department Agent"
+    ? "New approved agent"
     : forkedFromAgent
       ? "Fork template"
       : "New agent";
   const subline = isAsTemplate
-    ? "Create a Department Agent. Everyone in your organization will see it on the department launchpad and can chat with it."
+    ? "Create an approved agent. Everyone in your organization will see it on the department launchpad and can chat with it."
     : forkedFromAgent
-      ? "Review the fields below and adjust before saving. Your copy will appear under My Agents."
+      ? "Review the fields below and adjust before saving. Your copy will appear under My agents."
       : "Configure a new agent for your workspace. You can edit it later.";
 
   return (

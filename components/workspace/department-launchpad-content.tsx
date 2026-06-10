@@ -10,7 +10,10 @@ import {
   type ExternalAgentGroup,
 } from "@/lib/agents/source";
 import type { LaunchpadAgent } from "@/lib/auth/access";
-import { VENDOR_CONTENT_PROVIDERS } from "@/lib/content/vendor-registry";
+import {
+  getVendorProvider,
+  VENDOR_CONTENT_PROVIDERS,
+} from "@/lib/content/vendor-registry";
 import {
   deptCollapsedSectionsKey,
   type CollapsedSectionsValue,
@@ -38,10 +41,12 @@ interface DepartmentLaunchpadContentProps {
 }
 
 /**
- * Client wrapper for the department launchpad's agent sections: Department
- * Agents (canonical), one section PER vendor content provider present
+ * Client wrapper for the department launchpad's agent sections: Approved
+ * agents (canonical), one section PER vendor content provider present
  * (registry-driven, dynamically titled — Claude for Legal today, Step 4), and
- * My Agents. Owns the read-only details-panel state: a single `detailsAgent`
+ * My agents. Each section heading carries a one-line subline so a cold user
+ * reads the trust model at a glance (department-approved / Anthropic's
+ * library / your own). Owns the read-only details-panel state: a single `detailsAgent`
  * slot tracks which card the user peeked at most recently. The card tiers open
  * the panel — `<AgentCard>` renders the Info icon whenever `onOpenDetails` is
  * provided to its branch.
@@ -84,27 +89,28 @@ export function DepartmentLaunchpadContent({
 
   // Empty-state shape when a department has NO external agents from any vendor:
   // ONE empty section, not one-per-registered-provider. With the sole provider
-  // today (Claude for Legal) this renders the exact same section the old single
-  // bucket did (same title, key, and copy) — behavior-neutral. With multiple
-  // providers it falls back to a generic "Curated content" title.
+  // today (Claude for Legal) this renders the same section the old single
+  // bucket did (same title and key); its subline carries the what-this-is
+  // orientation, so the empty copy only says what's pending. With multiple
+  // providers it falls back to a generic "Curated content" title, no subline.
   const providers = Object.values(VENDOR_CONTENT_PROVIDERS);
   const soleProvider = providers.length === 1 ? providers[0] : null;
   const emptyExternalTitle = soleProvider?.displayLabel ?? "Curated content";
   const emptyExternalSectionKey = externalCollapseSectionKey(
     soleProvider?.providerId ?? "claude-for-legal",
   );
-  const emptyExternalCopy =
-    soleProvider?.providerId === "claude-for-legal"
-      ? "Curated agents from Anthropic's open-source legal suite, coming to this department."
-      : "Curated agent libraries will appear here as they're added.";
+  const emptyExternalCopy = soleProvider
+    ? "Coming to this department."
+    : "Curated agent libraries will appear here as they're added.";
 
   return (
     <>
-      {/* Department Agents — canonical departmental agents, click-to-chat
+      {/* Approved agents — canonical departmental agents, click-to-chat
           directly. Hidden entirely when empty (no header for a bucket
           that doesn't exist). */}
       <CollapsibleSection
-        title="Department Agents"
+        title="Approved agents"
+        description="Vetted and approved by your department."
         sectionKey="departmentAgents"
         preferenceKey={collapsePrefKey}
         defaultCollapsed={initialCollapsedState.departmentAgents ?? false}
@@ -134,6 +140,7 @@ export function DepartmentLaunchpadContent({
             <CollapsibleSection
               key={group.sourceId}
               title={group.displayLabel}
+              description={getVendorProvider(group.sourceId)?.launchpadSubline}
               sectionKey={key}
               preferenceKey={collapsePrefKey}
               defaultCollapsed={initialCollapsedState[key] ?? false}
@@ -151,6 +158,7 @@ export function DepartmentLaunchpadContent({
       ) : vendorContentEnabled ? (
         <CollapsibleSection
           title={emptyExternalTitle}
+          description={soleProvider?.launchpadSubline}
           sectionKey={emptyExternalSectionKey}
           preferenceKey={collapsePrefKey}
           defaultCollapsed={initialCollapsedState[emptyExternalSectionKey] ?? false}
@@ -163,10 +171,13 @@ export function DepartmentLaunchpadContent({
         </CollapsibleSection>
       ) : null}
 
-      {/* My Agents — user-owned personal agents. Always rendered with an
-          empty state when the user hasn't created anything yet. */}
+      {/* My agents — user-owned personal agents. Always rendered with an
+          empty state when the user hasn't created anything yet. The
+          subline already says these are agents the user created, so the
+          empty copy goes straight to the action. */}
       <CollapsibleSection
-        title="My Agents"
+        title="My agents"
+        description="Agents you’ve created. Yours to shape and experiment with."
         sectionKey="myAgents"
         preferenceKey={collapsePrefKey}
         defaultCollapsed={initialCollapsedState.myAgents ?? false}
@@ -182,8 +193,7 @@ export function DepartmentLaunchpadContent({
         ) : (
           <div className="rounded-[14px] bg-muted p-8 text-center">
             <p className="text-[13px] leading-[1.5] text-muted-foreground">
-              You haven&apos;t created any agents yet. Use the New Agent
-              button above to start one.
+              Use the New agent button above to create your first.
             </p>
           </div>
         )}

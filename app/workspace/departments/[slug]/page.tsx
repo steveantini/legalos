@@ -25,7 +25,7 @@ import {
  *
  * Three sections (Session 21 + migration 0023 multi-source extension):
  *
- *   - Department Agents — canonical native agents owned by the
+ *   - Approved agents — canonical native agents owned by the
  *     department itself (`is_template = true AND source_origin IS NULL`).
  *     Click routes directly to `/agents/<id>` (chat surface). Hidden
  *     entirely when empty.
@@ -33,7 +33,7 @@ import {
  *     open-source legal suite (`source_origin IS NOT NULL`, prefix
  *     `claude-for-legal:`). Always-rendered header; empty state stays
  *     deliberately visible until the C4L import lands.
- *   - My Agents — user-owned native agents (`is_template = false AND
+ *   - My agents — user-owned native agents (`is_template = false AND
  *     source_origin IS NULL AND created_by = userId`). Always-rendered
  *     header; empty state shows the create-new-agent inline prompt.
  *
@@ -114,7 +114,7 @@ export default async function DepartmentLaunchpadPage({
         href={newDepartmentAgentHref}
         className={buttonVariants({ variant: "outline", size: "sm" })}
       >
-        <PlusIcon /> New department agent
+        <PlusIcon /> New approved agent
       </Link>
       <Link
         href={newPersonalAgentHref}

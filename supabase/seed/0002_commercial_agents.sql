@@ -11,7 +11,8 @@
 -- All six are `type='native'` with placeholder system prompts and the
 -- default Sonnet 4.6 model. They are NOT templates (`is_template=false`)
 -- — they're canonical departmental agents that surface in the launchpad's
--- new "Department Agents" section and route directly to the chat surface
+-- "Approved agents" section (titled "Department Agents" when this seed
+-- was written) and route directly to the chat surface
 -- on click, NOT scaffolding for users to fork. Personal AI Workflow
 -- Builder (the click-to-fork-and-customize flow) remains a Phase 3
 -- roadmap item; these six exist independently of that future feature.

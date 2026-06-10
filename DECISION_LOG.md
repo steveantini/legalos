@@ -3984,3 +3984,21 @@ One clear choice per tier removes decision noise from every picker, while pricin
 - Every selection surface offers exactly Fable 5 / Sonnet 4.6 / Haiku 4.5.
 - Legacy Opus references keep working end to end (chat, editing, cost computation, display); they cannot be newly chosen.
 - Re-offering a model later is flipping `selectable` back to true.
+
+## D-149 — Agent-group naming and sublines (Approved agents)
+
+Date: 2026-06-09
+Status: Accepted
+
+**Context / Decision:**
+
+Renamed the "Department Agents" group to "Approved agents" and added a one-line subline under each of the three agent groups on the department launchpad: Approved agents ("Vetted and approved by your department."), Claude for Legal ("A curated library of Anthropic’s legal agents, ready to use."), and My agents ("Agents you’ve created. Yours to shape and experiment with."). "Approved" was chosen over "canonical/curated/core" because it is the trust word a legal audience knows cold (approved forms, approved counsel) and carries the department's seal of approval to an untrained user; sublines were added to all three groups since one subline alone would be asymmetric. The Claude for Legal subline lives on the vendor registry (`launchpadSubline` on `VendorContentProvider`) so a future provider's section brings its own orientation line, and its "Anthropic's" attribution was verified against the official anthropics/claude-for-legal repository (Copyright Anthropic PBC). The rename carried through every user-facing surface — group heading, trash-page chip, delete-dialog title, admin create heading and subline, details-panel source label ("Department approved") — and headings normalized to sentence case ("Approved agents", "My agents"; the mono-caps header style renders them uppercase either way). Internal identifiers are unchanged (the `departmentAgents` prop, section keys, `is_template`, `source_origin`): a presentation-only rename, so collapse-state preferences survive and the demo org needs no migration.
+
+**Reasoning:**
+
+Cold-user comprehension of the trust hierarchy (department-approved / Anthropic's library / your own) with zero onboarding. "Department Agents" read as location, not status.
+
+**Consequences:**
+
+- The label is a claim the product grows into further as Evals ships.
+- The My agents and Claude for Legal empty states were trimmed so subline + empty copy read as one thought rather than repeating each other.

@@ -30,6 +30,11 @@ export type VendorContentProvider = {
   providerId: string;
   /** Human-facing attribution label (e.g. "Claude for Legal"). */
   displayLabel: string;
+  /**
+   * One-line subline under the provider's launchpad section heading,
+   * orienting a cold user to what the group is and where it comes from.
+   */
+  launchpadSubline: string;
   /** The public source repository the content is imported from. */
   sourceRepo: string;
   /**
@@ -51,6 +56,7 @@ export type VendorContentProvider = {
 export const CLAUDE_FOR_LEGAL: VendorContentProvider = {
   providerId: "claude-for-legal",
   displayLabel: "Claude for Legal",
+  launchpadSubline: "A curated library of Anthropic’s legal agents, ready to use.",
   sourceRepo: "https://github.com/anthropics/claude-for-legal",
   pluginDepartmentMap: {
     "ai-governance-legal": "ai-governance",

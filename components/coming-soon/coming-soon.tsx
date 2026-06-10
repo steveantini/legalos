@@ -12,7 +12,7 @@ const AREA_COPY: Record<string, AreaCopy> = {
   },
   "knowledge-research": {
     label: "Research",
-    copy: "Ask a legal question; get a citation-backed answer drawing from three sources — your firm's internal corpus, the open web, and trusted legal content partnerships. The same research capability your department agents call as a tool. Arrives with the Knowledge reshape.",
+    copy: "Ask a legal question; get a citation-backed answer drawing from three sources: your firm's internal corpus, the open web, and trusted legal content partnerships. The same research capability your agents call as a tool. Arrives with the Knowledge reshape.",
   },
   "knowledge-vault": {
     label: "Vault",

@@ -153,7 +153,7 @@ export function AgentDetailsPanel({
   const sourceLabel = parsedSource
     ? getDisplayLabelFromOrigin(agent.source_origin)
     : agent.is_template
-      ? "Department Canonical"
+      ? "Department approved"
       : "Personal";
   const sourcePath = parsedSource
     ? `${parsedSource.plugin}/${parsedSource.skill}`
