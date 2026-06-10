@@ -91,18 +91,33 @@ export function CollapsibleSection({
           trailing beside it and the count pinned right. The button + subline
           pair lives in a wrapping sub-row, so on a viewport too narrow for
           both, flex-wrap drops the subline, whole, below the title (no
-          truncation) while the count stays on the title line. */}
-      <div className="flex items-baseline gap-2 border-b border-hairline pb-[10px]">
-        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-1">
+          truncation) while the count stays on the title line.
+
+          Baseline: the button aligns its own children on the baseline (the
+          chevron opts out via self-center), so the button's baseline IS the
+          title's text baseline — with items-center it would be derived from
+          the chevron SVG's bottom edge and the subline would sit visibly low.
+
+          Separator: the subline carries a "·" (the product's
+          "Tuesday · June 9" idiom) as an absolutely-positioned ::before
+          centered in the sub-row's column-gap. The gap is column-gap, NOT a
+          margin on the subline, deliberately: column-gap exists only between
+          items on the same line, so when the subline wraps below the title it
+          sits flush left and the dot lands outside the row's content box,
+          where overflow-x-clip hides it (a line-leading dot would read as
+          broken). The row's px/-mx pair moves the clip edge 6px out so the
+          button's focus ring survives the horizontal clip. */}
+      <div className="-mx-1.5 flex items-baseline gap-2 overflow-x-clip border-b border-hairline px-1.5 pb-[10px]">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-[18px] gap-y-1">
           <button
             type="button"
             onClick={handleToggle}
             aria-expanded={!collapsed}
             aria-controls={contentId}
-            className="group flex items-center gap-2 text-left transition-colors hover:[&_h2]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="group flex items-baseline gap-2 text-left transition-colors hover:[&_h2]:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <ChevronDownIcon
-              className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsed ? "-rotate-90" : "rotate-0"}`}
+              className={`h-3.5 w-3.5 shrink-0 self-center text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsed ? "-rotate-90" : "rotate-0"}`}
               strokeWidth={2}
               aria-hidden="true"
             />
@@ -111,7 +126,7 @@ export function CollapsibleSection({
             </h2>
           </button>
           {description ? (
-            <p className="text-[13px] leading-[1.5] text-muted-foreground">
+            <p className="relative text-[13px] leading-[1.5] text-muted-foreground before:absolute before:-left-[18px] before:w-[18px] before:text-center before:content-['·']">
               {description}
             </p>
           ) : null}
