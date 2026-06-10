@@ -36,17 +36,18 @@ import { cn } from "@/lib/utils";
  * are shown honestly as "available once configured" rather than implying a
  * connection the backend can't complete.
  *
+ * The list renders the pre-vetted connector catalog (the registry's first-party
+ * entries, grouped into families: Google Workspace as a vendor family, the
+ * harvested legal-system connectors by category). Descriptions and the honest
+ * access notes ("Requires an Ironclad account.") come from the registry's
+ * catalog metadata — one source, no sidecar copy map here. Connecting an entry
+ * is the org's enabling act; the catalog itself connects nothing.
+ *
  * Connecting is a redirect OAuth flow (like the data-source connectors); the
  * routes return to this page with ?mcp_connected / ?mcp_error, surfaced as a
  * toast. The data is server-rendered (the page awaits it), so there is no
  * client-side fetch to choreograph.
  */
-
-const FIRST_PARTY_DESCRIPTIONS: Record<string, string> = {
-  "google-drive-mcp": "Documents and files in Google Drive.",
-  "google-gmail-mcp": "Email in Gmail.",
-  "google-calendar-mcp": "Schedules in Google Calendar.",
-};
 
 function trustLabel(tier: OrgMcpConnection["trustTier"]): string {
   if (tier === "first_party") return "First-party official";
@@ -120,11 +121,19 @@ export function McpConnectionsEditor({
   connections: initialConnections,
   firstPartyGroups,
   canEdit,
+  mcpCategoryAllowed,
   flash,
 }: {
   connections: OrgMcpConnection[];
   firstPartyGroups: FirstPartyProviderGroup[];
   canEdit: boolean;
+  /**
+   * Whether the org's Allowed-connections policy currently permits the MCP
+   * category (the org-wide lever agents' MCP tool use is governed by, D-104).
+   * `false` renders an honest note that connected servers' tools stay
+   * unavailable to agents; `undefined` (policy unreadable) renders nothing.
+   */
+  mcpCategoryAllowed?: boolean;
   flash?: { connected?: string; error?: string };
 }) {
   const [connections, setConnections] =
@@ -292,10 +301,20 @@ export function McpConnectionsEditor({
       </h2>
       <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
         Connect trusted MCP servers, the open standard for giving your agents
-        tools and live data. Only first-party official servers legalOS has vetted,
-        or a server your organization hosts itself, can connect, never an
-        arbitrary third-party server.
+        tools and live data. legalOS ships a pre-vetted catalog of the systems
+        legal teams live in, ready to connect with your own credentials. Only
+        servers legalOS has vetted, or a server your organization hosts itself,
+        can connect, never an arbitrary third-party server.
       </p>
+
+      {mcpCategoryAllowed === false ? (
+        <p className="mt-3 max-w-[70ch] rounded-lg border border-hairline bg-paper-2 px-4 py-3 text-[13px] leading-[1.5] text-foreground">
+          Your Allowed connections policy doesn&rsquo;t currently permit the MCP
+          servers category, so agents can&rsquo;t use tools from these servers.
+          You can still connect them; their tools activate when the category is
+          permitted above.
+        </p>
+      ) : null}
 
       {/* One unified, provider-grouped list. Every first-party server lives inside
           its provider's expand/collapse group with its own connection state shown
@@ -360,9 +379,16 @@ export function McpConnectionsEditor({
                             {server.displayName}
                           </span>
                           <p className="mt-0.5 text-[12.5px] leading-[1.5] text-caption">
-                            {FIRST_PARTY_DESCRIPTIONS[server.serverId] ??
-                              "A first-party server."}
+                            {server.description}
                           </p>
+                          {/* The honest access requirement (a vendor account, a
+                              workspace, or free), shown while not connected;
+                              once connected it is self-evidently met. */}
+                          {!connection && server.accessNote ? (
+                            <p className="mt-0.5 text-[12px] leading-[1.5] text-caption">
+                              {server.accessNote}
+                            </p>
+                          ) : null}
                           {connection ? (
                             <div className="mt-2 flex items-center gap-2">
                               <span

@@ -88,6 +88,7 @@ export async function refreshC4LContent(): Promise<C4LRefreshResult> {
       unmappedPlugins,
       updatesAvailableCount: result.updatesAvailable.length,
       unchangedCount: result.unchangedCount,
+      sourceCommit: fetched.sourceCommit,
     },
   };
 }

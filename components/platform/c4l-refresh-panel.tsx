@@ -79,6 +79,7 @@ function RefreshSummaryView({ summary }: { summary: C4LRefreshSummary }) {
     unmappedPlugins,
     updatesAvailableCount,
     unchangedCount,
+    sourceCommit,
   } = summary;
 
   const nothingNew =
@@ -135,6 +136,13 @@ function RefreshSummaryView({ summary }: { summary: C4LRefreshSummary }) {
             {unmappedPlugins.length === 1 ? "plugin is" : "plugins are"} not
             mapped to a department and {unmappedPlugins.length === 1 ? "was" : "were"}{" "}
             not imported: {unmappedPlugins.join(", ")}.
+          </li>
+        ) : null}
+
+        {sourceCommit ? (
+          <li>
+            Read from source commit{" "}
+            <span className="font-mono">{sourceCommit.slice(0, 7)}</span>.
           </li>
         ) : null}
       </ul>

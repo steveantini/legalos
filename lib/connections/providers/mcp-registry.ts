@@ -1,5 +1,14 @@
 import "server-only";
 
+import {
+  C4L_CONNECTOR_SOURCE,
+  C4L_CONNECTORS,
+  CONNECTOR_CATEGORIES,
+  type C4LConnector,
+  type ConnectorAuthModel,
+  type ConnectorCatalogStatus,
+  type ConnectorCategoryKey,
+} from "@/lib/connections/providers/c4l-connector-catalog";
 import type {
   McpClientAcquisition,
   McpServerAdapter,
@@ -44,9 +53,19 @@ import type {
 // ---------------------------------------------------------------------------
 // First-party trusted servers (the hard-ceiling allowlist).
 // ---------------------------------------------------------------------------
-// Seeded with Google's official Workspace MCP servers — Drive, Gmail, and
-// Calendar — the intended first trusted surface. These authenticate via OAuth 2.1
-// (remote servers), reusing the PKCE/TokenBundle substrate.
+// Two sources, one allowlist:
+//
+//   1. Google's official Workspace MCP servers — Drive, Gmail, and Calendar —
+//      the first trusted surface, verified live end to end (D-106). OAuth 2.1
+//      with a pre-registered static client, reusing the PKCE/TokenBundle
+//      substrate.
+//   2. The Claude for Legal connector catalog (c4l-connector-catalog.ts): the
+//      legal-system connectors harvested from Anthropic's published plugin
+//      configs, pre-vetted against their connector criteria. Each is a
+//      pre-seeded, DISABLED-BY-DEFAULT entry — registry membership only; an
+//      org's super admin still connects it with the org's own credentials
+//      through the governed flow, and its catalog `status` says honestly
+//      whether legalOS has live-verified it yet.
 //
 // The `discoveryBaseUrl` values are Google's official GLOBAL MCP server endpoints,
 // confirmed verbatim from Google's own documentation/console (the authoritative
@@ -71,12 +90,15 @@ import type {
 const TBC = "https://TO-BE-CONFIRMED.invalid";
 
 /**
- * Provider families for first-party servers. The connector UI (2c) groups
- * servers by provider with expand/collapse, so the list stays scannable as
- * providers grow. Adding a provider is adding one entry here plus its servers in
- * TRUSTED_FIRST_PARTY_SERVERS (provider keyed to one of these). Key order is the
- * display order. `provider` here is the family, distinct from a server's
- * `providerId` (which is its own serverId on the connection row).
+ * Display families for first-party servers. The connector UI (2c) groups
+ * servers into expand/collapse families so the list stays scannable as the
+ * registry grows. Google Workspace is a vendor family (its three servers share
+ * one OAuth client and one vendor); the catalog connectors group by their
+ * CONNECTOR_CATEGORIES key, since most are one server per vendor and a legal
+ * buyer scans by kind of system ("our e-discovery tools"), not by vendor. Key
+ * order is the display order. `provider` on an entry is its family key,
+ * distinct from a server's `providerId` (which is its own serverId on the
+ * connection row).
  */
 const FIRST_PARTY_PROVIDERS: Record<
   string,
@@ -86,20 +108,56 @@ const FIRST_PARTY_PROVIDERS: Record<
     label: "Google Workspace",
     descriptor: "Drive, Gmail, and Calendar.",
   },
-  // Future: 'microsoft-365' ("Microsoft 365"), 'slack' ("Slack"), etc.
+  ...CONNECTOR_CATEGORIES,
+  // Future vendor families ('microsoft-365', ...) slot in alongside.
 };
 
-/** A first-party registry entry: the adapter plus display + provider-family metadata. */
+/**
+ * Catalog metadata every first-party entry carries, so the platform catalog
+ * surface and the org connector UI render status, provenance, and the honest
+ * access note from the registry itself (one source, no sidecar copy maps).
+ */
+export type ConnectorCatalogMeta = {
+  /** One-line user-facing description (product register, no em dashes). */
+  description: string;
+  /** Display-taxonomy category (a CONNECTOR_CATEGORIES key). */
+  category: ConnectorCategoryKey;
+  /** Honest verification state: pre-seeded vs proven live by legalOS. */
+  status: ConnectorCatalogStatus;
+  /** How the server authenticates (every current entry is OAuth 2.1). */
+  authModel: ConnectorAuthModel;
+  /** Where the entry was vetted from. */
+  provenance: {
+    /** Short source label, e.g. "Anthropic, Claude for Legal". */
+    sourceLabel: string;
+    /** The source's canonical URL. */
+    sourceUrl: string;
+    /** C4L plugin slugs shipping it (empty for non-C4L entries). */
+    plugins: string[];
+    /** Upstream commit at harvest time, when the source is a repo. */
+    commit?: string;
+  };
+  /** What an org needs for this connector to be useful (account, workspace, or free). */
+  accessNote: string;
+};
+
+/** A first-party registry entry: the adapter plus display, family, and catalog metadata. */
 type FirstPartyServerEntry = McpServerAdapter & {
   displayName: string;
-  /** The provider FAMILY key (a FIRST_PARTY_PROVIDERS key), for grouping. */
+  /** The display FAMILY key (a FIRST_PARTY_PROVIDERS key), for grouping. */
   provider: string;
+  /** Catalog metadata (status, provenance, category, access note). */
+  catalog: ConnectorCatalogMeta;
 };
 
 function firstPartyEntry(
   serverId: string,
   displayName: string,
   provider: string,
+  // Catalog metadata (status, provenance, category, access note); see
+  // ConnectorCatalogMeta. Required: every allowlist entry must say where it was
+  // vetted from and whether it has been proven live.
+  catalog: ConnectorCatalogMeta,
   // The server's official OAuth-discovery base URL (the vendor's MCP endpoint).
   // Defaults to the TBC placeholder so a provider added before its endpoint is
   // confirmed renders honestly as "available once configured" (the connector UI's
@@ -120,6 +178,7 @@ function firstPartyEntry(
     capabilityCategory: "mcp",
     displayName,
     provider,
+    catalog,
     clientAcquisition,
     scopes,
     discoveryBaseUrl,
@@ -162,14 +221,80 @@ const GOOGLE_CALENDAR_SCOPES = [
   "https://www.googleapis.com/auth/calendar.events.readonly",
 ];
 
+// Google's catalog provenance: the endpoints and scopes were confirmed verbatim
+// from Google's official MCP configuration docs (D-098/D-099), and the full
+// path — connect, tool discovery, live agent reads — was proven end to end
+// (D-106), so all three carry `status: "verified"`. Note the Claude for Legal
+// plugin configs ship Google Drive at this SAME endpoint; the harvest deduped
+// it against this entry rather than duplicating it.
+const GOOGLE_DOCS_URL =
+  "https://developers.google.com/workspace/guides/configure-mcp-servers";
+
+function googleCatalogMeta(description: string): ConnectorCatalogMeta {
+  return {
+    description,
+    category: "productivity",
+    status: "verified",
+    authModel: "oauth",
+    provenance: {
+      sourceLabel: "Google, official Workspace MCP documentation",
+      sourceUrl: GOOGLE_DOCS_URL,
+      plugins: [],
+    },
+    accessNote: "Requires a Google Workspace account.",
+  };
+}
+
+/**
+ * Translate a harvested Claude for Legal catalog connector into a first-party
+ * registry entry. The endpoint is the vendor's official MCP server, verbatim
+ * from the upstream config; the OAuth client is acquired by dynamic
+ * registration (the remote-MCP default; CourtListener's authorization server
+ * confirmed DCR live). Display family = the catalog category, so the org
+ * connector UI groups these by kind of system.
+ */
+function fromCatalogConnector(connector: C4LConnector): FirstPartyServerEntry {
+  return {
+    kind: "mcp",
+    serverId: connector.serverId,
+    providerId: connector.serverId,
+    capabilityCategory: "mcp",
+    displayName: connector.displayName,
+    provider: connector.category,
+    catalog: {
+      description: connector.description,
+      category: connector.category,
+      status: connector.status,
+      authModel: connector.authModel,
+      provenance: {
+        sourceLabel: "Anthropic, Claude for Legal",
+        sourceUrl: C4L_CONNECTOR_SOURCE.repo,
+        plugins: connector.plugins,
+        commit: C4L_CONNECTOR_SOURCE.commit,
+      },
+      accessNote: connector.accessNote,
+    },
+    clientAcquisition: { mode: "dynamic" },
+    scopes: [],
+    discoveryBaseUrl: connector.endpoint,
+  };
+}
+
 // Google's official global Workspace MCP server endpoints (verbatim from Google's
 // own documentation/console). Google offers dedicated MCP servers for Drive,
 // Gmail, and Calendar — and none for Docs or Sheets, so neither is listed here
-// (Drive's create_file covers creating those files).
+// (Drive's create_file covers creating those files). The Claude for Legal
+// connector catalog entries follow, one per harvested connector.
 const TRUSTED_FIRST_PARTY_SERVERS: Record<string, FirstPartyServerEntry> = {
-  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, "https://drivemcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_DRIVE_SCOPES),
-  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, "https://gmailmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_GMAIL_SCOPES),
-  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, "https://calendarmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_CALENDAR_SCOPES),
+  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, googleCatalogMeta("Documents and files in Google Drive."), "https://drivemcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_DRIVE_SCOPES),
+  "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, googleCatalogMeta("Email in Gmail."), "https://gmailmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_GMAIL_SCOPES),
+  "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, googleCatalogMeta("Schedules in Google Calendar."), "https://calendarmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_CALENDAR_SCOPES),
+  ...Object.fromEntries(
+    C4L_CONNECTORS.map((connector) => [
+      connector.serverId,
+      fromCatalogConnector(connector),
+    ]),
+  ),
 };
 
 /** A first-party trusted server entry, or null if the id is not on the allowlist. */
@@ -219,11 +344,17 @@ export const TRUSTED_FIRST_PARTY_SERVER_IDS = Object.keys(
 /** One first-party server as the connector UI lists it. `configured` is false
  * while the entry still holds the to-be-confirmed placeholder endpoint, so the UI
  * presents it honestly as "available once configured" rather than implying a
- * connection the backend cannot yet complete. */
+ * connection the backend cannot yet complete. `description` and `accessNote`
+ * come from the entry's catalog metadata (one source; no sidecar copy map in
+ * the UI). */
 export type FirstPartyServerInfo = {
   serverId: string;
   displayName: string;
   configured: boolean;
+  /** One-line description from the catalog metadata. */
+  description: string;
+  /** The honest access note (vendor account, workspace, or free). */
+  accessNote: string;
 };
 
 /** First-party servers grouped under one provider family, for the UI's
@@ -250,6 +381,8 @@ export function listFirstPartyServersByProvider(): FirstPartyProviderGroup[] {
       displayName: server.displayName,
       // The placeholder origin (see TBC above) marks a not-yet-confirmed endpoint.
       configured: !server.discoveryBaseUrl.includes("TO-BE-CONFIRMED"),
+      description: server.catalog.description,
+      accessNote: server.catalog.accessNote,
     };
     const existing = byProvider.get(server.provider);
     if (existing) existing.push(info);
@@ -263,6 +396,63 @@ export function listFirstPartyServersByProvider(): FirstPartyProviderGroup[] {
       providerLabel: FIRST_PARTY_PROVIDERS[provider].label,
       providerDescriptor: FIRST_PARTY_PROVIDERS[provider].descriptor,
       servers: byProvider.get(provider) ?? [],
+    }));
+}
+
+/** One catalog entry as the platform Connectors page renders it. */
+export type ConnectorCatalogEntry = {
+  serverId: string;
+  displayName: string;
+  /** The server endpoint (the entry's discovery base URL). */
+  endpoint: string;
+  description: string;
+  status: ConnectorCatalogStatus;
+  authModel: ConnectorAuthModel;
+  provenance: ConnectorCatalogMeta["provenance"];
+  accessNote: string;
+};
+
+/** A catalog category with its entries, for the platform Connectors page. */
+export type ConnectorCatalogCategory = {
+  key: ConnectorCategoryKey;
+  label: string;
+  descriptor: string;
+  entries: ConnectorCatalogEntry[];
+};
+
+/**
+ * The full connector catalog GROUPED BY CATEGORY for the platform-owner
+ * surface: every first-party registry entry (Google Workspace and the
+ * harvested Claude for Legal connectors alike) with its status, provenance,
+ * auth model, and endpoint. Categories follow CONNECTOR_CATEGORIES key order;
+ * entries keep registry (insertion) order within a category. Pure data; no
+ * secrets, no trust or endpoint change.
+ */
+export function listConnectorCatalogByCategory(): ConnectorCatalogCategory[] {
+  const byCategory = new Map<string, ConnectorCatalogEntry[]>();
+  for (const server of Object.values(TRUSTED_FIRST_PARTY_SERVERS)) {
+    const entry: ConnectorCatalogEntry = {
+      serverId: server.serverId,
+      displayName: server.displayName,
+      endpoint: server.discoveryBaseUrl,
+      description: server.catalog.description,
+      status: server.catalog.status,
+      authModel: server.catalog.authModel,
+      provenance: server.catalog.provenance,
+      accessNote: server.catalog.accessNote,
+    };
+    const existing = byCategory.get(server.catalog.category);
+    if (existing) existing.push(entry);
+    else byCategory.set(server.catalog.category, [entry]);
+  }
+
+  return (Object.keys(CONNECTOR_CATEGORIES) as ConnectorCategoryKey[])
+    .filter((key) => byCategory.has(key))
+    .map((key) => ({
+      key,
+      label: CONNECTOR_CATEGORIES[key].label,
+      descriptor: CONNECTOR_CATEGORIES[key].descriptor,
+      entries: byCategory.get(key) ?? [],
     }));
 }
 

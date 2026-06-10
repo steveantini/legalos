@@ -9,9 +9,12 @@ import type { VendorContentProvider } from "@/lib/content/vendor-registry";
  * repo is public.
  *
  * FETCH STRATEGY (API-frugal, stays well under the ~60 req/hr unauthenticated
- * GitHub API limit): TWO GitHub API calls total per refresh —
+ * GitHub API limit): THREE GitHub API calls total per refresh —
  *   1. GET /repos/<owner>/<repo>            → the default branch.
- *   2. GET /git/trees/<branch>?recursive=1  → the ENTIRE file tree in one call.
+ *   2. GET /commits/<branch>                → the branch head commit SHA, so the
+ *      refresh report can say exactly which upstream state it read (best-effort;
+ *      a failure here never fails the refresh).
+ *   3. GET /git/trees/<branch>?recursive=1  → the ENTIRE file tree in one call.
  * Then each mapped plugin's SKILL.md is read from raw.githubusercontent.com,
  * which is a CDN and is NOT subject to the API rate limit. So a refresh costs 2
  * API calls regardless of how many skills exist — a manual button can't realistically
@@ -36,9 +39,16 @@ const SKILL_PATH_RE = /^([^/]+)\/skills\/([^/]+)\/SKILL\.md$/;
 /** Polite light batching for the raw (CDN) reads. */
 const RAW_BATCH_SIZE = 8;
 
-/** The fetcher's outcome. `repoPlugins` = every first-party plugin slug found. */
+/** The fetcher's outcome. `repoPlugins` = every first-party plugin slug found;
+ * `sourceCommit` = the branch head commit SHA read (null when the best-effort
+ * lookup failed — never a reason to fail the fetch). */
 export type C4LFetchResult =
-  | { ok: true; skills: ParsedC4LSkill[]; repoPlugins: string[] }
+  | {
+      ok: true;
+      skills: ParsedC4LSkill[];
+      repoPlugins: string[];
+      sourceCommit: string | null;
+    }
   | { ok: false; error: string };
 
 /** A PII-safe summary of one refresh, for the platform-owner UI (Step 3). */
@@ -55,6 +65,12 @@ export type C4LRefreshSummary = {
   updatesAvailableCount: number;
   /** Existing agents already matching upstream — nothing to do. */
   unchangedCount: number;
+  /**
+   * The upstream commit SHA this refresh read (null if the best-effort lookup
+   * failed). Surfaced so the operator always knows exactly which source state
+   * a refresh reflected, and can keep the registry's `upstreamCommit` current.
+   */
+  sourceCommit: string | null;
 };
 
 /** The server action's result the client renders. */
@@ -146,7 +162,23 @@ export async function fetchC4LSkills(
     const meta = (await metaRes.json()) as { default_branch?: string };
     const branch = meta.default_branch ?? "main";
 
-    // 2. The whole tree in one call.
+    // 2. The branch head commit SHA, for the refresh report's provenance line.
+    //    Best-effort: a failure leaves sourceCommit null and never fails the
+    //    refresh (the tree read below is the load-bearing call).
+    let sourceCommit: string | null = null;
+    try {
+      const commitRes = await githubApiGet(
+        `${GITHUB_API}/repos/${owner}/${repo}/commits/${encodeURIComponent(branch)}`,
+      );
+      if (commitRes.ok) {
+        const commit = (await commitRes.json()) as { sha?: string };
+        sourceCommit = typeof commit.sha === "string" ? commit.sha : null;
+      }
+    } catch {
+      sourceCommit = null;
+    }
+
+    // 3. The whole tree in one call.
     const treeRes = await githubApiGet(
       `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
     );
@@ -176,7 +208,7 @@ export async function fetchC4LSkills(
       }
     }
 
-    // 3. Read each mapped SKILL.md from the raw CDN (not API-rate-limited),
+    // 4. Read each mapped SKILL.md from the raw CDN (not API-rate-limited),
     //    in light batches. A single file failing is skipped, not fatal.
     const skills: ParsedC4LSkill[] = [];
     for (let i = 0; i < toFetch.length; i += RAW_BATCH_SIZE) {
@@ -203,7 +235,7 @@ export async function fetchC4LSkills(
       }
     }
 
-    return { ok: true, skills, repoPlugins: [...repoPlugins].sort() };
+    return { ok: true, skills, repoPlugins: [...repoPlugins].sort(), sourceCommit };
   } catch {
     return {
       ok: false,

@@ -19,7 +19,10 @@ export const metadata: Metadata = {
  * register. The Connections section absorbs the substance of the former
  * standalone /connections page (which now 308-redirects here, D-146);
  * its claims were verified against the connection and MCP code in D-127
- * and carry over unchanged in meaning. The Measurement section is the
+ * and carry over unchanged in meaning, with the pre-vetted connector
+ * catalog story added in D-150 (its status claims, Google verified and
+ * the rest pre-vetted, mirror the registry's catalog metadata exactly).
+ * The Measurement section is the
  * story relocated from the landing (D-145/D-146), keeping its
  * measured-vs-estimated honesty line.
  *
@@ -75,12 +78,22 @@ export default function FeaturesPage() {
 
       <MarketingSection id="connections" title="Connections">
         <p>
-          legalOS works with the systems your team already uses, today Google
-          Workspace (Drive, Gmail, and Calendar) and your own AI model
-          provider. Reading is open; acting requires a hand on the wheel: an
-          agent reads connected information directly, but any action that
-          would change something, like sending an email or creating a file,
-          pauses for a person to approve before it runs.
+          legalOS works with the systems your team already uses, and it ships
+          knowing what those are. A pre-vetted catalog covers the tools legal
+          teams live in: contract lifecycle systems like Ironclad and DocuSign,
+          document management like iManage and Box, e-discovery like Everlaw,
+          court data and research like CourtListener and Trellis, and the
+          productivity layer around them, Google Workspace, Slack, and Linear
+          among others. Enabling one is a toggle plus your credentials, inside
+          the same trusted boundary. Google Workspace is verified end to end
+          today; the rest of the catalog is pre-vetted rather than live-tested,
+          and each connector is verified as customers enable it.
+        </p>
+        <p>
+          Reading is open; acting requires a hand on the wheel: an agent reads
+          connected information directly, but any action that would change
+          something, like sending an email or creating a file, pauses for a
+          person to approve before it runs.
         </p>
         <p>
           Connections are governed, not a free-for-all. Your administrators

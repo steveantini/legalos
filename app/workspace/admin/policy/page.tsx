@@ -198,6 +198,16 @@ export default async function AdminPolicyPage({
         connections={mcpConnections}
         firstPartyGroups={firstPartyMcpGroups}
         canEdit={canEdit}
+        // The honest cross-reference to the Allowed-connections control above:
+        // when the MCP category is denied, connected servers' tools are
+        // unavailable to agents (D-104). Undefined when the policy read failed.
+        mcpCategoryAllowed={
+          loadFailed
+            ? undefined
+            : ((policyRow.allowed_categories ?? []) as string[]).includes(
+                MCP_CATEGORY_ID,
+              )
+        }
         flash={
           mcpConnected || mcpError
             ? { connected: mcpConnected, error: mcpError }

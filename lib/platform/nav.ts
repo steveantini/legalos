@@ -41,6 +41,17 @@ export const PLATFORM_NAV_GROUPS: ReadonlyArray<PlatformNavGroup> = [
     ],
   },
   {
+    caption: "Connections",
+    items: [
+      {
+        label: "Connectors",
+        href: "/workspace/platform/connectors",
+        description:
+          "The pre-vetted connector catalog legalOS ships, with each entry's status and provenance.",
+      },
+    ],
+  },
+  {
     caption: "Analytics",
     items: [
       {

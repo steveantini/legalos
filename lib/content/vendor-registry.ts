@@ -38,6 +38,14 @@ export type VendorContentProvider = {
   /** The public source repository the content is imported from. */
   sourceRepo: string;
   /**
+   * The upstream commit the shipped content was last reconciled against. A
+   * runtime refresh reports the live commit it read (C4LRefreshSummary's
+   * `sourceCommit`); a session that re-harvests or re-reconciles updates this
+   * field in the same change. Recorded so future gap analyses never need git
+   * archaeology to learn which upstream state was synced.
+   */
+  upstreamCommit: string;
+  /**
    * The HARD CEILING on placement: each imported plugin slug → the legalOS
    * department slug its agents land in. The import reads placement from here
    * (never from a one-off argument), so a refresh restores placement
@@ -58,6 +66,9 @@ export const CLAUDE_FOR_LEGAL: VendorContentProvider = {
   displayLabel: "Claude for Legal",
   launchpadSubline: "A curated library of Anthropic’s legal agents, ready to use.",
   sourceRepo: "https://github.com/anthropics/claude-for-legal",
+  // Backfilled at the connector-catalog harvest (2026-06-10): the upstream HEAD
+  // read for the C4L gap analysis and the connector harvest.
+  upstreamCommit: "248331e0fedd76418edd8b46ca895518f9a009ce",
   pluginDepartmentMap: {
     "ai-governance-legal": "ai-governance",
     "commercial-legal": "commercial",

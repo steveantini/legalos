@@ -14,6 +14,7 @@ const PROVIDER: VendorContentProvider = {
   displayLabel: "Claude for Legal",
   launchpadSubline: "A curated library of Anthropic’s legal agents, ready to use.",
   sourceRepo: "https://github.com/anthropics/claude-for-legal",
+  upstreamCommit: "0000000000000000000000000000000000000000",
   pluginDepartmentMap: {
     "commercial-legal": "commercial",
     "privacy-legal": "privacy",

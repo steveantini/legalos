@@ -12,19 +12,30 @@
  * Presentation only: nothing here is sent to a model or a server.
  */
 
+import { C4L_CONNECTORS } from "@/lib/connections/providers/c4l-connector-catalog";
+
 /** The namespace separator tool-mapping uses: `<prefix>__<tool>`. */
 const NAMESPACE_SEP = "__";
 
 /**
- * Display names for the known first-party server prefixes (the clean
- * `gdrive`/`gmail`/`gcal` prefixes in tool-mapping's KNOWN_SERVER_PREFIXES).
- * A prefix outside this map is a self-hosted/derived one; we humanize the
- * slug instead (see humanizeServerPrefix).
+ * Display names for the known first-party server prefixes: the clean
+ * `gdrive`/`gmail`/`gcal` prefixes in tool-mapping's KNOWN_SERVER_PREFIXES,
+ * plus every Claude for Legal catalog connector (prefix → its display name,
+ * so "courtlistener__search" renders as "CourtListener: search" with the
+ * vendor's real capitalization). A prefix outside this map is a
+ * self-hosted/derived one; we humanize the slug instead (see
+ * humanizeServerPrefix).
  */
 const KNOWN_SERVER_LABELS: Record<string, string> = {
   gdrive: "Google Drive",
   gmail: "Gmail",
   gcal: "Calendar",
+  ...Object.fromEntries(
+    C4L_CONNECTORS.map((connector) => [
+      connector.toolPrefix,
+      connector.displayName,
+    ]),
+  ),
 };
 
 /**

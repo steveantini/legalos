@@ -4004,3 +4004,23 @@ Cold-user comprehension of the trust hierarchy (department-approved / Anthropic'
 - The My agents and Claude for Legal empty states were trimmed so subline + empty copy read as one thought rather than repeating each other.
 
 **Follow-up (2026-06-09):** the sublines moved from below the title to trailing beside it on the same row (the header reads as one quiet line; on narrow viewports flex-wrap drops the subline whole below the title rather than truncating, and the count badge stays pinned to the title line), and the Approved agents subline was reworded to "Vetted and tested by your department." so the label's word is not repeated in its own description.
+
+## D-150 — Connector catalog pre-seeded from C4L (turnkey enablement)
+
+Date: 2026-06-10
+Status: Accepted
+
+**Context / Decision:**
+
+Harvested all 13 `.mcp.json` connector configs from Anthropic's claude-for-legal repo (upstream HEAD `248331e0fedd76418edd8b46ca895518f9a009ce`) into the trusted-MCP registry as a pre-vetted connector catalog: 18 distinct connectors after dedupe (Slack and Google Drive appear in all twelve plugin configs; Drive was reconciled against the existing `google-drive-mcp` entry at the identical endpoint rather than duplicated, and CoCounsel — `external_plugins/cocounsel-legal` — stays deferred per D-051 until a customer brings a Thomson Reuters subscription). Each entry is a disabled-by-default trusted-registry member carrying the vendor's official endpoint verbatim, auth model (OAuth 2.1 throughout; the catalog type also represents api-key/none for future vendors), a display category (contract lifecycle, document management, e-discovery, court data, legal research, outside counsel, skill libraries, productivity), the practice-area plugins that ship it, provenance with the upstream commit pinned, an honest access note, and an AVAILABLE/VERIFIED status (verified = legalOS proved connect + tool discovery + a real agent read live; the three Google servers carry it per D-106). The platform tier owns the catalog (a read-only Connectors page in the platform nav, the same posture as the content library: the catalog is version-controlled code under the D-089 hard ceiling, changed by reviewed deploy); the org tier owns enablement (the existing Policy & access connect flow and credentials, the `mcp` policy category, and a new honest note when that category is denied). The catalog data lives in `lib/connections/providers/c4l-connector-catalog.ts` (pure data), which also feeds each connector's clean tool-namespace prefix and chat-trace display label, so adding a connector is one entry. CourtListener (free, public, read-only) was verified against the live server through every machine-reachable step: OAuth discovery (protected-resource metadata naming www.courtlistener.com, PKCE S256, refresh tokens), dynamic client registration (HTTP 201 with the production callback URI), and the authorization request accepted with the flow's exact shape (302 to sign-in). The human consent step cannot run from the build environment, so its status stays AVAILABLE with the operator's ~3-minute verification documented in the roadmap; passing it flips the status to VERIFIED (a one-line catalog change). The upstream commit is now recorded at import/refresh time: the vendor registry gained `upstreamCommit` (backfilled with the current HEAD), the catalog pins its source commit, and the platform refresh now reports the live commit SHA it read.
+
+**Reasoning:**
+
+Onboarding speed drives adoption: front-load the discovery work so enabling a customer's system is minutes, not research. Anthropic's published vetting criteria (remote HTTPS, OAuth/API-key auth, read-heavy tools, provenance in results, injection resistance) align with this product's trusted-only bar, which is what makes pre-seeding from their configs sound; per-connector vetting still happens at first live enablement, and the AVAILABLE/VERIFIED split keeps the catalog honest about which entries have been proven.
+
+**Consequences:**
+
+- The catalog is the landing place for future connectors (including CoCounsel when a customer brings a TR subscription), and watchers (roadmap item 13's cookbooks) gain ready connectors to read from.
+- Atlassian and Asana ship SSE-shaped endpoints (`/v1/sse`, `/sse`) while the MCP client speaks Streamable HTTP; transport compatibility is part of their first-enablement vetting, exactly what AVAILABLE signals.
+- The Features page tells the catalog story honestly (pre-vetted, ready to enable, only Google verified end to end today), per the D-126 standing rule.
+- Flipping a connector to VERIFIED after a live test is a one-line, reviewed change, which keeps verification an auditable event.

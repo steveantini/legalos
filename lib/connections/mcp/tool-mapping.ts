@@ -3,6 +3,7 @@ import type {
   AnthropicToolInputSchema,
 } from "@/lib/llm/anthropic/chat";
 import type { OrgMcpExecutionTarget } from "@/lib/connections/mcp/connection-state";
+import { C4L_CONNECTORS } from "@/lib/connections/providers/c4l-connector-catalog";
 
 /**
  * MCP tool mapping + namespacing (Phase 2, 2P-2) — the pure transform from an
@@ -27,14 +28,22 @@ const NAMESPACE_SEP = "__";
 const SELF_HOSTED_MARKER = "self-hosted:";
 
 /**
- * Clean, fixed prefixes for the known first-party servers (the lock's gdrive /
- * gmail / gcal). Any server not listed here derives a prefix from its id (see
- * serverPrefix). Keyed by the registry serverId.
+ * Clean, fixed prefixes for the known first-party servers: the lock's gdrive /
+ * gmail / gcal, plus every Claude for Legal catalog connector (each declares
+ * its own `toolPrefix`, so adding a connector to the catalog brings its clean
+ * namespace with it). Any server not listed here derives a prefix from its id
+ * (see serverPrefix). Keyed by the registry serverId.
  */
 const KNOWN_SERVER_PREFIXES: Record<string, string> = {
   "google-drive-mcp": "gdrive",
   "google-gmail-mcp": "gmail",
   "google-calendar-mcp": "gcal",
+  ...Object.fromEntries(
+    C4L_CONNECTORS.map((connector) => [
+      connector.serverId,
+      connector.toolPrefix,
+    ]),
+  ),
 };
 
 /** Where a namespaced tool name routes for execution (2P-3/2P-6). */

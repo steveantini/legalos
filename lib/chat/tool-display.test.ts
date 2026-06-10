@@ -17,6 +17,18 @@ describe("toolLabel", () => {
     expect(label.action).toBe("search files");
   });
 
+  it("labels catalog connector tools with the vendor's real capitalization", () => {
+    expect(toolLabel("courtlistener__search_dockets").full).toBe(
+      "CourtListener: search dockets",
+    );
+    expect(toolLabel("docusign__list_agreements").full).toBe(
+      "DocuSign: list agreements",
+    );
+    expect(toolLabel("imanage__search_documents").full).toBe(
+      "iManage: search documents",
+    );
+  });
+
   it("keeps the established 'Web search' label for the hosted tool", () => {
     const label = toolLabel("web_search");
     expect(label.full).toBe("Web search");
