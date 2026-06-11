@@ -22,19 +22,157 @@
 -- GOVERNANCE (the established double-gate): super admins write (the server
 -- actions check isCurrentUserSuperAdmin(); these policies re-enforce at the
 -- DB). Org members read within the org fence, with 'departments' visibility
--- enforced IN RLS via collection_departments × has_department_access(), so a
--- department-scoped collection is invisible to outsiders at the database
--- layer, not merely hidden in the UI. Child tables are fenced through their
--- parent collection: their read policies subquery public.collections, which
--- runs under the caller's RLS, so a child row is readable exactly when its
--- collection is.
+-- enforced IN RLS, so a department-scoped collection is invisible to outsiders
+-- at the database layer, not merely hidden in the UI. Child tables are fenced
+-- through their parent collection: their read policies subquery
+-- public.collections, which runs under the caller's RLS, so a child row is
+-- readable exactly when its collection is.
+--
+-- STATEMENT ORDER MATTERS: all tables first, then the helper function, then
+-- the policies. `language sql` function bodies are validated at creation
+-- (check_function_bodies is on in Supabase), so the visibility helper cannot
+-- be created before the table it queries exists — the original ordering
+-- failed exactly there.
+--
+-- IDEMPOTENT throughout (IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF
+-- EXISTS), so a partially applied earlier attempt does not block a rerun:
+-- apply the whole file again and it converges.
 --
 -- Apply in the Supabase SQL Editor (the project's standard path).
 -- ============================================================================
 
 
 -- ============================================================================
--- Helper: department-visibility membership (security definer)
+-- PART 1 — Tables (all of them, before anything that references them)
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Table: collections
+-- ----------------------------------------------------------------------------
+
+create table if not exists public.collections (
+  id                 uuid primary key default gen_random_uuid(),
+  organization_id    uuid not null references public.organizations (id) on delete cascade,
+  name               text not null,
+  description        text not null default '',
+  -- 'org' = every org member sees it; 'departments' = only members of the
+  -- departments listed in collection_departments (admins always see all).
+  visibility         text not null default 'org' check (visibility in ('org', 'departments')),
+  created_by_user_id uuid references public.users (id) on delete set null,
+  -- Set when a full sync (every source walked to completion) finishes.
+  last_synced_at     timestamptz,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create index if not exists collections_organization_id_idx
+  on public.collections (organization_id);
+
+drop trigger if exists collections_updated_at on public.collections;
+create trigger collections_updated_at
+  before update on public.collections
+  for each row execute function public.set_updated_at();
+
+alter table public.collections enable row level security;
+
+-- ----------------------------------------------------------------------------
+-- Table: collection_departments
+-- ----------------------------------------------------------------------------
+-- Which departments a 'departments'-visibility collection is visible to.
+-- Composite primary key; rows exist only for that visibility mode.
+
+create table if not exists public.collection_departments (
+  collection_id uuid not null references public.collections (id) on delete cascade,
+  department_id uuid not null references public.departments (id) on delete cascade,
+  created_at    timestamptz not null default now(),
+  primary key (collection_id, department_id)
+);
+
+create index if not exists collection_departments_department_id_idx
+  on public.collection_departments (department_id);
+
+alter table public.collection_departments enable row level security;
+
+-- ----------------------------------------------------------------------------
+-- Table: collection_sources
+-- ----------------------------------------------------------------------------
+-- One repository folder backing a collection. References the live MCP
+-- connection row (so D-136 org-scoping and honest disable-on-disconnect come
+-- free) plus the STABLE folder id; display_path is cached provenance,
+-- recomputed at sync, never the reference itself.
+
+create table if not exists public.collection_sources (
+  id             uuid primary key default gen_random_uuid(),
+  collection_id  uuid not null references public.collections (id) on delete cascade,
+  -- on delete restrict: a connection with collection sources should be
+  -- disconnected deliberately; the UI shows such sources as disabled rather
+  -- than silently losing them. (Disconnect today flips connections.status;
+  -- rows are not deleted, so this restriction is a backstop.)
+  connection_id  uuid not null references public.connections (id) on delete restrict,
+  -- The repository's stable folder identifier (Drive folderId, Box folder id).
+  root_reference text not null,
+  -- Cached human provenance, e.g. 'Google Drive / Legal / Playbooks'.
+  display_path   text not null,
+  recursive      boolean not null default true,
+  last_synced_at timestamptz,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+create index if not exists collection_sources_collection_id_idx
+  on public.collection_sources (collection_id);
+create index if not exists collection_sources_connection_id_idx
+  on public.collection_sources (connection_id);
+
+drop trigger if exists collection_sources_updated_at on public.collection_sources;
+create trigger collection_sources_updated_at
+  before update on public.collection_sources
+  for each row execute function public.set_updated_at();
+
+alter table public.collection_sources enable row level security;
+
+-- ----------------------------------------------------------------------------
+-- Table: collection_documents
+-- ----------------------------------------------------------------------------
+-- The inventory: one row per document the sync enumerated. METADATA ONLY —
+-- titles, types, sizes, timestamps, links. Document content is never stored.
+-- A document that disappears upstream flips to status 'missing' (never a
+-- silent drop); last_seen_at is the sync-pass watermark that drives it.
+
+create table if not exists public.collection_documents (
+  id                   uuid primary key default gen_random_uuid(),
+  collection_id        uuid not null references public.collections (id) on delete cascade,
+  collection_source_id uuid not null references public.collection_sources (id) on delete cascade,
+  -- The repository's stable document id.
+  external_id          text not null,
+  title                text not null default '',
+  mime_type            text not null default '',
+  size_bytes           bigint,
+  modified_at_source   timestamptz,
+  source_url           text,
+  last_seen_at         timestamptz not null default now(),
+  status               text not null default 'present' check (status in ('present', 'missing')),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+-- One inventory row per document per source; the sync upserts on this.
+create unique index if not exists collection_documents_source_external_idx
+  on public.collection_documents (collection_source_id, external_id);
+
+create index if not exists collection_documents_collection_id_idx
+  on public.collection_documents (collection_id);
+
+drop trigger if exists collection_documents_updated_at on public.collection_documents;
+create trigger collection_documents_updated_at
+  before update on public.collection_documents
+  for each row execute function public.set_updated_at();
+
+alter table public.collection_documents enable row level security;
+
+
+-- ============================================================================
+-- PART 2 — Helper: department-visibility membership (security definer)
 -- ============================================================================
 -- True when the current user belongs to any department a collection is scoped
 -- to. SECURITY DEFINER on purpose: the collections read policy calls this, and
@@ -44,7 +182,8 @@
 -- with "infinite recursion detected in policy". A security-definer SQL
 -- function is not inlined into the policy plan and reads the membership table
 -- without RLS, breaking the cycle (the same pattern as current_org_id() and
--- has_department_access()).
+-- has_department_access()). Created AFTER the tables because the SQL body is
+-- validated at creation time.
 
 create or replace function public.user_in_collection_departments(coll_id uuid)
 returns boolean
@@ -65,37 +204,18 @@ $$;
 
 
 -- ============================================================================
--- Table: collections
+-- PART 3 — RLS policies (after every table and the helper they reference)
 -- ============================================================================
 
-create table public.collections (
-  id                 uuid primary key default gen_random_uuid(),
-  organization_id    uuid not null references public.organizations (id) on delete cascade,
-  name               text not null,
-  description        text not null default '',
-  -- 'org' = every org member sees it; 'departments' = only members of the
-  -- departments listed in collection_departments (admins always see all).
-  visibility         text not null default 'org' check (visibility in ('org', 'departments')),
-  created_by_user_id uuid references public.users (id) on delete set null,
-  -- Set when a full sync (every source walked to completion) finishes.
-  last_synced_at     timestamptz,
-  created_at         timestamptz not null default now(),
-  updated_at         timestamptz not null default now()
-);
-
-create index collections_organization_id_idx
-  on public.collections (organization_id);
-
-create trigger collections_updated_at
-  before update on public.collections
-  for each row execute function public.set_updated_at();
-
-alter table public.collections enable row level security;
+-- ----------------------------------------------------------------------------
+-- collections
+-- ----------------------------------------------------------------------------
 
 -- Read: own-org rows, where the collection is org-visible, the reader is an
 -- org/super admin, or the reader belongs to one of its departments (checked
 -- via the security-definer helper above — see its comment for why it must not
 -- be a direct subquery on collection_departments).
+drop policy if exists collections_read_visible_in_org on public.collections;
 create policy collections_read_visible_in_org
   on public.collections
   for select
@@ -109,6 +229,7 @@ create policy collections_read_visible_in_org
   );
 
 -- Write: super admins only, inside their own org.
+drop policy if exists collections_super_admin_write on public.collections;
 create policy collections_super_admin_write
   on public.collections
   for all
@@ -121,30 +242,16 @@ create policy collections_super_admin_write
     and public.current_user_role() = 'super_admin'
   );
 
-
--- ============================================================================
--- Table: collection_departments
--- ============================================================================
--- Which departments a 'departments'-visibility collection is visible to.
--- Composite primary key; rows exist only for that visibility mode.
-
-create table public.collection_departments (
-  collection_id uuid not null references public.collections (id) on delete cascade,
-  department_id uuid not null references public.departments (id) on delete cascade,
-  created_at    timestamptz not null default now(),
-  primary key (collection_id, department_id)
-);
-
-create index collection_departments_department_id_idx
-  on public.collection_departments (department_id);
-
-alter table public.collection_departments enable row level security;
+-- ----------------------------------------------------------------------------
+-- collection_departments
+-- ----------------------------------------------------------------------------
 
 -- Read: admins see all rows of their org's collections; members see the rows
 -- for departments they belong to (enough to render "visible to" honestly).
 -- The subquery on collections is safe in THIS direction: the collections read
 -- policy reaches department membership only through the security-definer
 -- helper, never through this table directly, so no policy cycle forms.
+drop policy if exists collection_departments_read on public.collection_departments;
 create policy collection_departments_read
   on public.collection_departments
   for select
@@ -161,6 +268,7 @@ create policy collection_departments_read
     )
   );
 
+drop policy if exists collection_departments_super_admin_write on public.collection_departments;
 create policy collection_departments_super_admin_write
   on public.collection_departments
   for all
@@ -183,46 +291,13 @@ create policy collection_departments_super_admin_write
     )
   );
 
-
--- ============================================================================
--- Table: collection_sources
--- ============================================================================
--- One repository folder backing a collection. References the live MCP
--- connection row (so D-136 org-scoping and honest disable-on-disconnect come
--- free) plus the STABLE folder id; display_path is cached provenance,
--- recomputed at sync, never the reference itself.
-
-create table public.collection_sources (
-  id             uuid primary key default gen_random_uuid(),
-  collection_id  uuid not null references public.collections (id) on delete cascade,
-  -- on delete restrict: a connection with collection sources should be
-  -- disconnected deliberately; the UI shows such sources as disabled rather
-  -- than silently losing them. (Disconnect today flips connections.status;
-  -- rows are not deleted, so this restriction is a backstop.)
-  connection_id  uuid not null references public.connections (id) on delete restrict,
-  -- The repository's stable folder identifier (Drive folderId, Box folder id).
-  root_reference text not null,
-  -- Cached human provenance, e.g. 'Google Drive / Legal / Playbooks'.
-  display_path   text not null,
-  recursive      boolean not null default true,
-  last_synced_at timestamptz,
-  created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
-);
-
-create index collection_sources_collection_id_idx
-  on public.collection_sources (collection_id);
-create index collection_sources_connection_id_idx
-  on public.collection_sources (connection_id);
-
-create trigger collection_sources_updated_at
-  before update on public.collection_sources
-  for each row execute function public.set_updated_at();
-
-alter table public.collection_sources enable row level security;
+-- ----------------------------------------------------------------------------
+-- collection_sources
+-- ----------------------------------------------------------------------------
 
 -- Read: whoever can read the parent collection (the subquery runs under the
 -- caller's RLS on collections, so visibility composes exactly).
+drop policy if exists collection_sources_read_via_collection on public.collection_sources;
 create policy collection_sources_read_via_collection
   on public.collection_sources
   for select
@@ -232,6 +307,7 @@ create policy collection_sources_read_via_collection
     )
   );
 
+drop policy if exists collection_sources_super_admin_write on public.collection_sources;
 create policy collection_sources_super_admin_write
   on public.collection_sources
   for all
@@ -254,45 +330,11 @@ create policy collection_sources_super_admin_write
     )
   );
 
+-- ----------------------------------------------------------------------------
+-- collection_documents
+-- ----------------------------------------------------------------------------
 
--- ============================================================================
--- Table: collection_documents
--- ============================================================================
--- The inventory: one row per document the sync enumerated. METADATA ONLY —
--- titles, types, sizes, timestamps, links. Document content is never stored.
--- A document that disappears upstream flips to status 'missing' (never a
--- silent drop); last_seen_at is the sync-pass watermark that drives it.
-
-create table public.collection_documents (
-  id                   uuid primary key default gen_random_uuid(),
-  collection_id        uuid not null references public.collections (id) on delete cascade,
-  collection_source_id uuid not null references public.collection_sources (id) on delete cascade,
-  -- The repository's stable document id.
-  external_id          text not null,
-  title                text not null default '',
-  mime_type            text not null default '',
-  size_bytes           bigint,
-  modified_at_source   timestamptz,
-  source_url           text,
-  last_seen_at         timestamptz not null default now(),
-  status               text not null default 'present' check (status in ('present', 'missing')),
-  created_at           timestamptz not null default now(),
-  updated_at           timestamptz not null default now()
-);
-
--- One inventory row per document per source; the sync upserts on this.
-create unique index collection_documents_source_external_idx
-  on public.collection_documents (collection_source_id, external_id);
-
-create index collection_documents_collection_id_idx
-  on public.collection_documents (collection_id);
-
-create trigger collection_documents_updated_at
-  before update on public.collection_documents
-  for each row execute function public.set_updated_at();
-
-alter table public.collection_documents enable row level security;
-
+drop policy if exists collection_documents_read_via_collection on public.collection_documents;
 create policy collection_documents_read_via_collection
   on public.collection_documents
   for select
@@ -302,6 +344,7 @@ create policy collection_documents_read_via_collection
     )
   );
 
+drop policy if exists collection_documents_super_admin_write on public.collection_documents;
 create policy collection_documents_super_admin_write
   on public.collection_documents
   for all
@@ -340,7 +383,11 @@ create policy collection_documents_super_admin_write
 --     where tablename like 'collection%' order by tablename, policyname;
 --    -- expect: a read and a super_admin write policy per table.
 --
--- 3. The inventory upsert key exists:
+-- 3. The helper exists:
+--    select proname from pg_proc
+--     where proname = 'user_in_collection_departments';
+--
+-- 4. The inventory upsert key exists:
 --    select indexname from pg_indexes
 --     where tablename = 'collection_documents'
 --       and indexname = 'collection_documents_source_external_idx';
