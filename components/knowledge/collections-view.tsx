@@ -26,6 +26,7 @@ import {
 import type {
   BrowseEntry,
   CollectionInput,
+  SourceInput,
 } from "@/lib/knowledge/collections-shared";
 import type {
   CollectionView as CollectionViewModel,
@@ -84,12 +85,48 @@ export function CollectionsView({
   const [deleteTarget, setDeleteTarget] =
     useState<CollectionViewModel | null>(null);
   const [pendingDelete, startDelete] = useTransition();
+  // The save and add-source mutations run in THIS component's transitions,
+  // not the dialogs': closing a dialog unmounts it, and a router.refresh()
+  // scheduled inside an unmounting component's transition is dropped with it
+  // (the bug where a created collection appeared only after a manual reload).
+  // CollectionsView stays mounted, so its refresh always lands — the same
+  // reason the People invite flow works (its component survives its dialog).
+  const [pendingSave, startSave] = useTransition();
+  const [pendingAddSource, startAddSource] = useTransition();
   // Per-collection sync progress; presence = running.
   const [syncProgress, setSyncProgress] = useState<
     Record<string, { documents: number }>
   >({});
 
   const canAddSources = eligibleConnections.length > 0;
+
+  function handleSaveCollection(input: CollectionInput) {
+    if (pendingSave) return;
+    startSave(async () => {
+      const result = await saveCollection(input);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(input.id ? "Collection saved." : "Collection created.");
+      router.refresh();
+      setForm(null);
+    });
+  }
+
+  function handleAddSource(input: SourceInput) {
+    if (pendingAddSource) return;
+    startAddSource(async () => {
+      const result = await addCollectionSource(input);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Source added. Run sync to build the inventory.");
+      router.refresh();
+      setPickerFor(null);
+    });
+  }
 
   async function runSync(collectionId: string) {
     if (syncProgress[collectionId]) return;
@@ -200,11 +237,9 @@ export function CollectionsView({
         <CollectionFormDialog
           state={form}
           departments={departments}
+          pending={pendingSave}
           onClose={() => setForm(null)}
-          onSaved={() => {
-            setForm(null);
-            router.refresh();
-          }}
+          onSubmit={handleSaveCollection}
         />
       ) : null}
 
@@ -212,11 +247,9 @@ export function CollectionsView({
         <SourcePickerDialog
           collectionId={pickerFor}
           connections={eligibleConnections}
+          pending={pendingAddSource}
           onClose={() => setPickerFor(null)}
-          onAdded={() => {
-            setPickerFor(null);
-            router.refresh();
-          }}
+          onSubmit={handleAddSource}
         />
       ) : null}
 
@@ -478,16 +511,24 @@ function SourceRow({
 // Create / edit dialog
 // ---------------------------------------------------------------------------
 
+/**
+ * Collects the collection's fields and hands them UP — the mutation and the
+ * refresh run in the parent's transition (see CollectionsView), because this
+ * dialog unmounts on success and an unmounting component's transition drops
+ * its scheduled router.refresh().
+ */
 function CollectionFormDialog({
   state,
   departments,
+  pending,
   onClose,
-  onSaved,
+  onSubmit,
 }: {
   state: FormState;
   departments: { id: string; name: string }[];
+  pending: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSubmit: (input: CollectionInput) => void;
 }) {
   const editing = state.mode === "edit" ? state.collection : null;
   const [name, setName] = useState(editing?.name ?? "");
@@ -498,7 +539,6 @@ function CollectionFormDialog({
   const [departmentIds, setDepartmentIds] = useState<string[]>(
     editing?.departmentIds ?? [],
   );
-  const [pending, startTransition] = useTransition();
 
   function toggleDepartment(id: string) {
     setDepartmentIds((prev) =>
@@ -508,21 +548,12 @@ function CollectionFormDialog({
 
   function handleSave() {
     if (pending) return;
-    const input: CollectionInput = {
+    onSubmit({
       ...(editing ? { id: editing.id } : {}),
       name,
       description,
       visibility,
       departmentIds: visibility === "departments" ? departmentIds : [],
-    };
-    startTransition(async () => {
-      const result = await saveCollection(input);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(editing ? "Collection saved." : "Collection created.");
-      onSaved();
     });
   }
 
@@ -650,16 +681,24 @@ function CollectionFormDialog({
 
 type Crumb = { id: string | null; name: string };
 
+/**
+ * Browses a repository and hands the chosen folder UP — the add-source
+ * mutation and the refresh run in the parent's transition (see
+ * CollectionsView), because this dialog unmounts on success and an
+ * unmounting component's transition drops its scheduled router.refresh().
+ */
 function SourcePickerDialog({
   collectionId,
   connections,
+  pending,
   onClose,
-  onAdded,
+  onSubmit,
 }: {
   collectionId: string;
   connections: EligibleSourceConnection[];
+  pending: boolean;
   onClose: () => void;
-  onAdded: () => void;
+  onSubmit: (input: SourceInput) => void;
 }) {
   // The repository is picked explicitly (even when only one qualifies): the
   // selection doubles as confirmation of which repository is being browsed,
@@ -675,7 +714,6 @@ function SourcePickerDialog({
   const [loadingMore, setLoadingMore] = useState(false);
   const [browseError, setBrowseError] = useState<string | null>(null);
   const [recursive, setRecursive] = useState(true);
-  const [pendingAdd, startAdd] = useTransition();
 
   const currentFolder = crumbs[crumbs.length - 1];
   const connection = connections.find((c) => c.connectionId === connectionId);
@@ -744,21 +782,13 @@ function SourcePickerDialog({
   }
 
   function handleAdd() {
-    if (!connectionId || !currentFolder.id || pendingAdd) return;
-    startAdd(async () => {
-      const result = await addCollectionSource({
-        collectionId,
-        connectionId,
-        rootReference: currentFolder.id!,
-        pathNames: crumbs.slice(1).map((crumb) => crumb.name),
-        recursive,
-      });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Source added. Run sync to build the inventory.");
-      onAdded();
+    if (!connectionId || !currentFolder.id || pending) return;
+    onSubmit({
+      collectionId,
+      connectionId,
+      rootReference: currentFolder.id,
+      pathNames: crumbs.slice(1).map((crumb) => crumb.name),
+      recursive,
     });
   }
 
@@ -898,20 +928,20 @@ function SourcePickerDialog({
         )}
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={pendingAdd}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
           <Button
             type="button"
             onClick={handleAdd}
-            disabled={pendingAdd || !connection || currentFolder.id === null}
+            disabled={pending || !connection || currentFolder.id === null}
             title={
               currentFolder.id === null
                 ? "Open a folder first; the top level can't be a source"
                 : undefined
             }
           >
-            {pendingAdd ? "Adding…" : "Use this folder"}
+            {pending ? "Adding…" : "Use this folder"}
           </Button>
         </DialogFooter>
       </DialogContent>

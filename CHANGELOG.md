@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The collections list now updates immediately after creating a collection (and after editing or adding a source), instead of requiring a manual reload. The success path previously closed the dialog that owned the in-flight refresh, which dropped it; the mutations now run in the page surface itself, so the refresh always lands. Delete, source removal, and sync completion were audited and already refreshed correctly.**
+
 ### Added
 
 - **Knowledge begins. Administrators can now draw named collections over the repositories the team already uses, like a contracts folder in Google Drive, with every collection showing exactly where its documents live ("Google Drive / Legal / Playbooks") in the picker, on the page, and wherever it appears. A collection points at folders by stable identifier, so renames and moves don't break it; visibility is organization-wide or limited to chosen departments, enforced at the database layer; and an admin-clicked sync builds a document inventory of titles and metadata only, never moving or persisting document content, so knowledge genuinely stays where it lives. Documents that disappear upstream are marked missing rather than silently dropped, very large folder trees sync in honest bounded segments with live progress, and only enumeration-capable repositories (Google Drive verified live, Box per its documentation) can back a collection, recorded as a capability on the connector catalog. The Knowledge section restructures to Research (the question engine over collections, arriving next) and Collections; the Sources and Vault placeholders retire in favor of this design. (D-152)**
