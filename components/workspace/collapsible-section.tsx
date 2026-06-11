@@ -20,8 +20,10 @@ interface CollapsibleSectionProps {
    * than truncating. Stays visible when the section is collapsed so the
    * orientation it provides survives the collapse, and sits outside the
    * toggle button so the button's accessible name stays the title.
+   * Accepts a node so a live, computed subline (the Research scope summary)
+   * can ride the same slot as the static launchpad lines.
    */
-  description?: string;
+  description?: React.ReactNode;
   /** The CollapsedSectionsValue key this section's state stores under (per-vendor
    *  content sections use `external:<sourceId>`; the legacy keys are
    *  departmentAgents / externalAgents / myAgents; the Workflows screen uses
@@ -32,8 +34,13 @@ interface CollapsibleSectionProps {
    * under (e.g. `deptCollapsedSectionsKey(slug)` on a launchpad,
    * `workflowsCollapsedSectionsKey` on the Workflows screen). The stored value
    * is a CollapsedSectionsValue keyed by `sectionKey`.
+   *
+   * OPTIONAL: omit it for a SESSION-TRANSIENT section — the toggle works but
+   * nothing persists, so the section reopens at its default on the next
+   * visit. The Research ask scope uses this: scope selection is a required
+   * gesture, so a remembered collapse would add a click to every ask.
    */
-  preferenceKey: string;
+  preferenceKey?: string;
   /** Whether the section starts collapsed (from the server-fetched preference). */
   defaultCollapsed: boolean;
   /** Optional content to the right of the title — typically a count badge. */
@@ -81,8 +88,10 @@ export function CollapsibleSection({
   const handleToggle = () => {
     const next = !collapsed;
     setCollapsed(next);
+    if (!preferenceKey) return; // session-transient: no persistence
+    const prefKey = preferenceKey;
     startTransition(async () => {
-      await persistCollapsedState(preferenceKey, sectionKey, next);
+      await persistCollapsedState(prefKey, sectionKey, next);
     });
   };
 

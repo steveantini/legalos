@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The Research scope picker is refined again: collections now live in a collapsible Scope section using the workspace's standard section header (expanded by default, with the collection count at a glance), the selection requirement moved out of the margin and into the summary line (which guides from "select at least one collection to begin" into the live document and cost estimate, and stays visible even collapsed), the run button simply stays disabled until the ask is valid, and a persistent instruction line now explains what Research does while the placeholder offers a brief example question, so the guidance survives the first keystroke.**
+
 - **The Research ask surface is refined: the question leads as a wide, composer-grade box with a placeholder that teaches what the tool can do, while collections select from a compact responsive grid that keeps every scope's real source visible in condensed form, with a quiet summary line that updates as scopes are toggled so the cost preview reads as live feedback. The composer is now a reusable component, ready to reappear beneath an answer when follow-up refinement arrives. Presentation only; runs, previews, and caps behave exactly as before.**
 
 ### Added

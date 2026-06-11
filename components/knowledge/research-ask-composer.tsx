@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { CollapsibleSection } from "@/components/workspace/collapsible-section";
 import {
   estimateResearchPreview,
   type ResearchPreview,
@@ -11,11 +12,17 @@ import { cn } from "@/lib/utils";
 
 /**
  * The Research ask composer (Knowledge arc Step 2, hierarchy polish): the
- * QUESTION IS THE HERO — a wide, composer-grade box that invites a real
- * institutional question — and the scope is supporting cast: a compact,
- * responsive grid of collection cards, each keeping its real source visible
- * in condensed form (the standing transparency rule), with a quiet summary
- * line that turns the cost preview into live feedback as scopes toggle.
+ * QUESTION IS THE HERO — a persistent instruction line in real text, then a
+ * wide, composer-grade box whose placeholder is a brief example (guidance
+ * must survive the first keystroke; a placeholder vanishes) — and the scope
+ * is supporting cast: a collapsible "Scope" section in the launchpad's
+ * sectioning idiom (default EXPANDED; session-transient collapse, since
+ * scope is a required gesture), holding the compact responsive grid of
+ * collection cards, each keeping its real source visible in condensed form
+ * (the standing transparency rule). The section's subline IS the live
+ * summary: "Select at least one collection to begin." until a scope is
+ * picked, then the document-and-cost estimate — one line, one location, no
+ * standing nag; the Run button simply stays disabled until the ask is valid.
  *
  * A REUSABLE component on purpose: it owns its own question/selection state
  * and reports the ask upward through `onRun`, so when follow-up refinement
@@ -88,59 +95,67 @@ export function ResearchAskComposer({
     );
   }
 
+  // The section subline IS the live selection summary — guidance with
+  // nothing selected, the running estimate once scopes are picked. The same
+  // preview math the confirm box uses, so the two can never disagree.
+  const scopeSummary = preview
+    ? `${selectedCollections.length} ${
+        selectedCollections.length === 1 ? "collection" : "collections"
+      } · ~${preview.documentCount} ${
+        preview.documentCount === 1 ? "document" : "documents"
+      } · estimated $${preview.estCostLowUsd}–$${preview.estCostHighUsd}`
+    : "Select at least one collection to begin.";
+
   return (
     <div className="flex flex-col gap-6">
-      {/* The hero: a wide, generous, composer-grade question. */}
-      <div className="rounded-xl border border-hairline bg-paper-2 transition-colors duration-release ease-release focus-within:border-hairline-strong motion-reduce:transition-none">
-        <label htmlFor={questionId} className="sr-only">
-          Your question
-        </label>
-        <textarea
-          id={questionId}
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          placeholder="How many of our MSAs were signed without a DPA?"
-          rows={3}
-          maxLength={600}
-          className="block w-full resize-none bg-transparent px-5 pt-4 text-[16px] leading-[1.55] text-foreground outline-none placeholder:text-muted-foreground/70 field-sizing-content min-h-[5.2em] max-h-[12em]"
-        />
-        <div className="flex items-center justify-between gap-3 px-5 pb-3.5 pt-1">
-          <p className="text-[12px] leading-[1.5] text-caption">
-            Every document in scope is read where it lives; the answer comes
-            back cited.
-          </p>
-          <Button
-            type="button"
-            onClick={() => canRun && onRun(question.trim(), selected)}
-            disabled={!canRun}
-          >
-            {pending ? "Starting…" : "Run research"}
-          </Button>
+      {/* The hero: a persistent instruction in real text, then the wide,
+          composer-grade question whose placeholder is a brief example. */}
+      <div className="flex flex-col gap-2">
+        <p className="max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
+          Ask a question about the documents in your collections. Research
+          reads them where they live and answers with citations.
+        </p>
+        <div className="rounded-xl border border-hairline bg-paper-2 transition-colors duration-release ease-release focus-within:border-hairline-strong motion-reduce:transition-none">
+          <label htmlFor={questionId} className="sr-only">
+            Your question
+          </label>
+          <textarea
+            id={questionId}
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="Which of our vendor agreements auto-renew?"
+            rows={3}
+            maxLength={600}
+            className="block w-full resize-none bg-transparent px-5 pt-4 text-[16px] leading-[1.55] text-foreground outline-none placeholder:text-muted-foreground/70 field-sizing-content min-h-[5.2em] max-h-[12em]"
+          />
+          <div className="flex items-center justify-end px-5 pb-3.5 pt-1">
+            <Button
+              type="button"
+              onClick={() => canRun && onRun(question.trim(), selected)}
+              disabled={!canRun}
+            >
+              {pending ? "Starting…" : "Run research"}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Supporting cast: the scope, compact and multi-column. */}
-      <fieldset>
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <legend className="text-[13px] font-medium text-foreground">
-            Across which collections
-          </legend>
-          {/* The live selection summary: the preview as feedback, the same
-              math the confirm line below uses. */}
-          <p className="text-[12.5px] text-muted-foreground" aria-live="polite">
-            {preview
-              ? `${selectedCollections.length} ${
-                  selectedCollections.length === 1
-                    ? "collection"
-                    : "collections"
-                } · ~${preview.documentCount} ${
-                  preview.documentCount === 1 ? "document" : "documents"
-                } · estimated $${preview.estCostLowUsd}–$${preview.estCostHighUsd}`
-              : "Pick at least one collection"}
-          </p>
-        </div>
-
-        <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Supporting cast: the Scope section in the launchpad's collapsible
+          idiom — default expanded, transient collapse (no preferenceKey),
+          count badge in the meta slot, the live summary as the subline (it
+          survives a collapse, so the selection state is never hidden). */}
+      <CollapsibleSection
+        title="Scope"
+        sectionKey="research-scope"
+        defaultCollapsed={false}
+        description={<span aria-live="polite">{scopeSummary}</span>}
+        meta={
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {collections.length}
+          </span>
+        }
+      >
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {collections.map((collection) => {
             const checked = selected.includes(collection.id);
             return (
@@ -187,7 +202,7 @@ export function ResearchAskComposer({
             );
           })}
         </div>
-      </fieldset>
+      </CollapsibleSection>
 
       {/* The full confirm preview: the same numbers as the live line, plus
           the stated assumptions and the honest over-cap message. */}
