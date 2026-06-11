@@ -4,6 +4,7 @@ import {
   isCurrentUserPlatformOwner,
   requireAuthUser,
 } from "@/lib/auth/access";
+import { diffConnectorCatalog } from "@/lib/connections/providers/c4l-connector-drift";
 import { recordVendorContentRefreshed } from "@/lib/content/content-settings";
 import { fetchC4LSkills, type C4LRefreshResult } from "@/lib/content/c4l-fetch";
 import { importC4LContent } from "@/lib/content/c4l-import";
@@ -89,6 +90,14 @@ export async function refreshC4LContent(): Promise<C4LRefreshResult> {
       updatesAvailableCount: result.updatesAvailable.length,
       unchangedCount: result.unchangedCount,
       sourceCommit: fetched.sourceCommit,
+      // Diff the upstream connector configs against the shipped catalog
+      // (detection automated, action human — drift is reported, never
+      // applied; the catalog is the compiled-in trust ceiling, D-089). Null
+      // when the configs couldn't be read, so the panel says "couldn't
+      // check" rather than implying a clean bill.
+      connectorDrift: fetched.upstreamConnectors
+        ? diffConnectorCatalog(fetched.upstreamConnectors)
+        : null,
     },
   };
 }

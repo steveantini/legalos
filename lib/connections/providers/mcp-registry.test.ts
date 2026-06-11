@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { C4L_CONNECTORS } from "@/lib/connections/providers/c4l-connector-catalog";
+import { shippedCatalogComparisonRows } from "@/lib/connections/providers/c4l-connector-drift";
 import {
   deriveMcpTrustTier,
   isTrustedFirstPartyServer,
@@ -106,5 +107,21 @@ describe("connector catalog in the registry", () => {
     for (const entry of entries.filter((e) => !e.serverId.startsWith("google-"))) {
       expect(entry.provenance.commit).toMatch(/^[0-9a-f]{40}$/);
     }
+  });
+
+  it("keeps the drift module's Google Drive alias in lockstep with the registry entry", () => {
+    // The drift comparison carries Drive as a literal (the pure module cannot
+    // import the server-only registry); this is the assertion that the two
+    // can never silently diverge.
+    const aliasRow = shippedCatalogComparisonRows().find(
+      (row) => row.name === "Google Drive",
+    );
+    const registryEntry = listConnectorCatalogByCategory()
+      .flatMap((category) => category.entries)
+      .find((entry) => entry.serverId === "google-drive-mcp");
+    expect(aliasRow).toBeDefined();
+    expect(registryEntry).toBeDefined();
+    expect(aliasRow!.endpoint).toBe(registryEntry!.endpoint);
+    expect(aliasRow!.verified).toBe(registryEntry!.status === "verified");
   });
 });

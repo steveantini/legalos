@@ -4024,3 +4024,22 @@ Onboarding speed drives adoption: front-load the discovery work so enabling a cu
 - Atlassian and Asana ship SSE-shaped endpoints (`/v1/sse`, `/sse`) while the MCP client speaks Streamable HTTP; transport compatibility is part of their first-enablement vetting, exactly what AVAILABLE signals.
 - The Features page tells the catalog story honestly (pre-vetted, ready to enable, only Google verified end to end today), per the D-126 standing rule.
 - Flipping a connector to VERIFIED after a live test is a one-line, reviewed change, which keeps verification an auditable event.
+
+## D-151 — Connector drift detection in the platform refresh
+
+Date: 2026-06-11
+Status: Accepted
+
+**Context / Decision:**
+
+The platform refresh (D-112) diffed agent/skill content against the C4L repo but never re-read the `.mcp.json` connector configs the catalog (D-150) was harvested from, so an upstream connector addition, removal, or change would go unnoticed. The refresh now also reads every upstream `.mcp.json` (the same tree pass and raw-CDN reads, best-effort per file) and diffs the deduped result against the shipped catalog via a pure module (`lib/connections/providers/c4l-connector-drift.ts`): ADDED (upstream, not in the catalog), REMOVED (catalog entry with C4L provenance gone upstream), CHANGED (endpoint or auth shape differs; a same-endpoint rename folds into CHANGED rather than a spurious removed-plus-added pair). The report rides the existing refresh summary in the same notify-and-review idiom as content drift: endpoint changes lead with the warning treatment (security-relevant), a change on a verified connector notes that re-verification is warranted, removed connectors carry the explicit caveat that organizations may still use them (removal is a judgment call), and the deliberate CoCounsel exclusion and the Google Drive dedupe (registry entry on Google's authority) are modeled explicitly so neither reports as false drift. When no config can be read the report says "couldn't check" rather than diffing against emptiness, which would read as everything removed.
+
+**Reasoning:**
+
+Detection automated, action human: NEVER auto-applied, because the catalog feeds the compiled-in trust ceiling (D-089) and a catalog change, above all an endpoint, is exactly the kind of security-relevant change that must be vetted and land as a reviewed code change. The report copy says so.
+
+**Consequences:**
+
+- The refresh is now the standing drift sensor for both content and connectors; pressing the button answers "has upstream moved?" completely.
+- Partially serves the Sync-pipeline-Shape-B backlog item (noted there): detection is automated end to end; the apply side deliberately remains a human code change.
+- Verified live against upstream HEAD `248331e`: 13 configs, 20 distinct upstream connectors, no drift, CoCounsel excluded as intended.

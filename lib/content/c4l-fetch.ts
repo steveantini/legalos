@@ -1,5 +1,12 @@
 import matter from "gray-matter";
 
+import {
+  dedupeUpstreamConnectors,
+  parseUpstreamMcpConfig,
+  type ConnectorDrift,
+  type UpstreamConnector,
+  type UpstreamConnectorEntry,
+} from "@/lib/connections/providers/c4l-connector-drift";
 import type { ParsedC4LSkill } from "@/lib/content/c4l-import";
 import type { VendorContentProvider } from "@/lib/content/vendor-registry";
 
@@ -36,18 +43,26 @@ const GITHUB_API = "https://api.github.com";
 const GITHUB_RAW = "https://raw.githubusercontent.com";
 /** `<plugin>/skills/<skill>/SKILL.md` — first-party plugin skills only. */
 const SKILL_PATH_RE = /^([^/]+)\/skills\/([^/]+)\/SKILL\.md$/;
+/** `<plugin>/.mcp.json`, including external_plugins — the connector configs.
+ * Read for connector DRIFT detection only (catalog vs upstream); broader than
+ * the skills filter on purpose, since the catalog harvest covered all 13. */
+const MCP_CONFIG_PATH_RE = /^(?:external_plugins\/)?([^/]+)\/\.mcp\.json$/;
 /** Polite light batching for the raw (CDN) reads. */
 const RAW_BATCH_SIZE = 8;
 
 /** The fetcher's outcome. `repoPlugins` = every first-party plugin slug found;
  * `sourceCommit` = the branch head commit SHA read (null when the best-effort
- * lookup failed — never a reason to fail the fetch). */
+ * lookup failed — never a reason to fail the fetch); `upstreamConnectors` =
+ * the deduped connectors declared across the repo's `.mcp.json` configs, for
+ * connector-drift detection (null when none could be read this refresh, so the
+ * caller reports "couldn't check" rather than a spurious everything-removed). */
 export type C4LFetchResult =
   | {
       ok: true;
       skills: ParsedC4LSkill[];
       repoPlugins: string[];
       sourceCommit: string | null;
+      upstreamConnectors: UpstreamConnector[] | null;
     }
   | { ok: false; error: string };
 
@@ -71,6 +86,15 @@ export type C4LRefreshSummary = {
    * a refresh reflected, and can keep the registry's `upstreamCommit` current.
    */
   sourceCommit: string | null;
+  /**
+   * Connector drift against the shipped catalog (added/removed/changed
+   * upstream), reported notify-and-review style and NEVER applied — the
+   * catalog is the compiled-in trust ceiling (D-089) and changes to it,
+   * especially endpoints, are security-relevant code changes. Null when the
+   * upstream configs couldn't be read this refresh ("couldn't check", not
+   * "no drift").
+   */
+  connectorDrift: ConnectorDrift | null;
 };
 
 /** The server action's result the client renders. */
@@ -194,11 +218,19 @@ export async function fetchC4LSkills(
       };
     }
 
-    // Identify first-party plugin skills; collect mapped ones to fetch.
+    // Identify first-party plugin skills; collect mapped ones to fetch. Also
+    // collect every plugin's `.mcp.json` (connector configs) for drift
+    // detection against the shipped connector catalog.
     const repoPlugins = new Set<string>();
     const toFetch: Array<{ plugin: string; skill: string; path: string }> = [];
+    const mcpConfigsToFetch: Array<{ plugin: string; path: string }> = [];
     for (const entry of tree.tree ?? []) {
       if (entry.type !== "blob") continue;
+      const mcp = MCP_CONFIG_PATH_RE.exec(entry.path);
+      if (mcp) {
+        mcpConfigsToFetch.push({ plugin: mcp[1], path: entry.path });
+        continue;
+      }
       const m = SKILL_PATH_RE.exec(entry.path);
       if (!m) continue;
       const [, plugin, skill] = m;
@@ -235,7 +267,48 @@ export async function fetchC4LSkills(
       }
     }
 
-    return { ok: true, skills, repoPlugins: [...repoPlugins].sort(), sourceCommit };
+    // 5. Read each `.mcp.json` from the raw CDN (same batching), parse, and
+    //    dedupe into distinct upstream connectors. Best-effort per file; if
+    //    NOTHING could be read, report null so the caller says "couldn't
+    //    check" instead of diffing against emptiness (which would read as
+    //    every catalog connector removed upstream — a false alarm).
+    const connectorEntries: UpstreamConnectorEntry[] = [];
+    let mcpConfigsRead = 0;
+    for (let i = 0; i < mcpConfigsToFetch.length; i += RAW_BATCH_SIZE) {
+      const batch = mcpConfigsToFetch.slice(i, i + RAW_BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(async ({ plugin, path }) => {
+          try {
+            const rawRes = await fetch(
+              `${GITHUB_RAW}/${owner}/${repo}/${branch}/${path
+                .split("/")
+                .map(encodeURIComponent)
+                .join("/")}`,
+              { cache: "no-store" },
+            );
+            if (!rawRes.ok) return null;
+            return parseUpstreamMcpConfig(plugin, await rawRes.text());
+          } catch {
+            return null;
+          }
+        }),
+      );
+      for (const parsed of results) {
+        if (parsed === null) continue;
+        mcpConfigsRead += 1;
+        connectorEntries.push(...parsed);
+      }
+    }
+    const upstreamConnectors =
+      mcpConfigsRead > 0 ? dedupeUpstreamConnectors(connectorEntries) : null;
+
+    return {
+      ok: true,
+      skills,
+      repoPlugins: [...repoPlugins].sort(),
+      sourceCommit,
+      upstreamConnectors,
+    };
   } catch {
     return {
       ok: false,
