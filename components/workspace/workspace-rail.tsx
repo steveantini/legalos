@@ -98,13 +98,17 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     caption: "Knowledge",
     landingHref: "/workspace/knowledge",
     groupKey: "knowledge",
-    // The settled Knowledge shape (Knowledge arc Step 1): Research (the
-    // question engine, arrives next) and Collections (live — admin-drawn
-    // scopes over connected repositories). The former Vault leaf dissolved
+    // The settled Knowledge shape: Research (the question engine over
+    // collections, live as of Step 2) and Collections (admin-drawn scopes
+    // over connected repositories, Step 1). The former Vault leaf dissolved
     // into Collections; Sources was superseded by the connector catalog +
     // governance.
     leaves: [
-      { label: "Research", slug: "knowledge-research" },
+      {
+        label: "Research",
+        slug: "knowledge-research",
+        href: "/workspace/knowledge/research",
+      },
       {
         label: "Collections",
         slug: "knowledge-collections",

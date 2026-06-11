@@ -8,12 +8,7 @@ import {
   isCurrentUserSuperAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
-import { getOrgMcpExecutionTargets } from "@/lib/connections/mcp/connection-state";
-import {
-  canServerEnumerate,
-  getTrustedMcpServer,
-} from "@/lib/connections/providers/mcp-registry";
-import { getUsableAccessToken } from "@/lib/connections/tokens";
+import { getTrustedMcpServer } from "@/lib/connections/providers/mcp-registry";
 import type {
   BrowseResult,
   CollectionActionResult,
@@ -23,10 +18,10 @@ import type {
 } from "@/lib/knowledge/collections-shared";
 import {
   computeDisplayPath,
-  hasEnumerationAdapter,
   listRemoteFolderChildren,
   type EnumerationTarget,
 } from "@/lib/knowledge/enumeration";
+import { resolveEnumerationTarget } from "@/lib/knowledge/targets";
 import {
   runSyncSegment,
   type SyncCursor,
@@ -198,37 +193,6 @@ export async function deleteCollection(
 // ---------------------------------------------------------------------------
 // Sources + the folder browser
 // ---------------------------------------------------------------------------
-
-/**
- * Resolve a connection id to a live enumeration target: the connection must
- * be the org's, active, on an enumeration-capable catalog server with an
- * implemented adapter. Token custody stays in the established path.
- */
-async function resolveEnumerationTarget(
-  connectionId: string,
-): Promise<EnumerationTarget | null> {
-  const profile = await getCurrentUserProfile();
-  if (!profile?.organization_id) return null;
-  const targets = await getOrgMcpExecutionTargets(profile.organization_id);
-  const target = targets.find((t) => t.connectionId === connectionId);
-  if (
-    !target ||
-    !target.serverUrl ||
-    !canServerEnumerate(target.serverId) ||
-    !hasEnumerationAdapter(target.serverId)
-  ) {
-    return null;
-  }
-  try {
-    const accessToken = await getUsableAccessToken(
-      target.connectionId,
-      target.tokenRef,
-    );
-    return { serverId: target.serverId, serverUrl: target.serverUrl, accessToken };
-  } catch {
-    return null;
-  }
-}
 
 /** Browse one page of a remote folder (the source picker; super admin). */
 export async function browseSourceFolder(input: {

@@ -1,0 +1,76 @@
+import type { Metadata } from "next";
+
+import { ResearchView, type ScopeOption } from "@/components/knowledge/research-view";
+import { requireAuthUser, getOrganizationDefaultModel } from "@/lib/auth/access";
+import { getVisibleCollections } from "@/lib/knowledge/collections-data";
+import { getResearchDocumentCap } from "@/lib/knowledge/research/engine";
+import { listResearchRuns } from "@/lib/knowledge/research/data";
+import { DEFAULT_MODEL_FALLBACK, MODEL_BY_ID } from "@/lib/llm/models";
+
+export const metadata: Metadata = {
+  title: "Research",
+};
+
+/**
+ * Knowledge → Research (Knowledge arc Step 2): institutional questions across
+ * the user's RLS-visible collections, answered by the deterministic
+ * segmented sweep with citations and per-document findings. v1 is
+ * collections-only — the copy says so plainly (web and trusted-source
+ * blending are future steps, not implied capability).
+ *
+ * The research server actions perform the long work in bounded segments;
+ * this explicit maxDuration keeps each segment's request comfortably inside
+ * the platform budget (the chat routes' value).
+ */
+export const maxDuration = 300;
+
+export default async function ResearchPage() {
+  await requireAuthUser();
+
+  const [collections, cap, runs, defaultModel] = await Promise.all([
+    getVisibleCollections(),
+    getResearchDocumentCap(),
+    listResearchRuns(),
+    getOrganizationDefaultModel(),
+  ]);
+
+  const model =
+    MODEL_BY_ID[defaultModel ?? DEFAULT_MODEL_FALLBACK] ??
+    MODEL_BY_ID[DEFAULT_MODEL_FALLBACK];
+
+  const scopeOptions: ScopeOption[] = collections.map((collection) => ({
+    id: collection.id,
+    name: collection.name,
+    description: collection.description,
+    provenance: collection.sources.map(
+      (source) => source.displayPath,
+    ),
+    documentCount: collection.presentCount,
+    lastSyncedAt: collection.lastSyncedAt,
+  }));
+
+  return (
+    <main className="flex flex-col gap-9">
+      <header>
+        <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+          Research
+        </h1>
+        <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+          Ask a question across the collections you choose. Every document in
+          scope is read where it lives and the answer comes back with
+          citations and per-document findings.
+        </p>
+      </header>
+
+      <ResearchView
+        collections={scopeOptions}
+        cap={cap}
+        pricing={{
+          inputPerMillion: model.pricing.inputPerMillion,
+          outputPerMillion: model.pricing.outputPerMillion,
+        }}
+        runs={runs}
+      />
+    </main>
+  );
+}

@@ -4062,3 +4062,22 @@ This solves the real knowledge-management problem (fragmented knowledge estates)
 - Step 2 builds the segmented research engine on this foundation (research_runs, the usage_events research_run_id attribution, cost previews and caps).
 - The profile index (per-document extractions persisted for cheap repeat questions) is a deliberate, opt-in v2 with its own privacy disclosure, not part of this step.
 - Box's enumeration adapter is written to its documented surface and is verified at first live enablement, exactly what the catalog's AVAILABLE status signals.
+
+## D-153 — Knowledge Step 2: the research engine (deterministic segmented sweep)
+
+Date: 2026-06-11
+Status: Accepted
+
+**Context / Decision:**
+
+Built the corpus-question engine and the Research surface on the Step-1 collections foundation. The engine is a DETERMINISTIC enumerate→fetch→classify→aggregate sweep with segmented continuation — explicitly NOT the chat agentic loop, whose 8-round/240s guards are sized for conversation and fatal for a corpus. Code owns the orchestration: planning re-enumerates the scope LIVE (reusing the Step-1 sync walk with collecting deps; the inventory powers previews, never answers), applies the caps, and makes one cheap planning call for a classification rubric; each subsequent advance processes one bounded segment (~12 documents) — reads through the enumeration adapters with a research-sized 60,000-character budget per document (deliberately not executeMcpTool's ~25k chat cap, the design-check's named reuse trap), one or two fixed-contract batch classification calls, idempotent findings upserts on (run_id, external_id) with recounted (never incremented) progress counters — and synthesis is one final call over the findings with citations built IN CODE in the established sources idiom ({id, title, url, domain}, 0014) pointing at repository view links. The client drives the loop (the collection-sync idiom); an interrupted run resumes from its persisted cursor; cancel is honored at segment entry with partial findings kept. Honesty is structural: a fetch failure or truncated read IS a finding (fetch_failed / read_incomplete), unsupported types are counted up front, and the answer carries a basis line stating all of it, plus the quiet verify-against-sources framing. Guardrails are first-class: a pre-run cost/time preview computed from the inventory with stated assumptions (2k–10k tokens per document, an honest range); the per-run document cap on organizations.research_document_cap (default 200, super-admin-adjustable in a new Policy & access "Research" control; over-cap scopes decline with the cap named, never silently truncate); and a two-concurrent-runs-per-org cap (stale runs uncounted after 30 minutes so an abandoned browser never blocks the org). Migration 0071 added research_runs and research_run_findings, and gave usage_events a research_run_id with agent_id relaxed to nullable (the workflow_run_id precedent, 0060) — verified the platform Cost views aggregate without an agent join and Insights already types agent_id nullable, so research spend flows into cost analytics with no view changes. RUN VISIBILITY (the deliberate choice): the asking user reads their own runs; org_admin and super_admin read the organization's runs, mirroring the conversations stance the Trust pages state; only the asker advances or cancels a run, enforced by owner-write RLS and an explicit action gate.
+
+**Reasoning:**
+
+Corpus questions need enumeration and per-document inspection that retrieval-similarity can't do and the chat loop can't survive; honesty (basis lines, failure reporting, preview ranges) is the trust feature that makes a model-read answer usable by a lawyer.
+
+**Consequences:**
+
+- Step 3 exposes the engine as an agent tool (capped for in-chat scope; CourtListener joins as a public-corpus research source).
+- The profile index (persisted per-document extractions for cheap repeat questions) remains the deliberate, opt-in v2 acceleration.
+- Research runs are the product's most expensive single actions and are now first-class in the cost ledger; the platform Cost lens absorbs them automatically.

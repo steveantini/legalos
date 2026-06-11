@@ -10,10 +10,6 @@ const AREA_COPY: Record<string, AreaCopy> = {
     label: "Knowledge",
     copy: "Your team’s knowledge, where it already lives. Collections draw named scopes over the repositories you use; Research answers questions across them.",
   },
-  "knowledge-research": {
-    label: "Research",
-    copy: "Ask an institutional question and get a citation-backed answer, scoped to the collections your administrators define, the open web, and trusted sources. The same capability your agents call as a tool. Arrives next.",
-  },
   matters: {
     label: "Matters & Deals",
     copy: "Track every active matter and deal in one place. Currently in development.",

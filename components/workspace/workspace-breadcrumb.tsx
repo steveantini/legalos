@@ -17,7 +17,6 @@ import type {
  */
 const RESOURCE_AREA_LABELS: Record<string, string> = {
   knowledge: "Knowledge",
-  "knowledge-research": "Research",
   matters: "Matters / Deals",
   inbox: "Inbox",
   resources: "Resources",
@@ -53,6 +52,7 @@ const STATIC_SEGMENT_HREFS: Record<string, string> = {
   [HOME_SEGMENT]: "/workspace",
   Departments: "/workspace/departments",
   Knowledge: "/workspace/knowledge",
+  Research: "/workspace/knowledge/research",
   Workflows: "/workspace/workflows",
   Help: "/workspace/help",
   Settings: "/workspace/settings",
@@ -134,6 +134,14 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace/knowledge/collections",
     segments: () => [HOME_SEGMENT, "Knowledge", "Collections"],
+  },
+  {
+    match: "/workspace/knowledge/research",
+    segments: () => [HOME_SEGMENT, "Knowledge", "Research"],
+  },
+  {
+    match: /^\/workspace\/knowledge\/research\/[^/]+$/,
+    segments: () => [HOME_SEGMENT, "Knowledge", "Research", "Run"],
   },
   {
     match: "/workspace/workflows",

@@ -6,6 +6,7 @@ import {
   parseBoxPage,
   parseDriveFolderInfo,
   parseDrivePage,
+  toolResultText,
   type RemoteEntry,
   type RemoteFolderInfo,
   type RemotePage,
@@ -48,6 +49,21 @@ export function isSafeRemoteId(id: string): boolean {
   return SAFE_REMOTE_ID.test(id);
 }
 
+/**
+ * One document's extracted text, capped to the RESEARCH read budget. The
+ * research engine reads through this — NOT through executeMcpTool, whose
+ * ~25k-character result cap is sized for chat tool results and would gut a
+ * contract (the design-check's reuse trap). `truncated` is honest: a capped
+ * read becomes a 'read_incomplete' finding, never a silent partial.
+ */
+export type RemoteDocumentText = {
+  text: string;
+  truncated: boolean;
+};
+
+/** The research read budget per document (~15k tokens of contract text). */
+export const RESEARCH_READ_CHAR_BUDGET = 60_000;
+
 type EnumerationAdapter = {
   /** List one page of a folder's children. `folderId` null = the root. */
   listChildren(
@@ -64,7 +80,20 @@ type EnumerationAdapter = {
     target: EnumerationTarget,
     folderId: string,
   ): Promise<RemoteFolderInfo | null>;
+  /** Read one document's extracted text (the research engine's read path). */
+  readDocument(
+    target: EnumerationTarget,
+    documentId: string,
+  ): Promise<RemoteDocumentText | null>;
 };
+
+/** Cap raw extracted text to the research budget, flagging the truncation. */
+function capDocumentText(text: string): RemoteDocumentText {
+  if (text.length <= RESEARCH_READ_CHAR_BUDGET) {
+    return { text, truncated: false };
+  }
+  return { text: text.slice(0, RESEARCH_READ_CHAR_BUDGET), truncated: true };
+}
 
 /** Page size for enumeration calls (Drive's search page ceiling). */
 const PAGE_SIZE = 100;
@@ -101,6 +130,22 @@ const driveAdapter: EnumerationAdapter = {
         arguments: { fileId: folderId },
       });
       return parseDriveFolderInfo(result);
+    } catch {
+      return null;
+    }
+  },
+
+  async readDocument(target, documentId) {
+    if (!isSafeRemoteId(documentId)) return null;
+    try {
+      const result = await callMcpServerTool({
+        serverUrl: target.serverUrl,
+        accessToken: target.accessToken,
+        toolName: "read_file_content",
+        arguments: { fileId: documentId },
+      });
+      const text = toolResultText(result);
+      return text ? capDocumentText(text) : null;
     } catch {
       return null;
     }
@@ -144,6 +189,22 @@ const boxAdapter: EnumerationAdapter = {
       return null;
     }
   },
+
+  async readDocument(target, documentId) {
+    if (!isSafeRemoteId(documentId)) return null;
+    try {
+      const result = await callMcpServerTool({
+        serverUrl: target.serverUrl,
+        accessToken: target.accessToken,
+        toolName: "get_file_content",
+        arguments: { file_id: documentId },
+      });
+      const text = toolResultText(result);
+      return text ? capDocumentText(text) : null;
+    } catch {
+      return null;
+    }
+  },
 };
 
 /** serverId → adapter. Both the catalog's `canEnumerate` AND an entry here
@@ -179,6 +240,15 @@ export async function getRemoteFolderInfo(
   folderId: string,
 ): Promise<RemoteFolderInfo | null> {
   return adapterFor(target.serverId).getFolderInfo(target, folderId);
+}
+
+/** Read one document's extracted text through the server's adapter, capped
+ * to the research budget. Null = the document could not be read at all. */
+export async function readRemoteDocument(
+  target: EnumerationTarget,
+  documentId: string,
+): Promise<RemoteDocumentText | null> {
+  return adapterFor(target.serverId).readDocument(target, documentId);
 }
 
 /**

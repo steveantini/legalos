@@ -72,6 +72,30 @@ export function toolResultJson(result: unknown): unknown {
   return result;
 }
 
+/**
+ * Join a tool result's text content blocks — the shape document-read tools
+ * (Drive read_file_content, Box get_file_content) return their extracted
+ * text in. Null when the result carries no text at all.
+ */
+export function toolResultText(result: unknown): string | null {
+  if (typeof result !== "object" || result === null) return null;
+  const content = (result as { content?: unknown }).content;
+  if (!Array.isArray(content)) return null;
+  const parts: string[] = [];
+  for (const block of content) {
+    if (
+      typeof block === "object" &&
+      block !== null &&
+      (block as { type?: unknown }).type === "text" &&
+      typeof (block as { text?: unknown }).text === "string"
+    ) {
+      parts.push((block as { text: string }).text);
+    }
+  }
+  if (parts.length === 0) return null;
+  return parts.join("\n");
+}
+
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }

@@ -8,6 +8,8 @@ import { DefaultModelEditor } from "@/components/admin/policy/default-model-edit
 import { McpConnectionsEditor } from "@/components/admin/policy/mcp-connections-editor";
 import { ModelConnectionEditor } from "@/components/admin/policy/model-connection-editor";
 import { PolicyEditor } from "@/components/admin/policy/policy-editor";
+import { ResearchCapEditor } from "@/components/admin/policy/research-cap-editor";
+import { getResearchDocumentCap } from "@/lib/knowledge/research/engine";
 import {
   getCurrentUserProfile,
   getOrganizationDefaultModel,
@@ -80,6 +82,7 @@ export default async function AdminPolicyPage({
   // if the policy read fails. The MCP read is service-side (the page awaits it),
   // so the connections are present on first paint — no client fetch to sequence.
   const orgDefaultModel = await getOrganizationDefaultModel();
+  const researchDocumentCap = await getResearchDocumentCap();
   const anthropicModelConnection = await getOrgModelConnectionState(
     "anthropic",
     organizationId,
@@ -214,6 +217,9 @@ export default async function AdminPolicyPage({
             : undefined
         }
       />
+
+      {/* Research governance: the per-run document cap (Knowledge arc Step 2). */}
+      <ResearchCapEditor initialCap={researchDocumentCap} canEdit={canEdit} />
 
       {/* Content: the org-level half of vendor-content governance — which curated
           libraries the org shows, and when they were last updated. */}
