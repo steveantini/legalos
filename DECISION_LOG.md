@@ -4043,3 +4043,22 @@ Detection automated, action human: NEVER auto-applied, because the catalog feeds
 - The refresh is now the standing drift sensor for both content and connectors; pressing the button answers "has upstream moved?" completely.
 - Partially serves the Sync-pipeline-Shape-B backlog item (noted there): detection is automated end to end; the apply side deliberately remains a human code change.
 - Verified live against upstream HEAD `248331e`: 13 configs, 20 distinct upstream connectors, no drift, CoCounsel excluded as intended.
+
+## D-152 — Knowledge arc Step 1: Collections (transparent scopes over connected repositories)
+
+Date: 2026-06-11
+Status: Accepted
+
+**Context / Decision:**
+
+Settled the Knowledge design per the 2026-06-11 design-check and shipped its foundation. legalOS is the INTELLIGENCE LAYER over the repositories a legal team already has — no content migration into legalOS. A collection is an admin-drawn, transparently-sourced scope ("Commercial contracts = this Drive folder + this Box space") referencing STABLE folder ids through the org's MCP connections (display paths are cached provenance recomputed at sync, never the reference; verified live that Drive ids survive rename and move). The v1 index is INVENTORY ONLY — file id, title, mime type, size, modified time, link — captured by an admin-clicked "Sync collection" (no derived document content persisted, so the "knowledge stays where it lives" promise is literal, and no scheduler is needed; the future research engine re-enumerates live so inventory staleness only affects preview numbers). The sync is segmented like the workflow engine (bounded enumeration calls per request, a resumable cursor the client loops, missing-marking only when a source's walk COMPLETES via a last_seen_at watermark, so a partial walk never misreports documents as gone). Schema: migration 0070 (collections, collection_departments, collection_sources → connections, collection_documents) with org-fenced RLS, super-admin write, and department visibility ENFORCED IN RLS via a security-definer membership helper (a direct policy subquery would cycle with collection_departments' own policy and Postgres would reject every read with infinite recursion). Department-scoped visibility is OUR enforcement layer over an org-credential read: the connection's account is org-level, so the operator guidance is a least-privilege connecting account scoped to shared legal repositories, and ACL-sensitive or personal corpora are out of scope until per-user credential passthrough (the named future arc). Enumeration capability is recorded per connector on the catalog (`canEnumerate`: Drive true, verified live via paginated parentId queries; Box true per its documented list_folder_content_by_folder_id; CourtListener and the rest false — CourtListener is a public research corpus, not an enumerable repository, and fits Research as a public-corpus scope later); only enumeration-capable connected servers can back a source, and the picker says so honestly when nothing qualifies. The Knowledge section restructured to Research (coming-soon copy rewritten to the settled vision) + Collections; the Sources leaf (superseded by the connector catalog + governance) and the Vault leaf (dissolved into Collections) are retired.
+
+**Reasoning:**
+
+This solves the real knowledge-management problem (fragmented knowledge estates) without demanding migration, which legal teams resist for good reasons; transparency is the trust feature (every collection always shows its real sources); and inventory-only keeps the trust story intact while still enabling scope pickers, cost previews, and sweep planning for the engine.
+
+**Consequences:**
+
+- Step 2 builds the segmented research engine on this foundation (research_runs, the usage_events research_run_id attribution, cost previews and caps).
+- The profile index (per-document extractions persisted for cheap repeat questions) is a deliberate, opt-in v2 with its own privacy disclosure, not part of this step.
+- Box's enumeration adapter is written to its documented surface and is verified at first live enablement, exactly what the catalog's AVAILABLE status signals.

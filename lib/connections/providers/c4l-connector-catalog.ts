@@ -141,6 +141,15 @@ export type C4LConnector = {
    * useful (a vendor account, a workspace), or that it is free.
    */
   accessNote: string;
+  /**
+   * Whether the server's tool surface can ENUMERATE a repository (list a
+   * folder's contents with stable ids and pagination), which is what lets it
+   * back a Knowledge collection source. Recorded per connector as a vetted
+   * capability: Box documents `list_folder_content_by_folder_id`; search-only
+   * or corpus-style servers (CourtListener is a public research corpus, not a
+   * customer repository) are false. False until shown otherwise.
+   */
+  canEnumerate: boolean;
 };
 
 // Shared plugin lists for the connectors that ship suite-wide. Slack and
@@ -182,6 +191,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires an Ironclad account.",
+    canEnumerate: false,
   },
   {
     serverId: "docusign-mcp",
@@ -194,6 +204,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a DocuSign account.",
+    canEnumerate: false,
   },
   {
     serverId: "definely-mcp",
@@ -207,6 +218,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Definely account.",
+    canEnumerate: false,
   },
 
   // Document management ------------------------------------------------------
@@ -222,6 +234,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires an iManage account.",
+    canEnumerate: false,
   },
   {
     serverId: "box-mcp",
@@ -234,6 +247,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Box account.",
+    canEnumerate: true,
   },
 
   // E-discovery --------------------------------------------------------------
@@ -249,6 +263,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires an Everlaw account.",
+    canEnumerate: false,
   },
   {
     serverId: "aurora-mcp",
@@ -262,6 +277,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Consilio Aurora account.",
+    canEnumerate: false,
   },
 
   // Court data ----------------------------------------------------------------
@@ -278,6 +294,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     status: "available",
     accessNote:
       "Free public court data; connecting takes a free CourtListener account.",
+    canEnumerate: false,
   },
   {
     serverId: "trellis-mcp",
@@ -291,6 +308,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Trellis account.",
+    canEnumerate: false,
   },
 
   // Legal research -------------------------------------------------------------
@@ -306,6 +324,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Descrybe account.",
+    canEnumerate: false,
   },
   {
     serverId: "solve-intelligence-mcp",
@@ -319,6 +338,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Solve Intelligence account.",
+    canEnumerate: false,
   },
   {
     serverId: "courtroom5-mcp",
@@ -332,6 +352,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Courtroom5 account.",
+    canEnumerate: false,
   },
 
   // Outside counsel ------------------------------------------------------------
@@ -347,6 +368,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a TopCounsel account.",
+    canEnumerate: false,
   },
 
   // Skill libraries -------------------------------------------------------------
@@ -362,6 +384,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Lawve AI account.",
+    canEnumerate: false,
   },
 
   // Productivity ----------------------------------------------------------------
@@ -377,6 +400,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires your organization's Slack workspace.",
+    canEnumerate: false,
   },
   {
     serverId: "linear-mcp",
@@ -389,6 +413,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires a Linear workspace.",
+    canEnumerate: false,
   },
   {
     serverId: "atlassian-mcp",
@@ -401,6 +426,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires an Atlassian account.",
+    canEnumerate: false,
   },
   {
     serverId: "asana-mcp",
@@ -413,6 +439,7 @@ export const C4L_CONNECTORS: ReadonlyArray<C4LConnector> = [
     authModel: "oauth",
     status: "available",
     accessNote: "Requires an Asana account.",
+    canEnumerate: false,
   },
 ];
 

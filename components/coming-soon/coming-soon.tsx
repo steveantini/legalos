@@ -8,19 +8,11 @@ type AreaCopy = {
 const AREA_COPY: Record<string, AreaCopy> = {
   knowledge: {
     label: "Knowledge",
-    copy: "A searchable home for your team's playbooks, precedent, and reference materials. Currently in development.",
+    copy: "Your team’s knowledge, where it already lives. Collections draw named scopes over the repositories you use; Research answers questions across them.",
   },
   "knowledge-research": {
     label: "Research",
-    copy: "Ask a legal question; get a citation-backed answer drawing from three sources: your firm's internal corpus, the open web, and trusted legal content partnerships. The same research capability your agents call as a tool. Arrives with the Knowledge reshape.",
-  },
-  "knowledge-vault": {
-    label: "Vault",
-    copy: "Your firm's internal documents, precedents, and memos — the curated corpus your assistant and agents draw from when answering questions. Arrives with the Knowledge reshape.",
-  },
-  "knowledge-sources": {
-    label: "Sources",
-    copy: "Admin configuration for content partnerships (EDGAR, Westlaw, regional case law) and how the open web is searched. Arrives with the Knowledge reshape.",
+    copy: "Ask an institutional question and get a citation-backed answer, scoped to the collections your administrators define, the open web, and trusted sources. The same capability your agents call as a tool. Arrives next.",
   },
   matters: {
     label: "Matters & Deals",

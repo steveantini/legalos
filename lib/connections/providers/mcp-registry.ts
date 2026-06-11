@@ -139,6 +139,14 @@ export type ConnectorCatalogMeta = {
   };
   /** What an org needs for this connector to be useful (account, workspace, or free). */
   accessNote: string;
+  /**
+   * Whether the server can ENUMERATE a repository (paginated folder listing
+   * with stable ids) — the capability that lets it back a Knowledge
+   * collection source. Drive: true, verified live (search_files with parentId
+   * queries). Gmail/Calendar: false (mailboxes and calendars are not document
+   * repositories).
+   */
+  canEnumerate: boolean;
 };
 
 /** A first-party registry entry: the adapter plus display, family, and catalog metadata. */
@@ -230,7 +238,12 @@ const GOOGLE_CALENDAR_SCOPES = [
 const GOOGLE_DOCS_URL =
   "https://developers.google.com/workspace/guides/configure-mcp-servers";
 
-function googleCatalogMeta(description: string): ConnectorCatalogMeta {
+function googleCatalogMeta(
+  description: string,
+  // Drive enumerates (verified live: paginated parentId queries over stable
+  // ids); Gmail and Calendar are not document repositories.
+  canEnumerate = false,
+): ConnectorCatalogMeta {
   return {
     description,
     category: "productivity",
@@ -242,6 +255,7 @@ function googleCatalogMeta(description: string): ConnectorCatalogMeta {
       plugins: [],
     },
     accessNote: "Requires a Google Workspace account.",
+    canEnumerate,
   };
 }
 
@@ -273,6 +287,7 @@ function fromCatalogConnector(connector: C4LConnector): FirstPartyServerEntry {
         commit: C4L_CONNECTOR_SOURCE.commit,
       },
       accessNote: connector.accessNote,
+      canEnumerate: connector.canEnumerate,
     },
     clientAcquisition: { mode: "dynamic" },
     scopes: [],
@@ -286,7 +301,7 @@ function fromCatalogConnector(connector: C4LConnector): FirstPartyServerEntry {
 // (Drive's create_file covers creating those files). The Claude for Legal
 // connector catalog entries follow, one per harvested connector.
 const TRUSTED_FIRST_PARTY_SERVERS: Record<string, FirstPartyServerEntry> = {
-  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, googleCatalogMeta("Documents and files in Google Drive."), "https://drivemcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_DRIVE_SCOPES),
+  "google-drive-mcp": firstPartyEntry("google-drive-mcp", "Google Drive", GOOGLE, googleCatalogMeta("Documents and files in Google Drive.", true), "https://drivemcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_DRIVE_SCOPES),
   "google-gmail-mcp": firstPartyEntry("google-gmail-mcp", "Gmail", GOOGLE, googleCatalogMeta("Email in Gmail."), "https://gmailmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_GMAIL_SCOPES),
   "google-calendar-mcp": firstPartyEntry("google-calendar-mcp", "Google Calendar", GOOGLE, googleCatalogMeta("Schedules in Google Calendar."), "https://calendarmcp.googleapis.com/mcp/v1", GOOGLE_MCP_CLIENT, GOOGLE_CALENDAR_SCOPES),
   ...Object.fromEntries(
@@ -334,6 +349,16 @@ export function resolveMcpStaticClient(
  */
 export function isTrustedFirstPartyServer(serverId: string): boolean {
   return serverId in TRUSTED_FIRST_PARTY_SERVERS;
+}
+
+/**
+ * Whether a first-party server can ENUMERATE a repository (the catalog's
+ * vetted capability flag) — the gate on backing a Knowledge collection
+ * source. Unknown/self-hosted ids are false: a collection source must point
+ * at a vetted, enumeration-capable catalog entry.
+ */
+export function canServerEnumerate(serverId: string): boolean {
+  return TRUSTED_FIRST_PARTY_SERVERS[serverId]?.catalog.canEnumerate ?? false;
 }
 
 /** Every first-party trusted server id, for display/enumeration (2c). */

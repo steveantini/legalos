@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { C4L_CONNECTORS } from "@/lib/connections/providers/c4l-connector-catalog";
 import { shippedCatalogComparisonRows } from "@/lib/connections/providers/c4l-connector-drift";
 import {
+  canServerEnumerate,
   deriveMcpTrustTier,
   isTrustedFirstPartyServer,
   listConnectorCatalogByCategory,
@@ -107,6 +108,20 @@ describe("connector catalog in the registry", () => {
     for (const entry of entries.filter((e) => !e.serverId.startsWith("google-"))) {
       expect(entry.provenance.commit).toMatch(/^[0-9a-f]{40}$/);
     }
+  });
+
+  it("records enumeration capability honestly: Drive (verified) and Box (documented) only", () => {
+    expect(canServerEnumerate("google-drive-mcp")).toBe(true);
+    expect(canServerEnumerate("box-mcp")).toBe(true);
+    // Mailboxes/calendars and search-style or corpus servers cannot back a
+    // collection source; unknown ids are false by construction.
+    expect(canServerEnumerate("google-gmail-mcp")).toBe(false);
+    expect(canServerEnumerate("google-calendar-mcp")).toBe(false);
+    expect(canServerEnumerate("courtlistener-mcp")).toBe(false);
+    expect(canServerEnumerate("ironclad-mcp")).toBe(false);
+    expect(canServerEnumerate("self-hosted:https://mcp.acme.com")).toBe(false);
+    const enumerable = C4L_CONNECTORS.filter((c) => c.canEnumerate);
+    expect(enumerable.map((c) => c.serverId)).toEqual(["box-mcp"]);
   });
 
   it("keeps the drift module's Google Drive alias in lockstep with the registry entry", () => {

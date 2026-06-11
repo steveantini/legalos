@@ -18,8 +18,6 @@ import type {
 const RESOURCE_AREA_LABELS: Record<string, string> = {
   knowledge: "Knowledge",
   "knowledge-research": "Research",
-  "knowledge-vault": "Vault",
-  "knowledge-sources": "Sources",
   matters: "Matters / Deals",
   inbox: "Inbox",
   resources: "Resources",
@@ -132,6 +130,10 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
   {
     match: "/workspace/knowledge",
     segments: () => [HOME_SEGMENT, "Knowledge"],
+  },
+  {
+    match: "/workspace/knowledge/collections",
+    segments: () => [HOME_SEGMENT, "Knowledge", "Collections"],
   },
   {
     match: "/workspace/workflows",

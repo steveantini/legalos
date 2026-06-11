@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { ComingSoonCard } from "@/components/workspace/coming-soon-card";
 
@@ -7,32 +8,15 @@ export const metadata: Metadata = {
 };
 
 /**
- * Group landing for the Knowledge resource group. Children and their
- * copy mirror the rail's `RESOURCE_GROUPS` Knowledge leaves and the
- * `AREA_COPY` descriptions in `components/coming-soon/coming-soon.tsx`,
- * adapted to be em-dash-free per the external-copy convention. None of
- * these child surfaces have shipped yet, so each renders as a
- * `ComingSoonCard` (distinct from the locked-department treatment).
+ * Group landing for the Knowledge resource group, restructured to the
+ * settled shape (Knowledge arc Step 1): Collections is live (admin-drawn,
+ * transparently-sourced scopes over connected repositories) and Research is
+ * the named next step (the question engine over those collections). The
+ * former Vault leaf dissolved into Collections; Sources was superseded by
+ * the connector catalog and its governance. Copy mirrors the rail's
+ * `RESOURCE_GROUPS` Knowledge leaves and `AREA_COPY`, em-dash-free per the
+ * external-copy convention.
  */
-const KNOWLEDGE_CHILDREN: ReadonlyArray<{ title: string; description: string }> =
-  [
-    {
-      title: "Research",
-      description:
-        "Ask a legal question; get a citation-backed answer drawing from three sources: your firm’s internal corpus, the open web, and trusted legal content partnerships. The same research capability your agents call as a tool. Arrives with the Knowledge reshape.",
-    },
-    {
-      title: "Vault",
-      description:
-        "Your firm’s internal documents, precedents, and memos, the curated corpus your assistant and agents draw from when answering questions. Arrives with the Knowledge reshape.",
-    },
-    {
-      title: "Sources",
-      description:
-        "Admin configuration for content partnerships (EDGAR, Westlaw, regional case law) and how the open web is searched. Arrives with the Knowledge reshape.",
-    },
-  ];
-
 export default function KnowledgePage() {
   return (
     <main className="flex flex-col gap-9">
@@ -41,18 +25,41 @@ export default function KnowledgePage() {
           Knowledge
         </h1>
         <p className="mt-[14px] max-w-[56ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          A searchable home for your team’s playbooks, precedent, and reference
-          materials. Coming as the knowledge surface is built out.
+          Your team&rsquo;s knowledge, where it already lives. Collections draw
+          named scopes over the repositories you use; Research answers
+          questions across them.
         </p>
       </header>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {KNOWLEDGE_CHILDREN.map((child) => (
-          <ComingSoonCard
-            key={child.title}
-            title={child.title}
-            description={child.description}
-          />
-        ))}
+        {/* Live child: same card geometry as the coming-soon family, but a
+            real navigation target with the standard hover-deepen. */}
+        <Link
+          href="/workspace/knowledge/collections"
+          className="group flex min-h-[160px] flex-col gap-3 rounded-[14px] border border-border bg-card p-[22px] transition-colors duration-release ease-release hover:bg-paper-2 hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-[19px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
+              Collections
+            </h2>
+            <span
+              aria-hidden="true"
+              className="shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
+            >
+              →
+            </span>
+          </div>
+          <p className="text-[13px] leading-[1.45] text-muted-foreground">
+            Named scopes your administrators draw over connected repositories,
+            like a contracts folder in Google Drive. Every collection shows
+            exactly where its documents live; legalOS keeps an inventory,
+            never the documents.
+          </p>
+        </Link>
+
+        <ComingSoonCard
+          title="Research"
+          description="Ask an institutional question and get a citation-backed answer, scoped to the collections your administrators define, the open web, and trusted sources. The same capability your agents call as a tool. Arrives next."
+        />
       </div>
     </main>
   );

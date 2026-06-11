@@ -328,7 +328,16 @@ The three rail groups currently route to coming-soon placeholders for most leave
 
 Template Library overlaps with item 11 (Template Library concept definition), which calls out the same surface; the two items merge when this work starts. Connections under Integrations overlaps with the now-shipped connector hub — the workspace-level OAuth infrastructure it built powers the Connections surface here. Sources under Knowledge may overlap with the citation work from the Word export arc.
 
-Scope conversation needed before any engineering starts. The work is large enough that picking one leaf to ship first (rather than building all seven sub-surfaces in parallel) is the right discipline.
+Scope conversation needed before any engineering starts. The work is large enough that picking one leaf to ship first (rather than building all seven sub-surfaces in parallel) is the right discipline. **The Knowledge half of this item is now the Knowledge arc below (Step 1 shipped); Workflows shipped as its own completed arc (D-115 through D-125).**
+
+### Knowledge arc — build steps (IN PROGRESS)
+
+The institutional-question engine over admin-defined, transparently-sourced collections that map onto connected external repositories. Design settled by the 2026-06-11 design-check: legalOS is the intelligence layer over the repositories customers already have (no content migration); collections reference stable folder ids through the org's MCP connections; the v1 index is a document INVENTORY only (no derived content persisted, no scheduler — admin-clicked sync, with research runs re-enumerating live so staleness only affects preview numbers); department visibility is the enforcement layer over org-credential reads.
+
+- **Step 1 — the Collections foundation (SHIPPED, 2026-06-11, D-152).** Migration 0070 (collections / collection_departments / collection_sources / collection_documents, org-fenced RLS with super-admin write and department visibility enforced in RLS); the `canEnumerate` capability flag on the connector catalog (Drive verified live, Box per documentation; only enumeration-capable connected servers can back a source); the admin Collections surface under Knowledge (create/edit/delete, the live MCP folder browser storing stable ids with cached display provenance recomputed at sync, the segmented inventory sync with honest present/missing marking and bounded per-request budgets); the member read-only view; and the Knowledge restructure (Research + Collections; Sources and Vault retired). **Operator: apply migration `0070_knowledge_collections.sql`**, then create a collection over a real Drive folder, sync it, and confirm inventory, provenance, the non-admin read-only view, and department-visibility hiding.
+- **Step 2 — the research engine.** The segmented, deterministic sweep (enumerate live, fetch documents through MCP, classify with the model, aggregate with citations) over a chosen collection scope; `research_runs`/findings storage; the `usage_events.research_run_id` attribution migration; cost previews and document caps per the design-check.
+- **Step 3 — the agent tool.** Research exposed to agents as a native tool in the existing tool-use loop, capped for in-chat scope; CourtListener fits Research as a PUBLIC-CORPUS scope here (a research source, not a collection source — it is not an enumerable customer repository).
+- **Step 4 — surfacing.** The Features page and README tell the Knowledge story once the engine is real.
 
 ## 8. Auto-fork pattern
 
