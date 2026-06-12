@@ -4246,3 +4246,21 @@ Stay-in-context help is the polished experience; a new tab was the v1 shortcut. 
 
 - Reading help no longer costs the reader their place in the workspace.
 - A guide rename or content edit propagates to the marketing site, the help drawer, and the support assistant's corpus from the one module.
+
+## D-163 — Documentation how-tos, written from code-verified flows
+
+Date: 2026-06-12
+Status: Accepted
+
+**Context / Decision:**
+
+Every guide gains a closing "How to" section: 3–7 plain numbered steps per manual action, written from a code walk of the actual surfaces (buttons, forms, gates) rather than from memory — the Step-1 discipline applied to procedures. The inventory came from the components and server actions themselves, so the steps name the product's real labels (New approved agent, Save agent, Start run, Run research, Add source, Invite person, Verify and save) and state the real gates (org admin for approved agents and workflow authoring; super admin for every Policy & access lever, collections management, and the task book). Honesty includes what ISN'T there: no promote action exists (a personal agent can't be flipped to approved; the how-to says to recreate it), and the audit log how-to is one short read-only procedure because that's all the surface offers. THE TRIGGER WAS THE SUPPORT ASSISTANT: it honestly declined "how do you add department agents" because the documentation had no answer — the bot doubles as the docs' gap detector, exactly the dogfooding loop D-160 hoped for. Because the guides, the help drawer, and the assistant's corpus share one module, all three surfaces learned every answer in this commit; the corpus grew from ~17.1k to ~30.5k characters (~7.6k tokens, comfortably within the prompt budget), and the originally failing question now returns the correct, cited, role-aware answer (verified live). The probe also exposed that the model reached for markdown bold once the content got procedural; the system prompt now forbids markdown explicitly, since panel answers render as plain text.
+
+**Reasoning:**
+
+Tour-depth taught what things are; the assistant's first real user (the operator) immediately asked how to DO something. Task-oriented coverage is what support actually fields.
+
+**Consequences:**
+
+- The D-158 currency rule already covers drift: a behavior change reconciles its guide's how-to in the same commit.
+- Future assistant declines are signals to read as documentation gaps, not just refusals.

@@ -74,6 +74,20 @@ export const DOC_PAGES: DocPage[] = [
             calls for it.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Sign in</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open the sign-in page and enter your work email.</li>
+              <li>Open the sign-in link legalOS emails you.</li>
+              <li>
+                You land on your workspace home. If your email isn&rsquo;t
+                recognized, ask your administrator for an invitation; there is
+                no public signup.
+              </li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -120,6 +134,125 @@ export const DOC_PAGES: DocPage[] = [
             be restored for 30 days before it is gone for good. You&rsquo;ll
             find Trash from the agents area whenever something is in it.
           </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Create an agent of your own</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open the department the agent belongs to.</li>
+              <li>Select New agent at the top of the launchpad.</li>
+              <li>
+                Name it, write its instructions in System prompt, and pick a
+                model. Attach reference files if it should always work from
+                them, and turn on Web search if it should reach the open web.
+              </li>
+              <li>
+                Select Save agent. It appears under My agents on that
+                launchpad, visible only to you.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Add an approved agent to a department</p>
+            <p className="mt-1 text-[13.5px] text-muted-foreground">
+              You&rsquo;ll need an org admin or super admin for this; the
+              affordance only appears for them.
+            </p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open the department&rsquo;s launchpad.</li>
+              <li>
+                Select New approved agent. Admins see it next to New personal
+                agent, which creates a personal one.
+              </li>
+              <li>Fill in the same form: name, instructions, model, tools.</li>
+              <li>
+                Select Save agent. It appears under Approved agents for
+                everyone in the organization.
+              </li>
+            </ol>
+            <p className="mt-2 text-[13.5px] text-muted-foreground">
+              There is no promote action today: an existing personal agent
+              can&rsquo;t be flipped to approved. To adopt one, an admin
+              recreates it as an approved agent, copying its instructions
+              across.
+            </p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Make an approved or library agent your own</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open the agent and select Customize, top right.</li>
+              <li>
+                legalOS creates your own copy under My agents, named with (My
+                Copy), and carries the current conversation over to it.
+              </li>
+              <li>Edit your copy freely; the original is untouched.</li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Edit or delete an agent</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                On the agent&rsquo;s launchpad card, open the small menu and
+                choose Edit or Delete. You can edit and delete your own
+                agents; admins can also edit and delete approved agents.
+              </li>
+              <li>
+                Editing opens the same form as creation; select Save changes.
+              </li>
+              <li>
+                Deleting moves the agent to Trash and offers Undo right in the
+                confirmation toast.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Restore a deleted agent</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open Trash from the agents area.</li>
+              <li>
+                Find the agent and select Restore. You have 30 days from
+                deletion; after that it can no longer be restored.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Start a conversation</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Select an agent&rsquo;s card on the launchpad.</li>
+              <li>
+                Type in the composer and press Enter. The conversation is
+                kept; leaving and returning picks up the same thread.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Attach files to a message</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Select the + button in the composer.</li>
+              <li>
+                Choose Upload from computer, or Google Drive when your
+                organization has it connected.
+              </li>
+              <li>
+                Up to 5 files per message: PDF, Word, text, Markdown, or
+                Excel. Attached files appear as chips above your message.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Keep an answer</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Use the copy button beneath the answer to copy it as it
+                stands.
+              </li>
+              <li>
+                Or open the menu beside it and choose Export to Word (.docx);
+                the document carries the answer&rsquo;s citations as
+                footnotes.
+              </li>
+            </ol>
+          </div>
         </MarketingSection>
       </>
     ),
@@ -171,6 +304,70 @@ export const DOC_PAGES: DocPage[] = [
             page, which is built for corpus-scale work.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Put an agent&rsquo;s tools to work</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Ask for something that needs them: current information for an
+                agent with Web search on, or a document in a connected system
+                (&ldquo;find our latest MSA in Drive&rdquo;).
+              </li>
+              <li>
+                The agent decides when to reach for a tool; each call shows as
+                a quiet line in the conversation, named plainly, like Google
+                Drive: search files.
+              </li>
+              <li>
+                Web search is enabled per agent: turn it on in the
+                agent&rsquo;s settings if yours doesn&rsquo;t have it.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Approve or decline an action</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                When an agent wants to change something outside legalOS, a
+                card pauses the conversation and names the action, like
+                creating a file on Google Drive.
+              </li>
+              <li>Review what it will do, then select Approve or Deny.</li>
+              <li>
+                Approving runs that one action; denying it lets the agent
+                acknowledge and carry on without it. Nothing runs without
+                your decision.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Follow a citation</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Select a numbered marker in the answer to jump to its entry in
+                the Sources list beneath it.
+              </li>
+              <li>
+                Each source is a real link; open it to verify the answer
+                against the material itself before relying on it.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Switch the model</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Select the model name in the composer and pick from the quick
+                list.
+              </li>
+              <li>
+                The change applies to the agent from here on; existing
+                conversations keep the model they started with. You can switch
+                models on your own agents, and admins on approved agents.
+              </li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -218,6 +415,55 @@ export const DOC_PAGES: DocPage[] = [
             that produced them is later deleted, because each run stores its
             own copy of the steps it executed.
           </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Run a workflow</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open Workflows in the rail and pick My workflows.</li>
+              <li>Select Run on an active workflow.</li>
+              <li>
+                Provide the starting input under Input for this run; the
+                first step receives it.
+              </li>
+              <li>
+                Choose the autonomy for this run: Supervised pauses at every
+                checkpoint, Autonomous clears checkpoints itself but still
+                pauses before any write.
+              </li>
+              <li>Select Start run and follow the run view.</li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Approve a paused run</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                A paused run shows its approval card at the top of the run
+                view, naming what the step wants to do.
+              </li>
+              <li>
+                For an action an agent proposed itself, open Show what it will
+                send to read the exact content first.
+              </li>
+              <li>
+                Select Approve to let that one action run, or Deny. Only the
+                person who started the run can decide.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Read a run record</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Open any run: each step lists its input, its output, its
+                status, and how long it took.
+              </li>
+              <li>
+                Approvals show who decided. The record is the run&rsquo;s own
+                copy, so it survives even if the workflow is later deleted.
+              </li>
+            </ol>
+          </div>
         </MarketingSection>
       </>
     ),
@@ -272,6 +518,57 @@ export const DOC_PAGES: DocPage[] = [
             answer, and the findings.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Run research</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open Knowledge in the rail and pick Research.</li>
+              <li>
+                Write your question in the composer, like &ldquo;Which of our
+                vendor agreements auto-renew?&rdquo;
+              </li>
+              <li>
+                In Scope, tick the collections to read. The summary line
+                updates as you choose: collections, about how many documents,
+                and roughly how long.
+              </li>
+              <li>
+                Select Run research and watch progress as documents are read,
+                findings filling in as it goes.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Read the findings</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                The answer arrives with numbered citations linking to the
+                documents themselves, and a basis line stating what was read
+                and what couldn&rsquo;t be.
+              </li>
+              <li>
+                Below it, the findings table lists each document and its
+                determination: relevant, not relevant, or honestly unreadable.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Export or delete a run</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Open the menu at the top of a settled run and choose Export to
+                Word (.docx) for the full memo.
+              </li>
+              <li>
+                Choose Delete run to remove it; findings are removed, cost
+                records are retained, and a run still in progress is cancelled
+                first. You can delete your own runs; admins can delete any in
+                the organization.
+              </li>
+              <li>Past runs stay listed under Past runs until you do.</li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -301,6 +598,36 @@ export const DOC_PAGES: DocPage[] = [
             configure those assumptions, the cells say so rather than showing
             an invented figure.
           </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Read the card</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Switch the window with the toggle: Week, Month, or YTD.
+              </li>
+              <li>
+                Four cells: Hours saved and Estimated cost saved (estimates),
+                Agent runs and Top agent (measured). Each shows its change
+                against the prior period.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Get the estimates configured</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Cells reading Setup needed mean the organization&rsquo;s task
+                book hasn&rsquo;t been filled in yet.
+              </li>
+              <li>
+                That lives in the Productivity Calculator, and only a super
+                admin can edit it; ask yours, or if that&rsquo;s you, the
+                insights guide walks through it. Admins see a direct link on
+                the card.
+              </li>
+            </ol>
+          </div>
         </MarketingSection>
       </>
     ),
@@ -345,6 +672,63 @@ export const DOC_PAGES: DocPage[] = [
             super admin can&rsquo;t be deactivated. Every role and status
             change is recorded to the audit log.
           </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Invite someone</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open People and select Invite person.</li>
+              <li>
+                Enter their email and choose a role. Org admins can offer
+                User and Org admin; only a super admin can offer Super admin.
+              </li>
+              <li>
+                Pick the departments they start with, or leave it empty to
+                grant access later.
+              </li>
+              <li>
+                Send it. The invitation arrives by email, and it appears
+                under pending invitations, where you can Resend or Revoke it.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Change a role</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open the person&rsquo;s row in People.</li>
+              <li>
+                Change Organization role. The guardrails apply as you&rsquo;d
+                expect: only a super admin can change a super admin&rsquo;s
+                role, the last active super admin can&rsquo;t be demoted, and
+                demoting yourself asks you to confirm.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Change department access</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open the person&rsquo;s row in People.</li>
+              <li>
+                Under Department access, click a department to toggle it;
+                Granted means they have it.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Deactivate or reactivate someone</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open the person&rsquo;s row and find Account status.</li>
+              <li>
+                Select Deactivate. Their access stops on their next request;
+                their agents, connections, and history are kept.
+              </li>
+              <li>
+                Select Reactivate to restore them. The last active super
+                admin can&rsquo;t be deactivated, so an organization can
+                never lock itself out.
+              </li>
+            </ol>
+          </div>
         </MarketingSection>
       </>
     ),
@@ -392,6 +776,76 @@ export const DOC_PAGES: DocPage[] = [
             updated from its source.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <p className="text-[13.5px] text-muted-foreground">
+            Every lever on this page is super admin only; org admins see the
+            same page read-only.
+          </p>
+          <div>
+            <p className="font-medium text-foreground">Set the default model</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open Policy &amp; access and find Default model.</li>
+              <li>
+                Pick from the list and it saves. New agents start on it;
+                existing agents and running conversations are untouched.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Bring your own provider key</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Under Model connection, select Bring your own key.</li>
+              <li>
+                Paste your Anthropic API key and select Verify and save. The
+                key is checked with Anthropic before it&rsquo;s stored,
+                encrypted at rest, and never shown again.
+              </li>
+              <li>
+                Switch to managed, Replace key, or Remove key from the same
+                card at any time.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Set the capability ceiling and allowed categories</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Under Allowed connections, set the most any connection can
+                do: Read only, or Read and write.
+              </li>
+              <li>
+                Toggle the categories your organization permits, from file
+                storage and mail through MCP servers.
+              </li>
+              <li>
+                Tightening takes effect immediately, including for
+                connections granted earlier.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Set the research document cap</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Under Research, set Documents per run (1 to 5000).</li>
+              <li>
+                Select Save. A research scope over the cap is declined before
+                it runs, with the cap named.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Turn a content library on or off</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Under Content, toggle the library, like Claude for Legal.
+              </li>
+              <li>
+                Off hides that library&rsquo;s agents everywhere in the
+                organization until you turn it back on.
+              </li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -436,6 +890,56 @@ export const DOC_PAGES: DocPage[] = [
             secrets.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Connect a system from the catalog</p>
+            <p className="mt-1 text-[13.5px] text-muted-foreground">
+              Super admin only; org admins see connection state read-only.
+            </p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Open Policy &amp; access and find MCP connections.
+              </li>
+              <li>
+                Expand the provider group and select Connect on the server.
+              </li>
+              <li>
+                Sign in with the organization&rsquo;s own account for that
+                system and approve the access it asks for.
+              </li>
+              <li>
+                legalOS discovers the server&rsquo;s tools and shows
+                Connected with the tool count; Show tools lists exactly what
+                agents can reach.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Connect your own server</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Under Your own server, enter the MCP server URL. It must be
+                https, and it authenticates with OAuth 2.1.
+              </li>
+              <li>
+                Select Connect and complete the sign-in your server presents.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Disconnect or reconnect</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Select Disconnect on a connected server; the connection and
+                its stored credentials are removed.
+              </li>
+              <li>
+                A server showing Needs reconnect has lost its grant; select
+                Reconnect and sign in again.
+              </li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -479,6 +983,72 @@ export const DOC_PAGES: DocPage[] = [
             future part of Research.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <p className="text-[13.5px] text-muted-foreground">
+            Managing collections is super admin only; everyone else sees the
+            same cards read-only.
+          </p>
+          <div>
+            <p className="font-medium text-foreground">Create a collection</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open Knowledge, pick Collections, and select New collection.</li>
+              <li>Name it and describe what belongs in it.</li>
+              <li>
+                Under Who can see it, choose Everyone in the organization or
+                Specific departments; visibility is enforced at the database.
+              </li>
+              <li>Select Create collection. Sources come next.</li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Add a source</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Select Add source on the collection&rsquo;s card. If the
+                button isn&rsquo;t there, connect a repository like Google
+                Drive in Policy &amp; access first.
+              </li>
+              <li>Pick the connected repository.</li>
+              <li>
+                Browse to the folder the collection should draw from; the
+                breadcrumb shows where you are.
+              </li>
+              <li>
+                Select Add source. The folder is referenced by its stable
+                identifier, so renames and moves won&rsquo;t break it.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Sync the inventory</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Select Sync on the collection&rsquo;s card.</li>
+              <li>
+                Progress shows live; large trees sync in bounded passes. The
+                result is an inventory of titles and metadata, never document
+                content.
+              </li>
+              <li>
+                Re-sync whenever the repository has moved on; documents gone
+                upstream are marked missing rather than silently dropped.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Edit or delete a collection</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Edit on the card changes its name, description, and
+                visibility.
+              </li>
+              <li>
+                Delete removes the collection and its inventory only; the
+                documents themselves live in your repositories and are not
+                touched.
+              </li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -519,6 +1089,60 @@ export const DOC_PAGES: DocPage[] = [
             kept as accounting facts.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Build a workflow</p>
+            <p className="mt-1 text-[13.5px] text-muted-foreground">
+              Authoring is org admin and super admin; running is for everyone
+              who can see the workflow.
+            </p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>From My workflows, select New workflow.</li>
+              <li>
+                Name it, describe it, and choose its department, or Whole
+                organization.
+              </li>
+              <li>
+                Add steps in order: Run an agent, Human approval, or Take an
+                action. Give agent steps a plain-language instruction; reorder
+                with the arrows.
+              </li>
+              <li>
+                Read the What this workflow does panel; it describes the
+                workflow in plain language as you build.
+              </li>
+              <li>
+                Set Status to Active when it&rsquo;s ready (drafts stay
+                editable but can&rsquo;t run), then Save workflow, or Save
+                and run.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Start from a template</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Find the starter templates alongside My workflows and select
+                Use this template.
+              </li>
+              <li>
+                legalOS forks it into your own draft to adapt; templates are
+                never run directly, so the starting points stay clean.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Edit or delete a workflow</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Select Edit on the workflow&rsquo;s row to reopen the builder.</li>
+              <li>
+                Delete workflow lives at the bottom of the editor. Past runs
+                are kept and remain viewable; each run stores its own copy of
+                the steps it executed.
+              </li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -551,6 +1175,56 @@ export const DOC_PAGES: DocPage[] = [
             task book powers each person&rsquo;s home Impact card.
           </p>
         </MarketingSection>
+        <MarketingSection title="How to">
+          <p className="text-[13.5px] text-muted-foreground">
+            The task book is super admin to edit; other admins read it.
+          </p>
+          <div>
+            <p className="font-medium text-foreground">Map a task to an agent</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Open the Productivity Calculator and find Task types.
+              </li>
+              <li>
+                Select Add task type and name the task, like reviewing an
+                inbound NDA.
+              </li>
+              <li>
+                Pick the agent that does it; its run volume becomes Measured
+                from the last 12 months of real usage. No agent yet? Choose
+                Manual estimate instead, labeled honestly as one.
+              </li>
+              <li>Set the time saved per run; that part is your estimate.</li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Set the team and salaries</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Under Team, select Add team member and enter a name or role
+                and an annual salary.
+              </li>
+              <li>
+                Salaries set the blended hourly rate and the seat count;
+                they&rsquo;re estimates and labeled as such.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Read the result honestly</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Every figure carries a Measured or Estimate badge: run volume
+                is measured, time saved and rates are yours.
+              </li>
+              <li>
+                Select Save changes; the same task book powers each
+                person&rsquo;s home Impact card. Create report exports the
+                summary.
+              </li>
+            </ol>
+          </div>
+        </MarketingSection>
       </>
     ),
   },
@@ -579,6 +1253,24 @@ export const DOC_PAGES: DocPage[] = [
             are not yet in the audit log; widening it to cover them is on the
             roadmap, and we say so here rather than implying otherwise.
           </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Read the log</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Open Audit log in the admin area; entries read newest first,
+                each a plain sentence with the actor, the person affected,
+                and the time.
+              </li>
+              <li>Select Load more to page further back.</li>
+              <li>
+                An entry by The system marked as a direct change was made
+                outside the product, stated honestly rather than dressed up
+                as a person&rsquo;s action. The log is read-only by design.
+              </li>
+            </ol>
+          </div>
         </MarketingSection>
       </>
     ),
