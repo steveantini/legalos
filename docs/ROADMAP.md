@@ -186,6 +186,14 @@ Phase 1 connects MCP servers and discovers tools (proven live). Phase 2 lets age
 
 - **Connector drift detection in the platform refresh (SHIPPED, 2026-06-11, D-151).** The refresh now also reads the upstream `.mcp.json` configs and diffs them against the shipped catalog, reporting added/removed/changed connectors notify-and-review style (endpoint changes flagged prominently; a change to a verified connector flags re-verification; removed connectors reported, never auto-removed). Never auto-applied — the catalog is the compiled-in trust ceiling (D-089). Partially serves the Sync-pipeline-Shape-B backlog item.
 
+### Documentation arc — build steps (IN PROGRESS)
+
+Self-serve product documentation as a trust asset: public (evaluators read docs before requesting access), role-structured, tour-depth, honest-state, with the currency rule keeping it true.
+
+- **Step 1 — the public documentation (SHIPPED, 2026-06-12, D-158).** Thirteen guides on the marketing shell replace the Tier-2 coming-soon shell: six for everyone (getting started, workspace, chat, workflows, knowledge, impact) and seven for administrators (people, policy, connections, collections, workflows administration, insights, audit) — admin docs deliberately public; platform-owner material internal-only in `docs/OPERATOR.md` (the operator runbook index). The D-157 currency rule extended: user-facing behavior changes reconcile their documentation page(s) in the same commit. Screenshots deferred (rot risk).
+- **Step 2 — in-product help links.** The Help group's Guides leaf and contextual links route into the relevant documentation pages.
+- **Step 3 — the support page + bot.** A support surface and an AI helper that knows the product end to end, gated on a performance bar before it ships.
+
 #### Future arcs identified during Connections-phase planning (2026-06-05)
 
 During Connections-phase planning we read the workspace-home surfaces (the "Today" calendar card, "Matters", and "Desk") against the live MCP backend and decided three substantial features each warrant their OWN arc rather than being folded into connections polish. Recorded here so the intent survives.

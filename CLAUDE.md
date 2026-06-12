@@ -297,13 +297,14 @@ When making any product change (new feature, renamed component, new page, archit
 
 This is not optional. Documentation updates are part of the definition of done for every change.
 
-### The features-tour currency rule (D-157)
+### The features-tour currency rule (D-157, extended by D-158)
 
 Any commit that changes USER-FACING BEHAVIOR — adds a feature, removes one, or changes how one works — must reconcile, in the same commit:
 
 1. **`/features`** (`app/(marketing)/features/page.tsx`): the product tour's claims must match the new reality (the D-126 standing rule made concrete).
 2. **README.md**: the capability description.
 3. **`docs/FEATURES_CLAIMS.md`**: the claims map tying each tour statement to the decision that makes it true — append the new claim with its D-number, or amend/remove the stale one.
+4. **The relevant documentation page(s)** (`lib/marketing/documentation.tsx`, the /documentation guides, D-158): the guide that teaches the changed behavior updates with it. No separate docs claims map — the per-page verify-against-reality at write time plus this rule carries it.
 
 This is the nav-discoverability precedent (D-147) generalized: a capability is done when a prospect and an engineer can both find the truth about it. Internal-only changes (platform tooling, refactors, perf) are exempt; when unsure whether a change is user-facing, reconcile.
 

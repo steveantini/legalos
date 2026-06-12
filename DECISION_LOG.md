@@ -4154,3 +4154,21 @@ The D-126 rule ("marketing claims must never drift ahead of the architecture") h
 
 - Future truth passes start from FEATURES_CLAIMS.md, not from archaeology.
 - Build prompts inherit the rule via CLAUDE.md; the tour, README, and map move together with the features they describe.
+
+## D-158 — Documentation arc Step 1 (public, role-structured, full coverage)
+
+Date: 2026-06-12
+Status: Accepted
+
+**Context / Decision:**
+
+/documentation went REAL, replacing the Tier-2 coming-soon shell (D-134): full coverage of every shipped feature at TOUR-DEPTH (what it is, what you can do, how — from the reader's seat, never the engineer's), structured by role because the permission model is role-shaped. Thirteen guides on the shared marketing shell, hub-and-spoke (the /trust idiom), content as one data module (lib/marketing/documentation.tsx) consumed by the hub and a static [slug] route, so adding a guide is one entry. FOR EVERYONE: getting started, the workspace and launchpad (the three trust tiers), chatting with agents (citations, tool traces, the pause-for-approval experience), workflows (running, autonomy honestly, approvals, the run record), knowledge and research (collections as users see them; preview, progress, findings, history, delete, export — no follow-ups claimed, they don't ship), your impact (measured vs estimated). FOR ADMINISTRATORS, deliberately PUBLIC (the governance story is the trust differentiator, not the sausage): people and roles, policy and access (including the research cap), connections (verified vs available, credential custody in plain language), collections management, workflows administration, insights and the calculator, and the audit log including what it honestly does not yet cover. Every behavioral claim verified against the product before writing — notably: per-message export is copy + Word (no markdown download ships in chat), the 30-day undo is agents via Trash, workflow AUTHORING is org-admin gated while running is for members, and even autonomous runs pause for writes. PLATFORM-OWNER material is absent from the public site by design; docs/OPERATOR.md is the internal runbook index (content refresh, connector catalog curation, cross-tenant analytics, demo machinery, standing practices), pointing at the internal docs rather than rewriting them. THE CURRENCY RULE EXTENDED: the D-157 done-definition now includes reconciling the relevant documentation page(s) in the same commit as any user-facing behavior change (recorded in CLAUDE.md). A docs claims-map file was considered and rejected as overkill: the per-page verify-against-reality at write time plus the standing rule carries it. Screenshots deferred deliberately (they rot); the prose is written so none are needed. In-product help links are Step 2; the support page and bot are Step 3, gated on a performance bar.
+
+**Reasoning:**
+
+Public documentation is a trust asset — evaluators read docs before requesting access — and for this product the administrator docs ARE the pitch: how it is governed is why it can be trusted.
+
+**Consequences:**
+
+- The footer's Documentation link now leads somewhere real; the shell's "in progress" honesty is retired on schedule.
+- Docs drift is now a done-definition violation, not a future cleanup.
