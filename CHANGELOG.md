@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The Research ask surface is refined: the question leads as a wide, composer-grade box with a placeholder that teaches what the tool can do, while collections select from a compact responsive grid that keeps every scope's real source visible in condensed form, with a quiet summary line that updates as scopes are toggled so the cost preview reads as live feedback. The composer is now a reusable component, ready to reappear beneath an answer when follow-up refinement arrives. Presentation only; runs, previews, and caps behave exactly as before.**
 
+### Documentation
+
+- **The product tour now tells the Knowledge story: collections drawn over the repositories a legal team already uses with every source visible, citation-backed research across them with documents read live and nothing migrated or stored, and the same capability available to agents in chat. The README reflects the new layer. With this surfacing, the Knowledge arc is complete. (D-156)**
+
 ### Added
 
 - **Agents can now research the organization's collections directly in chat. When an agent is asked about the organization's own documents, it can read a small scope inline (up to 15 documents), strictly limited to the collections the person in the conversation is permitted to see, and answer with real citations that render like any other cited response. Larger scopes get an honest handoff: the agent relays that the question needs the Research page, where corpus-scale questions run with progress and findings. Inline research is recorded as chat work in the usage ledger, governed by the same connection policy as the agent's other tools. (D-155)**

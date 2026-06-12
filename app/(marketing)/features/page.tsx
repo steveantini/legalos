@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: "Features",
   description:
-    "A tour of legalOS: the workspace, agents organized the way a legal team is, workflows under human approval, governed connections, measurement that shows you the value, and the admin surface that makes it all safe to use.",
+    "A tour of legalOS: the workspace, agents organized the way a legal team is, workflows under human approval, governed connections, knowledge that answers from your own documents, measurement that shows you the value, and the admin surface that makes it all safe to use.",
 };
 
 /**
@@ -22,6 +22,10 @@ export const metadata: Metadata = {
  * and carry over unchanged in meaning, with the pre-vetted connector
  * catalog story added in D-150 (its status claims, Google verified and
  * the rest pre-vetted, mirror the registry's catalog metadata exactly).
+ * The Knowledge section (D-156, the arc close) sits after Connections —
+ * it is built on them — and claims only shipped reality: collections
+ * over connected repositories, live reading with citations, the in-chat
+ * tool; no web or trusted-source blending is claimed.
  * The Measurement section is the
  * story relocated from the landing (D-145/D-146), keeping its
  * measured-vs-estimated honesty line.
@@ -36,7 +40,7 @@ export default function FeaturesPage() {
     <MarketingPageShell
       label="Product · Features"
       title="Features"
-      lead="One place for a legal team’s daily work: agents organized the way your department is, workflows that run under human approval, connections to the systems you already use, and measurement that shows you the value you’re getting. Here is the tour."
+      lead="One place for a legal team’s daily work: agents organized the way your department is, workflows that run under human approval, connections to the systems you already use, knowledge that answers from your own documents, and measurement that shows you the value you’re getting. Here is the tour."
     >
       <MarketingSection id="workspace" title="The workspace">
         <p>
@@ -104,6 +108,30 @@ export default function FeaturesPage() {
           you can use AI through legalOS directly or bring your own model
           provider account, in which case the work runs under your own
           agreement and your own data boundary.
+        </p>
+      </MarketingSection>
+
+      <MarketingSection id="knowledge" title="Knowledge">
+        <p>
+          A legal team&rsquo;s knowledge lives scattered across drives,
+          document systems, and contract repositories. legalOS doesn&rsquo;t
+          ask you to migrate it. Administrators draw named collections over
+          the repositories you already use, like a contracts folder in Google
+          Drive, and every collection shows exactly where its documents live.
+          Then anyone can ask an institutional question across the
+          collections they choose, like which of our vendor agreements
+          auto-renew, and get a citation-backed answer with per-document
+          findings. Every document in scope is read live, where it lives;
+          nothing is copied or stored, and legalOS keeps only an inventory of
+          titles, never the documents.
+        </p>
+        <p>
+          Your agents can draw on the same capability in conversation,
+          reading a small scope inline and citing the documents, with larger
+          questions pointed at the Research page built for them. Each run
+          shows an honest preview before it starts, and anything that
+          couldn&rsquo;t be read is reported plainly rather than silently
+          dropped.
         </p>
       </MarketingSection>
 

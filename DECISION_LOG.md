@@ -4118,3 +4118,21 @@ Agents gain institutional grounding without a second permission model or budget 
 - An agent answering "do our MSAs include X" now reads the actual documents and cites them, inside the same governed, ledgered chat turn.
 - The over-cap handoff funnels corpus-scale questions to the surface built for them, keeping inline chat snappy and predictable.
 - CourtListener-as-public-corpus joins as a research SOURCE later (it is not an enumerable customer repository).
+
+## D-156 — Knowledge arc complete (Steps 1–4)
+
+Date: 2026-06-11
+Status: Accepted
+
+**Context / Decision:**
+
+Surfaced Knowledge on the /features product tour and the README, closing the arc per the standing done-definition (features are done when the marketing and README reflect them). The tour's Knowledge section sits after Connections (it is built on them) and claims only shipped reality: administrators draw named collections over the repositories the team already uses with every source visible (Google Drive verified live; the catalog records Box-class enumeration), institutional questions answered with citations and per-document findings by reading documents live where they live (nothing copied or stored; inventory of titles only), and the same capability available to agents in chat for small scopes. No web or trusted-source blending is claimed, and no at-any-scale implication is made. The README gained the layer with the engineering nuance (inventory-only persistence; findings, not content). The roadmap records the arc COMPLETE — Step 1 Collections (D-152), Step 2 the engine + surface (D-153), run housekeeping (D-154), Step 3 the agent tool (D-155), Step 4 this surfacing — with the follow-ons named where they live: follow-up refinement (the arc's next build; the ask composer was built reusable for it), the profile index (v2, gated on real usage), async research-from-chat (the mcp_paused_runs pattern), CourtListener as a public-corpus research scope, retention policy (item 5), and per-user credential passthrough (the existing named connection-system arc).
+
+**Reasoning:**
+
+The arc delivered the settled vision — the intelligence layer over the knowledge estate customers already have — with honesty as the differentiator at every layer: transparent provenance on every collection, live reading with nothing persisted but findings, basis lines that state what could not be read, previews before spend, and a marketing story that matches the code exactly (the D-126 standing rule).
+
+**Consequences:**
+
+- Knowledge is part of the product's external story; substantive changes to how it handles data update /features and /trust in the same commit.
+- The follow-on list above is the arc's successor backlog; follow-up refinement leads it.
