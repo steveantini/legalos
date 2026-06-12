@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { DOC_PAGES } from "@/lib/marketing/documentation";
-import { HELP_TOPICS } from "@/lib/workspace/help-links";
+import { DOC_PAGES, getDocPage } from "@/lib/marketing/documentation";
+import {
+  HELP_TOPICS,
+  helpTopicSlug,
+  type HelpTopic,
+} from "@/lib/workspace/help-links";
 
 /**
  * The in-product help map and the documentation must move in lockstep: every
@@ -15,6 +19,13 @@ describe("help links", () => {
     );
     for (const [topic, href] of Object.entries(HELP_TOPICS)) {
       expect(published.has(href), `topic "${topic}" → ${href}`).toBe(true);
+    }
+  });
+
+  it("every topic's slug resolves to a guide the help drawer can render", () => {
+    for (const topic of Object.keys(HELP_TOPICS) as HelpTopic[]) {
+      const page = getDocPage(helpTopicSlug(topic));
+      expect(page, `topic "${topic}"`).toBeTruthy();
     }
   });
 });

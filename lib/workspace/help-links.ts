@@ -42,3 +42,13 @@ export type HelpTopic = keyof typeof HELP_TOPICS;
 export function helpHref(topic: HelpTopic): string {
   return HELP_TOPICS[topic];
 }
+
+/**
+ * The guide slug behind a topic — what the in-workspace help drawer feeds
+ * to getDocPage() to render the SAME content module the marketing site
+ * renders (one source, two surfaces, no drift). The lockstep test pins
+ * every slug to a published guide.
+ */
+export function helpTopicSlug(topic: HelpTopic): string {
+  return HELP_TOPICS[topic].slice("/documentation/".length);
+}

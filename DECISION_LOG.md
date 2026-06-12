@@ -4228,3 +4228,21 @@ Help should be one quiet click away everywhere a prospect reads, and the marketi
 
 - The launcher appears on the landing, features, support, documentation and guides, trust and sub-pages, about, mission, FAQ, contact, legal and sub-pages, and pricing, all from one mount point.
 - The operator's preview continues wherever they read, not only on /support; the delight verdict still decides the flip.
+
+## D-162 — Help drawer (one source, two surfaces)
+
+Date: 2026-06-12
+Status: Accepted
+
+**Context / Decision:**
+
+The in-workspace Help links stop opening a new tab and instead slide in a right-side drawer (~1/3 viewport on desktop, a full-width sheet under 720px) rendering the mapped guide IN PLACE. The drawer renders the SAME docs module the marketing site renders (lib/marketing/documentation.tsx via getDocPage) — one source, two surfaces, no drift; the spacing fixes and every future edit to a guide body reach both surfaces automatically, and a lockstep test pins every help topic's slug to a published guide. The new-tab journey is demoted to the drawer's explicit "Open in documentation" escape. Built on the house Base UI dialog primitive, which carries the modal mechanics (focus in + trapped, Escape and scrim-click dismiss, focus returned to the trigger, background scroll locked); the slide uses the standard enter/exit utilities and falls still under prefers-reduced-motion. The guide body keeps its marketing markup, rescaled to drawer proportions by specificity-outranking descendant overrides, so the shared module needs no drawer variant. The drawer and the docs module are code-split behind the first click, so surfaces that never open help never pay for it. HelpLink's API is unchanged (the topic union, the role-conditioned Collections case, the section-level MCP-in-Policy link), so no call site moved; platform surfaces still carry no help affordance, and the marketing /documentation site is untouched.
+
+**Reasoning:**
+
+Stay-in-context help is the polished experience; a new tab was the v1 shortcut. The architectural gift was already in place: content as one data module and a compile-checked surface→guide map meant the drawer is presentation only.
+
+**Consequences:**
+
+- Reading help no longer costs the reader their place in the workspace.
+- A guide rename or content edit propagates to the marketing site, the help drawer, and the support assistant's corpus from the one module.
