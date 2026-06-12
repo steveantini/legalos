@@ -90,10 +90,16 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   // `/` is matched exactly so the prefix-style PUBLIC_PATHS check below
   // doesn't accidentally allowlist every path that starts with `/`.
+  // `/documentation/` is the one deliberate marketing PREFIX (D-158): the
+  // guides under it are data-driven slugs that grow with the product, and
+  // the route 404s unknown slugs itself, so prefix-allowlisting exposes
+  // nothing beyond the published guides — while exact-listing them would
+  // make every new guide a proxy edit away from a public /login bounce.
   const isPublicPath =
     pathname === "/" ||
     PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
-    PUBLIC_MARKETING_PATHS.includes(pathname);
+    PUBLIC_MARKETING_PATHS.includes(pathname) ||
+    pathname.startsWith("/documentation/");
 
   if (!user && !isPublicPath) {
     const requestedPath = request.nextUrl.pathname + request.nextUrl.search;
