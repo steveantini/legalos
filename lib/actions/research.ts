@@ -176,6 +176,56 @@ export async function cancelResearchRun(
   return { ok: true };
 }
 
+/**
+ * Delete a run (the asker their own; org/super admins any of the org's,
+ * mirroring read visibility — the 0072 admin-delete policy is the DB half of
+ * this gate). Findings cascade with the run; usage_events SURVIVE with
+ * research_run_id nulled (cost records are accounting facts). Non-terminal
+ * runs decline honestly: cancel first, then delete.
+ */
+export async function deleteResearchRun(
+  runId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireAuthUser();
+  if (!runIdSchema.safeParse(runId).success) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: runRow } = await supabase
+    .from("research_runs")
+    .select("user_id, status")
+    .eq("id", runId)
+    .maybeSingle();
+  if (!runRow) return { ok: false, error: "This run isn't available." };
+
+  const row = runRow as { user_id: string; status: string };
+  if (["planning", "running", "synthesizing"].includes(row.status)) {
+    return {
+      ok: false,
+      error: "This run is still in progress. Cancel it first, then delete it.",
+    };
+  }
+
+  // App-layer half of the double-gate: owner, or org/super admin.
+  if (row.user_id !== user.id) {
+    const profile = await getCurrentUserProfile();
+    const role = profile?.role as string | undefined;
+    if (role !== "super_admin" && role !== "org_admin") {
+      return { ok: false, error: "You can only delete your own runs." };
+    }
+  }
+
+  const { error } = await supabase
+    .from("research_runs")
+    .delete()
+    .eq("id", runId);
+  if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath(RESEARCH_PATH);
+  return { ok: true };
+}
+
 const capSchema = z.object({
   cap: z.number().int().min(1).max(5000),
 });

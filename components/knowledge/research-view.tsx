@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -13,7 +14,16 @@ import {
   type LiveRunInitial,
 } from "@/components/knowledge/research-run-live";
 import { statusLabel } from "@/components/knowledge/research-pieces";
-import { startResearchRun } from "@/lib/actions/research";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { deleteResearchRun, startResearchRun } from "@/lib/actions/research";
 import type { ResearchRunView } from "@/lib/knowledge/research/shared";
 
 /**
@@ -52,12 +62,31 @@ export function ResearchView({
   pricing: { inputPerMillion: number; outputPerMillion: number };
   runs: ResearchRunView[];
 }) {
+  const router = useRouter();
   const [liveRun, setLiveRun] = useState<LiveRunInitial | null>(null);
   const [asked, setAsked] = useState<{
     question: string;
     collectionNames: string[];
   } | null>(null);
   const [pendingStart, startStart] = useTransition();
+  // Deletion runs in THIS mounted view's transition (the b88a37f lesson),
+  // with the established confirm dialog.
+  const [deleteTarget, setDeleteTarget] = useState<ResearchRunView | null>(null);
+  const [pendingDelete, startDelete] = useTransition();
+
+  function handleDeleteRun(run: ResearchRunView) {
+    if (pendingDelete) return;
+    startDelete(async () => {
+      const result = await deleteResearchRun(run.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Run deleted. Cost records are retained.");
+      router.refresh();
+      setDeleteTarget(null);
+    });
+  }
 
   function handleRun(question: string, collectionIds: string[]) {
     if (pendingStart) return;
@@ -156,37 +185,91 @@ export function ResearchView({
             Past runs
           </h2>
           <div className="mt-2">
-            {runs.map((run) => (
-              <div key={run.id} className="border-b border-hairline last:border-b-0">
-                <Link
-                  href={`/workspace/knowledge/research/${run.id}`}
-                  className="group flex items-center gap-4 rounded-lg bg-paper-2 px-4 py-3 transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+            {runs.map((run) => {
+              const terminal =
+                run.status === "completed" ||
+                run.status === "failed" ||
+                run.status === "cancelled";
+              return (
+                <div
+                  key={run.id}
+                  className="flex items-center gap-2 border-b border-hairline last:border-b-0"
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] font-medium text-foreground">
-                      {run.question}
-                    </span>
-                    <span className="mt-0.5 block text-[12px] text-muted-foreground">
-                      {run.scope.map((c) => c.name).join(", ")} ·{" "}
-                      {statusLabel(run.status)} ·{" "}
-                      {run.documentsTotal > 0
-                        ? `${run.documentsTotal} documents · `
-                        : ""}
-                      {relativeTime(run.createdAt)}
-                    </span>
-                  </span>
-                  <span
-                    aria-hidden
-                    className="shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
+                  <Link
+                    href={`/workspace/knowledge/research/${run.id}`}
+                    className="group flex min-w-0 flex-1 items-center gap-4 rounded-lg bg-paper-2 px-4 py-3 transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
                   >
-                    →
-                  </span>
-                </Link>
-              </div>
-            ))}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13.5px] font-medium text-foreground">
+                        {run.question}
+                      </span>
+                      <span className="mt-0.5 block text-[12px] text-muted-foreground">
+                        {run.scope.map((c) => c.name).join(", ")} ·{" "}
+                        {statusLabel(run.status)} ·{" "}
+                        {run.documentsTotal > 0
+                          ? `${run.documentsTotal} documents · `
+                          : ""}
+                        {relativeTime(run.createdAt)}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden
+                      className="shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
+                    >
+                      →
+                    </span>
+                  </Link>
+                  {/* Delete sits OUTSIDE the link (no nested interactives).
+                      Settled runs only; an in-progress run cancels first. */}
+                  {terminal ? (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(run)}
+                      className="shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </section>
       ) : null}
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this research run?</DialogTitle>
+            <DialogDescription>
+              Its findings will be removed. Cost records are retained.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setDeleteTarget(null)}
+              disabled={pendingDelete}
+            >
+              Keep it
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => deleteTarget && handleDeleteRun(deleteTarget)}
+              disabled={pendingDelete}
+            >
+              {pendingDelete ? "Deleting…" : "Delete run"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

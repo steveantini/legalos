@@ -4081,3 +4081,21 @@ Corpus questions need enumeration and per-document inspection that retrieval-sim
 - Step 3 exposes the engine as an agent tool (capped for in-chat scope; CourtListener joins as a public-corpus research source).
 - The profile index (persisted per-document extractions for cheap repeat questions) remains the deliberate, opt-in v2 acceleration.
 - Research runs are the product's most expensive single actions and are now first-class in the cost ledger; the platform Cost lens absorbs them automatically.
+
+## D-154 — Research runs: deletion with ledger survival, export through the existing pipeline
+
+Date: 2026-06-11
+Status: Accepted
+
+**Context / Decision:**
+
+The research run becomes a managed artifact. DELETION: the asker deletes their own runs; org and super admins delete any of the organization's runs, mirroring 0071's read visibility (migration 0072 adds the admin DELETE policy — deletion only, never update; admins read and tidy, they don't drive someone else's run). Findings cascade with the run (run data); usage_events SURVIVE as accounting facts — the research_run_id FK has been ON DELETE SET NULL since its creation in 0071 (verified, no change needed), so platform Cost is unaffected by deletion. Non-terminal runs decline deletion honestly ("cancel it first"), enforced in the action and reflected in the UI (the affordances disable with the reason). EXPORT: a settled run exports to Word through the EXISTING formatted_outputs pipeline — the same renderMessageAsDocx renderer, the same on-demand GET-route delivery with nothing persisted, the same kebab "Export to Word (.docx)" gesture as the chat message action row — with migration 0072 relaxing formatted_outputs' message-shaped NOT NULLs (conversation_id, message_id), adding research_run_id (SET NULL, the audit row survives run deletion), and widening the write policy to accept either anchor. The document is composed as markdown by a pure, tested module: question, scope with provenance, run date, the answer, the basis line, the verify-against-sources framing, citations as a numbered link list (the answer's citations are code-built with no in-body markers, so the renderer's footnote machinery doesn't apply), and the per-document findings as structured blocks — the renderer deliberately has no table support (a 0007-era deferral), and the per-document block form reads better as a memo anyway. Cancelled and failed runs export what exists with their status stated plainly; in-progress runs are declined (server gate + disabled affordance). Reconciled honestly: the pipeline is docx-only (the formatted_outputs CHECK and the single renderer); no PDF or markdown export exists to reuse.
+
+**Reasoning:**
+
+Cost records are accounting facts and must outlive the work they recorded; export consistency (one pipeline, one gesture, one audit table) keeps the product legible to users and maintainers alike; the findings are the memo's evidence, so an export without them would be an answer without a basis. A RETENTION POLICY (automatic expiry of runs/findings) is deliberately deferred to the item-5 privacy/security arc, where deletion-and-return obligations are designed as a whole — noted there.
+
+**Consequences:**
+
+- formatted_outputs is now the product-wide export ledger (messages and research runs; future export sources add an anchor column the same way).
+- The findings-as-blocks choice revisits if the shared renderer ever gains table support; the export composer is one pure module to update.

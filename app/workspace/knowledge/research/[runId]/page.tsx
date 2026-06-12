@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { ResearchRunActions } from "@/components/knowledge/research-run-actions";
 import { ResearchRunLive } from "@/components/knowledge/research-run-live";
-import { requireAuthUser } from "@/lib/auth/access";
+import { getCurrentUserProfile, requireAuthUser } from "@/lib/auth/access";
 import { getResearchRunDetail } from "@/lib/knowledge/research/data";
 
 export const metadata: Metadata = {
@@ -32,6 +33,9 @@ export default async function ResearchRunPage({
   if (!detail) notFound();
   const { run, findings } = detail;
   const isOwner = run.ownerUserId === user.id;
+  const profile = await getCurrentUserProfile();
+  const isAdmin =
+    profile?.role === "super_admin" || profile?.role === "org_admin";
   const terminal =
     run.status === "completed" ||
     run.status === "failed" ||
@@ -40,9 +44,17 @@ export default async function ResearchRunPage({
   return (
     <main className="flex flex-col gap-7">
       <header>
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          Research run
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            Research run
+          </p>
+          {/* The chat export idiom, one kebab: export + delete. */}
+          <ResearchRunActions
+            runId={run.id}
+            terminal={terminal}
+            canDelete={isOwner || isAdmin}
+          />
+        </div>
         <h1 className="mt-1 max-w-[36ch] text-[28px] font-normal leading-[1.15] tracking-[-0.02em] text-foreground">
           {run.question}
         </h1>
