@@ -4191,3 +4191,22 @@ Honest-state cuts both ways: a support page that names an unshipped assistant is
 - The footer's Resources column reads Trust, Documentation, Support, FAQ.
 - Step 3b (the support assistant, behind a platform-owner preview first) is the named open item in the Documentation arc.
 - If the blog returns, restoring it is a page + footer edit; no redirect caching stands in the way.
+
+## D-160 — Support assistant (docs-in-context, preview-gated)
+
+Date: 2026-06-12
+Status: Accepted
+
+**Context / Decision:**
+
+The support assistant (Documentation arc Step 3b) is built and ships DARK: it renders on /support only for a signed-in platform owner, and public release is a deliberate one-line flip (`SUPPORT_ASSISTANT_PUBLIC` in lib/support/config.ts) on the operator's delight verdict. Architecture: the ENTIRE public documentation corpus in context on every call — the 13 guides render to ~17k chars of plain text (lib/support/corpus.ts walks the React bodies; no react-dom/server dependency), so there is NO retrieval layer and grounding is total; the corpus block is prompt-cached, so warm calls pay the cache-read rate. Model: Haiku 4.5 — the job is extractive answering over in-context docs, exactly the fast tier's workload, and speed is part of the bar (measured live: 1.4–5.7s per answer; warm answers ≈ $0.0007). Citations are real by construction: the model emits a `Sources: <slug>` line, the server resolves slugs against the published guides and silently drops anything else — a citation is always a live /documentation link. Behavior verified live before commit: a real question answered accurately with the right citation; legal-advice bait declined warmly and firmly with an offer to help with the product instead; an off-docs question (Slack) declined honestly toward the hub and contact. The managed platform key powers it directly (legalOS's own surface; no org, no user — the per-org credential resolver deliberately does not apply), and spend is ledgered in `support_usage_events` (migration 0073): the customer ledger's NOT NULL org/user attribution is a guarantee worth keeping, so anonymous platform spend gets a service-role-only sibling table rather than a relaxed usage_events. Hard guardrails from day one, while still owner-only, so the flip is a flag and not a hardening project: 10 messages/minute per caller (IP-keyed, in-memory per instance — stated honestly as a backstop, not a precision meter), 2,000-char messages, ≤12 carried turns, and a 1,000-message global daily cap that fails calm ("the assistant is resting", with documentation and contact offered). Conversations are anonymous and ephemeral: client-held state, full history on each request, nothing persisted, no accounts. Answers render as plain text nodes (no markdown, no HTML) — XSS-safe by construction.
+
+**Reasoning:**
+
+A bad chatbot is worse than none; the bar (quick, accurate, easy, honest about limits, always a next step, concise, degrades gracefully) is the operator's, and only the operator's beating-on-it verdict opens the door. Dogfooding note: this is the Knowledge thesis applied to ourselves — answers grounded in our own written corpus, cited.
+
+**Consequences:**
+
+- The operator previews as platform owner on /support; anonymous visitors see the page exactly as before.
+- Public release is one config line; the proxy, guardrails, and ledger need no further work for it.
+- Migration 0073 is the operator's to apply; until then answers flow and spend simply goes unledgered (logged, never blocking).

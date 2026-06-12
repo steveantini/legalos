@@ -6,6 +6,9 @@ import {
   MarketingProseLink,
   MarketingSection,
 } from "@/components/marketing/marketing-page";
+import { SupportAssistant } from "@/components/support/support-assistant";
+import { isCurrentUserPlatformOwner } from "@/lib/auth/access";
+import { SUPPORT_ASSISTANT_PUBLIC } from "@/lib/support/config";
 
 export const metadata: Metadata = {
   title: "Support",
@@ -16,12 +19,18 @@ export const metadata: Metadata = {
 /**
  * The support hub (Documentation arc Step 3a, D-159): a calm routing page,
  * not a destination. Documentation is the primary route; contact is the
- * human path. Composed as independent sections so the support assistant
- * (Step 3b, performance-gated) slots in as a sibling section later without
- * redesign — and deliberately unmentioned until it ships (honest-state,
- * the same discipline as the features page's video scaffold).
+ * human path. The support assistant (Step 3b, D-160) now occupies the
+ * designed-in middle slot — for the PLATFORM OWNER ONLY while
+ * SUPPORT_ASSISTANT_PUBLIC is false (the operator's delight verdict gates
+ * the public flip, which is that one config line). Anonymous and regular
+ * visitors see the page exactly as it shipped without the assistant; the
+ * owner check makes this route dynamic, which a light marketing page
+ * absorbs without consequence.
  */
-export default function SupportPage() {
+export default async function SupportPage() {
+  const showAssistant =
+    SUPPORT_ASSISTANT_PUBLIC || (await isCurrentUserPlatformOwner());
+
   return (
     <MarketingPageShell
       label="Resources · Support"
@@ -49,6 +58,16 @@ export default function SupportPage() {
           product, every surface links to its own guide.
         </p>
       </MarketingSection>
+
+      {showAssistant ? (
+        <MarketingSection
+          kicker={SUPPORT_ASSISTANT_PUBLIC ? undefined : "Platform preview"}
+          title="Ask the assistant"
+          tagline="Answers come from the documentation, with the guides they draw on linked underneath."
+        >
+          <SupportAssistant />
+        </MarketingSection>
+      ) : null}
 
       <MarketingSection title="Reach a person">
         <p>

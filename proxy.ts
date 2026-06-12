@@ -11,8 +11,12 @@ import { safeNextPath } from "@/lib/url/safe-next";
  * covers the demo access link (/demo/<token>) and its /demo/unavailable
  * page: an unauthenticated prospect must reach the consume route, which
  * establishes their session server-side and then redirects into /workspace.
+ * `/api/support` is the support assistant's endpoint (D-160): anonymous by
+ * design once public, and self-gating while in owner-only preview (the
+ * route 404s non-owners itself), so the public flip never needs a proxy
+ * edit.
  */
-const PUBLIC_PATHS = ["/login", "/auth", "/demo"];
+const PUBLIC_PATHS = ["/login", "/auth", "/demo", "/api/support"];
 
 /**
  * Marketing pages, matched exactly. They live in the `app/(marketing)/`
