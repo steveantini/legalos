@@ -6,7 +6,6 @@ import {
   MarketingProseLink,
   MarketingSection,
 } from "@/components/marketing/marketing-page";
-import { SupportAssistant } from "@/components/support/support-assistant";
 import { isCurrentUserPlatformOwner } from "@/lib/auth/access";
 import { SUPPORT_ASSISTANT_PUBLIC } from "@/lib/support/config";
 
@@ -19,13 +18,12 @@ export const metadata: Metadata = {
 /**
  * The support hub (Documentation arc Step 3a, D-159): a calm routing page,
  * not a destination. Documentation is the primary route; contact is the
- * human path. The support assistant (Step 3b, D-160) now occupies the
- * designed-in middle slot — for the PLATFORM OWNER ONLY while
- * SUPPORT_ASSISTANT_PUBLIC is false (the operator's delight verdict gates
- * the public flip, which is that one config line). Anonymous and regular
- * visitors see the page exactly as it shipped without the assistant; the
- * owner check makes this route dynamic, which a light marketing page
- * absorbs without consequence.
+ * human path. The support assistant lives in the floating corner launcher
+ * shared by every marketing page (D-161), not embedded here; this page
+ * carries only a quiet pointer to the corner, and ONLY when the launcher
+ * actually renders for this visitor (the D-160 preview gate), so the page
+ * never points at a bubble that is not there. The owner check makes this
+ * route dynamic, which a light marketing page absorbs without consequence.
  */
 export default async function SupportPage() {
   const showAssistant =
@@ -59,16 +57,6 @@ export default async function SupportPage() {
         </p>
       </MarketingSection>
 
-      {showAssistant ? (
-        <MarketingSection
-          kicker={SUPPORT_ASSISTANT_PUBLIC ? undefined : "Platform preview"}
-          title="Ask the assistant"
-          tagline="Answers come from the documentation, with the guides they draw on linked underneath."
-        >
-          <SupportAssistant />
-        </MarketingSection>
-      ) : null}
-
       <MarketingSection title="Reach a person">
         <p>
           If the documentation doesn&rsquo;t answer your question, or
@@ -77,6 +65,12 @@ export default async function SupportPage() {
           what you needed and didn&rsquo;t find. The same path serves demos,
           partnerships, and press.
         </p>
+        {showAssistant ? (
+          <p>
+            Or ask the assistant: the bubble in the corner answers from the
+            documentation, right here on the page.
+          </p>
+        ) : null}
       </MarketingSection>
 
       <MarketingClosing>

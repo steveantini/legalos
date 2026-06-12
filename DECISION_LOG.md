@@ -4210,3 +4210,21 @@ A bad chatbot is worse than none; the bar (quick, accurate, easy, honest about l
 - The operator previews as platform owner on /support; anonymous visitors see the page exactly as before.
 - Public release is one config line; the proxy, guardrails, and ledger need no further work for it.
 - Migration 0073 is the operator's to apply; until then answers flow and spend simply goes unledgered (logged, never blocking).
+
+## D-161 — Support assistant launcher (silent corner pattern)
+
+Date: 2026-06-12
+Status: Accepted
+
+**Context / Decision:**
+
+The support assistant moves from an embedded /support section to the conventional floating launcher: a small dialogue icon, bottom-right, on every public marketing page, mounted once in the (marketing) layout. SILENCE IS THE RECORDED DESIGN RULE: it never auto-opens, never animates for attention, never badges, never greets unprompted — the anti-annoyance line, written into the component so it survives future hands. The workspace deliberately gets NO launcher: a chat bubble inside a chat product invites confusion with agents, and the per-surface Help links serve in-product needs; the exclusion is structural (the component exists only in the marketing segment). The panel rebuilds the conversation with a proper contrast hierarchy, the operator's explicit complaint about the embedded panel: three grounds (light header, recessed conversation, light composer), the visitor's turns as filled ink bubbles against the assistant's plain-text voice, and a clearly lighter input field. Engine, API, guardrails, citations, escapes, and calm failure turns are unchanged. Conversation state lives above the panel, so closing and reopening keeps the exchange, and because layouts persist it also survives navigation between marketing pages; nothing outlives the visit. The owner-only gate holds via a client-side probe (GET /api/support: 204 render, 404 invisible), chosen so marketing pages stay static and the landing's entrance choreography is never blocked on an auth check; /support replaces its embedded panel with a quiet pointer line that renders only when the launcher does, so the page never points at a bubble that is not there. The public flip remains the one config line (D-160).
+
+**Reasoning:**
+
+Help should be one quiet click away everywhere a prospect reads, and the marketing register demands the opposite of the bouncing chat widget the web has normalized.
+
+**Consequences:**
+
+- The launcher appears on the landing, features, support, documentation and guides, trust and sub-pages, about, mission, FAQ, contact, legal and sub-pages, and pricing, all from one mount point.
+- The operator's preview continues wherever they read, not only on /support; the delight verdict still decides the flip.

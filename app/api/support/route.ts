@@ -25,6 +25,23 @@ import {
  * failure must never cost a visitor their answer).
  */
 
+/**
+ * The launcher's mount probe: 204 when the assistant may render for this
+ * visitor (public, or the owner-only preview), 404 otherwise. The floating
+ * launcher is a client island on static marketing pages, so the gate runs
+ * here rather than in the pages — the pages stay static and the landing's
+ * entrance choreography is never blocked on an auth check.
+ */
+export async function GET() {
+  if (!SUPPORT_ASSISTANT_PUBLIC) {
+    const isOwner = await isCurrentUserPlatformOwner();
+    if (!isOwner) {
+      return new NextResponse(null, { status: 404 });
+    }
+  }
+  return new NextResponse(null, { status: 204 });
+}
+
 const BodySchema = z.object({
   /** Client-minted, per-visit, anonymous. */
   sessionId: z.string().uuid(),
