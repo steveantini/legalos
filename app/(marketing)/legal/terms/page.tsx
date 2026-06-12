@@ -24,7 +24,8 @@ export const metadata: Metadata = {
 export default function LegalTermsPage() {
   return (
     <MarketingPageShell
-      label="Legal · Terms of Service"
+      breadcrumb={{ label: "Legal", href: "/legal" }}
+      label="Terms of Service"
       title="Terms of Service"
       backHref="/legal"
       backLabel="← Back to Legal"

@@ -23,7 +23,8 @@ export const metadata: Metadata = {
 export default function TrustPrivacyPage() {
   return (
     <MarketingPageShell
-      label="Trust · Privacy and data handling"
+      breadcrumb={{ label: "Trust", href: "/trust" }}
+      label="Privacy and data handling"
       title="Privacy and data handling"
       lead="This page describes, plainly, what happens to your data in legalOS: what is stored, where it goes, and who can see it. It is a description of how the system actually works, not a legal policy document. Our formal privacy terms will live on the Legal page when they are published."
       backHref="/trust"

@@ -23,6 +23,13 @@ import Link from "next/link";
 interface MarketingPageShellProps {
   /** Mono-caps breadcrumb-style label, e.g. "Company · About". */
   label: string;
+  /**
+   * Optional linked hub segment rendered before the label as
+   * "Hub · label". Sub-pages of a hub (Trust, Legal, Documentation) pass
+   * their hub here so the top label gives the way back UP, mirroring the
+   * bottom back link. Pages without a hub omit it and keep the plain label.
+   */
+  breadcrumb?: { label: string; href: string };
   title: string;
   /** Optional lead paragraph rendered directly under the h1. */
   lead?: string;
@@ -34,6 +41,7 @@ interface MarketingPageShellProps {
 
 export function MarketingPageShell({
   label,
+  breadcrumb,
   title,
   lead,
   backHref = "/",
@@ -58,6 +66,17 @@ export function MarketingPageShell({
       <main className="px-6 pb-16 pt-10 min-[720px]:px-10 min-[720px]:pt-14">
         <div className="mx-auto w-full max-w-[736px]">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
+            {breadcrumb ? (
+              <>
+                <Link
+                  href={breadcrumb.href}
+                  className="underline-offset-[3px] transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  {breadcrumb.label}
+                </Link>
+                {" · "}
+              </>
+            ) : null}
             {label}
           </p>
 

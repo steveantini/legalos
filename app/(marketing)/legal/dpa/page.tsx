@@ -25,7 +25,8 @@ export const metadata: Metadata = {
 export default function LegalDpaPage() {
   return (
     <MarketingPageShell
-      label="Legal · Data Processing Agreement"
+      breadcrumb={{ label: "Legal", href: "/legal" }}
+      label="Data Processing Agreement"
       title="Data Processing Agreement"
       backHref="/legal"
       backLabel="← Back to Legal"

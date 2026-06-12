@@ -20,7 +20,8 @@ export const metadata: Metadata = {
 export default function TrustSecurityPage() {
   return (
     <MarketingPageShell
-      label="Trust · Security posture"
+      breadcrumb={{ label: "Trust", href: "/trust" }}
+      label="Security posture"
       title="Security posture"
       lead="This page describes how legalOS protects your data, in concrete terms. It is written to match the architecture, not to market it. Where a protection is live today, we say so. Where something is still ahead, we say that too."
       backHref="/trust"

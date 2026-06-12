@@ -71,8 +71,8 @@ export default function DocumentationPage() {
 
       <MarketingClosing>
         Something missing or unclear? Documentation grows with the product;{" "}
-        <MarketingProseLink href="/contact">tell us</MarketingProseLink> what
-        you needed and didn&rsquo;t find. For the security story behind these
+        <MarketingProseLink href="/contact">tell us</MarketingProseLink>{" "}
+        what you needed and didn&rsquo;t find. For the security story behind these
         guides, start with the{" "}
         <MarketingProseLink href="/trust">Trust Center</MarketingProseLink>.
       </MarketingClosing>

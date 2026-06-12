@@ -25,7 +25,8 @@ export const metadata: Metadata = {
 export default function LegalPrivacyPage() {
   return (
     <MarketingPageShell
-      label="Legal · Privacy Policy"
+      breadcrumb={{ label: "Legal", href: "/legal" }}
+      label="Privacy Policy"
       title="Privacy Policy"
       backHref="/legal"
       backLabel="← Back to Legal"

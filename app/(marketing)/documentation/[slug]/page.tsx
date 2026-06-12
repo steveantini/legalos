@@ -42,9 +42,12 @@ export default async function DocumentationGuidePage({
 
   return (
     <MarketingPageShell
-      label={`Documentation · ${page.audience}`}
+      breadcrumb={{ label: "Documentation", href: "/documentation" }}
+      label={page.audience}
       title={page.title}
       lead={page.lead}
+      backHref="/documentation"
+      backLabel="← Back to documentation"
     >
       {page.body}
 

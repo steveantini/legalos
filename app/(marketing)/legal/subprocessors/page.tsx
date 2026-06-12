@@ -53,7 +53,8 @@ const SUBPROCESSORS: SubprocessorRow[] = [
 export default function LegalSubprocessorsPage() {
   return (
     <MarketingPageShell
-      label="Legal · Subprocessors"
+      breadcrumb={{ label: "Legal", href: "/legal" }}
+      label="Subprocessors"
       title="Subprocessors"
       backHref="/legal"
       backLabel="← Back to Legal"

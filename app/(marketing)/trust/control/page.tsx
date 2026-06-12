@@ -24,7 +24,8 @@ export const metadata: Metadata = {
 export default function TrustControlPage() {
   return (
     <MarketingPageShell
-      label="Trust · Control and accountability"
+      breadcrumb={{ label: "Trust", href: "/trust" }}
+      label="Control and accountability"
       title="Control and accountability"
       lead="AI in legalOS does not act on its own. An agent can read and reason freely, but it cannot take an action that changes anything without a person approving that specific action first. This page describes how that holds, and how every action is recorded."
       backHref="/trust"
