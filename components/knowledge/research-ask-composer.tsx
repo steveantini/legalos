@@ -96,64 +96,57 @@ export function ResearchAskComposer({
   }
 
   // The section subline IS the live selection summary — guidance with
-  // nothing selected, the running estimate once scopes are picked. The same
-  // preview math the confirm box uses, so the two can never disagree.
+  // nothing selected, the running estimate once scopes are picked, in the
+  // units that matter to the asker: documents and time. (Cost is still
+  // computed and recorded to the ledger; spend oversight lives in admin
+  // analytics, not in this line.) Same preview math as the confirm box, so
+  // the two can never disagree.
   const scopeSummary = preview
     ? `${selectedCollections.length} ${
         selectedCollections.length === 1 ? "collection" : "collections"
       } · ~${preview.documentCount} ${
         preview.documentCount === 1 ? "document" : "documents"
-      } · estimated $${preview.estCostLowUsd}–$${preview.estCostHighUsd}`
+      } · roughly ${preview.estMinutesLow}–${preview.estMinutesHigh} minutes.`
     : "Select at least one collection to begin.";
 
   return (
     <div className="flex flex-col gap-6">
-      {/* The hero: a persistent instruction in real text, then the wide,
-          composer-grade question whose placeholder is a brief example. */}
-      <div className="flex flex-col gap-2">
-        <p className="max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
-          Ask a question about the documents in your collections. Research
-          reads them where they live and answers with citations.
-        </p>
-        <div className="rounded-xl border border-hairline bg-paper-2 transition-colors duration-release ease-release focus-within:border-hairline-strong motion-reduce:transition-none">
-          <label htmlFor={questionId} className="sr-only">
-            Your question
-          </label>
-          <textarea
-            id={questionId}
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Which of our vendor agreements auto-renew?"
-            rows={3}
-            maxLength={600}
-            className="block w-full resize-none bg-transparent px-5 pt-4 text-[16px] leading-[1.55] text-foreground outline-none placeholder:text-muted-foreground/70 field-sizing-content min-h-[5.2em] max-h-[12em]"
-          />
-          <div className="flex items-center justify-end px-5 pb-3.5 pt-1">
-            <Button
-              type="button"
-              onClick={() => canRun && onRun(question.trim(), selected)}
-              disabled={!canRun}
-            >
-              {pending ? "Starting…" : "Run research"}
-            </Button>
-          </div>
+      {/* The hero: the wide, composer-grade question. The page intro is the
+          single explainer; the placeholder stays a brief example. */}
+      <div className="rounded-xl border border-hairline bg-paper-2 transition-colors duration-release ease-release focus-within:border-hairline-strong motion-reduce:transition-none">
+        <label htmlFor={questionId} className="sr-only">
+          Your question
+        </label>
+        <textarea
+          id={questionId}
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          placeholder="Which of our vendor agreements auto-renew?"
+          rows={3}
+          maxLength={600}
+          className="block w-full resize-none bg-transparent px-5 pt-4 text-[16px] leading-[1.55] text-foreground outline-none placeholder:text-muted-foreground/70 field-sizing-content min-h-[5.2em] max-h-[12em]"
+        />
+        <div className="flex items-center justify-end px-5 pb-3.5 pt-1">
+          <Button
+            type="button"
+            onClick={() => canRun && onRun(question.trim(), selected)}
+            disabled={!canRun}
+          >
+            {pending ? "Starting…" : "Run research"}
+          </Button>
         </div>
       </div>
 
       {/* Supporting cast: the Scope section in the launchpad's collapsible
           idiom — default expanded, transient collapse (no preferenceKey),
-          count badge in the meta slot, the live summary as the subline (it
-          survives a collapse, so the selection state is never hidden). */}
+          the live summary as the subline (it survives a collapse, so the
+          selection state is never hidden). No count badge here: the subline
+          already states the collection count, and saying it twice is noise. */}
       <CollapsibleSection
         title="Scope"
         sectionKey="research-scope"
         defaultCollapsed={false}
         description={<span aria-live="polite">{scopeSummary}</span>}
-        meta={
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            {collections.length}
-          </span>
-        }
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {collections.map((collection) => {
@@ -220,15 +213,13 @@ export function ResearchAskComposer({
               {preview.documentCount === 1 ? "document" : "documents"} across{" "}
               {selectedCollections.length}{" "}
               {selectedCollections.length === 1 ? "collection" : "collections"}{" "}
-              · estimated ${preview.estCostLowUsd}–${preview.estCostHighUsd} ·
-              roughly {preview.estMinutesLow}–{preview.estMinutesHigh} minutes.
+              · roughly {preview.estMinutesLow}–{preview.estMinutesHigh}{" "}
+              minutes.
             </p>
           )}
           <p className="mt-1 text-[11.5px] leading-[1.5] text-caption">
-            Estimated from the synced inventory, assuming a typical legal
-            document runs 2,000 to 10,000 tokens; the run reads live, so the
-            real count is confirmed at the start. Each document is read once
-            and never stored.
+            Estimated from the synced inventory; the run reads live, so the
+            real count is confirmed at the start.
           </p>
         </div>
       ) : null}
