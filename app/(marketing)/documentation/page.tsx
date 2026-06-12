@@ -40,6 +40,7 @@ export default function DocumentationPage() {
       {groups.map((group) => (
         <MarketingSection
           key={group}
+          id={group}
           title={DOC_GROUP_LABELS[group].title}
           tagline={DOC_GROUP_LABELS[group].blurb}
         >

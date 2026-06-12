@@ -4172,3 +4172,22 @@ Public documentation is a trust asset — evaluators read docs before requesting
 
 - The footer's Documentation link now leads somewhere real; the shell's "in progress" honesty is retired on schedule.
 - Docs drift is now a done-definition violation, not a future cleanup.
+
+## D-159 — Support page; blog retired
+
+Date: 2026-06-12
+Status: Accepted
+
+**Context / Decision:**
+
+/support ships as the routing hub (Documentation arc Step 3a): documentation as the primary route, surfaced by audience and deep-linking the hub's new group anchors, and contact as the human path. The support assistant's slot is designed-in but unbuilt and UNMENTIONED — no placeholder UI, no "coming soon" box; the page reads complete without it, and the section composition lets the assistant join later without redesign (the features-page video-scaffold discipline). Blog is removed from the Resources column and the site: an honest shell with no posts serves nobody; it returns if there is ever something to say. /blog temporarily redirects (307) to /about — the page its own copy pointed readers to — deliberately NOT the renamed pages' permanent 308s, so the route is not cached away against its possible return.
+
+**Reasoning:**
+
+Honest-state cuts both ways: a support page that names an unshipped assistant is a promise, and an empty blog is a confession with no audience. The assistant remains gated on the operator's delight bar: quick, accurate, easy, honest about its limits, always a next step, concise, degrades gracefully.
+
+**Consequences:**
+
+- The footer's Resources column reads Trust, Documentation, Support, FAQ.
+- Step 3b (the support assistant, behind a platform-owner preview first) is the named open item in the Documentation arc.
+- If the blog returns, restoring it is a page + footer edit; no redirect caching stands in the way.

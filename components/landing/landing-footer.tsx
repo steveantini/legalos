@@ -27,7 +27,7 @@ const PRODUCT_LINKS = [
 const RESOURCE_LINKS = [
   { label: "Trust", href: "/trust" },
   { label: "Documentation", href: "/documentation" },
-  { label: "Blog", href: "/blog" },
+  { label: "Support", href: "/support" },
   { label: "FAQ", href: "/faq" },
 ] as const;
 
