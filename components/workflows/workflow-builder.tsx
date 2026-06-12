@@ -523,6 +523,14 @@ export function WorkflowBuilder({
   /**
    * Hard-delete the definition. Run history survives by design: every run
    * keeps its own definition snapshot, and the runs FK is set-null on delete.
+   *
+   * Success NAVIGATES ONLY — deliberately no router.refresh(): the current
+   * route IS the deleted workflow's edit page, and a refresh batched into
+   * this transition re-fetches that now-nonexistent route and wedges the
+   * whole transition (the spinner-forever delete bug). The action
+   * revalidates the my-workflows list server-side, so the navigation
+   * arrives fresh. (save/fork keep push+refresh: their current routes
+   * survive their mutations.)
    */
   function deleteWorkflow() {
     const id = initial.id;
@@ -532,7 +540,6 @@ export function WorkflowBuilder({
       if (res.ok) {
         toast.success("Workflow deleted.");
         router.push("/workspace/workflows/my-workflows");
-        router.refresh();
       } else {
         setConfirmingDelete(false);
         toast.error(res.error);

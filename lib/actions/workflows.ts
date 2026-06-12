@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import {
@@ -132,5 +133,10 @@ export async function deleteWorkflowDefinition(
 ): Promise<DeleteWorkflowResult> {
   const parsed = deleteSchema.safeParse({ id });
   if (!parsed.success) return { ok: false, error: "invalid_input" };
-  return deleteWorkflowDefinitionImpl(parsed.data.id);
+  const result = await deleteWorkflowDefinitionImpl(parsed.data.id);
+  // Revalidate the list server-side so the post-delete navigation arrives
+  // fresh WITHOUT the client refreshing its own (now-deleted) edit route —
+  // the refresh-of-a-dying-route is what wedged the delete transition.
+  if (result.ok) revalidatePath("/workspace/workflows/my-workflows");
+  return result;
 }
