@@ -361,7 +361,7 @@ function EditableAgentCard({
     dialogTitle = "Delete Claude for Legal agent?";
     dialogBody = (
       <>
-        <strong>{agent.name}</strong> will be moved to the trash. Other
+        <strong>{agent.name}</strong>{" "}will be moved to the trash. Other
         users will no longer see it on the department launchpad. You can
         restore it within 30 days.
       </>
@@ -370,7 +370,7 @@ function EditableAgentCard({
     dialogTitle = "Delete approved agent?";
     dialogBody = (
       <>
-        <strong>{agent.name}</strong> will be moved to the trash. Other
+        <strong>{agent.name}</strong>{" "}will be moved to the trash. Other
         users will no longer see it on the department launchpad. Their
         forked copies are unaffected. You can restore it within 30 days.
       </>
@@ -379,7 +379,7 @@ function EditableAgentCard({
     dialogTitle = "Delete this agent?";
     dialogBody = (
       <>
-        <strong>{agent.name}</strong> will be moved to the trash. You can
+        <strong>{agent.name}</strong>{" "}will be moved to the trash. You can
         restore it within 30 days.
       </>
     );

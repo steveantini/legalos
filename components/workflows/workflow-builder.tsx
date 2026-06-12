@@ -873,7 +873,7 @@ export function WorkflowBuilder({
           <DialogHeader>
             <DialogTitle>Delete this workflow?</DialogTitle>
             <DialogDescription>
-              <strong>{name.trim() || "This workflow"}</strong> will be
+              <strong>{name.trim() || "This workflow"}</strong>{" "}will be
               permanently deleted and can no longer be run or edited. Past runs
               are kept and remain viewable, since each run stores its own copy
               of the steps it executed.

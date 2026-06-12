@@ -88,10 +88,10 @@ export const DOC_PAGES: DocPage[] = [
       <>
         <MarketingSection title="The three agent groups">
           <p>
-            <strong>Approved agents</strong> are the department&rsquo;s own,
+            <strong>Approved agents</strong>{" "}are the department&rsquo;s own,
             vetted and tested by your department. <strong>Claude for
-            Legal</strong> is a curated library of Anthropic&rsquo;s legal
-            agents, ready to use. <strong>My agents</strong> are the ones you
+            Legal</strong>{" "}is a curated library of Anthropic&rsquo;s legal
+            agents, ready to use. <strong>My agents</strong>{" "}are the ones you
             create yourself, yours to shape and experiment with. Each group
             carries a one-line description on the launchpad, so the trust
             model reads at a glance.

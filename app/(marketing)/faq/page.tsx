@@ -45,7 +45,7 @@ const FAQ_ITEMS: { question: string; answer: React.ReactNode }[] = [
         Your data is yours. legalOS does not sell it and does not train any
         models on it. You can read the full picture, including how AI
         inference works and what your administrators can access, on our{" "}
-        <MarketingProseLink href="/trust">Trust</MarketingProseLink> page.
+        <MarketingProseLink href="/trust">Trust</MarketingProseLink>{" "}page.
       </p>
     ),
   },
@@ -78,7 +78,7 @@ const FAQ_ITEMS: { question: string; answer: React.ReactNode }[] = [
         later. Records are isolated per organization at the database level,
         credentials are encrypted, and any action that changes a connected
         system requires human approval. The full posture is on our{" "}
-        <MarketingProseLink href="/trust">Trust</MarketingProseLink> page.
+        <MarketingProseLink href="/trust">Trust</MarketingProseLink>{" "}page.
       </p>
     ),
   },

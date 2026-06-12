@@ -84,16 +84,17 @@ function FallbackBody({ variant }: { variant: FallbackVariant }) {
     return (
       <p>
         The assistant is resting for the day. The{" "}
-        <QuietLink href="/documentation">documentation</QuietLink> covers
-        every part of the product, and the{" "}
-        <QuietLink href="/contact">contact page</QuietLink> reaches a person.
+        <QuietLink href="/documentation">documentation</QuietLink>{" "}
+        covers every part of the product, and the{" "}
+        <QuietLink href="/contact">contact page</QuietLink>{" "}
+        reaches a person.
       </p>
     );
   }
   return (
     <p>
       I could not answer just now. Everything I know is in the{" "}
-      <QuietLink href="/documentation">documentation</QuietLink>, and you can
+      <QuietLink href="/documentation">documentation</QuietLink>, and you can{" "}
       always <QuietLink href="/contact">tell us directly</QuietLink>.
     </p>
   );
@@ -232,7 +233,7 @@ export function SupportLauncher() {
                   Support assistant
                 </p>
                 <p className="text-[11.5px] leading-[1.4] text-muted-foreground">
-                  Answers come from the documentation.
+                  Here for questions about the product.
                 </p>
               </div>
             </div>
@@ -259,8 +260,9 @@ export function SupportLauncher() {
             {/* The honest one-line self-introduction, always present. */}
             <AssistantBlock>
               <p>
-                I answer questions about how legalOS works, from the
-                documentation.
+                Welcome. Ask me anything about how legalOS works, and
+                I&rsquo;ll answer from the documentation, with the guides
+                linked so you can go deeper.
               </p>
             </AssistantBlock>
 
@@ -340,7 +342,7 @@ export function SupportLauncher() {
                 }}
                 rows={1}
                 maxLength={SUPPORT_MESSAGE_MAX_CHARS}
-                placeholder="Ask how something works"
+                placeholder="What would you like to know?"
                 aria-label="Your question for the support assistant"
                 className="min-h-[38px] w-full resize-none rounded-lg border border-hairline bg-background px-3 py-2 text-[14px] leading-[1.6] text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />

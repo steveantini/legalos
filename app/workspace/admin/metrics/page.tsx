@@ -12,7 +12,7 @@ export default function AdminMetricsPage() {
           Counts below reflect events recorded in this browser only.
           Cross-user and cross-device analytics will replace this view once
           events move from localStorage to the database (see{" "}
-          <code className="font-mono text-xs">DECISION_LOG.md</code> D-010).
+          <code className="font-mono text-xs">DECISION_LOG.md</code>{" "}D-010).
         </p>
       </header>
 
