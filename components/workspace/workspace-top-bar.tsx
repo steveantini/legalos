@@ -3,6 +3,7 @@ import type {
   AgentBreadcrumbContext,
 } from "@/lib/auth/access";
 
+import { LocalDate } from "./local-date";
 import { WorkspaceBreadcrumb } from "./workspace-breadcrumb";
 
 /**
@@ -14,9 +15,9 @@ import { WorkspaceBreadcrumb } from "./workspace-breadcrumb";
  * indicator next to the date — hidden in this build per the
  * phantom-data scope rules from 9e.
  *
- * Date is formatted from the server clock with `Intl.DateTimeFormat`
- * to match the spec's "Saturday · May 2" shape (long weekday + long
- * month + numeric day, joined with " · ").
+ * The date is the `<LocalDate>` client island (the user's browser clock,
+ * "Saturday · May 2" shape): a server-clock render is UTC on Vercel and
+ * showed tomorrow's date during US evenings.
  *
  * `departments` is forwarded to the breadcrumb so it can resolve a
  * `/departments/<slug>` pathname to the department's display name.
@@ -30,21 +31,11 @@ export function WorkspaceTopBar({
   departments: AccessibleDepartment[];
   agents: AgentBreadcrumbContext[];
 }) {
-  const now = new Date();
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-  }).format(now);
-  const monthDay = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-  }).format(now);
-  const dateStr = `${weekday} · ${monthDay}`;
-
   return (
     <div className="flex h-[56px] items-center gap-5 border-b border-hairline px-10">
       <WorkspaceBreadcrumb departments={departments} agents={agents} />
       <div className="ml-auto flex gap-[22px] text-[12.5px] text-caption">
-        <span>{dateStr}</span>
+        <LocalDate variant="long" />
       </div>
     </div>
   );

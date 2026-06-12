@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The date in the workspace and landing top bars now reflects the user's own local day instead of rolling to tomorrow during US evenings; it previously rendered from the server clock in UTC. The dormant Today schedule card's date was corrected the same way, and other current-date displays were audited (the home greeting already read the local clock; stored-event timestamps were correct and untouched).**
+
 - **The collections list now updates immediately after creating a collection (and after editing or adding a source), instead of requiring a manual reload. The success path previously closed the dialog that owned the in-flight refresh, which dropped it; the mutations now run in the page surface itself, so the refresh always lands. Delete, source removal, and sync completion were audited and already refreshed correctly.**
 
 ### Changed

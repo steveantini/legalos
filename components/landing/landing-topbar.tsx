@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { LocalDate } from "@/components/workspace/local-date";
+
 /**
  * Marketing landing top bar (Session 22 Step B).
  *
@@ -8,22 +10,11 @@ import Link from "next/link";
  * on the right, both sharing the caption-color register from the
  * Aperture top-bar vocabulary.
  *
- * Date is computed at request time via `Intl.DateTimeFormat` and
- * formatted as "Weekday · Month Day" (e.g. "Thursday · May 7"). The
- * page is marked `force-dynamic` in `app/page.tsx` so the date stays
- * fresh per request.
+ * The date is the `<LocalDate>` client island ("Weekday · Month Day",
+ * from the visitor's browser clock): a request-time server render is UTC
+ * on Vercel and showed tomorrow's date during US evenings.
  */
 export function LandingTopbar() {
-  const now = new Date();
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(
-    now,
-  );
-  const monthDay = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-  }).format(now);
-  const dateLabel = `${weekday} · ${monthDay}`;
-
   return (
     <header className="flex items-center justify-between px-6 pt-[22px] min-[720px]:px-10 min-[720px]:pt-[28px]">
       <div className="flex items-center gap-[10px] text-[15px] font-semibold tracking-[-0.015em] text-foreground">
@@ -35,7 +26,7 @@ export function LandingTopbar() {
       </div>
 
       <div className="flex items-center gap-5 font-mono text-[11px] uppercase tracking-[0.16em] text-caption">
-        <span>{dateLabel}</span>
+        <LocalDate variant="long" />
         <Link
           href="/login"
           className="transition-colors duration-[180ms] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

@@ -1,3 +1,4 @@
+import { LocalDate } from "@/components/workspace/local-date";
 import type { NormalizedEvent } from "@/lib/workspace/home/calendar-connection";
 
 /** Events beyond this count collapse into the "+N more later today" line. */
@@ -11,8 +12,9 @@ type TodayScheduleProps = {
  * Connected-state interior of the Today card: today's meetings as a list of
  * rows (time on the left, title and attendees on the right), matching the
  * Claude Design schedule format. Pure presentational server component — it
- * renders whatever events it is handed and computes the display date from the
- * server's current day (per-user timezone arrives with provider normalization).
+ * renders whatever events it is handed; the display date is the
+ * `<LocalDate>` client island (the user's browser clock — a server render
+ * is UTC on Vercel and shows tomorrow during US evenings).
  *
  * Dormant for now: the Today card only mounts this when isCalendarConnected is
  * true, which never happens until calendar OAuth ships (Share and connector
@@ -25,16 +27,14 @@ type TodayScheduleProps = {
 export function TodaySchedule({ events }: TodayScheduleProps) {
   const visible = events.slice(0, VISIBLE_LIMIT);
   const hiddenCount = events.length - visible.length;
-  const displayDate = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 
   return (
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-end">
-        <span className="font-mono text-[11px] text-caption">{displayDate}</span>
+        <LocalDate
+          variant="short"
+          className="font-mono text-[11px] text-caption"
+        />
       </div>
 
       {events.length === 0 ? (
