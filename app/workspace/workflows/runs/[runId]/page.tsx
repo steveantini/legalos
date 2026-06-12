@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { RunApprovalCard } from "@/components/workflows/run-approval-card";
 import { RunAutoRefresh } from "@/components/workflows/run-auto-refresh";
 import { StatusDotPill } from "@/components/workflows/run-status-pill";
+import { HelpLink } from "@/components/workspace/help-link";
 import { getCurrentUserProfile, requireAuthUser } from "@/lib/auth/access";
 import { toolLabel } from "@/lib/chat/tool-display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -295,9 +296,12 @@ export default async function WorkflowRunPage({
       {!isTerminal ? <RunAutoRefresh /> : null}
 
       <header>
-        <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-caption">
-          Workflow run
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-caption">
+            Workflow run
+          </p>
+          <HelpLink topic="workflows" />
+        </div>
         <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
             {workflowName}

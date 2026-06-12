@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { HelpLink } from "@/components/workspace/help-link";
 import { cn } from "@/lib/utils";
 
 import { CustomizeTemplateButton } from "./customize-template-button";
@@ -190,7 +191,12 @@ export function AgentHeader({
             </div>
           ) : null}
         </div>
-        {topRightAction}
+        {/* The per-surface help affordance (D-158 Step 2): the chat guide,
+            beside whatever contextual action the header carries. */}
+        <div className="flex shrink-0 items-center gap-3">
+          <HelpLink topic="chat" />
+          {topRightAction}
+        </div>
       </div>
     </header>
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { CollectionsView } from "@/components/knowledge/collections-view";
+import { HelpLink } from "@/components/workspace/help-link";
 import { isCurrentUserSuperAdmin, requireAuthUser } from "@/lib/auth/access";
 import {
   getEligibleSourceConnections,
@@ -37,15 +38,19 @@ export default async function CollectionsPage() {
 
   return (
     <main className="flex flex-col gap-9">
-      <header>
-        <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
-          Collections
-        </h1>
-        <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          Named scopes over the repositories your team already uses. Every
-          collection shows exactly where its documents live; legalOS keeps an
-          inventory, never the documents themselves.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+            Collections
+          </h1>
+          <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+            Named scopes over the repositories your team already uses. Every
+            collection shows exactly where its documents live; legalOS keeps an
+            inventory, never the documents themselves.
+          </p>
+        </div>
+        {/* Admins get the managing guide; everyone else the user-facing one. */}
+        <HelpLink topic={isSuperAdmin ? "collections" : "knowledge"} className="mt-3" />
       </header>
 
       <CollectionsView

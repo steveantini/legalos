@@ -10,6 +10,7 @@ import type {
   TimeframeData,
 } from "@/lib/workspace/home/impact-math";
 
+import { HelpLink } from "@/components/workspace/help-link";
 import { ImpactCell } from "./impact-cell";
 import { TimeframeToggle } from "./timeframe-toggle";
 
@@ -59,7 +60,10 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
         >
           Impact
         </h2>
-        <TimeframeToggle selected={selected} onChange={setSelected} />
+        <div className="flex items-center gap-3">
+          <HelpLink topic="impact" />
+          <TimeframeToggle selected={selected} onChange={setSelected} />
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-paper-2">

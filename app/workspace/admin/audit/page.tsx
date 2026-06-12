@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AuditLog } from "@/components/admin/audit/audit-log";
+import { HelpLink } from "@/components/workspace/help-link";
 import { isCurrentUserOrgAdmin, requireAuthUser } from "@/lib/auth/access";
 import { getAuditLogPage } from "@/lib/workspace/admin/audit/audit-log";
 
@@ -37,15 +38,18 @@ export default async function AdminAuditPage() {
 
   return (
     <>
-      <header>
-        <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
-          Audit log
-        </h1>
-        <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          A record of people activity in your organization: who changed whose
-          role, and who deactivated or reactivated an account. Read-only, newest
-          first. Changes made directly in the database appear as system changes.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+            Audit log
+          </h1>
+          <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+            A record of people activity in your organization: who changed whose
+            role, and who deactivated or reactivated an account. Read-only, newest
+            first. Changes made directly in the database appear as system changes.
+          </p>
+        </div>
+        <HelpLink topic="audit" className="mt-3" />
       </header>
 
       <AuditLog initial={initial} />

@@ -6,6 +6,7 @@ import { InvitePerson } from "@/components/admin/people/invite-person";
 import { PendingInvitations } from "@/components/admin/people/pending-invitations";
 import { PersonList } from "@/components/admin/people/person-list";
 import type { RosterDepartment } from "@/components/admin/people/person-row";
+import { HelpLink } from "@/components/workspace/help-link";
 import {
   getAllDepartmentsWithAccess,
   getAllUserDepartmentRoles,
@@ -105,7 +106,8 @@ export default async function AdminPeoplePage() {
             </p>
           ) : null}
         </div>
-        <div className="mt-2 shrink-0">
+        <div className="mt-2 flex shrink-0 items-center gap-4">
+          <HelpLink topic="people" />
           <InvitePerson actorRole={actorRole} allDepartments={allDepartments} />
         </div>
       </header>

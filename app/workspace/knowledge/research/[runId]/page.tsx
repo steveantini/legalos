@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ResearchRunActions } from "@/components/knowledge/research-run-actions";
 import { ResearchRunLive } from "@/components/knowledge/research-run-live";
+import { HelpLink } from "@/components/workspace/help-link";
 import { getCurrentUserProfile, requireAuthUser } from "@/lib/auth/access";
 import { getResearchRunDetail } from "@/lib/knowledge/research/data";
 
@@ -48,12 +49,15 @@ export default async function ResearchRunPage({
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
             Research run
           </p>
-          {/* The chat export idiom, one kebab: export + delete. */}
-          <ResearchRunActions
-            runId={run.id}
-            terminal={terminal}
-            canDelete={isOwner || isAdmin}
-          />
+          <div className="flex items-center gap-3">
+            <HelpLink topic="knowledge" />
+            {/* The chat export idiom, one kebab: export + delete. */}
+            <ResearchRunActions
+              runId={run.id}
+              terminal={terminal}
+              canDelete={isOwner || isAdmin}
+            />
+          </div>
         </div>
         <h1 className="mt-1 max-w-[36ch] text-[28px] font-normal leading-[1.15] tracking-[-0.02em] text-foreground">
           {run.question}

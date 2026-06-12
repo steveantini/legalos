@@ -18,6 +18,7 @@ import {
   disconnectMcpServer,
   refreshMcpServerTools,
 } from "@/lib/actions/mcp-connection";
+import { HelpLink } from "@/components/workspace/help-link";
 import type { OrgMcpConnection } from "@/lib/connections/mcp/connection-state";
 import type { FirstPartyProviderGroup } from "@/lib/connections/providers/mcp-registry";
 import { cn } from "@/lib/utils";
@@ -293,12 +294,15 @@ export function McpConnectionsEditor({
 
   return (
     <section aria-labelledby="policy-mcp-connections" className="mt-12">
-      <h2
-        id="policy-mcp-connections"
-        className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
-      >
-        MCP connections
-      </h2>
+      <div className="flex items-center justify-between gap-4">
+        <h2
+          id="policy-mcp-connections"
+          className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
+        >
+          MCP connections
+        </h2>
+        <HelpLink topic="connections" />
+      </div>
       <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
         Connect trusted MCP servers, the open standard for giving your agents
         tools and live data. legalOS ships a pre-vetted catalog of the systems

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { InsightsView } from "@/components/admin/insights/insights-view";
+import { HelpLink } from "@/components/workspace/help-link";
 import { isCurrentUserOrgAdmin, requireAuthUser } from "@/lib/auth/access";
 import { getOrgInsights } from "@/lib/workspace/admin/insights/insights-math";
 
@@ -41,17 +42,20 @@ export default async function AdminInsightsPage() {
 
   return (
     <>
-      <header>
-        <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
-          Insights
-        </h1>
-        <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          How your organization is adopting and engaging with legalOS, measured
-          from real activity: who is active, how usage is trending, and which
-          agents are not being used yet. The value in dollars lives in the
-          Productivity Calculator. The activity shown is native-agent usage inside
-          legalOS.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+            Insights
+          </h1>
+          <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+            How your organization is adopting and engaging with legalOS, measured
+            from real activity: who is active, how usage is trending, and which
+            agents are not being used yet. The value in dollars lives in the
+            Productivity Calculator. The activity shown is native-agent usage inside
+            legalOS.
+          </p>
+        </div>
+        <HelpLink topic="insights" className="mt-3" />
       </header>
 
       <InsightsView real={insights} />

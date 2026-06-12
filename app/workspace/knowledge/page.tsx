@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HelpLink } from "@/components/workspace/help-link";
 
 export const metadata: Metadata = {
   title: "Knowledge",
@@ -35,15 +36,18 @@ const KNOWLEDGE_CHILDREN: ReadonlyArray<{
 export default function KnowledgePage() {
   return (
     <main className="flex flex-col gap-9">
-      <header>
-        <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
-          Knowledge
-        </h1>
-        <p className="mt-[14px] max-w-[56ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          Your team&rsquo;s knowledge, where it already lives. Collections draw
-          named scopes over the repositories you use; Research answers
-          questions across them.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+            Knowledge
+          </h1>
+          <p className="mt-[14px] max-w-[56ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+            Your team&rsquo;s knowledge, where it already lives. Collections draw
+            named scopes over the repositories you use; Research answers
+            questions across them.
+          </p>
+        </div>
+        <HelpLink topic="knowledge" className="mt-3" />
       </header>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {/* Live children: same card geometry as the coming-soon family, but

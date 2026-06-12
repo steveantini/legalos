@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
 import { UseTemplateButton } from "@/components/workflows/use-template-button";
 import { buttonVariants } from "@/components/ui/button";
+import { HelpLink } from "@/components/workspace/help-link";
 import { getUserPreferenceAction } from "@/lib/actions/user-preferences";
 import { requireAuthUser, isCurrentUserOrgAdmin } from "@/lib/auth/access";
 import {
@@ -219,14 +220,17 @@ export default async function MyWorkflowsPage() {
             from the agents and tools your organization already has.
           </p>
         </div>
-        {canAuthor ? (
-          <Link
-            href="/workspace/workflows/my-workflows/new"
-            className={`${buttonVariants({ size: "sm" })} mt-2 shrink-0`}
-          >
-            New workflow
-          </Link>
-        ) : null}
+        <div className="mt-2 flex shrink-0 items-center gap-4">
+          <HelpLink topic="workflows" />
+          {canAuthor ? (
+            <Link
+              href="/workspace/workflows/my-workflows/new"
+              className={buttonVariants({ size: "sm" })}
+            >
+              New workflow
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {hasWorkflows ? (

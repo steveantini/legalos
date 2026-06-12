@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { RunWorkflowForm } from "@/components/workflows/run-workflow-form";
 import { StatusDotPill } from "@/components/workflows/run-status-pill";
+import { HelpLink } from "@/components/workspace/help-link";
 import { getCurrentUserProfile, requireAuthUser } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -112,9 +113,12 @@ export default async function RunWorkflowPage({
   return (
     <main className="flex w-full max-w-3xl flex-col gap-9">
       <header>
-        <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-caption">
-          Run workflow
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-caption">
+            Run workflow
+          </p>
+          <HelpLink topic="workflows" />
+        </div>
         <h1 className="mt-2 text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
           {workflow.name}
         </h1>

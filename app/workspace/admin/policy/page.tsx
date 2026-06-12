@@ -9,6 +9,7 @@ import { McpConnectionsEditor } from "@/components/admin/policy/mcp-connections-
 import { ModelConnectionEditor } from "@/components/admin/policy/model-connection-editor";
 import { PolicyEditor } from "@/components/admin/policy/policy-editor";
 import { ResearchCapEditor } from "@/components/admin/policy/research-cap-editor";
+import { HelpLink } from "@/components/workspace/help-link";
 import { getResearchDocumentCap } from "@/lib/knowledge/research/engine";
 import {
   getCurrentUserProfile,
@@ -157,15 +158,18 @@ export default async function AdminPolicyPage({
 
   return (
     <>
-      <header>
-        <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
-          Policy & access
-        </h1>
-        <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-          Set up the engine your agents run on, then what they can reach: the
-          model and whose key powers it, then which connections and trusted
-          servers it can use.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+            Policy & access
+          </h1>
+          <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+            Set up the engine your agents run on, then what they can reach: the
+            model and whose key powers it, then which connections and trusted
+            servers it can use.
+          </p>
+        </div>
+        <HelpLink topic="policy" className="mt-3" />
       </header>
 
       {/* The engine: whose key / which provider, then which model new agents start on. */}

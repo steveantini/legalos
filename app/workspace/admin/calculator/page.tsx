@@ -1,4 +1,5 @@
 import { HybridCalculator } from "@/components/admin/calculator/hybrid-calculator";
+import { HelpLink } from "@/components/workspace/help-link";
 import { isCurrentUserSuperAdmin } from "@/lib/auth/access";
 import { getOrgAgentsWithMeasuredRuns } from "@/lib/workspace/admin/calculator/measured";
 import { getTaskBook } from "@/lib/workspace/admin/calculator/store";
@@ -23,13 +24,16 @@ export default async function AdminCalculatorPage() {
 
   return (
     <>
-      <header>
-        <h1 className="text-3xl font-semibold">Productivity Calculator</h1>
-        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          Estimate the time and cost your agents save. How often each task runs is
-          measured from your real usage; salary and the time saved per run are your
-          estimates, so every number is marked measured or estimate.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-semibold">Productivity Calculator</h1>
+          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+            Estimate the time and cost your agents save. How often each task runs is
+            measured from your real usage; salary and the time saved per run are your
+            estimates, so every number is marked measured or estimate.
+          </p>
+        </div>
+        <HelpLink topic="insights" className="mt-1" />
       </header>
 
       <HybridCalculator initialConfig={config} agents={agents} canEdit={canEdit} />

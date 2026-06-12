@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { HelpLink } from "@/components/workspace/help-link";
+
 /**
  * Page header for a department launchpad — the same h1+subline shape the
  * workspace home greeting (`HomeGreeting`) and the Stage 1 group landings
@@ -39,7 +41,12 @@ export function DepartmentHeader({
           </p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {/* The per-surface help affordance (D-158 Step 2): consistent
+          top-right placement; the workspace guide covers the launchpad. */}
+      <div className="flex shrink-0 items-center gap-4 pt-3">
+        <HelpLink topic="workspace" />
+        {action}
+      </div>
     </header>
   );
 }
