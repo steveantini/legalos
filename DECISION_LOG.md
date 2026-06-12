@@ -4099,3 +4099,22 @@ Cost records are accounting facts and must outlive the work they recorded; expor
 
 - formatted_outputs is now the product-wide export ledger (messages and research runs; future export sources add an anchor column the same way).
 - The findings-as-blocks choice revisits if the shared renderer ever gains table support; the export composer is one pure module to update.
+
+## D-155 — Knowledge Step 3: Research as a native chat tool
+
+Date: 2026-06-11
+Status: Accepted
+
+**Context / Decision:**
+
+Exposed the research engine to agents as `research_collections`, a SERVER-EXECUTED NATIVE tool in the existing chat tool loop — a sibling of the MCP tools, dispatched by name before the MCP routing-map lookup, never routed to any MCP server. The inline shape is the engine compressed for one chat request: enumerate live (the Step-1 walk with collecting deps), read with the research budget, classify in batches — and stop; there is no planning call (a compact rubric derives from the question) and no synthesis call (the agent IS the synthesizer: the tool result carries the basis plus per-document determinations, and the model writes the cited answer in its own turn). SCOPE RESOLVES THROUGH THE ASKING USER'S RLS VISIBILITY — getVisibleCollections() under the chat request's cookie-scoped session, the exact same path the Research surface uses, never a parallel one — so an agent can never read a collection its human couldn't select. INLINE CAP: 15 documents (lowered from the design-check's ≤25: segmenting isn't available inline, and 15 reads plus at most two batch classification calls stay comfortably inside the loop's wall clock); beyond it the tool returns an honest, well-written handoff naming the count, the cap, and the Research surface, which the agent relays. The tool's citations join the conversation's sources (deduped with web_search citations, so the rendered answer and the Word export carry them), its trace reads "Research" in the chat UI, and its model-call usage RETURNS to the loop and folds into the chat turn's single summed usage_events row: INLINE RESEARCH IS CHAT WORK (conversation/agent-attributed, no research_runs row); surface runs remain research runs with their own attribution. GOVERNANCE: the tool rides the same loopEngaged gate as the MCP tools (the feature flag + the org's `mcp` category policy + a connected server) — reconciled honestly: it reads repositories through those same governed connections, so the same lever governs it. No visible collections, unknown collection names, and unreadable connections all return plain honest results, never errors. The headless runAgent/workflow host does not offer the tool (chat scope only, this step). No migration was needed (reality matched the design: the loop, sources, and ledger absorbed the tool without schema change).
+
+**Reasoning:**
+
+Agents gain institutional grounding without a second permission model or budget regime; honesty at the cap beats a degraded inline sweep. ASYNC research-from-chat (the tool starting a real research run and the conversation resuming on completion, the mcp_paused_runs pattern) is the named v2.
+
+**Consequences:**
+
+- An agent answering "do our MSAs include X" now reads the actual documents and cites them, inside the same governed, ledgered chat turn.
+- The over-cap handoff funnels corpus-scale questions to the surface built for them, keeping inline chat snappy and predictable.
+- CourtListener-as-public-corpus joins as a research SOURCE later (it is not an enumerable customer repository).

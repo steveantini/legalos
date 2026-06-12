@@ -6,6 +6,8 @@ import { z } from "zod";
 import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
 import { resolveGatedOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { resolveAttachmentText } from "@/lib/connections/attachment-content";
+import { getVisibleCollections } from "@/lib/knowledge/collections-data";
+import { buildResearchToolDef } from "@/lib/knowledge/research/inline";
 import { ALLOWED_MIME_TYPES, extractText } from "@/lib/extract/extract";
 import {
   type AnthropicSystemBlock,
@@ -687,6 +689,24 @@ export async function POST(request: Request) {
     const mcpAccessByName = gatedMcp.accessByName;
     const mcpLoopEngaged = gatedMcp.loopEngaged;
 
+    // ---- The native research tool (Knowledge arc Step 3) rides the SAME
+    // gate as the MCP tools (flag + the org's mcp category policy + a
+    // connected server — loopEngaged folds all three): it reads repositories
+    // through those same governed connections, so the same lever governs it.
+    // Scope visibility resolves through getVisibleCollections(), the exact
+    // RLS path the Research surface uses, under THIS user's session — the
+    // agent can never research a collection its human couldn't select.
+    let researchTool = null as ReturnType<typeof buildResearchToolDef> | null;
+    if (mcpLoopEngaged) {
+      const visibleCollections = await getVisibleCollections();
+      researchTool = buildResearchToolDef(
+        visibleCollections.map((c) => ({
+          name: c.name,
+          documentCount: c.presentCount,
+        })),
+      );
+    }
+
     // ---- Vendor dispatch
     let parsedModel;
     try {
@@ -719,6 +739,7 @@ export async function POST(request: Request) {
       mcpRoutingMap,
       mcpAccessByName,
       mcpLoopEngaged,
+      researchTool,
       mode: {
         kind: "fresh",
         userMessageId: userMsg.id,

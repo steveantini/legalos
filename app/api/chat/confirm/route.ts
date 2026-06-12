@@ -13,6 +13,8 @@ import {
   classifyMcpTool,
   type McpToolAccess,
 } from "@/lib/connections/mcp/tool-classification";
+import { getVisibleCollections } from "@/lib/knowledge/collections-data";
+import { buildResearchToolDef } from "@/lib/knowledge/research/inline";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -132,6 +134,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // ---- The native research tool, rebuilt for the resumed loop exactly as
+    // the fresh path builds it (the loop is engaged here by definition):
+    // visibility through the SAME RLS read the Research surface uses, under
+    // the resuming owner's session.
+    const visibleCollections = await getVisibleCollections();
+    const researchTool = buildResearchToolDef(
+      visibleCollections.map((c) => ({
+        name: c.name,
+        documentCount: c.presentCount,
+      })),
+    );
+
     // ---- Resume the loop, streaming the continuation into the same assistant
     // message. Model/agent/system context comes from the persisted loop state.
     return streamChatTurn({
@@ -149,6 +163,7 @@ export async function POST(request: Request) {
       mcpRoutingMap: resolved.routingMap,
       mcpAccessByName,
       mcpLoopEngaged: true,
+      researchTool,
       mode: {
         kind: "resume",
         assistantMessageId: run.message_id,

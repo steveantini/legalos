@@ -39,12 +39,14 @@ const KNOWN_SERVER_LABELS: Record<string, string> = {
 };
 
 /**
- * Hosted tools that carry no server prefix. web_search is Anthropic's server
- * tool and keeps its established "Web search" label, so its trace reads the
- * same as before MCP tools existed.
+ * Tools that carry no server prefix: Anthropic's hosted web_search keeps its
+ * established "Web search" label, and the native research tool (Knowledge
+ * arc Step 3 — server-executed by the loop, not an MCP tool) reads as
+ * "Research", matching the surface it compresses.
  */
 const BARE_TOOL_LABELS: Record<string, string> = {
   web_search: "Web search",
+  research_collections: "Research",
 };
 
 /** "search_files" becomes "search files": underscores to spaces, collapsed. */

@@ -1,6 +1,10 @@
 import "server-only";
 
 import { executeMcpTool } from "@/lib/connections/mcp/execute-tool";
+import {
+  executeInlineResearch,
+  RESEARCH_TOOL_NAME,
+} from "@/lib/knowledge/research/inline";
 import type { McpToolAccess } from "@/lib/connections/mcp/tool-classification";
 import type { McpToolRoute } from "@/lib/connections/mcp/tool-mapping";
 import {
@@ -161,6 +165,15 @@ export type ChatTurnContext = {
   mcpRoutingMap: Record<string, McpToolRoute>;
   mcpAccessByName: Map<string, McpToolAccess>;
   mcpLoopEngaged: boolean;
+  /**
+   * The NATIVE research tool (Knowledge arc Step 3), offered alongside the
+   * MCP tools when the loop is engaged and executed server-side by the
+   * loop's research branch — never routed to an MCP server. Null when not
+   * offered (flag off, category denied, or no connected server: the same
+   * gate as the MCP tools, since research reads repositories through those
+   * connections).
+   */
+  researchTool: AnthropicCustomTool | null;
   mode: ChatTurnMode;
 };
 
@@ -197,6 +210,7 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
     mcpRoutingMap,
     mcpAccessByName,
     mcpLoopEngaged,
+    researchTool,
     mode,
   } = ctx;
 
@@ -611,6 +625,109 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
       // events); the FIRST write does not execute — it returns a pause signal so
       // the caller can persist + surface the confirmation. Unknown tools hold as
       // errors (never pause). mcpToolCallCount counts every requested call.
+      // Run the NATIVE research tool (Knowledge arc Step 3): server-executed,
+      // a sibling of the MCP tools, never routed to a server. Read-only by
+      // nature (it reads documents and returns determinations), so it always
+      // executes inline. Its citations join the conversation's sources (the
+      // same rendering web_search citations use) and its model-call usage
+      // folds into THIS turn's summed ledger row — inline research is chat
+      // work; no research_runs row is created.
+      async function runResearchToolCall(
+        block: ToolUseBlock,
+      ): Promise<AnthropicToolResultBlock> {
+        drainCitations();
+        const startedAt = new Date().toISOString();
+        const position = assistantText.length;
+        const summary = mcpArgsSummary(block.input);
+        const toolCall: ChatToolCall = {
+          id: block.id,
+          name: block.name,
+          input: summary,
+          output: null,
+          status: "running",
+          started_at: startedAt,
+          position,
+          access: "read",
+        };
+        toolCalls.push(toolCall);
+        controller.enqueue(
+          encodeSseEvent({
+            type: "tool_trace_start",
+            id: block.id,
+            name: block.name,
+            input: summary,
+            started_at: startedAt,
+            position,
+          }),
+        );
+
+        const input = (block.input ?? {}) as {
+          question?: unknown;
+          collections?: unknown;
+        };
+        const question =
+          typeof input.question === "string" ? input.question : "";
+        const requestedCollections = Array.isArray(input.collections)
+          ? input.collections.filter((c): c is string => typeof c === "string")
+          : undefined;
+
+        const exec = await executeInlineResearch({
+          organizationId,
+          userId,
+          question,
+          collections: requestedCollections,
+        });
+        addUsage(exec.usage);
+
+        // The tool's citations become real conversation sources (deduped by
+        // URL with the web_search citations), so the rendered answer and the
+        // Word export carry them like any other cited turn.
+        const sourceIds: string[] = [];
+        for (const citation of exec.citations) {
+          let sourceId = sourceByUrl.get(citation.url);
+          if (!sourceId) {
+            sourceId = citation.id;
+            sourceByUrl.set(citation.url, sourceId);
+            const source: ChatSource = {
+              id: sourceId,
+              title: citation.title,
+              url: citation.url,
+              domain: citation.domain,
+            };
+            sources.push(source);
+            controller.enqueue(
+              encodeSseEvent({
+                type: "source_added",
+                id: source.id,
+                title: source.title,
+                url: source.url,
+                domain: source.domain,
+              }),
+            );
+          }
+          sourceIds.push(sourceId);
+        }
+
+        const finishedAt = new Date().toISOString();
+        toolCall.status = "done";
+        toolCall.finished_at = finishedAt;
+        toolCall.output = { source_ids: sourceIds };
+        controller.enqueue(
+          encodeSseEvent({
+            type: "tool_trace_done",
+            id: block.id,
+            output: { source_ids: sourceIds },
+            finished_at: finishedAt,
+          }),
+        );
+
+        return {
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: exec.resultText,
+        };
+      }
+
       async function runOneMcpToolCall(block: ToolUseBlock): Promise<ToolOutcome> {
         mcpToolCallCount += 1;
         drainCitations();
@@ -736,6 +853,12 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
             toolResults.push(known);
             continue;
           }
+          // The native research tool dispatches BEFORE the MCP routing-map
+          // lookup (it has no route by design — it is not an MCP tool).
+          if (researchTool && block.name === RESEARCH_TOOL_NAME) {
+            toolResults.push(await runResearchToolCall(block));
+            continue;
+          }
           const outcome = await runOneMcpToolCall(block);
           if (outcome.kind === "pause") {
             const res = await pauseOnWrite(
@@ -761,7 +884,11 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
       // The gated agentic loop. On resume, first inject the decision for the
       // paused write + finish that turn's remaining blocks, then continue.
       async function runMcpLoop(credential: ModelCredential): Promise<void> {
-        const allTools: AnthropicTool[] = [...tools, ...mcpToolDefs];
+        const allTools: AnthropicTool[] = [
+          ...tools,
+          ...mcpToolDefs,
+          ...(researchTool ? [researchTool] : []),
+        ];
         let loopMessages: AnthropicChatMessage[];
         let round: number;
 
