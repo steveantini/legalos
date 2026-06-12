@@ -4136,3 +4136,21 @@ The arc delivered the settled vision — the intelligence layer over the knowled
 
 - Knowledge is part of the product's external story; substantive changes to how it handles data update /features and /trust in the same commit.
 - The follow-on list above is the arc's successor backlog; follow-up refinement leads it.
+
+## D-157 — Features-tour truth pass + the standing currency rule
+
+Date: 2026-06-12
+Status: Accepted
+
+**Context / Decision:**
+
+Read /features section by section against shipped reality and reconciled the drift: the AGENTS section now teaches the three-tier trust model the product itself teaches (Approved agents the department has vetted and tested, the curated Claude for Legal library, and My agents — the D-149 rename had swept the workspace but not the tour), and the GOVERNANCE section's Policy & access enumeration gained the research document cap (a real governance lever since D-153). Confirmed CURRENT with no change: the workspace, workflows, connections (the catalog story's "Google Workspace verified end to end; the rest pre-vetted rather than live-tested" qualifier correctly covers CourtListener's still-AVAILABLE status — no overclaim), knowledge (fresh from D-156), and measurement sections. Judged NOT tour-worthy: the selectable-model trim (an internal curation choice; "which model new agents start with" remains true) and platform-tier internals (connector drift detection, demo tooling). Then made currency STRUCTURAL: (a) docs/FEATURES_CLAIMS.md maps every tour claim to the decision-log entry or commit that makes it true — truth passes diff it, feature commits append to it; (b) the STANDING RULE, recorded in CLAUDE.md's Documentation Rules: any commit that changes user-facing behavior reconciles /features, README, and FEATURES_CLAIMS.md in the same commit, as part of the done-definition (the D-147 nav-discoverability precedent generalized: a capability is done when a prospect and an engineer can both find the truth about it). Internal-only changes are exempt; when unsure, reconcile.
+
+**Reasoning:**
+
+The D-126 rule ("marketing claims must never drift ahead of the architecture") had no enforcement mechanism for the opposite drift — marketing falling BEHIND the architecture — and both drifts cost credibility. A claims map makes staleness diffable instead of re-derivable.
+
+**Consequences:**
+
+- Future truth passes start from FEATURES_CLAIMS.md, not from archaeology.
+- Build prompts inherit the rule via CLAUDE.md; the tour, README, and map move together with the features they describe.

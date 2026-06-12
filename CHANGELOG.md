@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- **The product tour was reconciled to shipped reality end to end: the agents section now teaches the three-tier trust model (Approved agents, the Claude for Legal library, My agents) the product itself teaches, and the governance section gained the research document cap among Policy and access's levers; every other section was verified current. Staying current is now structural: a claims map (docs/FEATURES_CLAIMS.md) ties each tour statement to the decision that makes it true, and a standing rule adds tour, README, and claims-map reconciliation to the done-definition of any commit that changes user-facing behavior. (D-157)**
+
 - **The product tour now tells the Knowledge story: collections drawn over the repositories a legal team already uses with every source visible, citation-backed research across them with documents read live and nothing migrated or stored, and the same capability available to agents in chat. The README reflects the new layer. With this surfacing, the Knowledge arc is complete. (D-156)**
 
 ### Added

@@ -59,12 +59,13 @@ export default function FeaturesPage() {
           A department of AI specialists, organized the way a legal team is.
           legalOS ships with thirteen departments spanning deal work,
           regulatory and compliance, specialized practice areas, and
-          operations, each with its own agents. Those come from a curated
-          library of legal agents your organization can adopt, and from your
-          own people: anyone can create an agent of their own, giving it
-          instructions and references, and it reads, reasons, and drafts from
-          there. Access follows roles, so each person sees the departments
-          that are theirs.
+          operations, each with its agents in three clearly marked tiers:
+          Approved agents your department has vetted and tested, a curated
+          library of Anthropic&rsquo;s legal agents ready to use, and My
+          agents, the ones your own people create by giving them instructions
+          and references. A new user reads the trust model at a glance, and
+          access follows roles, so each person sees the departments that are
+          theirs.
         </p>
       </MarketingSection>
 
@@ -157,11 +158,12 @@ export default function FeaturesPage() {
           The control surface that makes the rest safe to use.
           Administrators manage who belongs and what they can reach: roles
           with least-privilege rules, invitations, and reversible
-          deactivation. Policy and access sets what the organization allows,
-          which kinds of connections, which model new agents start with, and
-          whether agents may act read-only or read-and-write. Privileged
-          actions like role changes and deactivations are recorded to an
-          audit log administrators can read.
+          deactivation. Policy and access sets what the organization allows:
+          which kinds of connections, which model new agents start with,
+          whether agents may act read-only or read-and-write, and how many
+          documents a single research run may read. Privileged actions like
+          role changes and deactivations are recorded to an audit log
+          administrators can read.
         </p>
       </MarketingSection>
 
