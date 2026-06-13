@@ -42,9 +42,10 @@ export type ModelDefinition = {
   /** Cost rates, keyed into the cost calculation in lib/llm/pricing.ts. */
   pricing: ModelPricing;
   /**
-   * Whether this model appears in the composer's three-model quick-pick.
-   * The quick-pick is one-per-tier (flagship / balanced / fast); off-pick
-   * models stay reachable through the agent form's full picker.
+   * Whether this model appears in the composer's quick-pick. The quick-pick
+   * mirrors the selectable set (currently both flagships, Fable 5 and
+   * Opus 4.8, plus Sonnet 4.6 and Haiku 4.5); off-pick models stay reachable
+   * through the agent form's full picker.
    */
   inComposerQuickPick: boolean;
   /**
@@ -61,11 +62,16 @@ export type ModelDefinition = {
 
 /**
  * The canonical model list. Order = the agent form's full picker order
- * (flagship first, which is also the default for new agents). The selectable
- * set is exactly one per tier: Fable 5 (flagship), Sonnet 4.6 (balanced),
- * Haiku 4.5 (fast). The Opus generations (4.8 / 4.7 / 4.6) are retained but
- * unselectable: their pricing must keep computing for historical
- * usage_events, and agents already configured on them keep working.
+ * (flagship first). The selectable set is the four current choices:
+ * Fable 5 and Opus 4.8 (flagship), Sonnet 4.6 (balanced), Haiku 4.5 (fast).
+ * Opus 4.8 is the code default (DEFAULT_MODEL_FALLBACK) because Fable 5 is
+ * presently unavailable to all users (a government-driven halt, possibly
+ * temporary, D-164). Fable 5 is deliberately RETAINED as a selectable choice
+ * with its pricing intact so that if availability returns it can be made the
+ * default again with a one-line change rather than a rebuild. The older Opus
+ * generations (4.7 / 4.6) are retained but unselectable: their pricing must
+ * keep computing for historical usage_events, and agents already configured
+ * on them keep working.
  *
  * Fable 5 id and pricing verified against Anthropic's official docs
  * (platform.claude.com models overview + pricing, 2026-06-09): id
@@ -81,7 +87,7 @@ export const MODELS: readonly ModelDefinition[] = [
     id: "anthropic/claude-fable-5",
     displayName: "Claude Fable 5",
     shortDisplayName: "Fable 5",
-    helper: "Newest and most capable. The default for new agents.",
+    helper: "Newest and most capable.",
     pricing: {
       inputPerMillion: 10,
       outputPerMillion: 50,
@@ -95,15 +101,15 @@ export const MODELS: readonly ModelDefinition[] = [
     id: "anthropic/claude-opus-4-8",
     displayName: "Claude Opus 4.8",
     shortDisplayName: "Opus 4.8",
-    helper: "Previous flagship. Strong reasoning at a lower cost.",
+    helper: "Strong reasoning. The default for new agents.",
     pricing: {
       inputPerMillion: 5,
       outputPerMillion: 25,
       cacheWritePerMillion: 6.25,
       cacheReadPerMillion: 0.5,
     },
-    inComposerQuickPick: false,
-    selectable: false,
+    inComposerQuickPick: true,
+    selectable: true,
   },
   {
     id: "anthropic/claude-opus-4-7",
@@ -171,7 +177,7 @@ export const MODELS: readonly ModelDefinition[] = [
  * codebase. NOT used in the run path: existing conversations keep their frozen
  * model snapshot regardless of this value.
  */
-export const DEFAULT_MODEL_FALLBACK = "anthropic/claude-fable-5";
+export const DEFAULT_MODEL_FALLBACK = "anthropic/claude-opus-4-8";
 
 /** Lookup by id, for display and pricing resolution. */
 export const MODEL_BY_ID: Record<string, ModelDefinition> = Object.fromEntries(

@@ -28,15 +28,15 @@ interface ModelPickerProps {
  * refreshes via `revalidatePath('/workspace/agents/<id>')` after each
  * successful change.
  *
- * Three-model quick-pick by design (D-030 surprise (3)): the composer
- * surfaces one-per-tier common-case picks (flagship / balanced / fast),
- * derived from the canonical models source's `inComposerQuickPick` flag —
- * today Fable 5, Sonnet 4.6, and Haiku 4.5 — which is now also the entire
- * selectable set (the Opus generations are retained for existing references
- * but cannot be newly selected anywhere). The trigger label is read-through —
- * it shows the agent's current model even if it's outside the quick-pick, so
- * an agent still configured on a legacy Opus model shows its actual current
- * model in the trigger.
+ * Quick-pick by design (D-030 surprise (3)): the composer surfaces the
+ * common-case picks, derived from the canonical models source's
+ * `inComposerQuickPick` flag — today Fable 5, Opus 4.8, Sonnet 4.6, and
+ * Haiku 4.5 — which mirrors the entire selectable set (the older Opus 4.7 /
+ * 4.6 generations are retained for existing references but cannot be newly
+ * selected anywhere). The trigger label is read-through — it shows the
+ * agent's current model even if it's outside the quick-pick, so an agent
+ * still configured on a legacy Opus model shows its actual current model in
+ * the trigger.
  *
  * Optimistic update: trigger label flips immediately on selection,
  * action runs in a transition, label reverts on action failure with a

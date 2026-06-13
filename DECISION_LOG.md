@@ -4264,3 +4264,22 @@ Tour-depth taught what things are; the assistant's first real user (the operator
 
 - The D-158 currency rule already covers drift: a behavior change reconciles its guide's how-to in the same commit.
 - Future assistant declines are signals to read as documentation gaps, not just refusals.
+
+---
+
+## D-164 — Default reverted to Opus 4.8 (Fable 5 unavailable)
+
+Date: 2026-06-13
+Status: Accepted (reverses the default set by D-147 and the selectable trim of D-148)
+
+**Context / Decision:**
+
+Fable 5 became unavailable to all users (a government-driven halt, possibly temporary). Made Opus 4.8 selectable and the code default (DEFAULT_MODEL_FALLBACK), repointed both organizations and all agents to Opus 4.8 via scoped operator updates, and deliberately RETAINED Fable 5 in the known and selectable set with its pricing intact so it can be reinstated instantly if availability returns. The selectable set is now four — Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5 — and all four render in every picker (admin default-model dropdown, agent form, composer quick-pick). The older Opus 4.7 / 4.6 generations stay known but unselectable so their pricing keeps computing for historical usage_events.
+
+**Reasoning:**
+
+The product must run on an available model today; keeping Fable 5 present, selectable, and priced makes the eventual return a one-line default change, not a rebuild.
+
+**Consequences:**
+
+- Four selectable models; Opus 4.8 is the default; a future prompt restores Fable 5 as the default if it reopens by repointing DEFAULT_MODEL_FALLBACK (and re-running the org/agent data updates).

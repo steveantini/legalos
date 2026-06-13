@@ -36,7 +36,7 @@ import {
  * sees the effective model rendered read only.
  *
  * Honest framing when unset: until a super admin chooses one, the system default
- * (Fable 5, DEFAULT_MODEL_FALLBACK) is in effect, and the control says so. After
+ * (Opus 4.8, DEFAULT_MODEL_FALLBACK) is in effect, and the control says so. After
  * a successful save the value is explicit and the note drops away.
  */
 export function DefaultModelEditor({
