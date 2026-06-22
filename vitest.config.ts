@@ -16,7 +16,7 @@ const emptyModule = `${root}/test/stubs/empty.ts`;
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["**/*.test.ts"],
+    include: ["**/*.test.ts", "**/*.test.mjs"],
   },
   resolve: {
     alias: [

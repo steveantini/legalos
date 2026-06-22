@@ -4331,3 +4331,26 @@ Attribution and revocability belong in-product, not in a terminal; a labeled lis
 - The previously-minted single-use link now behaves as a time-window link (valid until its original ~30-day expiry, binding a user on first open); no action needed.
 - Out of scope, still additive-future: a TTL cleanup cron / auto-deleting stale demo users; the full per-session-isolated design in `docs/DEMO_ACCESS_SCOPING.md` (superseded).
 - `interpretTokenClaim` (the single-use atomic-claim interpreter) is removed with its single caller; `evaluateDemoToken` replaces it, with new tests.
+
+## D-167 — Lint guard for em dashes in rendered text; the spacing drop is not lintable
+
+Date: 2026-06-22
+Status: Accepted
+
+**Context / Decision:**
+
+Two rendered-text bugs recurred and were patched per screen: em dashes in user-facing copy (the house rule bans them) and the JSX leading-space drop. The goal was a write-time lint guard for both. Outcome: ship ONE custom ESLint rule, and deliberately NOT the other.
+
+**Shipped — `local/no-em-dash-in-jsx-text` (error level).** A local flat-config plugin (`eslint-rules/`, wired in `eslint.config.mjs`) flags em dashes in JSXText, in string/template literals rendered as JSX children, and in JSX attribute values. It does NOT flag comments or non-rendered string literals (a plain const, a thrown Error, a log) — "no em dash a user will see", not "no em dash in the file". En dashes are allowed (legitimate in ranges like "7–14 days"). Report-only (the right replacement is context-dependent), with an inline-disable escape for the rare genuinely-unrendered string. RuleTester unit tests (`*.test.mjs`, vitest glob widened) cover the JSXText/attribute/template hits and the comment/non-JSX-string exemptions. Running it across the repo caught two live violations (a file-removal dialog and the forked-agent hint), now fixed.
+
+**Investigated and deliberately NOT shipped — a leading-space rule.** The believed trigger was a space-led text node on the SAME line after a closing tag (`</strong> of`). A rule for that flagged 11 sites; verifying against reality showed all 11 are FALSE POSITIVES. The `@next/swc` transform compiles `</b> WORD` to children `[…, " WORD"]` (space PRESERVED), and the shipped client chunk contains the flagged text with its space intact. The form that actually drops is the NEWLINE-led one (`</tag>\n word`) — which is standard JSX whitespace, not an SWC quirk, and is indistinguishable from the many legitimate `<Icon/>\n Label` / block-element cases, and spans custom components (`<Strong>`, `<Badge>`) whose inline-ness can't be known from the name. So a precise, zero-false-positive rule is not achievable; the `{" "}` idiom plus review remains the guard. (This also means earlier same-line "fixes" with `{" "}` were harmless but were not fixing a real render bug; the genuine glue bugs, e.g. "Approved agentsare", were the newline form.)
+
+**Reasoning:**
+
+A write-time guard is the durable fix for a recurring bug — but only where the bug is reliably detectable. Em dashes in rendered text are; the spacing drop, as it actually behaves, is not. Shipping a rule on a false premise would have injected 11 false-positive build failures and meaningless churn while missing the real pattern, which is worse than no rule.
+
+**Consequences:**
+
+- The standing lint-0 baseline now catches em dashes in rendered copy at write time across marketing, docs, and product surfaces.
+- No spacing lint rule; do not re-attempt the same-line variant (it targets safe code). The newline-form drop, if it recurs, is caught by review and the `{" "}` idiom.
+- Recorded in CLAUDE.md (Copy Conventions) that the em-dash ban is now lint-enforced.

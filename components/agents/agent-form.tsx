@@ -167,8 +167,7 @@ export function AgentForm({
           <span className="text-muted-foreground">Forked from </span>
           <span className="font-medium">{forkedFromAgent.name}</span>
           <span className="text-muted-foreground">
-            {" "}
-            — review the fields below and adjust before saving.
+            . Review the fields below and adjust before saving.
           </span>
         </div>
       ) : null}

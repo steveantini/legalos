@@ -198,6 +198,8 @@ Internal documentation (`CLAUDE.md`, `PROJECT_OUTLINE.md`, `DECISION_LOG.md`, `C
 
 A comprehensive em-dash sweep of existing external-facing copy is tracked as a polish-list item.
 
+This ban is now lint-enforced (D-167): the custom rule `local/no-em-dash-in-jsx-text` (in `eslint-rules/`, error level) flags em dashes in JSX text, JSX child strings, and JSX attribute values, so future copy work inherits the check at write time. Comments and non-rendered strings are exempt; en dashes are allowed (ranges). There is deliberately NO lint rule for the JSX leading-space drop (it is not reliably detectable, see D-167); the `{" "}` idiom plus review remains that guard.
+
 ---
 
 ## Environment & Configuration

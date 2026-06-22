@@ -247,7 +247,7 @@ export function AgentAttachmentsSection({
             <DialogTitle>Remove this file?</DialogTitle>
             <DialogDescription>
               <strong>{removingRow?.originalFilename}</strong>{" "}will be removed
-              from this agent. The file is permanently deleted — there is no
+              from this agent. The file is permanently deleted. There is no
               undo for attachments.
             </DialogDescription>
           </DialogHeader>

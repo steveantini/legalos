@@ -2,9 +2,21 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
+import localRenderedText from "./eslint-rules/index.mjs";
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Local guard against em dashes in copy a user sees (see eslint-rules/), at
+  // error level so the standing lint-0 baseline catches them at write time
+  // rather than per screen. (A leading-space-after-element rule was
+  // investigated and not shipped — see eslint-rules/index.mjs for why.)
+  {
+    plugins: { local: localRenderedText },
+    rules: {
+      "local/no-em-dash-in-jsx-text": "error",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

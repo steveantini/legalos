@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Lint now guards against em dashes in text a user will see (a custom rule covering JSX text, JSX child strings, and JSX attribute values; comments and non-rendered strings are exempt), so the recurring house-rule violation is caught at write time rather than swept per screen. It immediately caught and fixed two em dashes that had reached production (a file-removal dialog and the forked-agent hint). A companion rule for the JSX leading-space drop was investigated and deliberately not shipped: the pattern it would target renders correctly, and the form that actually drops a space is not reliably distinguishable from legitimate cases. (D-167)**
+
 - **A platform demo-access surface to mint, label, list, and revoke demo links, replacing script-only access. A demo link now works repeatedly for a set window, fourteen days by default and selectable at mint (7 / 14 / 30), rather than burning on the first click, and a returning visitor comes back as the same demo user to their own session. Each link carries a free-text label, so the list doubles as a record of who has access, showing each link's status (active / expired / revoked), minted and expiry dates, and whether it has been opened; revoke kills an active link immediately. A collapsible "How the demo works" panel documents, in plain language, what a demo user sees and can do and how to refresh the demo, kept accurate by the same done-definition rule that governs the features tour and the documentation. The surface is platform-owner gated (a non-owner gets a 404). (D-166)**
 
 ### Fixed
