@@ -193,12 +193,13 @@ export default function FeaturesPage() {
 
       <MarketingSection id="control" title="Control on your terms">
         <p>
-          <LeadIn>legalOS is built to bend</LeadIn>{" "}to how your team already
-          works rather than make your team bend to it, and to keep a person with
-          the expertise in command of the work.
+          Underneath the simple surface, legalOS is built to bend to how your
+          team already works rather than make your team bend to it, and to keep
+          a person with the expertise in command of the work.
         </p>
         <p>
-          Meets you where you are. Instead of asking your team to move its work
+          <LeadIn>Meets you where you are.</LeadIn>{" "}Instead of asking your
+          team to move its work
           onto a fixed stack, legalOS reaches the systems you already run,
           connecting to official first-party servers or to ones your own
           organization hosts. It is model-agnostic by design, built to run on
@@ -206,7 +207,8 @@ export default function FeaturesPage() {
           your environment stays yours.
         </p>
         <p>
-          Your models, your call. Use the AI managed through legalOS, or bring
+          <LeadIn>Your models, your call.</LeadIn>{" "}Use the AI managed
+          through legalOS, or bring
           your own model-provider account and run the work under your own
           agreement and data boundary. Either way you hold the choice of model
           and your exposure to its cost, instead of being locked to one
@@ -214,7 +216,8 @@ export default function FeaturesPage() {
           decision made for you.
         </p>
         <p>
-          Experts stay in command. The people with the domain expertise keep
+          <LeadIn>Experts stay in command.</LeadIn>{" "}The people with the
+          domain expertise keep
           agency over their departments and over what the agents do. You decide
           how much autonomy a run carries, from fully supervised to more
           independent, and one line never moves: any action that would change
@@ -223,8 +226,9 @@ export default function FeaturesPage() {
           on the repetitive toil; the judgment stays human.
         </p>
         <p>
-          Control where it counts: the models you run on, the privacy of your
-          work, and the connection to the tools your team already uses.
+          <LeadIn>Control where it counts:</LeadIn>{" "}the models you run on,
+          the privacy of your work, and the connection to the tools your team
+          already uses.
         </p>
       </MarketingSection>
 
