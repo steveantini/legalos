@@ -81,6 +81,16 @@ Last full truth pass: 2026-06-12 (D-157).
 | Policy & access: connection categories, default model, read-only vs read-and-write, the research document cap | D-076 (categories), D-078 (default model), D-153 (research cap) |
 | Role changes and deactivations recorded to a readable audit log | D-083 (audit log) |
 
+## Control on your terms (`#control`)
+
+| Claim | Source |
+|---|---|
+| Meets you where you are: reaches the systems you already run, first-party or servers your own organization hosts | D-089/D-093 (trusted registry + self-hosted MCP path, `SELF_HOSTED_SERVER_ID_PREFIX`) |
+| Model-agnostic by design; run on the models you choose, not a single engine wired in | D-085–D-088 (models-as-a-connection seam, `lib/llm/models.ts`); the agent-form model picker. NO on-prem deployment claimed: models run managed or under your own provider account, not a legalOS on-prem install |
+| Your models, your call: managed or bring-your-own provider account, under your own agreement and data boundary; you hold model choice and cost exposure, no vendor lock-in | D-087 (BYO-key branch, `lib/llm/model-credential.ts`); D-136 (per-org BYO scoping) |
+| Experts in command: domain experts keep agency; the autonomy dial runs supervised to autonomous, but any action that would change something outside legalOS pauses for approval in EVERY mode, including the most autonomous | D-117 (`AutonomyLevel`; `lib/workflows/engine.ts` "pauses for approval in EVERY autonomy mode"); D-105/D-107 (the chat write-confirmation) |
+| Summary: control over the models you run on, the privacy of your work, and the connection to the tools you use | The three facets above |
+
 ## Closing claims
 
 | Claim | Source |

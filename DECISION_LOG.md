@@ -4354,3 +4354,27 @@ A write-time guard is the durable fix for a recurring bug — but only where the
 - The standing lint-0 baseline now catches em dashes in rendered copy at write time across marketing, docs, and product surfaces.
 - No spacing lint rule; do not re-attempt the same-line variant (it targets safe code). The newline-form drop, if it recurs, is caught by review and the `{" "}` idiom.
 - Recorded in CLAUDE.md (Copy Conventions) that the em-dash ban is now lint-enforced.
+
+## D-168 — Features tour: a "Control on your terms" section
+
+Date: 2026-06-22
+Status: Accepted
+
+**Context / Decision:**
+
+Added one `/features` section (`#control`, after Admin and governance, before the closing) gathering the control-and-flexibility theme that was scattered across Connections and Governance into the tour's culminating differentiator: legalOS bends to the customer rather than the reverse, with the human expert in command. One theme, three facets, each written against shipped reality and mapped in `docs/FEATURES_CLAIMS.md`:
+
+- **Meets you where you are** — reaches the systems you already run (first-party or servers your own organization hosts, the self-hosted MCP path), model-agnostic by design. Framed honestly: NO on-prem deployment is claimed (models run managed or under your own provider account; there is no legalOS on-prem install today, and "models as a connection" beyond Anthropic is a future seam).
+- **Your models, your call** — managed or bring-your-own model-provider account (D-087 BYO branch), under your own agreement and data boundary; you hold model choice and cost exposure, no vendor lock-in.
+- **Experts stay in command** — domain experts keep agency; the autonomy dial runs supervised to autonomous, but any action that would change something outside legalOS pauses for human approval in EVERY mode, including the most autonomous (verified in `lib/workflows/engine.ts`). No unattended autopilot is implied.
+
+A summary line names the three things the control protects: the models you run on, the privacy of your work, and the connection to the tools you use. The optional cross-site human line ("Spend less time on the daily toil... your judgment") was deliberately NOT placed verbatim here (it lives in the About/Mission thesis work); a lighter echo, "legalOS takes on the repetitive toil; the judgment stays human", closes the experts facet instead, to avoid reading repetitive across the site.
+
+**Reasoning:**
+
+This is the product's sharpest story and the hero deliberately doesn't carry it; the tour is where it belongs, stated as one theme rather than five scattered bullets. The honest-state discipline governs every facet: the autonomy claim states the writes-pause rule rather than implying full autopilot, and the flexibility claim describes model-agnostic/BYO and self-hosted reach rather than an on-prem deployment the product does not ship.
+
+**Consequences:**
+
+- The features tour now closes on the differentiator; the claims map and the page reconcile per the D-157 rule.
+- If on-prem model deployment or multi-vendor models ever ship, this section and its claims-map row update in the same commit (the standing currency rule).

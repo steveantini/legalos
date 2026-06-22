@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: "Features",
   description:
-    "A tour of legalOS: the workspace, agents organized the way a legal team is, workflows under human approval, governed connections, knowledge that answers from your own documents, measurement that shows you the value, and the admin surface that makes it all safe to use.",
+    "A tour of legalOS: the workspace, agents organized the way a legal team is, workflows under human approval, governed connections, knowledge that answers from your own documents, measurement that shows you the value, the admin surface that makes it all safe to use, and the control that keeps it all on your terms.",
 };
 
 /**
@@ -28,7 +28,14 @@ export const metadata: Metadata = {
  * tool; no web or trusted-source blending is claimed.
  * The Measurement section is the
  * story relocated from the landing (D-145/D-146), keeping its
- * measured-vs-estimated honesty line.
+ * measured-vs-estimated honesty line. The Control section (D-167-era, after
+ * governance, the tour's culminating differentiator) gathers the
+ * control-and-flexibility theme into one place: meets-you-where-you-are
+ * (first-party or self-hosted servers; model-agnostic by design),
+ * your-models-your-call (managed or BYO key, no lock-in), and
+ * experts-in-command (the autonomy dial stated honestly, with the writes-pause
+ * rule that holds in every mode). No on-prem deployment is claimed: models run
+ * managed or under your own provider account, not as a legalOS on-prem install.
  *
  * Each section carries an anchor id so it is directly linkable. The
  * sections are also the future home for per-feature demo videos: an
@@ -164,6 +171,43 @@ export default function FeaturesPage() {
           documents a single research run may read. Privileged actions like
           role changes and deactivations are recorded to an audit log
           administrators can read.
+        </p>
+      </MarketingSection>
+
+      <MarketingSection id="control" title="Control on your terms">
+        <p>
+          Underneath the simple surface, legalOS is built to bend to how your
+          team already works rather than make your team bend to it, and to keep
+          a person with the expertise in command of the work.
+        </p>
+        <p>
+          Meets you where you are. Instead of asking your team to move its work
+          onto a fixed stack, legalOS reaches the systems you already run,
+          connecting to official first-party servers or to ones your own
+          organization hosts. It is model-agnostic by design, built to run on
+          the models you choose rather than a single engine wired in for you, so
+          your environment stays yours.
+        </p>
+        <p>
+          Your models, your call. Use the AI managed through legalOS, or bring
+          your own model-provider account and run the work under your own
+          agreement and data boundary. Either way you hold the choice of model
+          and your exposure to its cost, instead of being locked to one
+          vendor&rsquo;s pricing. The model is a connection you control, not a
+          decision made for you.
+        </p>
+        <p>
+          Experts stay in command. The people with the domain expertise keep
+          agency over their departments and over what the agents do. You decide
+          how much autonomy a run carries, from fully supervised to more
+          independent, and one line never moves: any action that would change
+          something outside legalOS pauses for a person to approve before it
+          happens, in every mode, including the most autonomous. legalOS takes
+          on the repetitive toil; the judgment stays human.
+        </p>
+        <p>
+          Control where it counts: the models you run on, the privacy of your
+          work, and the connection to the tools your team already uses.
         </p>
       </MarketingSection>
 
