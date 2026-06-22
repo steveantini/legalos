@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The landing footer's brand blurb no longer echoes the hero. It previously closed with "Built around how legal work actually happens", the same sentence the hero subheading ends on, so the line read twice on one screen like a copy-paste; the footer is now a short identity sign-off ("An operating system for modern legal departments."), distinct from the hero's fuller promise.**
+
 - **The demo-access "How the demo works" panel reads correctly: the dropped space between the bold "super_admin" and the word after it is restored with the compiler-immune idiom (the SWC leading-space drop, D-159), the same fix applied preemptively to the revoke dialog's bolded label, and the panel's narrative em dashes were replaced with plain punctuation per the house rule.**
 
 - **Documentation guides now navigate back to the documentation hub rather than dropping the reader at the landing page: the label above each guide's title links up to the documentation, and the link at the bottom reads "Back to documentation". The Trust and Legal sub-pages gained the same linked label, so the whole marketing site speaks one navigation language. Also fixed a missing space in the documentation hub's closing line ("tell uswhat"); the rest of the marketing surface was swept for the same class of bug and was clean.**

@@ -78,8 +78,7 @@ export function LandingFooter() {
             legalOS
           </div>
           <p className="mt-5 max-w-[36ch] text-[13px] leading-[1.55] text-muted-foreground">
-            The connected workspace and operating system for modern legal
-            departments. Built around how legal work actually happens.
+            An operating system for modern legal departments.
           </p>
         </div>
 
