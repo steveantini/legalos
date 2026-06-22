@@ -241,8 +241,8 @@ export function DemoAccessManager({
             <DialogDescription>
               {revokeTarget?.label ? (
                 <>
-                  <strong>{revokeTarget.label}</strong> will stop working
-                  immediately.
+                  <strong>{revokeTarget.label}</strong>{" "}
+                  will stop working immediately.
                 </>
               ) : (
                 "This link will stop working immediately."

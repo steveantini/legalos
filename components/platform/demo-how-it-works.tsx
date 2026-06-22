@@ -13,9 +13,9 @@ export function DemoHowItWorks() {
   return (
     <div className="flex max-w-[68ch] flex-col gap-5 text-[13.5px] leading-[1.6] text-muted-foreground">
       <Block title="Who a demo user is">
-        A demo link signs a prospect in silently — no email, no password — as a{" "}
-        <strong className="font-medium text-foreground">super_admin</strong> of
-        the shared Demo Org. They are isolated from your real organization: the
+        A demo link signs a prospect in silently (no email, no password) as a{" "}
+        <strong className="font-medium text-foreground">super_admin</strong>{" "}
+        of the shared Demo Org. They are isolated from your real organization: the
         Demo Org is a separate tenant, and per-org scoping (D-136) keeps a demo
         user&apos;s connection and policy changes inside the Demo Org.
       </Block>
@@ -25,7 +25,7 @@ export function DemoHowItWorks() {
         departments and the Approved-agent shelf, plus the seeded starter
         workflow templates. Agents run on the current default model (Opus 4.8).
         Connections, Collections, and Research show their honest empty states
-        until something is seeded — intentional, not broken.
+        until something is seeded. That is intentional, not broken.
       </Block>
 
       <Block title="What they can and cannot do">
@@ -37,8 +37,8 @@ export function DemoHowItWorks() {
       </Block>
 
       <Block title="How the links work">
-        A link works repeatedly for its window — fourteen days by default,
-        selectable at mint — then expires on its own. A returning visitor on the
+        A link works repeatedly for its window (fourteen days by default,
+        selectable at mint), then expires on its own. A returning visitor on the
         same link comes back as the same demo user, to their own conversations.
         The raw link is shown once at mint (only its hash is stored); revoking a
         link stops it immediately. The shorter window, revoke, and per-org
@@ -49,8 +49,8 @@ export function DemoHowItWorks() {
       <Block title="How to refresh the demo">
         To reset the Demo Org to a clean state and bring its agents onto the
         current default model, run{" "}
-        <Code>npm run reset-demo-org -- --org-id=&lt;demo_org_id&gt;</Code> (soft
-        reset; it keeps existing demo users and minted links). The reset clears
+        <Code>npm run reset-demo-org -- --org-id=&lt;demo_org_id&gt;</Code>{" "}
+        (soft reset; it keeps existing demo users and minted links). The reset clears
         the seeded workflow templates, so re-seed them right after with{" "}
         <Code>
           npm run seed-workflow-templates -- --org-id=&lt;demo_org_id&gt;

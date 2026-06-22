@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The demo-access "How the demo works" panel reads correctly: the dropped space between the bold "super_admin" and the word after it is restored with the compiler-immune idiom (the SWC leading-space drop, D-159), the same fix applied preemptively to the revoke dialog's bolded label, and the panel's narrative em dashes were replaced with plain punctuation per the house rule.**
+
 - **Documentation guides now navigate back to the documentation hub rather than dropping the reader at the landing page: the label above each guide's title links up to the documentation, and the link at the bottom reads "Back to documentation". The Trust and Legal sub-pages gained the same linked label, so the whole marketing site speaks one navigation language. Also fixed a missing space in the documentation hub's closing line ("tell uswhat"); the rest of the marketing surface was swept for the same class of bug and was clean.**
 
 - **Deleting a workflow now resolves immediately instead of spinning forever. The deletion always succeeded on the server, but the success path refreshed the just-deleted workflow's own edit route inside the same transition as the navigation away, which wedged it; deletion now navigates to the workflow list, refreshed server-side. The other Workflows mutations (save, template fork, run start, approvals) were audited and were already safe, since their routes survive their mutations, and workflow cost records were confirmed to survive deletion as accounting facts.**
