@@ -42,6 +42,19 @@ export const metadata: Metadata = {
  * embed will slot in at the top of a section’s body when real footage
  * exists. Deliberately no placeholder video UI now (honest-state).
  */
+/**
+ * A short run-in lead-in: the opening phrase of a section's body, emphasized so
+ * a skimming reader catches the feature's essence in one pass. Reuses the page's
+ * existing weight (font-semibold) and color (text-foreground) at body size, so
+ * it lifts from the body's text-ink-2 yet stays clearly subordinate to the 28px
+ * section headings. Where the sentence continues with a space (not a comma or
+ * semicolon), the caller uses the {" "} idiom so the space survives the build
+ * (the SWC newline-after-element drop, D-167).
+ */
+function LeadIn({ children }: { children: React.ReactNode }) {
+  return <strong className="font-semibold text-foreground">{children}</strong>;
+}
+
 export default function FeaturesPage() {
   return (
     <MarketingPageShell
@@ -51,7 +64,8 @@ export default function FeaturesPage() {
     >
       <MarketingSection id="workspace" title="The workspace">
         <p>
-          legalOS opens to a single home for the day’s work. The launchpad
+          <LeadIn>legalOS opens to a single home</LeadIn>{" "}for the day’s
+          work. The launchpad
           presents your agents organized by department, so a commercial lawyer
           and a privacy lawyer each see the work that is theirs, alongside the
           conversations they have going. Conversations are kept and pick up
@@ -63,7 +77,8 @@ export default function FeaturesPage() {
 
       <MarketingSection id="agents" title="Agents and departments">
         <p>
-          A department of AI specialists, organized the way a legal team is.
+          <LeadIn>A department of AI specialists</LeadIn>, organized the way a
+          legal team is.
           legalOS ships with thirteen departments spanning deal work,
           regulatory and compliance, specialized practice areas, and
           operations, each with its agents in three clearly marked tiers:
@@ -78,8 +93,8 @@ export default function FeaturesPage() {
 
       <MarketingSection id="workflows" title="Workflows">
         <p>
-          Multi-step legal work, built without code and run under human
-          approval. A workflow chains agents into a repeatable process: you
+          <LeadIn>Multi-step legal work</LeadIn>, built without code and run
+          under human approval. A workflow chains agents into a repeatable process: you
           assemble it in a no-code builder, start it from a template or from
           scratch, and run it supervised or autonomously. Either way, any
           step that would change something outside legalOS pauses for a
@@ -90,7 +105,8 @@ export default function FeaturesPage() {
 
       <MarketingSection id="connections" title="Connections">
         <p>
-          legalOS works with the systems your team already uses, and it ships
+          <LeadIn>legalOS works with the systems</LeadIn>{" "}your team already
+          uses, and it ships
           knowing what those are. A pre-vetted catalog covers the tools legal
           teams live in: contract lifecycle systems like Ironclad and DocuSign,
           document management like iManage and Box, e-discovery like Everlaw,
@@ -121,9 +137,9 @@ export default function FeaturesPage() {
 
       <MarketingSection id="knowledge" title="Knowledge">
         <p>
-          A legal team&rsquo;s knowledge lives scattered across drives,
-          document systems, and contract repositories. legalOS doesn&rsquo;t
-          ask you to migrate it. Administrators draw named collections over
+          <LeadIn>legalOS doesn&rsquo;t ask you to migrate</LeadIn>{" "}your
+          knowledge. It lives scattered across drives, document systems, and
+          contract repositories. Administrators draw named collections over
           the repositories you already use, like a contracts folder in Google
           Drive, and every collection shows exactly where its documents live.
           Then anyone can ask an institutional question across the
@@ -145,7 +161,8 @@ export default function FeaturesPage() {
 
       <MarketingSection id="measurement" title="Measurement">
         <p>
-          legalOS doesn’t just do the work; it shows you what the work is
+          <LeadIn>legalOS doesn’t just do the work</LeadIn>; it shows you what
+          the work is
           worth. Each person sees their own impact on their home page: their
           runs, their most-used agent, and the hours and cost given back.
           Leaders see how the team is adopting legalOS: who’s active, how
@@ -162,8 +179,8 @@ export default function FeaturesPage() {
 
       <MarketingSection id="governance" title="Admin and governance">
         <p>
-          The control surface that makes the rest safe to use.
-          Administrators manage who belongs and what they can reach: roles
+          <LeadIn>The control surface</LeadIn>{" "}that makes the rest safe to
+          use. Administrators manage who belongs and what they can reach: roles
           with least-privilege rules, invitations, and reversible
           deactivation. Policy and access sets what the organization allows:
           which kinds of connections, which model new agents start with,
@@ -176,9 +193,9 @@ export default function FeaturesPage() {
 
       <MarketingSection id="control" title="Control on your terms">
         <p>
-          Underneath the simple surface, legalOS is built to bend to how your
-          team already works rather than make your team bend to it, and to keep
-          a person with the expertise in command of the work.
+          <LeadIn>legalOS is built to bend</LeadIn>{" "}to how your team already
+          works rather than make your team bend to it, and to keep a person with
+          the expertise in command of the work.
         </p>
         <p>
           Meets you where you are. Instead of asking your team to move its work
