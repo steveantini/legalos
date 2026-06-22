@@ -4308,3 +4308,26 @@ A prospect should see Workflows at full strength, not an empty page. The flag is
 - The Demo Org can carry the starter template gallery via one tested command; the real-org default path is untouched and backward-compatible.
 - Operator brings the demo to full strength with: soft-reset the demo org (refreshes agents to Opus 4.8), THEN `seed-workflow-templates --org-id=<demo_org_id>` (lands the gallery), then verify.
 - The connection-policy containment a demo relies on is confirmed already enforced by D-136; the reset script's stale singleton comment is noted for a future cleanup.
+
+## D-166 — Demo-token admin UI + time-window links
+
+Date: 2026-06-22
+Status: Accepted (completes the demo-token admin UI deferred in D-133; changes the link model set in D-132/D-133)
+
+**Context / Decision:**
+
+Demo links shift from single-use to TIME-WINDOW, managed from a platform-owner surface (`/workspace/platform/demo-access`) instead of scripts. A link now works repeatedly while `now() < expires_at` and it is not revoked (default 14 days, selectable 7 / 14 / 30 at mint), and a returning visitor maps back to the SAME synthetic demo user (reusing the existing `consumed_by_user_id` binding) so they return to their own session rather than a fresh user each visit. The consume route (`app/demo/[token]/route.ts`) no longer flips `pending → consumed`; it reads the row, validates with a pure `evaluateDemoToken(row, now)`, reuses or first-time-provisions the user (an atomic `consumed_by_user_id IS NULL` claim guards the rare concurrent first click, discarding the loser's extra user), and stamps `last_accessed_at`. The platform surface mints (raw url shown ONCE, only the hash stored), labels (a free-text note so the list records WHO has access), lists (label + derived status active/expired/revoked + minted/expiry/last-opened), and revokes (kills an active link immediately, the confirm-dialog idiom). Mint/revoke are service-role server actions re-gated by `requirePlatformOwner()` (the platform owner is not a demo-org member — the cross-org operator pattern); the mounted view owns the mint/revoke transitions so `router.refresh()` lands even when the revoke dialog unmounts (b88a37f). Migration 0074 adds nullable `label` + `last_accessed_at` and widens the status check to allow `active` (legacy values stay valid, so the one previously-minted token keeps working as a time-window link). The mint SCRIPT is retained as a headless fallback, reconciled to share the time-window logic and corrected copy.
+
+**The time-window tradeoff (accepted):** a time-window link softens single-use's "a leaked link is burned on first open" property. Accepted because it matches how demos are actually run (a prospect explores over an evaluation window, returning to their own session), and the risk is bounded by the shorter default window, immediate revoke, and the per-org scoping (D-136) that contains a demo super_admin to the Demo Org.
+
+**Self-documenting status panel + currency rule:** the surface carries a collapsible "How the demo works" panel (default collapsed) describing in plain language what a demo user is, sees, can and cannot do, the link mechanics, and the reset+seed refresh flow, so the operator answers their own questions without re-deriving demo behavior. This panel JOINS the D-157/D-158 done-definition: any change to how the demo behaves — the model, what the Demo Org seeds, the link mechanics, or the reset/seed flow — reconciles the panel's text in the SAME commit. Its accuracy is enforced by the rule, not by memory; recorded here and in CLAUDE.md so it self-enforces.
+
+**Reasoning:**
+
+Attribution and revocability belong in-product, not in a terminal; a labeled list is the operator's record of who has access. Time-window matches real evaluations. The status panel ends the need to re-derive demo behavior by hand, and the currency rule keeps it honest.
+
+**Consequences:**
+
+- The previously-minted single-use link now behaves as a time-window link (valid until its original ~30-day expiry, binding a user on first open); no action needed.
+- Out of scope, still additive-future: a TTL cleanup cron / auto-deleting stale demo users; the full per-session-isolated design in `docs/DEMO_ACCESS_SCOPING.md` (superseded).
+- `interpretTokenClaim` (the single-use atomic-claim interpreter) is removed with its single caller; `evaluateDemoToken` replaces it, with new tests.

@@ -1,13 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * Mint a single-use demo access link (Demo access Step 2, Part A).
+ * Mint a time-window demo access link from the CLI.
+ *
+ * The platform-owner UI (/workspace/platform/demo-access, D-166) is the primary
+ * way to mint, label, list, and revoke demo links. This script remains as a
+ * headless fallback (CI, no browser) and shares the same time-window logic.
  *
  * Usage:
  *   npm run mint-demo-token
  *   npm run mint-demo-token -- --by=you@example.com   (optional provenance)
  *
  * Requirements:
- *   - Migration 0065_demo_invitations.sql applied.
+ *   - Migrations 0065 + 0074 applied.
  *   - A seeded Demo Org (Step 1): exactly one organization with is_demo = true.
  *   - SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL in .env.local
  *     (loaded via dotenv). NEXT_PUBLIC_SITE_URL is used for the printed link.
@@ -17,10 +21,12 @@
  *     THAN ONE is_demo org exists, ABORTS (a token must point at exactly one
  *     known demo sandbox). Refuses to mint against a non-demo org.
  *   - Generates 32 bytes of entropy, stores only its SHA-256 HASH in
- *     demo_invitations (status pending, default 30-day expiry), and prints the
+ *     demo_invitations (status active, default 14-day window), and prints the
  *     shareable URL once. The raw token is never stored or logged again.
  *
  * The link signs the recipient into the Demo Org as super_admin with no email.
+ * Under the time-window model (D-166) it works repeatedly until it expires, and
+ * a returning visitor maps back to the same demo user.
  */
 
 import { resolve } from "node:path";
@@ -28,6 +34,10 @@ import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 
+import {
+  computeDemoExpiry,
+  DEMO_DEFAULT_WINDOW_DAYS,
+} from "@/lib/demo/admin";
 import { generateDemoToken } from "@/lib/demo/token";
 import { resolveSiteUrl } from "@/lib/url/site-url";
 
@@ -114,7 +124,8 @@ async function main(): Promise<void> {
   const { error: insertErr } = await supabase.from("demo_invitations").insert({
     token_hash: tokenHash,
     organization_id: demoOrg.id,
-    status: "pending",
+    status: "active",
+    expires_at: computeDemoExpiry(Date.now(), DEMO_DEFAULT_WINDOW_DAYS),
     created_by_user_id: createdBy,
   } as never);
   if (insertErr) {
@@ -124,7 +135,9 @@ async function main(): Promise<void> {
 
   const url = `${resolveSiteUrl()}/demo/${token}`;
   console.log("");
-  console.log("Demo access link minted (single use, ~30-day expiry).");
+  console.log(
+    `Demo access link minted (works repeatedly for ${DEMO_DEFAULT_WINDOW_DAYS} days, then expires).`,
+  );
   console.log(`Demo Org: ${demoOrg.slug} (${demoOrg.id})`);
   console.log("");
   console.log("Share this link over a trusted channel — it is shown ONCE:");

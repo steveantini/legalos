@@ -1,33 +1,57 @@
 /**
- * Pure decision logic for the /demo/<token> access path (Step 2). Kept free of
- * I/O so the single-use-claim interpretation and the "always provision into the
+ * Pure decision logic for the /demo/<token> access path. Kept free of I/O so
+ * the time-window validity decision (D-166) and the "always provision into the
  * demo org" guard are unit-testable with plain objects.
  */
 
-/** The row shape returned by the atomic token claim (an UPDATE … WHERE
- * status = 'pending' … RETURNING id, organization_id). */
-export interface ClaimedTokenRow {
+/** The invitation row the consume path reads for a token (time-window model). */
+export interface DemoInvitationRow {
   id: string;
   organization_id: string;
+  /** Stored status: 'active' | 'revoked' (+ legacy 'pending' | 'consumed'). */
+  status: string;
+  /** ISO timestamp. */
+  expires_at: string;
+  /** The synthetic user this token already bound, reused across visits. */
+  consumed_by_user_id: string | null;
 }
 
-export type TokenClaim =
-  | { claimed: true; invitationId: string; organizationId: string }
-  | { claimed: false };
+export type DemoTokenDecision =
+  | { valid: false; reason: "not_found" | "malformed" | "revoked" | "expired" }
+  | {
+      valid: true;
+      invitationId: string;
+      organizationId: string;
+      /** The user the token already minted (reuse), or null on first visit. */
+      existingUserId: string | null;
+    };
 
 /**
- * Interpret the result of the ATOMIC claim UPDATE. The claim is a single
- * `update demo_invitations set status='consumed' … where token_hash=$1 and
- * status='pending' returning …` — at most one row can transition pending →
- * consumed, so a race or a replay sees zero rows and is rejected here. Exactly
- * one returned row means this caller won the claim; anything else (0 rows, or a
- * defensive >1) means do NOT proceed (no synthetic user is created).
+ * Decide whether a /demo/<token> visit may proceed under the TIME-WINDOW model
+ * (D-166). A link is valid REPEATEDLY while `now < expires_at` and it is not
+ * revoked — it is no longer consumed on first click. `existingUserId` carries
+ * the synthetic user the token already minted (if any) so a returning visitor
+ * maps back to the SAME demo user and returns to their own session, rather than
+ * getting a fresh user each visit. The route still re-checks `is_demo` before
+ * provisioning (buildDemoUserRow throws otherwise), so this decision never
+ * lets a sign-in land in the real org.
  */
-export function interpretTokenClaim(rows: ClaimedTokenRow[] | null): TokenClaim {
-  if (!rows || rows.length !== 1) return { claimed: false };
-  const row = rows[0];
-  if (!row.id || !row.organization_id) return { claimed: false };
-  return { claimed: true, invitationId: row.id, organizationId: row.organization_id };
+export function evaluateDemoToken(
+  row: DemoInvitationRow | null,
+  nowMs: number,
+): DemoTokenDecision {
+  if (!row) return { valid: false, reason: "not_found" };
+  if (!row.id || !row.organization_id) return { valid: false, reason: "malformed" };
+  if (row.status === "revoked") return { valid: false, reason: "revoked" };
+  if (new Date(row.expires_at).getTime() <= nowMs) {
+    return { valid: false, reason: "expired" };
+  }
+  return {
+    valid: true,
+    invitationId: row.id,
+    organizationId: row.organization_id,
+    existingUserId: row.consumed_by_user_id,
+  };
 }
 
 /** Minimal org shape the provisioning guard needs. */

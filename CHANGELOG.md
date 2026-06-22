@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A platform demo-access surface to mint, label, list, and revoke demo links, replacing script-only access. A demo link now works repeatedly for a set window, fourteen days by default and selectable at mint (7 / 14 / 30), rather than burning on the first click, and a returning visitor comes back as the same demo user to their own session. Each link carries a free-text label, so the list doubles as a record of who has access, showing each link's status (active / expired / revoked), minted and expiry dates, and whether it has been opened; revoke kills an active link immediately. A collapsible "How the demo works" panel documents, in plain language, what a demo user sees and can do and how to refresh the demo, kept accurate by the same done-definition rule that governs the features tour and the documentation. The surface is platform-owner gated (a non-owner gets a 404). (D-166)**
+
 ### Fixed
 
 - **Documentation guides now navigate back to the documentation hub rather than dropping the reader at the landing page: the label above each guide's title links up to the documentation, and the link at the bottom reads "Back to documentation". The Trust and Legal sub-pages gained the same linked label, so the whole marketing site speaks one navigation language. Also fixed a missing space in the documentation hub's closing line ("tell uswhat"); the rest of the marketing surface was swept for the same class of bug and was clean.**

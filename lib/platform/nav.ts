@@ -62,4 +62,15 @@ export const PLATFORM_NAV_GROUPS: ReadonlyArray<PlatformNavGroup> = [
       },
     ],
   },
+  {
+    caption: "Access",
+    items: [
+      {
+        label: "Demo access",
+        href: "/workspace/platform/demo-access",
+        description:
+          "Mint, label, and revoke time-limited demo links, and see who has access.",
+      },
+    ],
+  },
 ];

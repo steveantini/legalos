@@ -1,40 +1,82 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDemoUserRow, interpretTokenClaim } from "./access";
+import { buildDemoUserRow, evaluateDemoToken, type DemoInvitationRow } from "./access";
 
-describe("interpretTokenClaim (single-use / atomic claim)", () => {
-  it("claims when exactly one row transitioned pending → consumed", () => {
-    const result = interpretTokenClaim([
-      { id: "inv-1", organization_id: "demo-org" },
-    ]);
+const NOW = Date.parse("2026-06-22T12:00:00.000Z");
+const future = (ms: number) => new Date(NOW + ms).toISOString();
+const past = (ms: number) => new Date(NOW - ms).toISOString();
+
+function row(overrides: Partial<DemoInvitationRow> = {}): DemoInvitationRow {
+  return {
+    id: "inv-1",
+    organization_id: "demo-org",
+    status: "active",
+    expires_at: future(60_000),
+    consumed_by_user_id: null,
+    ...overrides,
+  };
+}
+
+describe("evaluateDemoToken (time-window validity, D-166)", () => {
+  it("is valid while not revoked and now < expires_at — repeatedly, not consumed", () => {
+    const result = evaluateDemoToken(row(), NOW);
     expect(result).toEqual({
-      claimed: true,
+      valid: true,
       invitationId: "inv-1",
       organizationId: "demo-org",
+      existingUserId: null,
     });
   });
 
-  it("does NOT claim on zero rows (already consumed / expired / a replay) — no second user is created", () => {
-    expect(interpretTokenClaim([])).toEqual({ claimed: false });
+  it("carries the bound user so a returning visitor maps back to the same user", () => {
+    const result = evaluateDemoToken(
+      row({ consumed_by_user_id: "user-7" }),
+      NOW,
+    );
+    expect(result).toEqual({
+      valid: true,
+      invitationId: "inv-1",
+      organizationId: "demo-org",
+      existingUserId: "user-7",
+    });
   });
 
-  it("does NOT claim on null (no match)", () => {
-    expect(interpretTokenClaim(null)).toEqual({ claimed: false });
+  it("rejects a revoked link", () => {
+    expect(evaluateDemoToken(row({ status: "revoked" }), NOW)).toEqual({
+      valid: false,
+      reason: "revoked",
+    });
   });
 
-  it("defensively does NOT claim if more than one row comes back", () => {
-    expect(
-      interpretTokenClaim([
-        { id: "a", organization_id: "o" },
-        { id: "b", organization_id: "o" },
-      ]),
-    ).toEqual({ claimed: false });
+  it("rejects an expired link (now >= expires_at)", () => {
+    expect(evaluateDemoToken(row({ expires_at: past(1) }), NOW)).toEqual({
+      valid: false,
+      reason: "expired",
+    });
+    // Exactly at expiry is expired (boundary is exclusive).
+    expect(evaluateDemoToken(row({ expires_at: new Date(NOW).toISOString() }), NOW)).toEqual({
+      valid: false,
+      reason: "expired",
+    });
   });
 
-  it("does NOT claim a malformed row missing the org", () => {
-    expect(
-      interpretTokenClaim([{ id: "inv-1", organization_id: "" }]),
-    ).toEqual({ claimed: false });
+  it("rejects a missing token", () => {
+    expect(evaluateDemoToken(null, NOW)).toEqual({
+      valid: false,
+      reason: "not_found",
+    });
+  });
+
+  it("rejects a malformed row missing the org", () => {
+    expect(evaluateDemoToken(row({ organization_id: "" }), NOW)).toEqual({
+      valid: false,
+      reason: "malformed",
+    });
+  });
+
+  it("still honors a legacy 'pending' link as a valid time-window link", () => {
+    const result = evaluateDemoToken(row({ status: "pending" }), NOW);
+    expect(result.valid).toBe(true);
   });
 });
 

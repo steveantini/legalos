@@ -297,7 +297,7 @@ When making any product change (new feature, renamed component, new page, archit
 
 This is not optional. Documentation updates are part of the definition of done for every change.
 
-### The features-tour currency rule (D-157, extended by D-158)
+### The features-tour currency rule (D-157, extended by D-158 and D-166)
 
 Any commit that changes USER-FACING BEHAVIOR — adds a feature, removes one, or changes how one works — must reconcile, in the same commit:
 
@@ -307,6 +307,8 @@ Any commit that changes USER-FACING BEHAVIOR — adds a feature, removes one, or
 4. **The relevant documentation page(s)** (`lib/marketing/documentation.tsx`, the /documentation guides, D-158): the guide that teaches the changed behavior updates with it. No separate docs claims map — the per-page verify-against-reality at write time plus this rule carries it.
 
 This is the nav-discoverability precedent (D-147) generalized: a capability is done when a prospect and an engineer can both find the truth about it. Internal-only changes (platform tooling, refactors, perf) are exempt; when unsure whether a change is user-facing, reconcile.
+
+**The demo status panel (D-166).** The same rule covers one internal surface: the "How the demo works" panel on the platform demo-access page (`components/platform/demo-how-it-works.tsx`). Any change to how the DEMO behaves — the model it runs, what the Demo Org seeds, the link mechanics, or the reset/seed refresh flow — reconciles that panel's text in the same commit. Its accuracy is enforced by this rule, not by memory.
 
 At the end of every phase or significant feature completion, sync generalized lessons back to the portable `claude-templates` library. Extract the universal principle, not the project-specific detail. If a new rule or convention is added to this project's CLAUDE.md, evaluate whether it belongs in the template CLAUDE.md as well.
 
