@@ -193,9 +193,9 @@ export default function FeaturesPage() {
 
       <MarketingSection id="control" title="Control on your terms">
         <p>
-          Underneath the simple surface, legalOS is built to bend to how your
-          team already works rather than make your team bend to it, and to keep
-          a person with the expertise in command of the work.
+          legalOS shapes itself to how your team already operates, not the
+          other way around. A person with the expertise stays in command of the
+          work.
         </p>
         <p>
           <LeadIn>Meets you where you are.</LeadIn>{" "}Instead of asking your
