@@ -3,7 +3,13 @@
  * Seed the starter workflow templates (Workflows arc Step 5).
  *
  * Usage:
- *   npm run seed-workflow-templates
+ *   npm run seed-workflow-templates                       (the real org: oldest)
+ *   npm run seed-workflow-templates -- --org-id=<org_id>  (a specific org)
+ *
+ * The optional --org-id targets one organization (e.g. the Demo Org) instead of
+ * the default oldest org. Template agents resolve by slug against that SAME org,
+ * so the gallery lands wired to the target org's agents. Omitting the flag keeps
+ * the original behavior exactly.
  *
  * Requirements:
  *   - Migration 0063_workflow_templates.sql applied (status 'template' +
@@ -31,6 +37,7 @@
  */
 
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
@@ -64,6 +71,25 @@ function createServiceClient(): ServiceClient {
   });
 }
 
+/**
+ * Parse the script's CLI args. The only flag is `--org-id=<id>`, which targets a
+ * specific organization; omitted, the script keeps its original behavior (seed
+ * the oldest org). Pure and exported so the parse is unit-tested without running
+ * the seed. An empty or whitespace-only `--org-id=` is treated as absent.
+ */
+export function parseSeedTemplateArgs(argv: string[]): {
+  orgId: string | undefined;
+} {
+  let orgId: string | undefined;
+  for (const arg of argv) {
+    if (arg.startsWith("--org-id=")) {
+      const value = arg.slice("--org-id=".length).trim();
+      orgId = value.length > 0 ? value : undefined;
+    }
+  }
+  return { orgId };
+}
+
 async function lookupOrgId(supabase: ServiceClient): Promise<string> {
   const { data, error } = await supabase
     .from("organizations")
@@ -73,6 +99,31 @@ async function lookupOrgId(supabase: ServiceClient): Promise<string> {
     .single();
   if (error || !data) {
     console.error("Error looking up organization:", error);
+    process.exit(1);
+  }
+  return (data as { id: string }).id;
+}
+
+/**
+ * Verify an explicitly-passed --org-id exists before seeding. An unknown org
+ * would resolve zero agents and silently skip every template, so fail loudly
+ * instead. (No is_demo gate: the flag intentionally seeds ANY org.)
+ */
+async function resolveExplicitOrgId(
+  supabase: ServiceClient,
+  orgId: string,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("id", orgId)
+    .maybeSingle();
+  if (error) {
+    console.error("Error looking up organization:", error);
+    process.exit(1);
+  }
+  if (!data) {
+    console.error(`Error: no organization found for --org-id=${orgId}.`);
     process.exit(1);
   }
   return (data as { id: string }).id;
@@ -175,7 +226,15 @@ async function seedTemplate(
 
 async function main(): Promise<void> {
   const supabase = createServiceClient();
-  const orgId = await lookupOrgId(supabase);
+  const { orgId: orgIdArg } = parseSeedTemplateArgs(process.argv.slice(2));
+  const orgId = orgIdArg
+    ? await resolveExplicitOrgId(supabase, orgIdArg)
+    : await lookupOrgId(supabase);
+  console.log(
+    orgIdArg
+      ? `Target org: ${orgId} (from --org-id).`
+      : `Target org: ${orgId} (default: oldest organization).`,
+  );
 
   const slugs = [
     ...new Set(
@@ -219,7 +278,12 @@ async function main(): Promise<void> {
   process.exit(counts.failed > 0 ? 1 : 0);
 }
 
-main().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+// Run only when invoked as a script (tsx), not when imported by a unit test —
+// the arg parser above is exported for testing, and importing this module must
+// not open a Supabase connection or seed anything.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("Seed failed:", err);
+    process.exit(1);
+  });
+}

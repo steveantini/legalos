@@ -4283,3 +4283,28 @@ The product must run on an available model today; keeping Fable 5 present, selec
 **Consequences:**
 
 - Four selectable models; Opus 4.8 is the default; a future prompt restores Fable 5 as the default if it reopens by repointing DEFAULT_MODEL_FALLBACK (and re-running the org/agent data updates).
+
+## D-165 — Workflow-template seeder gains `--org-id` (demo gallery + safety reconciliation)
+
+Date: 2026-06-22
+Status: Accepted (completes the follow-up deferred in D-132/D-133)
+
+**Context / Decision:**
+
+`scripts/seed-workflow-templates.ts` hardcoded its target to the oldest organization, so the starter workflow templates only ever landed in the real org; the Demo Org showed an empty Workflows page. Added an optional `--org-id=<id>` flag (parsed by a pure, exported, unit-tested `parseSeedTemplateArgs`, with an ESM main-guard so importing the module for the test never opens a Supabase connection or seeds). When the flag is passed the script verifies the org exists and seeds it; the template→agent resolution already resolved agents by slug against the passed org id, so the gallery lands wired to the target org's own agents. Omitting the flag is unchanged. Idempotency is unchanged: each row is select-then-insert/update keyed on `(organization_id, template_slug)`, so re-runs update in place rather than duplicating. This is the `--org-id` follow-up named in D-132/D-133 and the demo-access ROADMAP item.
+
+The change is paired with operator run steps (not code) that bring the Demo Org to full strength, in the order the reset/seed interaction requires.
+
+**Run order (investigated, not assumed):** the soft reset's deletion plan (`buildResetDeletes`, `lib/demo/reset-plan.ts`) deletes ALL `workflow_definitions` for the demo org (templates included), and the reset re-seeds only departments + agents (`seed_demo_org_structure`, migration 0065), never templates. So templates must be seeded AFTER a reset, never before — reset-then-seed. The same reset is the clean fix for the stale-model concern: `seed_demo_org_structure` mirrors agents with `on conflict (organization_id, slug) do update set ... model = excluded.model`, so existing seeded demo agents are repointed to the real org's CURRENT model (Opus 4.8), and `restoreBaselineSettings` nulls the org `default_model` so new agents fall back to the canonical Opus 4.8 default.
+
+**Safety reconciliation (connection_policy):** D-133 flagged, and `reset-demo-org.ts`'s header still says, that `connection_policy` is a global singleton a demo super_admin could use to affect the real org. Migration 0066 (D-136) already resolved this: `connection_policy` is one row per org (PK `organization_id`) with write RLS `current_user_role() = 'super_admin' AND organization_id = current_org_id()`, and `connections` carries the same org fence plus an insert trigger filling `organization_id` from `current_org_id()`. A demo super_admin's policy/connection writes are therefore contained to the demo org and cannot mutate the real org — the gate for handing super_admin to an external prospect. (Follow-up, out of this change's scope: the reset script's header comment and its choice not to reset `connection_policy` are now stale and could be updated/extended, since the column exists.)
+
+**Reasoning:**
+
+A prospect should see Workflows at full strength, not an empty page. The flag is the smallest change that reuses the existing slug-resolution seam; making the parser a pure exported function keeps the one branch that decides which org gets seeded under test without a live run.
+
+**Consequences:**
+
+- The Demo Org can carry the starter template gallery via one tested command; the real-org default path is untouched and backward-compatible.
+- Operator brings the demo to full strength with: soft-reset the demo org (refreshes agents to Opus 4.8), THEN `seed-workflow-templates --org-id=<demo_org_id>` (lands the gallery), then verify.
+- The connection-policy containment a demo relies on is confirmed already enforced by D-136; the reset script's stale singleton comment is noted for a future cleanup.
