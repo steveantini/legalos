@@ -697,8 +697,10 @@ export const DOC_PAGES: DocPage[] = [
             with its time, title, and attendees, and a label like Google Meet
             when the event has a video link. The day is bounded in your
             calendar&rsquo;s own timezone, so an evening connection still shows
-            today rather than tomorrow. legalOS reads with a read-only scope, so
-            it can show your schedule but can never change it.
+            today rather than tomorrow. It reads your primary calendar;
+            secondary calendars you own or subscribe to are not included yet.
+            legalOS reads with a read-only scope, so it can show your schedule
+            but can never change it.
           </p>
         </MarketingSection>
         <MarketingSection title="How to">

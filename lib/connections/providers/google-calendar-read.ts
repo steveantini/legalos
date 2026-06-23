@@ -50,6 +50,14 @@ async function calendarGet(url: string, accessToken: string): Promise<Response> 
   try {
     response = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      // A calendar's whole value is being CURRENT: it changes intraday, so an
+      // event added to today's schedule must surface on the very next home
+      // load, not after a cache window expires. Both reads here (the primary
+      // calendar's timezone and today's events) go through this helper, so the
+      // explicit no-store keeps Next from ever serving a stale Data Cache entry
+      // for either. We don't lean on Next's implicit default staying no-store:
+      // freshness this load-sensitive is stated by contract, not inherited.
+      cache: "no-store",
     });
   } catch {
     throw new CalendarReadError("unreachable");
