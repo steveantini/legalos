@@ -1,5 +1,11 @@
 import "server-only";
 
+import {
+  appleLookupUrl,
+  extractApplePodcastId,
+  isApplePodcastsUrl,
+  parseAppleLookupFeedUrl,
+} from "@/lib/workspace/home/apple-podcasts";
 import { safeFetch, UnsafeFeedUrlError } from "@/lib/workspace/home/feed-fetch";
 import {
   discoverFeedLinks,
@@ -146,6 +152,50 @@ export type FeedResolution =
 const NO_FEED_FOUND =
   "Couldn't find a feed at that link. Try the publication's feed URL (often the site address followed by /feed).";
 
+/** Apple Podcasts honest errors, kept distinct so the user knows what to do next. */
+const APPLE_NO_ID =
+  "Couldn't read the show ID from that Apple Podcasts link. Open the show in Apple Podcasts and copy its link again.";
+const APPLE_NO_FEED =
+  "Couldn't find a feed for that Apple Podcasts show. Some shows don't publish one; try the show's RSS feed directly.";
+const APPLE_LOAD_FAILED =
+  "Couldn't load that Apple Podcasts show right now. Try again, or add its RSS feed directly.";
+
+/**
+ * Resolve an Apple Podcasts show URL to its underlying RSS feed via Apple's
+ * public lookup API. Apple directory pages don't advertise the feed for
+ * autodiscovery, so this runs BEFORE the generic flow. Both the lookup call and
+ * the resulting feed fetch go through the same SSRF-guarded `safeFetch` (Apple's
+ * host is public and allowed by the guard; routing it through keeps one fetch
+ * path). The RESOLVED feed URL is returned for storage, so refreshes hit the
+ * show's feed, not Apple.
+ */
+async function resolveApplePodcast(inputUrl: string): Promise<FeedResolution> {
+  const id = extractApplePodcastId(inputUrl);
+  if (!id) return { ok: false, error: APPLE_NO_ID };
+
+  let lookup: { body: string; finalUrl: string };
+  try {
+    lookup = await safeFetch(appleLookupUrl(id));
+  } catch {
+    return { ok: false, error: APPLE_LOAD_FAILED };
+  }
+
+  const feedUrl = parseAppleLookupFeedUrl(lookup.body);
+  if (!feedUrl) return { ok: false, error: APPLE_NO_FEED };
+
+  // From here it is the normal flow: fetch and parse the real feed.
+  try {
+    const feed = await safeFetch(feedUrl);
+    const parsed = parseFeed(feed.body);
+    if (parsed) {
+      return { ok: true, feedUrl: feed.finalUrl, update: buildUpdate(parsed) };
+    }
+  } catch {
+    // fall through to the calm load-failed message
+  }
+  return { ok: false, error: APPLE_LOAD_FAILED };
+}
+
 /**
  * Resolve a feed from ANY URL a user pastes, so they need not know the exact RSS
  * endpoint. The flow, all fetches through the SAME SSRF-guarded `safeFetch` (no
@@ -167,6 +217,12 @@ const NO_FEED_FOUND =
 export async function resolveFeedFromUrl(
   inputUrl: string,
 ): Promise<FeedResolution> {
+  // Apple Podcasts pages don't autodiscover their feed, so resolve them via
+  // Apple's lookup API before the generic page flow. Non-Apple URLs skip this.
+  if (isApplePodcastsUrl(inputUrl)) {
+    return resolveApplePodcast(inputUrl);
+  }
+
   let page: { body: string; finalUrl: string };
   try {
     page = await safeFetch(inputUrl);
