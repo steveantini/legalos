@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { HelpLink } from "@/components/workspace/help-link";
 import {
   addDeskFeed,
   refreshDeskFeeds,
@@ -114,18 +115,21 @@ export function DeskFeedsView({
         >
           Desk
         </h2>
-        {feeds.length > 0 ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setAddOpen(true)}
-            disabled={atCap}
-            aria-label="Add a feed"
-          >
-            <Plus />
-            Add feed
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-3">
+          <HelpLink topic="desk" />
+          {feeds.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAddOpen(true)}
+              disabled={atCap}
+              aria-label="Add a feed"
+            >
+              <Plus />
+              Add feed
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {feeds.length === 0 ? (

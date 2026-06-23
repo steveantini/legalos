@@ -73,6 +73,15 @@ export default function FeaturesPage() {
           from your documents, and any response can be downloaded as a
           document. Deleted work is recoverable for thirty days.
         </p>
+        <p>
+          <LeadIn>A Desk for the reading you follow.</LeadIn>{" "}Add the
+          Substacks, podcasts, and news sources you keep up with by pasting a
+          link: a feed, an ordinary page (legalOS finds the feed for you), or an
+          Apple Podcasts show (resolved to the show’s feed). Each source becomes
+          a card with its latest post, linking out to read it. The feeds are
+          personal to you and managed by you. Curated reading chosen for your
+          role may join your own feeds here in time.
+        </p>
       </MarketingSection>
 
       <MarketingSection id="agents" title="Agents and departments">

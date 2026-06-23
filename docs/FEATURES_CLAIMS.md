@@ -26,6 +26,9 @@ Last full truth pass: 2026-06-12 (D-157).
 | References attached; agent works from your documents | Agent/message attachments (0007-era; D-067 live Drive reads) |
 | Any response downloads as a document | Per-message Word export (D-054; `formatted_outputs`) |
 | Deleted work recoverable for thirty days | Soft delete + 30-day undo (trash surface) |
+| A Desk of personal content feeds: add a Substack, podcast, or news source by URL, see its latest post as a card linking out | D-173 (`desk_feeds`, 384f467; cards + server-side cached, safe-fetch guarded) |
+| Any link resolves: a feed, an ordinary page (feed auto-discovered), or an Apple Podcasts show (resolved to its feed) | D-173 (autodiscovery 659a479; Apple Podcasts lookup 93b4ea4) |
+| Feeds are personal and user-managed (add/remove, up to 12); admin-curated role-scoped Desk content is the named future layer, not shipped | D-173 (owner-scoped RLS; sibling-table architecture for the future layer) |
 
 ## Agents and departments (`#agents`)
 
