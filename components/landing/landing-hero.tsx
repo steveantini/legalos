@@ -22,7 +22,12 @@ import { LandingGlyph } from "./landing-glyph";
  * `landing-line-unmask` keyframe at 3060ms releases the clip so
  * descenders aren't permanently clipped after the choreography ends.
  */
-export function LandingHero() {
+export function LandingHero({ isSignedIn }: { isSignedIn: boolean }) {
+  // State-aware primary CTA (D-171): "Enter workspace" for a signed-in visitor,
+  // "Sign in" for a signed-out one. Replaces the former top-right sign-in link.
+  const ctaHref = isSignedIn ? "/workspace" : "/login";
+  const ctaLabel = isSignedIn ? "Enter workspace" : "Sign in";
+
   return (
     <section className="relative flex flex-col items-start px-6 pb-20 pt-[80px] min-[720px]:px-10 min-[720px]:pb-[120px] min-[720px]:pt-[120px]">
       <div className="flex max-w-[1140px] flex-col gap-[14px]">
@@ -77,10 +82,10 @@ export function LandingHero() {
           style={{ animationDelay: "3300ms" }}
         >
           <Link
-            href="/workspace"
+            href={ctaHref}
             className="group inline-flex items-center gap-[10px] rounded-[12px] bg-foreground py-4 pl-[26px] pr-[22px] text-[15px] font-medium text-background shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_0_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.12)] transition-[transform,background-color,box-shadow] duration-200 ease-out hover:-translate-y-px hover:bg-ink-2 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_2px_0_rgba(0,0,0,0.16),0_14px_36px_rgba(0,0,0,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            Enter workspace
+            {ctaLabel}
             <svg
               aria-hidden
               width={16}

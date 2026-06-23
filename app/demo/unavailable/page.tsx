@@ -26,8 +26,9 @@ export default function DemoUnavailablePage() {
       </h1>
 
       <p className="mt-8 max-w-prose text-base leading-relaxed text-muted-foreground">
-        Demo links are single use and time limited. Ask whoever shared it with
-        you for a fresh link, and you can pick up right where they intended.
+        A demo link works until it expires or is revoked. This one may have
+        expired or been revoked, so ask whoever shared it with you for a fresh
+        one.
       </p>
 
       <Link

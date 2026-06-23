@@ -1,14 +1,14 @@
-import Link from "next/link";
-
 import { LocalDate } from "@/components/workspace/local-date";
 
 /**
  * Marketing landing top bar (Session 22 Step B).
  *
  * Server component. Brand mark on the left (animated dot scale-in at
- * 1180ms via `landing-dot-in`); a mono-caps date plus a "Sign in" link
- * on the right, both sharing the caption-color register from the
- * Aperture top-bar vocabulary.
+ * 1180ms via `landing-dot-in`); a mono-caps date on the right, sharing the
+ * caption-color register from the Aperture top-bar vocabulary. The former
+ * standalone "Sign in" link was removed (D-171): the hero's primary CTA is
+ * now state-aware ("Sign in" when signed out, "Enter workspace" when signed
+ * in), so a second sign-in affordance here would be a duplicate.
  *
  * The date is the `<LocalDate>` client island ("Weekday · Month Day",
  * from the visitor's browser clock): a request-time server render is UTC
@@ -27,12 +27,6 @@ export function LandingTopbar() {
 
       <div className="flex items-center gap-5 font-mono text-[11px] uppercase tracking-[0.16em] text-caption">
         <LocalDate variant="long" />
-        <Link
-          href="/login"
-          className="transition-colors duration-[180ms] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          Sign in
-        </Link>
       </div>
     </header>
   );
