@@ -45,6 +45,26 @@ export default function AboutPage() {
         </p>
       </MarketingSection>
 
+      <MarketingSection title="Where the advantage is moving">
+        <p>
+          Most legal teams today reach for third-party AI vendors, and for the
+          convenience they offer right now, that is a reasonable choice. We
+          think it is a temporary one. As these systems grow more capable, the
+          advantage moves to the organizations that adopt AI more natively,
+          building it into how their own work actually gets done rather than
+          renting it at arm&rsquo;s length. Teams that make AI part of how they
+          operate will, we believe, deliver measurably better work, and the
+          teams that wait risk being left behind by the ones that did not. The
+          early signs are already here: legal organizations standing up their
+          own tooling, hiring for legal-technology talent, and placing new value
+          on the people who live at the intersection of law and technology.
+          legalOS exists to put that capability within reach of a legal team
+          without asking it to become a software company. Spend less time on the
+          daily toil of repetitive work, and more on what matters most: your
+          judgment.
+        </p>
+      </MarketingSection>
+
       <MarketingSection title="What we believe">
         <p>
           We believe legal teams should not have to choose between using

@@ -4378,3 +4378,28 @@ This is the product's sharpest story and the hero deliberately doesn't carry it;
 
 - The features tour now closes on the differentiator; the claims map and the page reconcile per the D-157 rule.
 - If on-prem model deployment or multi-vendor models ever ship, this section and its claims-map row update in the same commit (the standing currency rule).
+
+## D-169 — Market thesis on About; README capability sync
+
+Date: 2026-06-22
+Status: Accepted
+
+**Context / Decision:**
+
+The About page carried identity, audience, and values but no point of view on the market's direction, while the Mission page already carried the forward-looking TECHNOLOGY thesis (model-agnostic future, sovereign legal AI, open-weight local models). Added a new About section, "Where the advantage is moving" (between "Who it is for" and "What we believe": audience → market context → conviction), stating a MARKET-STRUCTURE belief deliberately at a different altitude from Mission so the two complement rather than repeat:
+
+- **About (new):** a competitive/market belief. Using third-party AI vendors is reasonable for now, but as the systems grow more capable the advantage moves to organizations that adopt AI natively into their own work; teams that do will deliver measurably better work and teams that wait risk being left behind; the value concentrates at the intersection of law and technology. Framed as POV, not guarantee ("we think", "we believe", "risk being left behind", never stated-as-fact). Closes on the practitioner payoff line ("Spend less time on the daily toil of repetitive work, and more on what matters most: your judgment").
+- **Mission (unchanged):** where the technology itself is going (model-agnostic, control-first, private; sovereign legal AI).
+
+How the two are kept distinct: About argues about COMPETITIVE DYNAMICS and who wins (build vs rent, talent, being left behind); Mission argues about the TECHNOLOGY TRAJECTORY and model sovereignty (lock-in, frontier cost, local open-weight models, data boundary). The About section deliberately avoids Mission's vocabulary (model-agnostic, lock-in, sovereign, privacy) to prevent collision. The existing "What we believe" → Mission link (immediately after the new section) carries the handoff, so no second Mission link was added (it would crowd two links back to back).
+
+**Currency step (README capability sync):** the README had no coherent capability paragraph for model-agnostic operation / BYO key / the autonomy-with-approval dial / self-hosted MCP, a gap flagged at 9cfc404 when those capabilities (D-085–D-088, D-117, D-089) had shipped without README coverage. Added a concise paragraph under "Current state" describing them as they actually ship, verified against code: model-agnostic with managed-or-BYO key under the org's own agreement/data boundary (`lib/llm/model-credential.ts`, D-087; today's models are Anthropic, multi-vendor adapters still scaffolding per the tech-stack row); supervised-to-autonomous workflows where any action changing something outside legalOS pauses for approval in EVERY mode (`lib/workflows/engine.ts`); connections to first-party or self-hosted servers only, credentials never in the browser; and an explicit "no on-premises install of legalOS itself" so the flexibility claim is not mistaken for an on-prem deployment. This satisfies the D-158 currency rule for those capabilities.
+
+**Reasoning:**
+
+About had no market POV while Mission held the technology future; splitting market-stakes (About) from technology-future (Mission) gives each page a distinct job and avoids redundancy. The README sync closes a real, pre-existing documentation gap honestly rather than letting it persist.
+
+**Consequences:**
+
+- About and Mission now read as complementary (market belief vs technology vision), not repetitive.
+- The README capability description is current with shipped reality; future changes to model/autonomy/connection capability reconcile it on the standing rule.
