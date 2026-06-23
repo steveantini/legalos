@@ -285,32 +285,22 @@ export default async function MyWorkflowsPage() {
           })}
         </ul>
       ) : templates.length > 0 ? (
-        // First run: no workflows yet, so the templates ARE the content — an
-        // inviting gallery rather than an empty list.
-        <section className="flex flex-col gap-4" aria-label="Start from a template">
-          <div className="rounded-[14px] border border-dashed border-border bg-card/50 px-5 py-4">
-            <h2 className="text-[14px] font-medium text-foreground">
-              {canAuthor
-                ? "You don’t have any workflows yet. Start from one of these."
-                : "Your organization doesn’t have any workflows yet."}
-            </h2>
-            <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
-              {canAuthor
-                ? "Using a template copies it into a draft you fully own, ready to adapt, activate, and run. Or compose your own with New workflow."
-                : "These ready-made templates are waiting for an admin to start from."}
-            </p>
-          </div>
-          <ul className="flex flex-col gap-3">
-            {templates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                readbackCaps={readbackCaps}
-                canAuthor={canAuthor}
-              />
-            ))}
-          </ul>
-        </section>
+        // No workflows yet, but templates exist: lead with the empty-state
+        // context. The templates themselves render in the always-present
+        // "Start from a template" section below, so the header travels with
+        // its cards whether or not the user has built anything.
+        <div className="rounded-[14px] border border-dashed border-border bg-card/50 px-5 py-4">
+          <h2 className="text-[14px] font-medium text-foreground">
+            {canAuthor
+              ? "You don’t have any workflows yet."
+              : "Your organization doesn’t have any workflows yet."}
+          </h2>
+          <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
+            {canAuthor
+              ? "Start from a template below to copy it into a draft you fully own, ready to adapt, activate, and run. Or compose your own with New workflow."
+              : "The ready-made templates below are waiting for an admin to start from."}
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col items-center gap-4 rounded-[14px] border border-dashed border-border bg-card/50 px-6 py-14 text-center">
           <p className="text-[15px] font-medium text-foreground">
@@ -332,9 +322,12 @@ export default async function MyWorkflowsPage() {
         </div>
       )}
 
-      {/* With workflows present, the templates recede into a collapsible
-          section below the working list — available, never in the way. */}
-      {hasWorkflows && templates.length > 0 ? (
+      {/* The templates live in one always-present collapsible section, so the
+          "Start from a template" header (chevron, label, count) travels with
+          its cards regardless of personal-workflow count: with workflows it
+          recedes below the working list, with none it leads as the way to
+          begin. Either way the header and its cards are one unit. */}
+      {templates.length > 0 ? (
         <CollapsibleSection
           title="Start from a template"
           sectionKey="templates"
