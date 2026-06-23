@@ -12,6 +12,10 @@ import {
   parseFeed,
   type ParsedFeed,
 } from "@/lib/workspace/home/feed-parser";
+import {
+  classifySubstackUrl,
+  substackHandleUrl,
+} from "@/lib/workspace/home/substack";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import type { DeskCard } from "@/lib/workspace/home/desk-feeds-shared";
@@ -152,6 +156,12 @@ export type FeedResolution =
 const NO_FEED_FOUND =
   "Couldn't find a feed at that link. Try the publication's feed URL (often the site address followed by /feed).";
 
+/** Substack-specific hints for the central-domain shapes that have no clean feed. */
+const SUBSTACK_PROFILE_HINT =
+  "That looks like a Substack profile link. Open the publication and paste its web address (often name.substack.com).";
+const SUBSTACK_READER_HINT =
+  "That looks like a Substack reader link. Open the post and paste the publication's own web address (often name.substack.com).";
+
 /** Apple Podcasts honest errors, kept distinct so the user knows what to do next. */
 const APPLE_NO_ID =
   "Couldn't read the show ID from that Apple Podcasts link. Open the show in Apple Podcasts and copy its link again.";
@@ -223,9 +233,25 @@ export async function resolveFeedFromUrl(
     return resolveApplePodcast(inputUrl);
   }
 
+  // Forgive the common Substack URL shapes before the generic flow.
+  const substack = classifySubstackUrl(inputUrl);
+  if (substack.kind === "reader-post") {
+    return { ok: false, error: SUBSTACK_READER_HINT };
+  }
+  if (substack.kind === "profile") {
+    // The handle is not guaranteed to be the publication subdomain, so try it
+    // and use it ONLY if it resolves to a real feed; never guess-and-add.
+    const resolved = await tryResolveFromPage(substackHandleUrl(substack.handle));
+    return resolved ?? { ok: false, error: SUBSTACK_PROFILE_HINT };
+  }
+  // A stray www. on a publication subdomain is safely corrected; everything
+  // else flows through unchanged.
+  const effectiveUrl =
+    substack.kind === "www-subdomain" ? substack.fixed : inputUrl;
+
   let page: { body: string; finalUrl: string };
   try {
-    page = await safeFetch(inputUrl);
+    page = await safeFetch(effectiveUrl);
   } catch (err) {
     if (err instanceof UnsafeFeedUrlError) {
       return { ok: false, error: "That address can't be reached." };
@@ -236,13 +262,23 @@ export async function resolveFeedFromUrl(
     };
   }
 
-  // 1) Already a feed?
+  return (await feedFromPage(page)) ?? { ok: false, error: NO_FEED_FOUND };
+}
+
+/**
+ * Given an already-fetched page, return its feed: the body itself if it parses
+ * as RSS/Atom, else the first autodiscovered feed that fetches and parses.
+ * Returns null when nothing resolves. Shared by the main flow and the Substack
+ * profile attempt so both behave identically.
+ */
+async function feedFromPage(page: {
+  body: string;
+  finalUrl: string;
+}): Promise<FeedResolution | null> {
   const direct = parseFeed(page.body);
   if (direct) {
     return { ok: true, feedUrl: page.finalUrl, update: buildUpdate(direct) };
   }
-
-  // 2) An HTML page — try each advertised feed until one resolves.
   for (const candidate of discoverFeedLinks(page.body, page.finalUrl)) {
     try {
       const feed = await safeFetch(candidate);
@@ -255,8 +291,23 @@ export async function resolveFeedFromUrl(
     }
   }
 
-  // 3) Nothing discoverable.
-  return { ok: false, error: NO_FEED_FOUND };
+  return null;
+}
+
+/**
+ * Fetch a URL and resolve a feed from it, returning null on ANY failure (a
+ * blocked/unreachable host, a network error, or no discoverable feed). Used for
+ * the Substack profile attempt, where a miss must fall through to the hint
+ * rather than surface a fetch error.
+ */
+async function tryResolveFromPage(url: string): Promise<FeedResolution | null> {
+  let page: { body: string; finalUrl: string };
+  try {
+    page = await safeFetch(url);
+  } catch {
+    return null;
+  }
+  return feedFromPage(page);
 }
 
 function errorUpdate(): FeedCacheUpdate {

@@ -94,4 +94,19 @@ describe("normalizeFeedUrl", () => {
   it("rejects a non-URL string", () => {
     expect(() => normalizeFeedUrl("not a url")).toThrow(UnsafeFeedUrlError);
   });
+
+  it("defaults a missing scheme to https (the common paste)", () => {
+    expect(normalizeFeedUrl("www.example.com/feed")).toBe("https://www.example.com/feed");
+    expect(normalizeFeedUrl("example.com/rss")).toBe("https://example.com/rss");
+    // A bare host:port is schemeless too, not mistaken for a scheme.
+    expect(normalizeFeedUrl("example.com:8080/feed")).toBe(
+      "https://example.com:8080/feed",
+    );
+  });
+
+  it("keeps an explicit http scheme and still rejects other schemes", () => {
+    expect(normalizeFeedUrl("http://example.com/feed")).toBe("http://example.com/feed");
+    expect(() => normalizeFeedUrl("file:///etc/passwd")).toThrow(UnsafeFeedUrlError);
+    expect(() => normalizeFeedUrl("javascript:alert(1)")).toThrow(UnsafeFeedUrlError);
+  });
 });

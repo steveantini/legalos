@@ -49,9 +49,20 @@ export class UnsafeFeedUrlError extends Error {
  * cheap synchronous gate the add action runs first.
  */
 export function normalizeFeedUrl(input: string): string {
+  const trimmed = input.trim();
+  // Forgive a missing scheme (the most common paste): default to https. A
+  // string that already carries http(s):// is kept; one carrying some OTHER
+  // scheme (javascript:, file:, ftp:) is kept so the protocol check below
+  // rejects it. The scheme test excludes a dot, so a bare `host.tld:port`
+  // (no scheme) is treated as schemeless and gets https, not mistaken for one.
+  const candidate = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : /^[a-z][a-z0-9+-]*:/i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
   let url: URL;
   try {
-    url = new URL(input.trim());
+    url = new URL(candidate);
   } catch {
     throw new UnsafeFeedUrlError("That doesn't look like a valid URL.");
   }

@@ -283,6 +283,11 @@ export const DOC_PAGES: DocPage[] = [
                 are personal to you.
               </li>
             </ol>
+            <p className="mt-2 text-[13.5px] text-muted-foreground">
+              For a Substack, paste the publication&rsquo;s own address (often
+              name.substack.com), not a profile (substack.com/@handle) or a
+              reader link; legalOS will point you back here if you do.
+            </p>
           </div>
         </MarketingSection>
       </>
