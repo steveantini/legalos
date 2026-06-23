@@ -1,6 +1,3 @@
-import Link from "next/link";
-
-import { Button } from "@/components/ui/button";
 import {
   getTodaysEvents,
   isCalendarConnected,
@@ -16,14 +13,16 @@ type CalendarConnectCardProps = {
  * The workspace home "Today" card, mounted in the top two-column row beside
  * the Impact band. Its interior branches on the calendar connection gate:
  *
- * - Not connected (always, for now): the honest "Connect your calendar"
- *   placeholder — it says exactly that and routes the Connect button to
- *   /workspace/settings/connections, where the eventual OAuth flow lives.
+ * - Not connected (always, for now): an honest "available soon" state. No
+ *   calendar provider has a connection adapter yet (the registry holds only
+ *   Google Drive), so there is nothing to connect to; the card previews the
+ *   value as coming rather than dangling a Connect button that leads nowhere.
  * - Connected (never yet, but built): today's schedule via `TodaySchedule`.
  *
  * `isCalendarConnected` returns false until calendar OAuth ships (Share and
- * connector hub arc, roadmap item 2), so the placeholder is the only state any
- * user sees today; the schedule view is built and dormant behind the gate.
+ * connector hub arc, roadmap item 2), so the available-soon state is the only
+ * one any user sees today; the schedule view is built and dormant behind the
+ * gate.
  *
  * Async server component — it awaits the connection check (and, when
  * connected, the day's events). No Suspense boundary: the check resolves
@@ -34,9 +33,9 @@ type CalendarConnectCardProps = {
  * --radius-xl scale), a border-border + bg-card frame, a mono caption eyebrow,
  * a 17px medium card title, and a muted-foreground body. The 18px medium
  * section heading ("Today") sits above the card frame, sharing the unified
- * home-section heading idiom; the Connect CTA uses the Button primitive's
- * `render` prop to render as a Link — Base UI's polymorphism convention and
- * this project's asChild equivalent.
+ * home-section heading idiom. The available-soon state carries no CTA: there is
+ * nothing to connect to yet, so the card previews the value rather than offering
+ * a button.
  *
  * The card fills its grid column (h-full / flex-1) to stay equal-height with
  * the Impact band; the frame and the "Today" heading are identical across both
@@ -68,22 +67,16 @@ export async function CalendarConnectCard({
         ) : (
           <>
             <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
-              Calendar · not yet connected
+              Calendar · available soon
             </p>
             <p className="mb-1.5 text-[17px] font-medium text-foreground">
-              Connect your calendar
+              Your day, on your home
             </p>
             <p className="max-w-[56ch] text-[13px] leading-[1.45] text-muted-foreground">
-              Two clicks to wire up Google or Outlook. legalOS reads your
-              free/busy and today’s schedule. We never write to your calendar.
+              Soon you’ll connect Google or Outlook, and today’s schedule will
+              show up here. legalOS reads your day and your free/busy, and never
+              writes to your calendar.
             </p>
-            <Button
-              aria-label="Connect your calendar"
-              render={<Link href="/workspace/settings/connections" />}
-              className="mt-4 self-start"
-            >
-              Connect →
-            </Button>
           </>
         )}
       </div>
