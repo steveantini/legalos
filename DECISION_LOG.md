@@ -4428,3 +4428,28 @@ Chosen over multi-session cookie partitioning, which would fight the single-cook
 - Anyone inside a demo sees they are in one and can leave in a click; the earlier "stuck in demo" state is self-explanatory and recoverable.
 - `signOut(redirectTo?)` is backward-compatible (defaults to /login; the profile-menu caller is unchanged).
 - No migration, no RLS change, no token-model change.
+
+## D-172 — Canvas lightened a shade toward white (token layer)
+
+Date: 2026-06-23
+Status: Accepted
+
+**Context / Decision:**
+
+Shifted the entire product and marketing surface a shade brighter toward white, done at the design-token layer (`app/globals.css` light `:root`) so it cascades coherently rather than being patched per page. Every SURFACE (`--background`, `--card`, `--popover`, `--secondary`, `--muted`/`--paper-2`, `--accent`, `--sidebar`, `--sidebar-accent`) and every BORDER/divider/hairline (`--border`, `--input`, `--card-divider`, `--hairline`, `--hairline-strong`, `--sidebar-border`, `--border-strong`), plus the two `paper`-alias light-on-dark foregrounds (`--primary-foreground`, `--sidebar-primary-foreground`), was raised uniformly by **+0.005 OKLCH lightness**. Hue and chroma are unchanged on every token, so the warm off-white stays warm (no cool/neutral drift). The dark theme is untouched (this is the warm light canvas only).
+
+**How the relationships were preserved:**
+
+- **Layer hierarchy:** the SAME additive lift on every surface keeps the absolute stepping between layers constant (e.g. background→card stays Δ0.0129), so the layers stay as distinguishable as before rather than collapsing toward a uniform near-white.
+- **Borders/hairlines:** lifted by the same +0.005 as the surfaces, so every border-to-surface contrast is held exactly — borders neither disappear nor become more prominent.
+- **Text contrast:** the ink scale (`--foreground`, `--ink-2`, `--muted-foreground`, `--caption`) and the accent (`--primary`, `--accent-hover`, ring, error reds) were NOT lifted, so text sits on lighter grounds and its contrast only improves. WCAG re-check: body ink ~16:1, ink-2 ~13:1 (pass); muted `--muted-foreground` ~5.6:1 → ~5.7:1 on the new paper (AA pass). `--caption` (decorative mono-caps) was ~3.6:1 before and is ~3.65:1 after — a pre-existing sub-AA-normal value that this change improves, not worsens; left unchanged.
+
+**Reasoning:**
+
+A single uniform additive lift at the token layer is the only way to brighten everything coherently while preserving every relative relationship (layers, borders, text). Lifting surfaces but not borders would have made the hairlines relatively more prominent; lifting unevenly would have compressed the layer stepping. The amount is one dial-able value (documented in the palette comment) so the operator can tune it up or down after seeing it live.
+
+**Consequences:**
+
+- Product and marketing share the token system, so both lighten together from this one change; no per-page color edits.
+- The hex comments in `globals.css` remain the PRE-LIFT originals (the file already documents OKLCH as canonical); only the OKLCH values moved.
+- Reversible: subtract 0.005 from the lifted L values (or set a different amount) to dial.
