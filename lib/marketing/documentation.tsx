@@ -95,7 +95,7 @@ export const DOC_PAGES: DocPage[] = [
     slug: "workspace",
     group: "users",
     title: "The workspace and launchpad",
-    summary: "Agent groups and their trust tiers, conversations, attachments, exports, undo, and your Desk of personal content feeds.",
+    summary: "Agent groups and their trust tiers, conversations, attachments, exports, and undo.",
     audience: "For everyone",
     lead: "Each department opens to a launchpad: its agents, organized into three clearly marked groups so you always know what you’re working with.",
     body: (
@@ -133,18 +133,6 @@ export const DOC_PAGES: DocPage[] = [
             Deleting an agent is reversible: it moves to Trash, where it can
             be restored for 30 days before it is gone for good. You&rsquo;ll
             find Trash from the agents area whenever something is in it.
-          </p>
-        </MarketingSection>
-        <MarketingSection title="Your Desk">
-          <p>
-            The Desk at the bottom of your home holds the reading you follow.
-            Add a Substack, a podcast, or a news source by pasting its link: a
-            direct feed, an ordinary page (legalOS finds the feed for you), or
-            an Apple Podcasts show (resolved to the show&rsquo;s feed). Each
-            source becomes a card showing its latest post, its title and image,
-            linking out to read it. The feeds are personal to you, kept up to
-            date for you, and you can keep up to twelve. Curated reading chosen
-            for your role may appear alongside your own feeds here in time.
           </p>
         </MarketingSection>
         <MarketingSection title="How to">
@@ -264,30 +252,6 @@ export const DOC_PAGES: DocPage[] = [
                 footnotes.
               </li>
             </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Add a feed to your Desk</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>On your home, find the Desk at the bottom.</li>
-              <li>
-                Select Add feed, or Add your first feed if your Desk is empty.
-              </li>
-              <li>
-                Paste a link and select Add feed. It can be a feed address, a
-                publication&rsquo;s page, or an Apple Podcasts show link;
-                legalOS resolves the feed either way.
-              </li>
-              <li>
-                The source appears as a card with its latest post. To remove
-                one, hover its card and select the remove control. Your feeds
-                are personal to you.
-              </li>
-            </ol>
-            <p className="mt-2 text-[13.5px] text-muted-foreground">
-              For a Substack, paste the publication&rsquo;s own address (often
-              name.substack.com), not a profile (substack.com/@handle) or a
-              reader link; legalOS will point you back here if you do.
-            </p>
           </div>
         </MarketingSection>
       </>
@@ -663,6 +627,55 @@ export const DOC_PAGES: DocPage[] = [
                 the card.
               </li>
             </ol>
+          </div>
+        </MarketingSection>
+      </>
+    ),
+  },
+  {
+    slug: "desk",
+    group: "users",
+    title: "Your Desk",
+    summary: "Add personal content feeds to your home by URL, and read the latest from each.",
+    audience: "For everyone",
+    lead: "The Desk at the bottom of your home holds the reading you follow: add the Substacks, podcasts, and news sources you keep up with, and each shows its latest post.",
+    body: (
+      <>
+        <MarketingSection title="What it is">
+          <p>
+            Add a Substack, a podcast, or a news source by pasting its link: a
+            direct feed, an ordinary page (legalOS finds the feed for you), or
+            an Apple Podcasts show (resolved to the show&rsquo;s feed). Each
+            source becomes a card showing its latest post, its title and image,
+            linking out to read it. The feeds are personal to you, kept up to
+            date for you, and you can keep up to twelve. Curated reading chosen
+            for your role may appear alongside your own feeds here in time.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Add a feed to your Desk</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>On your home, find the Desk at the bottom.</li>
+              <li>
+                Select Add feed, or Add your first feed if your Desk is empty.
+              </li>
+              <li>
+                Paste a link and select Add feed. It can be a feed address, a
+                publication&rsquo;s page, or an Apple Podcasts show link;
+                legalOS resolves the feed either way.
+              </li>
+              <li>
+                The source appears as a card with its latest post. To remove
+                one, hover its card and select the remove control. Your feeds
+                are personal to you.
+              </li>
+            </ol>
+            <p className="mt-2 text-[13.5px] text-muted-foreground">
+              For a Substack, paste the publication&rsquo;s own address (often
+              name.substack.com), not a profile (substack.com/@handle) or a
+              reader link; legalOS will point you back here if you do.
+            </p>
           </div>
         </MarketingSection>
       </>

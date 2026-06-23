@@ -25,8 +25,8 @@ export const HELP_TOPICS = {
   collections: "/documentation/collections",
   /** The home Impact card. */
   impact: "/documentation/impact",
-  /** The home Desk of personal content feeds (documented in the workspace guide). */
-  desk: "/documentation/workspace",
+  /** The home Desk of personal content feeds (its own guide, like Impact). */
+  desk: "/documentation/desk",
   /** People and roles. */
   people: "/documentation/people",
   /** Policy and access. */
