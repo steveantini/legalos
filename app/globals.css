@@ -98,17 +98,17 @@
      ~0.013 to ~0.0205 L. Hue/chroma unchanged (cards stay a warm near-white,
      not clinical #fff); borders, ink/text, and the rail/sidebar are untouched.
      Dial via these two anchors: canvas down and/or panels up. */
-  --background: oklch(0.9780 0.0074 80.7209);             /* paper canvas — pulled down to widen the card gap (D-172 refinement) */
+  --background: oklch(0.9712 0.0074 80.7209);             /* paper canvas — pulled down again to widen the card gap one more notch (D-172 refinement 2) */
   --foreground: oklch(0.2106 0.0050 67.5509);             /* ink          #1a1816 */
-  --card: oklch(0.9985 0.0046 80.7209);                   /* warm near-white card — brighter so cards pop on the canvas (D-172 refinement) */
+  --card: oklch(0.9993 0.0046 80.7209);                   /* warm near-white card — brighter again so cards pop one more step (D-172 refinement 2) */
   --card-foreground: oklch(0.2106 0.0050 67.5509);        /* ink */
-  --popover: oklch(0.9985 0.0046 80.7209);                /* warm near-white panel (= card) (D-172 refinement) */
+  --popover: oklch(0.9993 0.0046 80.7209);                /* warm near-white panel (= card) (D-172 refinement 2) */
   --popover-foreground: oklch(0.2106 0.0050 67.5509);     /* ink */
   --primary: oklch(0.4512 0.0766 258.9642);               /* accent       #3b5680 */
   --primary-foreground: oklch(0.9841 0.0074 80.7209);     /* paper #fbf8f3 (lifted +0.005L, stays = paper) */
   --secondary: oklch(0.9635 0.0132 82.4017);              /* stone        #f6f1e8 (lifted +0.005L) */
   --secondary-foreground: oklch(0.2827 0.0084 75.2446);   /* ink-2        #2c2925 */
-  --muted: oklch(0.9988 0.0069 88.6418);                  /* paper-2 — recessed ground, brighter near-white (D-172 refinement) */
+  --muted: oklch(0.9995 0.0069 88.6418);                  /* paper-2 — recessed ground, brighter near-white (D-172 refinement 2) */
   --muted-foreground: oklch(0.5038 0.0198 75.9505);       /* mute         #6b6358 */
   --accent: oklch(0.9635 0.0132 82.4017);                 /* stone — shadcn hover surface (lifted +0.005L) */
   --accent-foreground: oklch(0.2106 0.0050 67.5509);      /* ink */
@@ -127,20 +127,24 @@
 
   --radius: 0.625rem;
 
-  /* Sidebar — Aperture rail mapping (rail bg = stone, active = ink, hover = paper-2). */
-  --sidebar: oklch(0.9635 0.0132 82.4017);                       /* stone (lifted +0.005L) */
+  /* Sidebar — Aperture rail mapping (rail bg = the page canvas, active = ink, hover = paper-2 wash).
+     D-172 refinement 2: the rail no longer reads as its own tinted zone — its
+     FILL matches --background, so rail and content are one continuous surface;
+     the --sidebar-border hairline is kept (and nudged) so the nav still reads as
+     a distinct zone. Only the fill changed; nav text, hover/active stay. */
+  --sidebar: oklch(0.9712 0.0074 80.7209);                       /* = --background canvas (no tinted rail zone) (D-172 refinement 2) */
   --sidebar-foreground: oklch(0.2827 0.0084 75.2446);            /* ink-2 */
   --sidebar-primary: oklch(0.2106 0.0050 67.5509);               /* ink — active nav bg */
   --sidebar-primary-foreground: oklch(0.9841 0.0074 80.7209);    /* paper #fbf8f3 (lifted +0.005L) */
   --sidebar-accent: oklch(0.9973 0.0069 88.6418);                /* paper-2 — hover wash (lifted +0.005L) */
   --sidebar-accent-foreground: oklch(0.2106 0.0050 67.5509);     /* ink */
-  --sidebar-border: oklch(0.9387 0.0198 87.5179);                /* stone-2 — rail right border (lifted +0.005L) */
+  --sidebar-border: oklch(0.9319 0.0198 87.5179);                /* rail right border — kept; nudged down to stay a visible divider now that the rail fill matches the canvas (D-172 refinement 2) */
   --sidebar-ring: oklch(0.4512 0.0766 258.9642);                 /* accent */
 
   /* Aperture-specific tokens — no shadcn analog. Generates utility classes
      bg-paper-2, border-hairline, text-caption, etc. via @theme inline above. */
-  --paper-2: oklch(0.9988 0.0069 88.6418);                /* recessed near-white ground (= --muted), brighter (D-172 refinement) */
-  --hairline: oklch(0.9387 0.0198 87.5179);               /* stone-2     #efe9db — top-bar / footer hairlines (lifted +0.005L) */
+  --paper-2: oklch(0.9995 0.0069 88.6418);                /* recessed near-white ground (= --muted), brighter (D-172 refinement 2) */
+  --hairline: oklch(0.9319 0.0198 87.5179);               /* top-bar / footer hairlines — nudged down to hold visibility on the lower canvas (D-172 refinement 2) */
   --hairline-strong: oklch(0.9240 0.0174 84.5888);        /* stone-3     #eae4d8 — card outer chrome (lifted +0.005L) */
   --card-divider: oklch(0.9657 0.0169 88.0008);           /* card-divider #f7f2e6 — card foot top-border (lifted +0.005L) */
   --ink-2: oklch(0.2827 0.0084 75.2446);                  /* ink-2       #2c2925 — nav link text */
