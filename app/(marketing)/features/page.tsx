@@ -127,6 +127,12 @@ export default function FeaturesPage() {
           and each connector is verified as customers enable it.
         </p>
         <p>
+          <LeadIn>Your calendar, on your home.</LeadIn>{" "}Connect Google
+          Calendar in one click and today&rsquo;s schedule appears on your home,
+          read-only: legalOS shows your meetings for the day and never writes to
+          your calendar.
+        </p>
+        <p>
           Reading is open; acting requires a hand on the wheel: an agent reads
           connected information directly, but any action that would change
           something, like sending an email or creating a file, pauses for a

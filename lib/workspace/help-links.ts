@@ -27,6 +27,8 @@ export const HELP_TOPICS = {
   impact: "/documentation/impact",
   /** The home Desk of personal content feeds (its own guide, like Impact). */
   desk: "/documentation/desk",
+  /** The home Today card and the Google Calendar connection. */
+  calendar: "/documentation/calendar",
   /** People and roles. */
   people: "/documentation/people",
   /** Policy and access. */

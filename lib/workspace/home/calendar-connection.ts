@@ -2,17 +2,24 @@
  * Calendar connection gate and today's-events source for the workspace home
  * "Today" card.
  *
- * `isCalendarConnected` now reads real connection state from the database (the
- * connection data model, migration 0044) via `hasActiveConnectionInCategory`.
- * It returns false today only because no connections exist yet (OAuth ships in
- * a later milestone), but it is reading live state, not a hardcoded false. The
- * Today card still shows its "Connect your calendar" placeholder for every user
- * until a real calendar connection is created.
+ * `isCalendarConnected` reads real connection state from the database (the
+ * connection data model, migration 0044) via `hasActiveConnectionInCategory`,
+ * and `getTodaysEvents` reads the user's real Google Calendar through the same
+ * govern-then-exercise path Drive uses: the M5 capability gate
+ * (`canExerciseCapability`) authorizes and yields the connection id + token ref,
+ * the M6a token layer (`getUsableAccessToken`) hands back a fresh access token,
+ * and the read client fetches and normalizes today's events. Read-only.
  *
- * Server-only (it transitively imports the Supabase server client); imported
- * only by server components.
+ * Server-only (it transitively imports the Supabase server client and the
+ * node-runtime read client); imported only by server components.
  */
 
+import {
+  CalendarReadError,
+  fetchTodaysCalendarEvents,
+} from "@/lib/connections/providers/google-calendar-read";
+import { canExerciseCapability } from "@/lib/connections/policy";
+import { getUsableAccessToken } from "@/lib/connections/tokens";
 import { hasActiveConnectionInCategory } from "@/lib/settings/connections";
 
 /**
@@ -50,17 +57,33 @@ export async function isCalendarConnected(userId: string): Promise<boolean> {
 /**
  * Today's events for `userId`, normalized for the schedule view.
  *
- * Returns an empty array for now: with no connected provider there is nothing
- * to fetch. When calendar OAuth ships, this reads the user's events for the
- * current day from the connected provider and maps them onto NormalizedEvent.
- * The Today card only calls this when isCalendarConnected is true, so today
- * the array is never even requested for a real render.
+ * Govern, then exercise: the capability gate authorizes a 'calendar' read and
+ * returns the connection id + token ref; the token layer resolves a fresh access
+ * token (refreshing if needed); the read client fetches today's events bounded
+ * in the user's calendar timezone and normalizes them.
+ *
+ * Degrades calmly to an empty array on any failure, never crashing the home: a
+ * dead/revoked token makes `getUsableAccessToken` mark the connection
+ * `status='error'`, so the next render sees no active calendar connection and
+ * the card falls back to its Connect state (the reconnect prompt). A transient
+ * Calendar API error just yields no events this render.
  */
 export async function getTodaysEvents(
   userId: string,
 ): Promise<NormalizedEvent[]> {
-  if (!(await isCalendarConnected(userId))) return [];
-  // Connected path (unreachable until OAuth ships): fetch + normalize the
-  // provider's events for today here.
-  return [];
+  const decision = await canExerciseCapability(userId, "calendar", "read");
+  if (!decision.allowed || !decision.tokenRef) return [];
+
+  try {
+    const accessToken = await getUsableAccessToken(
+      decision.connectionId,
+      decision.tokenRef,
+    );
+    return await fetchTodaysCalendarEvents(accessToken, new Date());
+  } catch (err) {
+    // TokenUnavailableError (token layer already marked the connection error)
+    // and CalendarReadError alike degrade to an empty schedule.
+    void (err instanceof CalendarReadError);
+    return [];
+  }
 }

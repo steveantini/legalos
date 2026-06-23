@@ -682,6 +682,50 @@ export const DOC_PAGES: DocPage[] = [
     ),
   },
 
+  {
+    slug: "calendar",
+    group: "users",
+    title: "Your calendar",
+    summary: "Connect Google Calendar, read-only, and see today's schedule on your home.",
+    audience: "For everyone",
+    lead: "Connect your Google Calendar and the Today card on your home shows your schedule for the day. It is read-only: legalOS shows your meetings and never writes to your calendar.",
+    body: (
+      <>
+        <MarketingSection title="What it shows">
+          <p>
+            Once connected, the Today card lists your meetings for the day, each
+            with its time, title, and attendees, and a label like Google Meet
+            when the event has a video link. The day is bounded in your
+            calendar&rsquo;s own timezone, so an evening connection still shows
+            today rather than tomorrow. legalOS reads with a read-only scope, so
+            it can show your schedule but can never change it.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Connect your calendar</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>On your home, find the Today card.</li>
+              <li>
+                Select Connect Google Calendar and approve the read-only access
+                on your Google account.
+              </li>
+              <li>
+                The card then shows today&rsquo;s schedule. It refreshes each
+                time you open your home.
+              </li>
+            </ol>
+            <p className="mt-2 text-[13.5px] text-muted-foreground">
+              You can disconnect any time from Settings, Connections. Outlook
+              calendar is not yet available; Google Calendar is the supported
+              provider today.
+            </p>
+          </div>
+        </MarketingSection>
+      </>
+    ),
+  },
+
   // ===========================================================================
   // For administrators
   // ===========================================================================

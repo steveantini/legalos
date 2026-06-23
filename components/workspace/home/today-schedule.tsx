@@ -49,7 +49,7 @@ export function TodaySchedule({ events }: TodayScheduleProps) {
                 key={event.id}
                 className="flex gap-4 border-t border-hairline py-3 first:border-t-0 first:pt-0"
               >
-                <span className="w-12 shrink-0 pt-px font-mono text-[12px] tabular-nums text-caption">
+                <span className="w-14 shrink-0 pt-px font-mono text-[12px] tabular-nums text-caption">
                   {event.startTime}
                 </span>
                 <div className="min-w-0">
