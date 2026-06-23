@@ -320,8 +320,9 @@ function AddFeedDialog({
         <DialogHeader>
           <DialogTitle>Add a feed</DialogTitle>
           <DialogDescription>
-            Paste the URL of a Substack, podcast, blog, or news feed. We’ll find
-            its feed and show the latest post on your Desk.
+            Paste the address of a Substack, podcast, blog, or news site. The
+            page itself works, we’ll find its feed and show the latest post on
+            your Desk.
           </DialogDescription>
         </DialogHeader>
 
@@ -337,7 +338,7 @@ function AddFeedDialog({
             autoFocus
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
-            placeholder="https://www.lennysnewsletter.com/feed"
+            placeholder="https://www.lennysnewsletter.com/podcast"
             aria-label="Feed URL"
             className={cn(pending && "opacity-60")}
             disabled={pending}

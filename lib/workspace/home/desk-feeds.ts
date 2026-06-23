@@ -1,7 +1,11 @@
 import "server-only";
 
 import { safeFetch, UnsafeFeedUrlError } from "@/lib/workspace/home/feed-fetch";
-import { parseFeed } from "@/lib/workspace/home/feed-parser";
+import {
+  discoverFeedLinks,
+  parseFeed,
+  type ParsedFeed,
+} from "@/lib/workspace/home/feed-parser";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import type { DeskCard } from "@/lib/workspace/home/desk-feeds-shared";
@@ -109,24 +113,94 @@ export async function resolveFeed(
     const { body } = await safeFetch(feedUrl);
     const parsed = parseFeed(body);
     if (!parsed) return errorUpdate();
-
-    const item = parsed.latestItem;
-    return {
-      title: parsed.title ?? undefined,
-      site_url: parsed.siteUrl,
-      cached_item_title: item?.title ?? null,
-      cached_item_url: item?.url ?? null,
-      cached_item_published_at: item?.publishedAt ?? null,
-      cached_image_url: item?.imageUrl ?? parsed.imageUrl ?? null,
-      cached_duration_seconds: item?.durationSeconds ?? null,
-      fetch_status: "ok",
-    };
+    return buildUpdate(parsed);
   } catch (err) {
     // UnsafeFeedUrlError and network/timeout/size errors alike land here; the
     // card's honest failure state is the same regardless of cause.
     void (err instanceof UnsafeFeedUrlError);
     return errorUpdate();
   }
+}
+
+/** The cache columns for a successfully parsed feed. */
+function buildUpdate(parsed: ParsedFeed): FeedCacheUpdate {
+  const item = parsed.latestItem;
+  return {
+    title: parsed.title ?? undefined,
+    site_url: parsed.siteUrl,
+    cached_item_title: item?.title ?? null,
+    cached_item_url: item?.url ?? null,
+    cached_item_published_at: item?.publishedAt ?? null,
+    cached_image_url: item?.imageUrl ?? parsed.imageUrl ?? null,
+    cached_duration_seconds: item?.durationSeconds ?? null,
+    fetch_status: "ok",
+  };
+}
+
+/** The outcome of resolving a feed from a user-pasted URL (a feed or a page). */
+export type FeedResolution =
+  | { ok: true; feedUrl: string; update: FeedCacheUpdate }
+  | { ok: false; error: string };
+
+/** The honest dead-end message when a page advertises no discoverable feed. */
+const NO_FEED_FOUND =
+  "Couldn't find a feed at that link. Try the publication's feed URL (often the site address followed by /feed).";
+
+/**
+ * Resolve a feed from ANY URL a user pastes, so they need not know the exact RSS
+ * endpoint. The flow, all fetches through the SAME SSRF-guarded `safeFetch` (no
+ * second, unguarded fetch path):
+ *
+ *   1. Fetch the URL. If the body parses as RSS/Atom, it is already a feed
+ *      (content-type is ignored, so a feed served as text/html still works) —
+ *      use it directly, storing the post-redirect final URL so refreshes hit
+ *      the feed, not a redirector.
+ *   2. Otherwise it is an HTML page: read its autodiscovery `<link>` tags and
+ *      try each advertised feed in order (the first rel=alternate is usually the
+ *      primary). The first that fetches and parses wins; if an advertised feed
+ *      404s, the next is tried.
+ *   3. If nothing resolves, return the honest NO_FEED_FOUND message.
+ *
+ * The RESOLVED feed URL is returned for storage, so the Desk row points at the
+ * real feed regardless of what the user pasted.
+ */
+export async function resolveFeedFromUrl(
+  inputUrl: string,
+): Promise<FeedResolution> {
+  let page: { body: string; finalUrl: string };
+  try {
+    page = await safeFetch(inputUrl);
+  } catch (err) {
+    if (err instanceof UnsafeFeedUrlError) {
+      return { ok: false, error: "That address can't be reached." };
+    }
+    return {
+      ok: false,
+      error: "Couldn't load that link. Check the URL and try again.",
+    };
+  }
+
+  // 1) Already a feed?
+  const direct = parseFeed(page.body);
+  if (direct) {
+    return { ok: true, feedUrl: page.finalUrl, update: buildUpdate(direct) };
+  }
+
+  // 2) An HTML page — try each advertised feed until one resolves.
+  for (const candidate of discoverFeedLinks(page.body, page.finalUrl)) {
+    try {
+      const feed = await safeFetch(candidate);
+      const parsed = parseFeed(feed.body);
+      if (parsed) {
+        return { ok: true, feedUrl: feed.finalUrl, update: buildUpdate(parsed) };
+      }
+    } catch {
+      // A blocked, broken, or 404ing advertised feed: fall through to the next.
+    }
+  }
+
+  // 3) Nothing discoverable.
+  return { ok: false, error: NO_FEED_FOUND };
 }
 
 function errorUpdate(): FeedCacheUpdate {

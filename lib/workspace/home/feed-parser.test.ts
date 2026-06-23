@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseFeed, parseDuration } from "./feed-parser";
+import { discoverFeedLinks, parseFeed, parseDuration } from "./feed-parser";
 
 describe("parseFeed — RSS 2.0", () => {
   const rss = `<?xml version="1.0"?>
@@ -126,6 +126,62 @@ describe("parseFeed — resilience", () => {
       `<rss><channel><title>T</title><item><title>X</title><link>javascript:alert(1)</link></item></channel></rss>`,
     );
     expect(feed?.latestItem?.url).toBeNull();
+  });
+});
+
+describe("discoverFeedLinks", () => {
+  const base = "https://www.lennysnewsletter.com/podcast";
+
+  it("finds a single advertised RSS feed and resolves a relative href", () => {
+    const html = `<html><head>
+      <title>Lenny's Podcast</title>
+      <link rel="alternate" type="application/rss+xml" title="Podcast" href="/podcast/feed">
+    </head><body>...</body></html>`;
+    expect(discoverFeedLinks(html, base)).toEqual([
+      "https://www.lennysnewsletter.com/podcast/feed",
+    ]);
+  });
+
+  it("returns multiple feeds in document order (primary first)", () => {
+    const html = `<head>
+      <link rel="alternate" type="application/rss+xml" href="https://x.example/main.xml">
+      <link rel="alternate" type="application/atom+xml" href="https://x.example/comments.atom">
+    </head>`;
+    expect(discoverFeedLinks(html, base)).toEqual([
+      "https://x.example/main.xml",
+      "https://x.example/comments.atom",
+    ]);
+  });
+
+  it("returns [] when the page advertises no feed", () => {
+    const html = `<head>
+      <link rel="stylesheet" href="/style.css">
+      <link rel="icon" href="/favicon.ico">
+    </head>`;
+    expect(discoverFeedLinks(html, base)).toEqual([]);
+  });
+
+  it("ignores non-feed link types and dedupes repeats", () => {
+    const html = `<head>
+      <link rel="alternate" type="text/html" href="https://x.example/page">
+      <link rel="alternate" type="application/rss+xml" href="https://x.example/feed">
+      <link rel="alternate" type="application/rss+xml" href="https://x.example/feed">
+    </head>`;
+    expect(discoverFeedLinks(html, base)).toEqual(["https://x.example/feed"]);
+  });
+
+  it("skips an explicit non-alternate rel and a non-http(s) href", () => {
+    const html = `<head>
+      <link rel="self" type="application/rss+xml" href="https://x.example/self">
+      <link rel="alternate" type="application/rss+xml" href="javascript:void(0)">
+      <link type="application/atom+xml" href="https://x.example/no-rel.atom">
+    </head>`;
+    // rel="self" skipped, javascript: skipped, missing-rel-but-typed kept.
+    expect(discoverFeedLinks(html, base)).toEqual(["https://x.example/no-rel.atom"]);
+  });
+
+  it("returns [] for empty input", () => {
+    expect(discoverFeedLinks("", base)).toEqual([]);
   });
 });
 

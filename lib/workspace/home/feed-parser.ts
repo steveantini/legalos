@@ -307,3 +307,60 @@ function httpUrl(raw: string | null): string | null {
     return null;
   }
 }
+
+/**
+ * The feed content types a page advertises via autodiscovery `<link>` tags.
+ * RSS and Atom only: the parser above is XML, so JSON Feed (application/feed+json)
+ * is deliberately NOT discovered — offering a feed we can't parse would just fail.
+ */
+const FEED_LINK_TYPES = new Set(["application/rss+xml", "application/atom+xml"]);
+
+/**
+ * Discover the feed URLs an HTML page advertises, via the standard
+ * `<link rel="alternate" type="application/rss+xml|atom+xml" href="...">` tags
+ * in its head. Relative hrefs are resolved against `baseUrl` (the page's final
+ * URL after redirects). Returns absolute http(s) feed URLs in document order
+ * (the first `rel="alternate"` is conventionally the primary feed), deduped.
+ *
+ * Pure: it parses a string and returns URLs; the SSRF-guarded fetch of those
+ * URLs happens in the caller. Returns [] when the page advertises no feed.
+ */
+export function discoverFeedLinks(html: string, baseUrl: string): string[] {
+  if (typeof html !== "string" || html.length === 0) return [];
+
+  // Feeds are advertised in <head>; scope there when present to avoid stray
+  // matches in the body, falling back to the whole document otherwise.
+  const head = /<head[\s>][\s\S]*?<\/head>/i.exec(html);
+  const scope = head ? head[0] : html;
+
+  const tags = scope.match(/<link\b[^>]*>/gi) ?? [];
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  for (const tag of tags) {
+    const type = (attr(tag, "type") ?? "").toLowerCase().trim();
+    if (!FEED_LINK_TYPES.has(type)) continue;
+
+    // Most feeds use rel="alternate"; a missing rel is tolerated, but an
+    // explicit rel that isn't "alternate" (e.g. a typed but unrelated link) is
+    // skipped.
+    const rel = (attr(tag, "rel") ?? "").toLowerCase();
+    if (rel && !rel.split(/\s+/).includes("alternate")) continue;
+
+    const href = attr(tag, "href");
+    if (!href) continue;
+    let resolved: string;
+    try {
+      const u = new URL(href, baseUrl);
+      if (u.protocol !== "http:" && u.protocol !== "https:") continue;
+      resolved = u.toString();
+    } catch {
+      continue;
+    }
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    urls.push(resolved);
+  }
+
+  return urls;
+}

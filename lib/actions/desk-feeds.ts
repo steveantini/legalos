@@ -8,7 +8,7 @@ import {
   normalizeFeedUrl,
   UnsafeFeedUrlError,
 } from "@/lib/workspace/home/feed-fetch";
-import { resolveFeed } from "@/lib/workspace/home/desk-feeds";
+import { resolveFeed, resolveFeedFromUrl } from "@/lib/workspace/home/desk-feeds";
 import { FEED_CAP, FEED_TTL_MS, isFeedStale } from "@/lib/workspace/home/desk-feeds-shared";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -33,7 +33,11 @@ const addSchema = z.object({
   url: z.string().trim().min(1, "Paste a feed URL.").max(2048),
 });
 
-/** Add a content source by URL, then resolve its latest item into the cache. */
+/**
+ * Add a content source by URL. The pasted URL may be a feed OR an ordinary page:
+ * `resolveFeedFromUrl` discovers the actual feed (via the page's autodiscovery
+ * links) before anything is stored, so the row always points at a real feed.
+ */
 export async function addDeskFeed(input: { url: string }): Promise<ActionResult> {
   const user = await requireAuthUser();
   const profile = await getCurrentUserProfile();
@@ -44,9 +48,10 @@ export async function addDeskFeed(input: { url: string }): Promise<ActionResult>
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the URL." };
   }
 
-  let feedUrl: string;
+  // Cheap protocol/host gate on the pasted URL before any fetch.
+  let inputUrl: string;
   try {
-    feedUrl = normalizeFeedUrl(parsed.data.url);
+    inputUrl = normalizeFeedUrl(parsed.data.url);
   } catch (err) {
     const message =
       err instanceof UnsafeFeedUrlError
@@ -57,7 +62,8 @@ export async function addDeskFeed(input: { url: string }): Promise<ActionResult>
 
   const supabase = await createSupabaseServerClient();
 
-  // Cap (per-user) and dedupe, read under the owner's RLS view.
+  // Cap (per-user) and dedupe source, read under the owner's RLS view. The cap
+  // is checked BEFORE resolving, so a user at the limit never triggers a fetch.
   const { data: existing, error: readError } = await supabase
     .from("desk_feeds")
     .select("id, feed_url, sort_order")
@@ -71,6 +77,16 @@ export async function addDeskFeed(input: { url: string }): Promise<ActionResult>
       error: `You can keep up to ${FEED_CAP} feeds on your Desk. Remove one to add another.`,
     };
   }
+
+  // Discover the real feed (or use the URL directly if it is already a feed).
+  // Both the page lookup and the feed fetch go through the SSRF-guarded path.
+  const resolution = await resolveFeedFromUrl(inputUrl);
+  if (!resolution.ok) {
+    return { ok: false, error: resolution.error };
+  }
+  const feedUrl = resolution.feedUrl;
+
+  // Dedupe on the RESOLVED feed URL, so pasting a page and its feed collapse.
   if (rows.some((r) => r.feed_url === feedUrl)) {
     return { ok: false, error: "That feed is already on your Desk." };
   }
@@ -78,42 +94,25 @@ export async function addDeskFeed(input: { url: string }): Promise<ActionResult>
   const nextOrder =
     rows.reduce((max, r) => Math.max(max, r.sort_order ?? 0), 0) + 1;
 
-  // Insert the source first (status 'pending'), so even if the fetch fails the
-  // row exists and the card shows its honest failure state.
-  const { data: inserted, error: insertError } = await supabase
-    .from("desk_feeds")
-    .insert({
-      user_id: user.id,
-      organization_id: profile.organization_id,
-      feed_url: feedUrl,
-      title: "",
-      sort_order: nextOrder,
-      fetch_status: "pending",
-    })
-    .select("id")
-    .single();
-  if (insertError || !inserted) {
+  // The feed is already resolved, so the row is inserted populated (status 'ok')
+  // in one write rather than pending-then-update.
+  const { title, ...cache } = resolution.update;
+  const { error: insertError } = await supabase.from("desk_feeds").insert({
+    user_id: user.id,
+    organization_id: profile.organization_id,
+    feed_url: feedUrl,
+    title: title && title.length > 0 ? title : "",
+    sort_order: nextOrder,
+    last_fetched_at: new Date().toISOString(),
+    ...cache,
+  });
+  if (insertError) {
     // A racing duplicate trips the unique index — report it as the dedupe case.
-    if ((insertError as { code?: string } | null)?.code === "23505") {
+    if ((insertError as { code?: string }).code === "23505") {
       return { ok: false, error: "That feed is already on your Desk." };
     }
     return { ok: false, error: GENERIC_ERROR };
   }
-
-  // Resolve the latest item and write the cache. resolveFeed never throws; a
-  // failed fetch yields a status:'error' update.
-  const update = await resolveFeed(feedUrl);
-  const { title, ...cache } = update;
-  await supabase
-    .from("desk_feeds")
-    .update({
-      ...cache,
-      // Only adopt a resolved title; never blank a row the user may rename.
-      ...(title && title.length > 0 ? { title } : {}),
-      last_fetched_at: new Date().toISOString(),
-    })
-    .eq("id", inserted.id)
-    .eq("user_id", user.id);
 
   revalidatePath(WORKSPACE_HOME);
   return { ok: true };
