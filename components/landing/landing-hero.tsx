@@ -25,6 +25,8 @@ import { LandingGlyph } from "./landing-glyph";
 export function LandingHero({ isSignedIn }: { isSignedIn: boolean }) {
   // State-aware primary CTA (D-171): "Enter workspace" for a signed-in visitor,
   // "Sign in" for a signed-out one. Replaces the former top-right sign-in link.
+  // "Request access" (the front-door account request) shows only when signed
+  // out — a logged-in visitor already has access, so it would be noise.
   const ctaHref = isSignedIn ? "/workspace" : "/login";
   const ctaLabel = isSignedIn ? "Enter workspace" : "Sign in";
 
@@ -103,13 +105,17 @@ export function LandingHero({ isSignedIn }: { isSignedIn: boolean }) {
             </svg>
           </Link>
 
-          <a
-            href="mailto:steveantini@gmail.com"
-            className="font-mono text-[11px] uppercase tracking-[0.12em] text-caption transition-colors duration-[180ms] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[719px]:hidden"
-          >
-            Request access{" "}
-            <span className="normal-case tracking-[0.02em] text-primary">→</span>
-          </a>
+          {isSignedIn ? null : (
+            <a
+              href="mailto:steveantini@gmail.com"
+              className="font-mono text-[11px] uppercase tracking-[0.12em] text-caption transition-colors duration-[180ms] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-[719px]:hidden"
+            >
+              Request access{" "}
+              <span className="normal-case tracking-[0.02em] text-primary">
+                →
+              </span>
+            </a>
+          )}
         </div>
       </div>
       <LandingGlyph />
