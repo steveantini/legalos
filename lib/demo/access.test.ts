@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDemoUserRow, evaluateDemoToken, type DemoInvitationRow } from "./access";
+import {
+  buildDemoUserRow,
+  evaluateDemoSessionGuard,
+  evaluateDemoToken,
+  type DemoInvitationRow,
+} from "./access";
 
 const NOW = Date.parse("2026-06-22T12:00:00.000Z");
 const future = (ms: number) => new Date(NOW + ms).toISOString();
@@ -77,6 +82,58 @@ describe("evaluateDemoToken (time-window validity, D-166)", () => {
   it("still honors a legacy 'pending' link as a valid time-window link", () => {
     const result = evaluateDemoToken(row({ status: "pending" }), NOW);
     expect(result.valid).toBe(true);
+  });
+});
+
+describe("evaluateDemoSessionGuard (no silent clobber of a real session, D-170)", () => {
+  it("proceeds for an anonymous prospect (no session) — the normal path", () => {
+    expect(
+      evaluateDemoSessionGuard({
+        hasExistingSession: false,
+        existingOrgIsDemo: null,
+        confirmed: false,
+      }),
+    ).toEqual({ action: "proceed" });
+  });
+
+  it("asks for consent when a real (non-demo) session is signed in", () => {
+    expect(
+      evaluateDemoSessionGuard({
+        hasExistingSession: true,
+        existingOrgIsDemo: false,
+        confirmed: false,
+      }),
+    ).toEqual({ action: "interstitial" });
+  });
+
+  it("proceeds when already inside a demo org (re-entering is harmless)", () => {
+    expect(
+      evaluateDemoSessionGuard({
+        hasExistingSession: true,
+        existingOrgIsDemo: true,
+        confirmed: false,
+      }),
+    ).toEqual({ action: "proceed" });
+  });
+
+  it("conservatively asks for consent when a session exists but its org is unknown", () => {
+    expect(
+      evaluateDemoSessionGuard({
+        hasExistingSession: true,
+        existingOrgIsDemo: null,
+        confirmed: false,
+      }),
+    ).toEqual({ action: "interstitial" });
+  });
+
+  it("proceeds on explicit confirmation, overriding an existing real session", () => {
+    expect(
+      evaluateDemoSessionGuard({
+        hasExistingSession: true,
+        existingOrgIsDemo: false,
+        confirmed: true,
+      }),
+    ).toEqual({ action: "proceed" });
   });
 });
 

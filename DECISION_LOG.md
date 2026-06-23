@@ -4403,3 +4403,28 @@ About had no market POV while Mission held the technology future; splitting mark
 
 - About and Mission now read as complementary (market belief vs technology vision), not repetitive.
 - The README capability description is current with shipped reality; future changes to model/autonomy/connection capability reconcile it on the standing rule.
+
+## D-170 — Demo session guard + visible demo state
+
+Date: 2026-06-22
+Status: Accepted
+
+**Context / Decision:**
+
+A browser holds ONE Supabase auth cookie, and the `/demo/<token>` route signs in by `verifyOtp` on the SSR server client, which writes that cookie. So opening a demo link while signed in silently REPLACED the current session with the synthetic demo user, stranding a real (and possibly platform-owner) account in the Demo Org with no notice and no obvious exit. Contained (the demo identity is a lower-privileged, RLS-isolated super_admin of the demo org per D-136, so no real-org data is exposed, and the reverse swap is impossible), but a genuine session-integrity/trust defect. Fixed in two additive parts, no migration:
+
+- **Guard (`app/demo/[token]/route.ts` + `/demo/confirm`):** before establishing the demo session, the route reads any existing session (`getUser()`) and that user's org `is_demo`, and a pure `evaluateDemoSessionGuard` decides: anonymous, explicitly confirmed, or already-in-a-demo → proceed (the prospect path is unchanged); a real (or not-yet-resolvable) session → redirect to a consent interstitial (`/demo/confirm`) that explains continuing replaces the session, with "Continue to demo" (returns to the route with `?confirm=demo`) and "Stay signed in" (back to /workspace). The conservative default is to ASK unless we positively know the visitor is anonymous, confirmed, or already a demo user.
+- **Visible state (`components/workspace/demo-banner.tsx` + the workspace layout):** when the current org `is_demo`, the shell shows a calm "you're exploring a demo of legalOS" banner with a one-click "Exit demo" that reuses the `signOut` action (extended with an optional `redirectTo`, same-origin only) to return to the marketing home. Gated purely on `is_demo`, so it never shows for a real org.
+
+**The "is this a demo" signal:** the authoritative server-side `organizations.is_demo` flag, NOT the `@legalos-internal.invalid` email domain. The guard reads the existing session user's org `is_demo`; the banner reads the current org's `is_demo` (`isCurrentUserInDemoOrg`, via the RLS server client and `organizations_read_own`).
+
+**Reasoning:**
+
+Chosen over multi-session cookie partitioning, which would fight the single-cookie Supabase model the whole app is built on. A guard plus a visible, exitable state fixes the silent takeover without touching RLS, the token model, or the prospect happy path. The guard's branch logic (anonymous vs real vs already-demo vs unknown vs confirmed) is a pure function and unit-tested.
+
+**Consequences:**
+
+- A logged-in real user opening a demo link now gets a consent step instead of a silent swap; anonymous prospects are unaffected.
+- Anyone inside a demo sees they are in one and can leave in a click; the earlier "stuck in demo" state is self-explanatory and recoverable.
+- `signOut(redirectTo?)` is backward-compatible (defaults to /login; the profile-menu caller is unchanged).
+- No migration, no RLS change, no token-model change.

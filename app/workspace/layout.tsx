@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { Toaster } from "@/components/ui/sonner";
 import { AdminRail } from "@/components/workspace/admin-rail";
+import { DemoBanner } from "@/components/workspace/demo-banner";
 import { PlatformRail } from "@/components/workspace/platform-rail";
 import { RailSwitcher } from "@/components/workspace/rail-switcher";
 import { SettingsRail } from "@/components/workspace/settings-rail";
@@ -12,6 +13,7 @@ import {
   getAllDepartmentsWithAccess,
   getCurrentUserProfile,
   isCurrentUserAdmin,
+  isCurrentUserInDemoOrg,
   isCurrentUserPlatformOwner,
   requireAuthUser,
 } from "@/lib/auth/access";
@@ -60,12 +62,14 @@ export default async function WorkspaceLayout({
     redirect("/login");
   }
 
-  const [departments, agents, isAdmin, isPlatformOwner] = await Promise.all([
-    getAllDepartmentsWithAccess(authUser.id),
-    getAccessibleAgentsForBreadcrumb(authUser.id),
-    isCurrentUserAdmin(),
-    isCurrentUserPlatformOwner(),
-  ]);
+  const [departments, agents, isAdmin, isPlatformOwner, isDemoOrg] =
+    await Promise.all([
+      getAllDepartmentsWithAccess(authUser.id),
+      getAccessibleAgentsForBreadcrumb(authUser.id),
+      isCurrentUserAdmin(),
+      isCurrentUserPlatformOwner(),
+      isCurrentUserInDemoOrg(),
+    ]);
 
   return (
     <div
@@ -104,7 +108,10 @@ export default async function WorkspaceLayout({
           />
         }
       />
-      <div className="grid min-h-0 grid-rows-[56px_1fr]">
+      <div
+        className={`grid min-h-0 ${isDemoOrg ? "grid-rows-[auto_56px_1fr]" : "grid-rows-[56px_1fr]"}`}
+      >
+        {isDemoOrg ? <DemoBanner /> : null}
         <WorkspaceTopBar departments={departments} agents={agents} />
         <div className="flex min-h-0 flex-col gap-9 overflow-auto px-14 pb-8 pt-14">
           {children}

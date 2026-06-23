@@ -54,6 +54,39 @@ export function evaluateDemoToken(
   };
 }
 
+/**
+ * Decide whether a /demo/<token> visit may establish its session, given any
+ * EXISTING browser session (D-170). A demo sign-in replaces the single Supabase
+ * cookie, so opening a link while signed in silently clobbers that session. This
+ * gate stops the silent takeover of a real account: it proceeds only when the
+ * visitor is anonymous, has explicitly confirmed, or is already in a demo org;
+ * otherwise it routes to a consent interstitial first.
+ *
+ * `existingOrgIsDemo` is the is_demo flag of the CURRENT session user's org, or
+ * null when there is no session / no resolvable org. The conservative default is
+ * to ask for consent unless we positively know the visitor is anonymous,
+ * confirmed, or already a demo user, so a half-provisioned real session is never
+ * clobbered without notice.
+ */
+export type DemoSessionGuard =
+  | { action: "proceed" }
+  | { action: "interstitial" };
+
+export function evaluateDemoSessionGuard(input: {
+  hasExistingSession: boolean;
+  existingOrgIsDemo: boolean | null;
+  confirmed: boolean;
+}): DemoSessionGuard {
+  // Explicit consent (the "Continue to demo" return trip) always proceeds.
+  if (input.confirmed) return { action: "proceed" };
+  // Anonymous prospect: the normal path, nothing to protect.
+  if (!input.hasExistingSession) return { action: "proceed" };
+  // Already inside a demo: re-entering/refreshing a demo is harmless.
+  if (input.existingOrgIsDemo === true) return { action: "proceed" };
+  // A real (or not-yet-resolvable) session: ask before replacing it.
+  return { action: "interstitial" };
+}
+
 /** Minimal org shape the provisioning guard needs. */
 export interface DemoOrgRow {
   id: string;

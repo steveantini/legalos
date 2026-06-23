@@ -89,6 +89,26 @@ export const getCurrentUserProfile = cache(async () => {
 });
 
 /**
+ * Whether the current user's organization is a demo org (D-170). Drives the
+ * workspace "you're in a demo" banner. Reads the authoritative `is_demo` flag
+ * (never the email domain) via the RLS server client (`organizations_read_own`
+ * lets a member read their own org). Wrapped in `cache()` for per-request reuse.
+ */
+export const isCurrentUserInDemoOrg = cache(async (): Promise<boolean> => {
+  const profile = await getCurrentUserProfile();
+  if (!profile?.organization_id) return false;
+
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("organizations")
+    .select("is_demo")
+    .eq("id", profile.organization_id)
+    .maybeSingle();
+
+  return (data as { is_demo: boolean } | null)?.is_demo === true;
+});
+
+/**
  * Subset of `public.departments` columns the launchpad UI needs. Base
  * shape — see `DepartmentWithAccess` below for the access-aware variant
  * returned by `getAllDepartmentsWithAccess` (Session 29).

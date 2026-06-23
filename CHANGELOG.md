@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A demo link no longer silently signs out whoever is already logged in. Because a browser holds one Supabase session, opening a /demo link used to overwrite the current session with the demo user, stranding a real (and possibly privileged) account in the Demo Org. Now, when a real account opens a demo link, an interstitial asks them to confirm before their session is replaced; an anonymous visitor still flows straight into the demo as before. Inside a demo, the workspace shows a calm "you're exploring a demo" banner with a one-click "Exit demo" that returns to the marketing home, so a prospect always knows where they are and a teammate who entered a demo by accident can leave cleanly. The demo-session signal is the authoritative org is_demo flag, not the email domain. No schema, RLS, or token-model change. (D-170)**
+
 - **The landing footer's brand blurb no longer echoes the hero. It previously closed with "Built around how legal work actually happens", the same sentence the hero subheading ends on, so the line read twice on one screen like a copy-paste; the footer is now a short identity sign-off ("An operating system for modern legal departments."), distinct from the hero's fuller promise.**
 
 - **The demo-access "How the demo works" panel reads correctly: the dropped space between the bold "super_admin" and the word after it is restored with the compiler-immune idiom (the SWC leading-space drop, D-159), the same fix applied preemptively to the revoke dialog's bolded label, and the panel's narrative em dashes were replaced with plain punctuation per the house rule.**

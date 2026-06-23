@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import {
   buildDemoUserRow,
+  evaluateDemoSessionGuard,
   evaluateDemoToken,
   type DemoInvitationRow,
 } from "@/lib/demo/access";
@@ -40,12 +41,20 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * Every failure (invalid / revoked / expired token, rate limit, any error)
  * redirects to the generic /demo/unavailable page — no detail is leaked about
  * why, and the raw token is never logged.
+ *
+ * SESSION GUARD (D-170): a demo sign-in replaces the one Supabase cookie a
+ * browser holds, so opening a link while signed in would silently clobber that
+ * session. Before establishing the demo session, an EXISTING real (non-demo)
+ * session is routed to a consent interstitial (/demo/confirm) instead of being
+ * overwritten. Anonymous prospects and an explicit "Continue" (?confirm=demo)
+ * flow straight through, so the prospect path is unchanged.
  */
 export async function GET(
   request: Request,
   context: { params: Promise<{ token: string }> },
 ) {
-  const { origin } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const { origin } = requestUrl;
   const unavailable = NextResponse.redirect(`${origin}/demo/unavailable`);
 
   try {
@@ -66,6 +75,48 @@ export async function GET(
     const tokenHash = hashDemoToken(token);
     const nowMs = Date.now();
     const nowIso = new Date(nowMs).toISOString();
+
+    // Session guard (D-170): never silently replace an existing real session
+    // with the demo user. The decision is pure (evaluateDemoSessionGuard); here
+    // we only gather its inputs. An explicit "Continue to demo" trip carries
+    // ?confirm=demo and skips the check (and the lookups) entirely.
+    const confirmed = requestUrl.searchParams.get("confirm") === "demo";
+    if (!confirmed) {
+      const session = await createSupabaseServerClient();
+      const {
+        data: { user: existingUser },
+      } = await session.auth.getUser();
+      let existingOrgIsDemo: boolean | null = null;
+      if (existingUser) {
+        const { data: existingProfile } = await admin
+          .from("users")
+          .select("organization_id")
+          .eq("id", existingUser.id)
+          .maybeSingle();
+        const existingOrgId = (
+          existingProfile as { organization_id: string } | null
+        )?.organization_id;
+        if (existingOrgId) {
+          const { data: existingOrg } = await admin
+            .from("organizations")
+            .select("is_demo")
+            .eq("id", existingOrgId)
+            .maybeSingle();
+          existingOrgIsDemo =
+            (existingOrg as { is_demo: boolean } | null)?.is_demo ?? null;
+        }
+      }
+      const guard = evaluateDemoSessionGuard({
+        hasExistingSession: Boolean(existingUser),
+        existingOrgIsDemo,
+        confirmed,
+      });
+      if (guard.action === "interstitial") {
+        return NextResponse.redirect(
+          `${origin}/demo/confirm?token=${encodeURIComponent(token)}`,
+        );
+      }
+    }
 
     // Read the invitation (no flip): the time-window model validates on every
     // visit rather than consuming on the first.
