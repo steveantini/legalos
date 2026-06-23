@@ -24,9 +24,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * at least one accessible department, a calendar Connect card
  * (`CalendarConnectCard`) and usage impact band (`ImpactBand`) in a
  * two-column row, a matters section (`MattersSection`), and a "Desk"
- * empty-state section (`ReadingSection`). Only the impact band fetches
- * independently behind a Suspense boundary; the greeting, calendar card,
- * matters section, and reading section are static and paint immediately.
+ * section (`ReadingSection`) of the user's personal content feeds. Only the
+ * impact band fetches independently behind a Suspense boundary; the greeting,
+ * calendar card, matters section, and Desk paint immediately (the Desk from its
+ * server-cached feed rows, refreshing stale feeds client-side on mount).
  *
  * Recently-used agents and the full department directory used to live
  * here too; the Stage 1 home revamp removed them so every element on the
@@ -91,7 +92,7 @@ export default async function WorkspacePage() {
 
           <MattersSection userId={authUser.id} />
 
-          <ReadingSection />
+          <ReadingSection userId={authUser.id} />
         </>
       ) : null}
     </main>

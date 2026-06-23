@@ -364,7 +364,7 @@ Deferred connector follow-ups (tracked on the roadmap, not lost): the agent-form
 
 A 29-commit arc (60b9e3a through f47942e) reshaping the workspace home from a launcher into a value-mirror of the user's actual work, with honest empty states. The home now answers a single identity question: it reflects what the product is for (agents, matters, impact, your day), not peripheral plumbing or rail-duplicating navigation (D-056).
 
-Final home spine, top to bottom: an editorial greeting, a two-column Today and Impact row, Matters, and Desk (the empty-state reading section).
+Final home spine, top to bottom: an editorial greeting, a two-column Today and Impact row, Matters, and Desk. (The Desk is no longer an empty-state placeholder: as of D-173 it holds the user's personal content feeds — Substack/podcast/news sources added by URL, rendered as latest-item cards, server-side cached and SSRF-guarded, owner-scoped via migration 0075's `desk_feeds`. Admin-curated role-scoped Desk content is the named additive follow-on.)
 
 Work, grouped:
 
@@ -395,8 +395,8 @@ For the fresh chat to know where things live:
 - `components/workspace/collapsible-section.tsx` — per-section collapsibility on the launchpad
 - `components/workspace/workspace-rail.tsx` — the sidebar rail (rail collapsibility shipped per polish #1)
 - `app/workspace/page.tsx` — the workspace home composition (greeting, Today and Impact row, Matters, Desk)
-- `components/workspace/home/` — home section components: home-greeting, calendar-connect-card + today-schedule (the Today card and its dormant schedule view), impact-band + impact-band-client + impact-cell + timeframe-toggle, matters-section + matters-connected (the Matters placeholder and its dormant rich view), reading-section; retained unmounted: integrations-row, integration-card, continue-working-section, sparkline
-- `lib/workspace/home/` — home data and gates: impact-math (usage_events queries), calendar-connection (isCalendarConnected, getTodaysEvents, NormalizedEvent), matters-connection (isMattersConnected, getMatters, getMattersSummary, Matter, MattersSummary)
+- `components/workspace/home/` — home section components: home-greeting, calendar-connect-card + today-schedule (the Today card and its dormant schedule view), impact-band + impact-band-client + impact-cell + timeframe-toggle, matters-section + matters-connected (the Matters placeholder and its dormant rich view), reading-section + desk-feeds-view (the Desk and its live personal-feeds cards, D-173); retained unmounted: integrations-row, integration-card, continue-working-section, sparkline
+- `lib/workspace/home/` — home data and gates: impact-math (usage_events queries), calendar-connection (isCalendarConnected, getTodaysEvents, NormalizedEvent), matters-connection (isMattersConnected, getMatters, getMattersSummary, Matter, MattersSummary), desk-feeds + desk-feeds-shared (Desk personal feeds: getDeskFeeds, resolveFeed, the DeskCard view model, isFeedStale), feed-parser + feed-fetch (the RSS/Atom parser and the SSRF-guarded fetcher)
 - `/workspace/settings/connections` — the Connections page (Settings peer mode, capability-grouped); `/api/connections/callback` — the single provider-agnostic OAuth callback (both are confirmed routes; the legacy `/workspace/integrations` route was retired, D-071)
 - The connector layer (the connections lib domain): provider registry + Google Drive adapter, the token-exercise layer (refresh-on-expiry), encrypted-secret storage (AES-256-GCM into connection_secrets), the policy enforcement layer (canExerciseCapability, govern-before-exercise), the Drive listing/search layer, and the live-read content client (resolveAttachmentText, native-format export Docs to DOCX / Sheets to XLSX / Slides to PDF)
 - The Drive file picker in the chat composer (`components/chat/`): search + folder browse, skeleton-on-open loading with cross-fade

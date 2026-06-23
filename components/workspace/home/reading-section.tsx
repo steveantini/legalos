@@ -1,43 +1,28 @@
-/**
- * "Desk" — the bottom section of the workspace home. v1 is a
- * single honest empty-state card: there is no reading content yet (no
- * reading_items table, no curation tooling), so rather than fake items the
- * section names its own not-yet state and previews what will land here.
- *
- * Server component, fully static. When admin-curated reading ships (a
- * future arc), the empty-state card gives way to a real card grid on the
- * same surface.
- *
- * Header idiom mirrors the rest of the home: an 18px medium heading (the
- * unified home-section heading scale) paired with a right-aligned mono
- * status caption. The empty-state copy is centered on a constrained
- * measure so it reads as an empty state, not as content.
- */
-export function ReadingSection() {
-  return (
-    <section
-      aria-labelledby="reading-section-heading"
-      className="flex flex-col gap-5"
-    >
-      <div className="flex items-baseline justify-between">
-        <h2
-          id="reading-section-heading"
-          className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
-        >
-          Desk
-        </h2>
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
-          Curation tools coming
-        </p>
-      </div>
+import { deskClockMs, getDeskFeeds } from "@/lib/workspace/home/desk-feeds";
 
-      <div className="rounded-xl border border-border bg-card p-12">
-        <p className="mx-auto max-w-[56ch] text-center text-[14px] leading-[1.55] text-muted-foreground">
-          Your admin hasn’t put anything on your desk yet. When admin-curated
-          content ships, regulations, podcasts, and internal headlines will
-          land here for your role.
-        </p>
-      </div>
-    </section>
-  );
+import { DeskFeedsView } from "./desk-feeds-view";
+
+/**
+ * "Desk" — the bottom section of the workspace home, now the home of personal
+ * content feeds (Desk feeds v1). The user adds Substacks, podcasts, and news
+ * sources by URL; each renders as a card with its latest post, linking out.
+ *
+ * Server component: it reads the user's feeds (owner-scoped by RLS) from their
+ * cached latest-item columns and hands them to the client `DeskFeedsView`, which
+ * renders the cards immediately and refreshes any stale feed on mount. The cache
+ * is populated server-side on add and on a TTL refresh, never on this render, so
+ * the section paints fast from cache like the rest of the home.
+ *
+ * The empty state lives in DeskFeedsView (an inviting "add your first feed"),
+ * replacing the old admin-curated placeholder. The future admin-curated,
+ * role-scoped layer is architected for as a sibling source the loader will merge
+ * in (see desk-feeds-shared.ts and migration 0075); it is not built here.
+ */
+export async function ReadingSection({ userId }: { userId: string }) {
+  const feeds = await getDeskFeeds(userId);
+  // Capture the render-time clock once (in a plain helper, off the render path)
+  // and pass it down, so the client renders relative dates from a stable value:
+  // pure on the client and identical across hydration.
+  const nowMs = deskClockMs();
+  return <DeskFeedsView feeds={feeds} nowMs={nowMs} />;
 }
