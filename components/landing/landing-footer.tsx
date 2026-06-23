@@ -122,7 +122,11 @@ export function LandingFooter() {
         </div>
       </div>
 
-      <div className="mt-10 flex flex-col items-start gap-[10px] border-t border-hairline pt-5 font-mono text-[11px] uppercase tracking-[0.14em] text-caption min-[720px]:flex-row min-[720px]:items-center min-[720px]:justify-between min-[720px]:gap-0">
+      {/* min-[720px]:pr-16 keeps the right-aligned version chip clear of the
+          fixed support launcher (bottom-right, ~72px corner footprint), so the
+          icon never covers it. Below 720px the row stacks left-aligned and the
+          launcher sits bottom-right, so they never collide there. */}
+      <div className="mt-10 flex flex-col items-start gap-[10px] border-t border-hairline pt-5 font-mono text-[11px] uppercase tracking-[0.14em] text-caption min-[720px]:flex-row min-[720px]:items-center min-[720px]:justify-between min-[720px]:gap-0 min-[720px]:pr-16">
         <span>
           © 2026 <span style={{ textTransform: "none" }}>legalOS</span>
         </span>

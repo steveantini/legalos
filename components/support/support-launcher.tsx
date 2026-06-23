@@ -116,6 +116,9 @@ function AssistantBlock({ children }: { children: React.ReactNode }) {
 export function SupportLauncher() {
   const [allowed, setAllowed] = useState(false);
   const [open, setOpen] = useState(false);
+  // The launcher's hover/focus label. Never auto-shows (the silent rule); it
+  // appears only on deliberate hover or keyboard focus and hides on leave/blur.
+  const [labelVisible, setLabelVisible] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [input, setInput] = useState("");
@@ -362,23 +365,43 @@ export function SupportLauncher() {
         </div>
       ) : null}
 
-      {/* The launcher itself: quiet, fixed, and motionless by rule. */}
-      <button
-        ref={launcherRef}
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        aria-label={
-          open ? "Close the support assistant" : "Ask the support assistant"
-        }
-        className={`fixed bottom-5 right-5 z-50 h-12 w-12 items-center justify-center rounded-full border border-hairline bg-foreground text-background shadow-lg transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none min-[480px]:bottom-6 min-[480px]:right-6 min-[480px]:flex ${open ? "hidden" : "flex"}`}
+      {/* The launcher itself: quiet, fixed, and motionless by rule. The
+          fixed wrapper holds the corner position and visibility (hidden on
+          mobile while the panel is open, always shown on desktop); the button
+          hugs it. The label is the ONLY tooltip and shows only on deliberate
+          hover or focus — never auto, per the silent-by-design rule. */}
+      <div
+        className={`fixed bottom-5 right-5 z-50 min-[480px]:bottom-6 min-[480px]:right-6 ${open ? "hidden min-[480px]:block" : "block"}`}
       >
-        {open ? (
-          <XIcon className="size-5" aria-hidden />
-        ) : (
-          <MessageCircleIcon className="size-5" aria-hidden />
+        {open ? null : (
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2.5 py-1.5 text-[12px] font-medium text-background shadow-md transition-opacity duration-150 ease-out motion-reduce:transition-none ${labelVisible ? "opacity-100" : "opacity-0"}`}
+          >
+            Ask the assistant
+          </span>
         )}
-      </button>
+        <button
+          ref={launcherRef}
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          onMouseEnter={() => setLabelVisible(true)}
+          onMouseLeave={() => setLabelVisible(false)}
+          onFocus={() => setLabelVisible(true)}
+          onBlur={() => setLabelVisible(false)}
+          aria-expanded={open}
+          aria-label={
+            open ? "Close the support assistant" : "Ask the support assistant"
+          }
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-hairline bg-foreground text-background shadow-lg transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+        >
+          {open ? (
+            <XIcon className="size-5" aria-hidden />
+          ) : (
+            <MessageCircleIcon className="size-5" aria-hidden />
+          )}
+        </button>
+      </div>
     </>
   );
 }
