@@ -46,7 +46,7 @@ export async function CalendarConnectCard({
   userId,
 }: CalendarConnectCardProps) {
   const connected = await isCalendarConnected(userId);
-  const events = connected ? await getTodaysEvents(userId) : [];
+  const today = connected ? await getTodaysEvents(userId) : null;
 
   return (
     <section
@@ -64,8 +64,33 @@ export async function CalendarConnectCard({
       </div>
 
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-card p-5">
-        {connected ? (
-          <TodaySchedule events={events} />
+        {today?.status === "ok" ? (
+          <TodaySchedule events={today.events} />
+        ) : today?.status === "needs_reconnect" ? (
+          // The connection is healthy but was granted before the calendar-list
+          // scope existed, so it can read its primary calendar but not enumerate
+          // all the user's calendars. Prompt a reconnect (from Settings, where
+          // disconnect + connect both live) rather than showing an empty day.
+          <>
+            <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
+              Calendar · reconnect needed
+            </p>
+            <p className="mb-1.5 text-[17px] font-medium text-foreground">
+              Reconnect to see all your calendars
+            </p>
+            <p className="max-w-[56ch] text-[13px] leading-[1.45] text-muted-foreground">
+              The Today card now shows every calendar you keep visible, not just
+              your main one. Reconnect Google Calendar to grant read-only access
+              to your calendar list. legalOS still never writes to your calendar.
+            </p>
+            <Button
+              variant="outline"
+              render={<a href="/workspace/settings/connections" />}
+              className="mt-4 self-start"
+            >
+              Reconnect Google Calendar →
+            </Button>
+          </>
         ) : (
           <>
             <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
@@ -76,7 +101,8 @@ export async function CalendarConnectCard({
             </p>
             <p className="max-w-[56ch] text-[13px] leading-[1.45] text-muted-foreground">
               Connect Google Calendar and today’s schedule shows up here. legalOS
-              reads your day, and never writes to your calendar.
+              reads every calendar you keep visible, and never writes to your
+              calendar.
             </p>
             <Button
               aria-label="Connect Google Calendar"

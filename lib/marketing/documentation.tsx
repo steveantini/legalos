@@ -686,7 +686,7 @@ export const DOC_PAGES: DocPage[] = [
     slug: "calendar",
     group: "users",
     title: "Your calendar",
-    summary: "Connect Google Calendar, read-only, and see today's schedule on your home.",
+    summary: "Connect Google Calendar, read-only, and see today's schedule from all your calendars on your home.",
     audience: "For everyone",
     lead: "Connect your Google Calendar and the Today card on your home shows your schedule for the day. It is read-only: legalOS shows your meetings and never writes to your calendar.",
     body: (
@@ -695,12 +695,13 @@ export const DOC_PAGES: DocPage[] = [
           <p>
             Once connected, the Today card lists your meetings for the day, each
             with its time, title, and attendees, and a label like Google Meet
-            when the event has a video link. The day is bounded in your
-            calendar&rsquo;s own timezone, so an evening connection still shows
-            today rather than tomorrow. It reads your primary calendar;
-            secondary calendars you own or subscribe to are not included yet.
-            legalOS reads with a read-only scope, so it can show your schedule
-            but can never change it.
+            when the event has a video link. It gathers events from every
+            calendar you keep visible in Google Calendar, not just your main one,
+            and merges them in time order, with all-day events at the top. The
+            day is bounded in your calendar&rsquo;s own timezone, so an evening
+            connection still shows today rather than tomorrow. legalOS reads with
+            a read-only scope, so it can show your schedule but can never change
+            it.
           </p>
         </MarketingSection>
         <MarketingSection title="How to">
@@ -718,9 +719,11 @@ export const DOC_PAGES: DocPage[] = [
               </li>
             </ol>
             <p className="mt-2 text-[13.5px] text-muted-foreground">
-              You can disconnect any time from Settings, Connections. Outlook
-              calendar is not yet available; Google Calendar is the supported
-              provider today.
+              You can disconnect any time from Settings, Connections. If you
+              connected before the card read across all your calendars, it will
+              prompt you to reconnect once to grant read-only access to your
+              calendar list. Outlook calendar is not yet available; Google
+              Calendar is the supported provider today.
             </p>
           </div>
         </MarketingSection>

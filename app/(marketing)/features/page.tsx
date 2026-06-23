@@ -129,8 +129,9 @@ export default function FeaturesPage() {
         <p>
           <LeadIn>Your calendar, on your home.</LeadIn>{" "}Connect Google
           Calendar in one click and today&rsquo;s schedule appears on your home,
-          read-only: legalOS shows your meetings for the day and never writes to
-          your calendar.
+          gathered across every calendar you keep visible and merged in time
+          order, read-only: legalOS shows your meetings for the day and never
+          writes to your calendar.
         </p>
         <p>
           Reading is open; acting requires a hand on the wheel: an agent reads

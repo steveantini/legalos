@@ -15,10 +15,17 @@ import type {
  * the provider id, the capability category, and the scope.
  *
  * Scope is read-only and least-privilege: `calendar.events.readonly` reads the
- * user's events (titles, times, attendees) WITHOUT access to calendar settings
- * or the calendar list, which is all the Today card needs. It keeps the card's
- * "never writes to your calendar" promise true at the scope level. `openid email
- * profile` are requested only to label which account connected.
+ * user's events (titles, times, attendees), and `calendar.calendarlist.readonly`
+ * lists which calendars they keep visible so the Today card can read all of them
+ * rather than the primary alone. Both are READ scopes: no write, no calendar
+ * settings, no free/busy beyond what the list and events expose, so the card's
+ * "never writes to your calendar" promise holds at the scope level. `openid
+ * email profile` are requested only to label which account connected.
+ *
+ * Adding the calendar-list scope means a connection made BEFORE it was added
+ * holds a token without it; the read client surfaces the resulting list-call
+ * 403 as a reconnect prompt (see google-calendar-read's `scope_insufficient`),
+ * so existing users re-consent once rather than silently seeing an empty card.
  *
  * `access_type=offline` + `prompt=consent` are required for Google to return a
  * refresh token; without them only a short-lived access token comes back.
@@ -32,9 +39,14 @@ const SCOPES = [
   "openid",
   "email",
   "profile",
-  // Read-only events scope: lists and reads events on the user's calendars; no
-  // write, no calendar-management. Matches the policy's read-only ceiling.
+  // Read-only events scope: reads events on the user's calendars; no write, no
+  // calendar-management. Matches the policy's read-only ceiling.
   "https://www.googleapis.com/auth/calendar.events.readonly",
+  // Read-only calendar-list scope: enumerates the calendars the user keeps
+  // visible so the Today card can read all of them, not just primary. The
+  // events scope alone cannot list calendars; this is the minimal addition that
+  // grants calendarList.list, and is still read-only.
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
 ];
 
 const CLIENT_ID_ENV_VAR = "GOOGLE_OAUTH_CLIENT_ID";

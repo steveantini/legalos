@@ -54,7 +54,7 @@ Last full truth pass: 2026-06-12 (D-157).
 | Pre-vetted connector catalog: contract lifecycle, document management, e-discovery, court data and research, productivity (named examples) | D-150 (the C4L harvest, 932637d); drift detection D-151 |
 | Enabling = a toggle plus your credentials, trusted boundary | D-089 (trusted-only registry), D-092 (governed connect flow) |
 | Google Workspace verified end to end; the rest pre-vetted rather than live-tested, verified as enabled | D-106 (Google proven live); D-150 status split (CourtListener AVAILABLE pending the operator vet) |
-| Connect Google Calendar in one click; today's schedule appears on the home, read-only, never writes | D-174 (`google-calendar` adapter on the Drive OAuth path, `calendar.events.readonly`, Today card) |
+| Connect Google Calendar in one click; today's schedule, gathered across every visible calendar and merged in time order, appears on the home, read-only, never writes | D-174 (`google-calendar` adapter on the Drive OAuth path, `calendar.events.readonly` + `calendar.calendarlist.readonly`, all-day events handled, multi-calendar merge, Today card) |
 | Reads run free; writes pause for per-action approval | D-105 (gated loop), D-107/D-108 (write confirmation) |
 | First-party or self-hosted servers only; encrypted credentials, never in the browser | D-089, D-093, `connection_secrets` custody |
 | Model-agnostic: managed or bring-your-own provider account | D-085–D-088 (models-as-a-connection, BYO key) |

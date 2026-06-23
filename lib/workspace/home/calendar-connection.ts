@@ -55,35 +55,61 @@ export async function isCalendarConnected(userId: string): Promise<boolean> {
 }
 
 /**
- * Today's events for `userId`, normalized for the schedule view.
+ * The outcome of a Today read: the day's events, or a signal that the
+ * connection needs reconnecting to grant a newly-required scope. Distinguishing
+ * the two lets the card prompt a reconnect instead of misreading a pre-scope
+ * token as an empty day.
+ */
+export type TodayEventsResult =
+  | { status: "ok"; events: NormalizedEvent[] }
+  | { status: "needs_reconnect" };
+
+/**
+ * Today's events for `userId`, across all their visible calendars, normalized
+ * for the schedule view.
  *
  * Govern, then exercise: the capability gate authorizes a 'calendar' read and
  * returns the connection id + token ref; the token layer resolves a fresh access
- * token (refreshing if needed); the read client fetches today's events bounded
- * in the user's calendar timezone and normalizes them.
+ * token (refreshing if needed); the read client lists the user's calendars,
+ * reads each visible one's day bounded in the user's timezone, and merges them.
  *
- * Degrades calmly to an empty array on any failure, never crashing the home: a
- * dead/revoked token makes `getUsableAccessToken` mark the connection
- * `status='error'`, so the next render sees no active calendar connection and
- * the card falls back to its Connect state (the reconnect prompt). A transient
- * Calendar API error just yields no events this render.
+ * Two non-crashing outcomes besides success:
+ * - `needs_reconnect`: the token predates the calendar-list scope
+ *   (`calendar.calendarlist.readonly`), so the list call 403s. The connection is
+ *   still healthy; the user just needs to reconnect to grant the new scope, so
+ *   we surface a reconnect prompt rather than an empty card. We deliberately do
+ *   NOT mark the connection `error` here (a refresh would succeed) — only a
+ *   reconsent adds the scope.
+ * - empty events: a dead/revoked token makes `getUsableAccessToken` mark the
+ *   connection `status='error'` (next render falls back to the Connect state),
+ *   and a transient Calendar API error just yields no events this render.
  */
 export async function getTodaysEvents(
   userId: string,
-): Promise<NormalizedEvent[]> {
+): Promise<TodayEventsResult> {
   const decision = await canExerciseCapability(userId, "calendar", "read");
-  if (!decision.allowed || !decision.tokenRef) return [];
+  if (!decision.allowed || !decision.tokenRef) {
+    return { status: "ok", events: [] };
+  }
 
   try {
     const accessToken = await getUsableAccessToken(
       decision.connectionId,
       decision.tokenRef,
     );
-    return await fetchTodaysCalendarEvents(accessToken, new Date());
+    const events = await fetchTodaysCalendarEvents(accessToken, new Date());
+    return { status: "ok", events };
   } catch (err) {
+    // A pre-scope token can't list calendars: prompt a reconnect, don't pretend
+    // the day is empty.
+    if (
+      err instanceof CalendarReadError &&
+      err.reason === "scope_insufficient"
+    ) {
+      return { status: "needs_reconnect" };
+    }
     // TokenUnavailableError (token layer already marked the connection error)
-    // and CalendarReadError alike degrade to an empty schedule.
-    void (err instanceof CalendarReadError);
-    return [];
+    // and any other CalendarReadError degrade to an empty schedule.
+    return { status: "ok", events: [] };
   }
 }

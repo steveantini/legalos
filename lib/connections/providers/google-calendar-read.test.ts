@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CalendarReadError,
   dayWindowInZone,
+  eventSortKey,
+  fetchTodaysCalendarEvents,
   formatTimeInZone,
   normalizeCalendarEvent,
+  orderAndNormalize,
+  pickCalendarsToRead,
+  resolveUserZone,
+  type CalendarRef,
   type RawCalendarEvent,
+  type RawCalendarListEntry,
 } from "./google-calendar-read";
 
 describe("dayWindowInZone", () => {
@@ -124,5 +132,203 @@ describe("normalizeCalendarEvent", () => {
       start: { dateTime: "2026-06-23T13:00:00Z" },
     };
     expect(normalizeCalendarEvent(raw, tz)?.conferenceLabel).toBeNull();
+  });
+});
+
+describe("pickCalendarsToRead", () => {
+  it("keeps visible (selected) and primary calendars, drops the rest", () => {
+    const items: RawCalendarListEntry[] = [
+      { id: "primary@me", summary: "Steven Antini", primary: true, timeZone: "America/New_York" },
+      { id: "amy", summary: "Amy", selected: true, timeZone: "America/New_York" },
+      { id: "hidden", summary: "Hidden", selected: false }, // not visible
+      { id: "no-flag", summary: "No flag" }, // selected omitted (defaults false)
+    ];
+    expect(pickCalendarsToRead(items).map((c) => c.id)).toEqual(["primary@me", "amy"]);
+  });
+
+  it("includes the primary even if it is not flagged selected", () => {
+    const items: RawCalendarListEntry[] = [
+      { id: "primary@me", summary: "Me", primary: true },
+    ];
+    expect(pickCalendarsToRead(items).map((c) => c.id)).toEqual(["primary@me"]);
+  });
+
+  it("drops deleted, free/busy-only, and id-less entries", () => {
+    const items: RawCalendarListEntry[] = [
+      { id: "deleted", selected: true, deleted: true },
+      { id: "freebusy", selected: true, accessRole: "freeBusyReader" },
+      { summary: "no id", selected: true },
+      { id: "ok", selected: true, accessRole: "reader" },
+    ];
+    expect(pickCalendarsToRead(items).map((c) => c.id)).toEqual(["ok"]);
+  });
+
+  it("prefers summaryOverride and falls back to a safe timezone", () => {
+    const [ref] = pickCalendarsToRead([
+      { id: "leo", summary: "Leo", summaryOverride: "Leo (school)", selected: true, timeZone: "Not/AZone" },
+    ]);
+    expect(ref.summary).toBe("Leo (school)");
+    expect(ref.timeZone).toBe("UTC"); // unparseable zone falls back
+  });
+});
+
+describe("resolveUserZone", () => {
+  const ref = (over: Partial<CalendarRef>): CalendarRef => ({
+    id: "x",
+    summary: "X",
+    timeZone: "UTC",
+    primary: false,
+    ...over,
+  });
+
+  it("uses the primary calendar's zone", () => {
+    expect(
+      resolveUserZone([
+        ref({ id: "a", timeZone: "Asia/Tokyo" }),
+        ref({ id: "p", timeZone: "America/New_York", primary: true }),
+      ]),
+    ).toBe("America/New_York");
+  });
+
+  it("falls back to the first calendar's zone, then UTC", () => {
+    expect(resolveUserZone([ref({ timeZone: "Asia/Kolkata" })])).toBe("Asia/Kolkata");
+    expect(resolveUserZone([])).toBe("UTC");
+  });
+});
+
+describe("eventSortKey", () => {
+  const tz = "America/New_York";
+
+  it("orders an all-day event before that day's timed events", () => {
+    const allDay = eventSortKey({ id: "a", start: { date: "2026-06-23" } }, tz);
+    const earlyTimed = eventSortKey(
+      { id: "b", start: { dateTime: "2026-06-23T00:30:00-04:00" } },
+      tz,
+    );
+    expect(allDay).toBeLessThan(earlyTimed);
+  });
+
+  it("orders timed events by their instant", () => {
+    const nine = eventSortKey({ id: "a", start: { dateTime: "2026-06-23T09:00:00-04:00" } }, tz);
+    const ten = eventSortKey({ id: "b", start: { dateTime: "2026-06-23T10:00:00-04:00" } }, tz);
+    expect(nine).toBeLessThan(ten);
+  });
+
+  it("sorts start-less or unparseable events last", () => {
+    expect(eventSortKey({ id: "a" }, tz)).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe("orderAndNormalize", () => {
+  const tz = "America/New_York";
+
+  it("merges calendars in start order with all-day events first", () => {
+    const raws: RawCalendarEvent[] = [
+      { id: "t2", summary: "Late", start: { dateTime: "2026-06-23T16:00:00-04:00" } },
+      { id: "ad", summary: "Test 1", start: { date: "2026-06-23" } },
+      { id: "t1", summary: "Early", start: { dateTime: "2026-06-23T09:00:00-04:00" } },
+    ];
+    expect(orderAndNormalize(raws, tz).map((e) => e.title)).toEqual([
+      "Test 1",
+      "Early",
+      "Late",
+    ]);
+  });
+
+  it("dedupes a shared invite carried on two calendars by iCalUID", () => {
+    const raws: RawCalendarEvent[] = [
+      { id: "copy-a", iCalUID: "shared@google.com", summary: "Family dinner", start: { dateTime: "2026-06-23T18:00:00-04:00" } },
+      { id: "copy-b", iCalUID: "shared@google.com", summary: "Family dinner", start: { dateTime: "2026-06-23T18:00:00-04:00" } },
+    ];
+    expect(orderAndNormalize(raws, tz)).toHaveLength(1);
+  });
+});
+
+describe("fetchTodaysCalendarEvents (multi-calendar orchestration)", () => {
+  const now = new Date("2026-06-23T18:00:00Z");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Route a mocked fetch by URL: calendar list, then per-calendar events. */
+  function mockCalendarApi(
+    list: RawCalendarListEntry[],
+    eventsByCalendarId: Record<string, { ok: boolean; items?: RawCalendarEvent[] }>,
+  ): void {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/users/me/calendarList")) {
+        return { ok: true, status: 200, json: async () => ({ items: list }) } as Response;
+      }
+      const match = /\/calendars\/([^/]+)\/events/.exec(url);
+      const calendarId = match ? decodeURIComponent(match[1]) : "";
+      const entry = eventsByCalendarId[calendarId];
+      if (!entry || !entry.ok) {
+        return { ok: false, status: 500, json: async () => ({}) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ items: entry.items ?? [] }) } as Response;
+    });
+  }
+
+  it("merges events from every visible calendar, time-sorted", async () => {
+    mockCalendarApi(
+      [
+        { id: "primary@me", primary: true, timeZone: "America/New_York" },
+        { id: "amy", selected: true, timeZone: "America/New_York" },
+      ],
+      {
+        "primary@me": {
+          ok: true,
+          items: [
+            { id: "ad", summary: "Test 1", start: { date: "2026-06-23" } },
+            { id: "p2", summary: "Standup", start: { dateTime: "2026-06-23T09:30:00-04:00" } },
+          ],
+        },
+        amy: {
+          ok: true,
+          items: [{ id: "a1", summary: "Amy pickup", start: { dateTime: "2026-06-23T09:00:00-04:00" } }],
+        },
+      },
+    );
+
+    const events = await fetchTodaysCalendarEvents("token", now);
+    expect(events.map((e) => e.title)).toEqual(["Test 1", "Amy pickup", "Standup"]);
+  });
+
+  it("skips a calendar that fails to read without emptying the card", async () => {
+    mockCalendarApi(
+      [
+        { id: "primary@me", primary: true, timeZone: "America/New_York" },
+        { id: "broken", selected: true, timeZone: "America/New_York" },
+      ],
+      {
+        "primary@me": {
+          ok: true,
+          items: [{ id: "p1", summary: "Deal review", start: { dateTime: "2026-06-23T10:00:00-04:00" } }],
+        },
+        broken: { ok: false },
+      },
+    );
+
+    const events = await fetchTodaysCalendarEvents("token", now);
+    expect(events.map((e) => e.title)).toEqual(["Deal review"]);
+  });
+
+  it("surfaces a calendar-list 403 as scope_insufficient (reconnect signal)", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/users/me/calendarList")) {
+        return { ok: false, status: 403, json: async () => ({}) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ items: [] }) } as Response;
+    });
+
+    await expect(fetchTodaysCalendarEvents("token", now)).rejects.toMatchObject({
+      reason: "scope_insufficient",
+    });
+    await expect(fetchTodaysCalendarEvents("token", now)).rejects.toBeInstanceOf(
+      CalendarReadError,
+    );
   });
 });
