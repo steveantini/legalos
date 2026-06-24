@@ -43,6 +43,35 @@ export type NormalizedEvent = {
   attendees: string[];
   /** Conferencing label e.g. "Zoom", "Google Meet"; null when in-person. */
   conferenceLabel: string | null;
+  /**
+   * Identity of the calendar this event was read from, for a merged
+   * multi-calendar view. `calendarName` is the calendar's (possibly overridden)
+   * summary; color is derived from `calendarId` against our own curated palette,
+   * not from the provider (see DECISION_LOG D-175). Always populated.
+   */
+  calendarId: string;
+  calendarName: string;
+  /** True for an all-day event (a date with no clock time). Always populated. */
+  isAllDay: boolean;
+  /**
+   * Absolute start/end instants (epoch ms) for client-side now/next
+   * computation, and the derived duration in whole minutes. Populated only for
+   * timed events; all three are undefined for all-day events, and
+   * `durationMinutes` is also omitted when the end is missing or non-positive.
+   */
+  startMs?: number;
+  endMs?: number;
+  durationMinutes?: number;
+  /** Trimmed location string; omitted when the event has none. */
+  location?: string;
+  /**
+   * Meeting join URL (video conference link); omitted when there is none. Read
+   * from the conference data's video entry point, falling back to a Hangouts
+   * link.
+   */
+  joinUrl?: string;
+  /** Deep link to open the event in Google Calendar; omitted when absent. */
+  htmlLink?: string;
 };
 
 /**

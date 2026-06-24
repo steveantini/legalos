@@ -16,6 +16,9 @@ function event(over: Partial<NormalizedEvent>): NormalizedEvent {
     startTime: "10:00",
     attendees: [],
     conferenceLabel: null,
+    calendarId: "cal",
+    calendarName: "Calendar",
+    isAllDay: false,
     ...over,
   };
 }

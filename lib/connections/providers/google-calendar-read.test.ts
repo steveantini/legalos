@@ -13,6 +13,7 @@ import {
   type CalendarRef,
   type RawCalendarEvent,
   type RawCalendarListEntry,
+  type SourcedEvent,
 } from "./google-calendar-read";
 
 describe("dayWindowInZone", () => {
@@ -64,6 +65,12 @@ describe("formatTimeInZone", () => {
 
 describe("normalizeCalendarEvent", () => {
   const tz = "America/New_York";
+  const cal: CalendarRef = {
+    id: "cal-work",
+    summary: "Work",
+    timeZone: tz,
+    primary: true,
+  };
 
   it("normalizes a timed event with attendees and a conference label", () => {
     const raw: RawCalendarEvent = {
@@ -79,27 +86,137 @@ describe("normalizeCalendarEvent", () => {
       ],
       conferenceData: { conferenceSolution: { name: "Google Meet" } },
     };
-    expect(normalizeCalendarEvent(raw, tz)).toEqual({
+    expect(normalizeCalendarEvent(raw, tz, cal)).toEqual({
       id: "evt1",
       title: "Deal review",
       startTime: "10:00",
       endTime: "11:00",
       attendees: ["Sarah Chen", "james@example.com"], // resource room excluded
       conferenceLabel: "Google Meet",
+      calendarId: "cal-work",
+      calendarName: "Work",
+      isAllDay: false,
+      startMs: Date.parse("2026-06-23T14:00:00Z"),
+      endMs: Date.parse("2026-06-23T15:00:00Z"),
+      durationMinutes: 60,
+      // location, joinUrl, htmlLink are undefined here and omitted by toEqual.
     });
   });
 
-  it("labels an all-day event and gives it no end time", () => {
+  it("labels an all-day event and leaves it no times or duration", () => {
     const raw: RawCalendarEvent = {
       id: "evt2",
       summary: "Team offsite",
       start: { date: "2026-06-23" },
       end: { date: "2026-06-24" },
     };
-    const result = normalizeCalendarEvent(raw, tz);
+    const result = normalizeCalendarEvent(raw, tz, cal);
     expect(result?.startTime).toBe("All day");
     expect(result?.endTime).toBeUndefined();
     expect(result?.title).toBe("Team offsite");
+    expect(result?.isAllDay).toBe(true);
+    expect(result?.startMs).toBeUndefined();
+    expect(result?.endMs).toBeUndefined();
+    expect(result?.durationMinutes).toBeUndefined();
+  });
+
+  it("computes duration in minutes and omits it when the end is missing", () => {
+    const ninetyMin = normalizeCalendarEvent(
+      {
+        id: "d1",
+        summary: "Workshop",
+        start: { dateTime: "2026-06-23T14:00:00Z" },
+        end: { dateTime: "2026-06-23T15:30:00Z" },
+      },
+      tz,
+      cal,
+    );
+    expect(ninetyMin?.durationMinutes).toBe(90);
+
+    const noEnd = normalizeCalendarEvent(
+      { id: "d2", summary: "Open ended", start: { dateTime: "2026-06-23T14:00:00Z" } },
+      tz,
+      cal,
+    );
+    expect(noEnd?.startMs).toBe(Date.parse("2026-06-23T14:00:00Z"));
+    expect(noEnd?.endMs).toBeUndefined();
+    expect(noEnd?.durationMinutes).toBeUndefined();
+  });
+
+  it("retains a trimmed location, an open-in-Google link, and the source calendar", () => {
+    const raw: RawCalendarEvent = {
+      id: "evt-loc",
+      summary: "Lunch",
+      start: { dateTime: "2026-06-23T16:00:00Z" },
+      end: { dateTime: "2026-06-23T17:00:00Z" },
+      location: "  Cafe Mox, 2nd floor  ",
+      htmlLink: "https://calendar.google.com/event?eid=abc",
+    };
+    const source: CalendarRef = {
+      id: "amy-cal",
+      summary: "Amy",
+      timeZone: tz,
+      primary: false,
+    };
+    const result = normalizeCalendarEvent(raw, tz, source);
+    expect(result?.location).toBe("Cafe Mox, 2nd floor");
+    expect(result?.htmlLink).toBe("https://calendar.google.com/event?eid=abc");
+    expect(result?.calendarId).toBe("amy-cal");
+    expect(result?.calendarName).toBe("Amy");
+  });
+
+  it("omits an empty location", () => {
+    const result = normalizeCalendarEvent(
+      {
+        id: "evt-noloc",
+        summary: "Call",
+        start: { dateTime: "2026-06-23T16:00:00Z" },
+        location: "   ",
+      },
+      tz,
+      cal,
+    );
+    expect(result?.location).toBeUndefined();
+  });
+
+  it("prefers the video entry point for joinUrl, then falls back to hangoutLink", () => {
+    const withEntryPoint = normalizeCalendarEvent(
+      {
+        id: "evt-join1",
+        summary: "Sync",
+        start: { dateTime: "2026-06-23T16:00:00Z" },
+        hangoutLink: "https://meet.google.com/legacy",
+        conferenceData: {
+          conferenceSolution: { name: "Zoom" },
+          entryPoints: [
+            { entryPointType: "phone", uri: "tel:+15551234" },
+            { entryPointType: "video", uri: "https://zoom.us/j/123" },
+          ],
+        },
+      },
+      tz,
+      cal,
+    );
+    expect(withEntryPoint?.joinUrl).toBe("https://zoom.us/j/123");
+
+    const hangoutOnly = normalizeCalendarEvent(
+      {
+        id: "evt-join2",
+        summary: "Sync",
+        start: { dateTime: "2026-06-23T16:00:00Z" },
+        hangoutLink: "https://meet.google.com/abc",
+      },
+      tz,
+      cal,
+    );
+    expect(hangoutOnly?.joinUrl).toBe("https://meet.google.com/abc");
+
+    const inPerson = normalizeCalendarEvent(
+      { id: "evt-join3", summary: "Coffee", start: { dateTime: "2026-06-23T16:00:00Z" } },
+      tz,
+      cal,
+    );
+    expect(inPerson?.joinUrl).toBeUndefined();
   });
 
   it("falls back to a placeholder title and infers Meet from hangoutLink", () => {
@@ -108,7 +225,7 @@ describe("normalizeCalendarEvent", () => {
       start: { dateTime: "2026-06-23T13:00:00Z" },
       hangoutLink: "https://meet.google.com/abc",
     };
-    const result = normalizeCalendarEvent(raw, tz);
+    const result = normalizeCalendarEvent(raw, tz, cal);
     expect(result?.title).toBe("(No title)");
     expect(result?.conferenceLabel).toBe("Google Meet");
     expect(result?.attendees).toEqual([]);
@@ -119,10 +236,13 @@ describe("normalizeCalendarEvent", () => {
       normalizeCalendarEvent(
         { id: "x", status: "cancelled", start: { dateTime: "2026-06-23T13:00:00Z" } },
         tz,
+        cal,
       ),
     ).toBeNull();
-    expect(normalizeCalendarEvent({ summary: "no id", start: { date: "2026-06-23" } }, tz)).toBeNull();
-    expect(normalizeCalendarEvent({ id: "no-start" }, tz)).toBeNull();
+    expect(
+      normalizeCalendarEvent({ summary: "no id", start: { date: "2026-06-23" } }, tz, cal),
+    ).toBeNull();
+    expect(normalizeCalendarEvent({ id: "no-start" }, tz, cal)).toBeNull();
   });
 
   it("has no conference label for an in-person event", () => {
@@ -131,7 +251,7 @@ describe("normalizeCalendarEvent", () => {
       summary: "Coffee",
       start: { dateTime: "2026-06-23T13:00:00Z" },
     };
-    expect(normalizeCalendarEvent(raw, tz)?.conferenceLabel).toBeNull();
+    expect(normalizeCalendarEvent(raw, tz, cal)?.conferenceLabel).toBeNull();
   });
 });
 
@@ -221,26 +341,45 @@ describe("eventSortKey", () => {
 
 describe("orderAndNormalize", () => {
   const tz = "America/New_York";
+  const cal = (id: string): CalendarRef => ({
+    id,
+    summary: id,
+    timeZone: tz,
+    primary: id === "primary",
+  });
+  /** Wrap raws as same-calendar SourcedEvents for the ordering cases. */
+  const onOneCalendar = (raws: RawCalendarEvent[]): SourcedEvent[] =>
+    raws.map((raw) => ({ raw, calendar: cal("primary") }));
 
   it("merges calendars in start order with all-day events first", () => {
-    const raws: RawCalendarEvent[] = [
+    const sourced = onOneCalendar([
       { id: "t2", summary: "Late", start: { dateTime: "2026-06-23T16:00:00-04:00" } },
       { id: "ad", summary: "Test 1", start: { date: "2026-06-23" } },
       { id: "t1", summary: "Early", start: { dateTime: "2026-06-23T09:00:00-04:00" } },
-    ];
-    expect(orderAndNormalize(raws, tz).map((e) => e.title)).toEqual([
+    ]);
+    expect(orderAndNormalize(sourced, tz).map((e) => e.title)).toEqual([
       "Test 1",
       "Early",
       "Late",
     ]);
   });
 
-  it("dedupes a shared invite carried on two calendars by iCalUID", () => {
-    const raws: RawCalendarEvent[] = [
-      { id: "copy-a", iCalUID: "shared@google.com", summary: "Family dinner", start: { dateTime: "2026-06-23T18:00:00-04:00" } },
-      { id: "copy-b", iCalUID: "shared@google.com", summary: "Family dinner", start: { dateTime: "2026-06-23T18:00:00-04:00" } },
+  it("dedupes a shared invite by iCalUID, keeping the first-sorted copy's calendar", () => {
+    // Same invite on two calendars; both sort to the same instant, so the first
+    // in input order survives and its source calendar is the one carried.
+    const sourced: SourcedEvent[] = [
+      {
+        raw: { id: "copy-a", iCalUID: "shared@google.com", summary: "Family dinner", start: { dateTime: "2026-06-23T18:00:00-04:00" } },
+        calendar: cal("amy"),
+      },
+      {
+        raw: { id: "copy-b", iCalUID: "shared@google.com", summary: "Family dinner", start: { dateTime: "2026-06-23T18:00:00-04:00" } },
+        calendar: cal("leo"),
+      },
     ];
-    expect(orderAndNormalize(raws, tz)).toHaveLength(1);
+    const result = orderAndNormalize(sourced, tz);
+    expect(result).toHaveLength(1);
+    expect(result[0].calendarId).toBe("amy");
   });
 });
 

@@ -70,11 +70,18 @@ export type RawCalendarEvent = {
   id?: string;
   status?: string;
   summary?: string;
+  location?: string;
+  /** Deep link to open the event in Google Calendar. */
+  htmlLink?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
   attendees?: Array<{ displayName?: string; email?: string; resource?: boolean }>;
   hangoutLink?: string;
-  conferenceData?: { conferenceSolution?: { name?: string } };
+  conferenceData?: {
+    conferenceSolution?: { name?: string };
+    /** Join targets; the `video` entry point carries the meeting URL. */
+    entryPoints?: Array<{ entryPointType?: string; uri?: string }>;
+  };
   /**
    * Cross-calendar identity. The same invite copied onto two of the user's
    * calendars has a different `id` per copy but a shared `iCalUID`; we dedupe on
@@ -82,6 +89,14 @@ export type RawCalendarEvent = {
    */
   iCalUID?: string;
 };
+
+/**
+ * A raw event paired with the calendar it was read from, so the merge can carry
+ * each event's source identity (id + name) through to normalization. The
+ * Calendar API event payload does not name its own calendar, so we thread the
+ * CalendarRef alongside it rather than recovering it later.
+ */
+export type SourcedEvent = { raw: RawCalendarEvent; calendar: CalendarRef };
 
 /** One entry from the user's calendar list (the fields the day read needs). */
 export type RawCalendarListEntry = {
@@ -168,13 +183,17 @@ export async function fetchTodaysCalendarEvents(
       fetchCalendarDayEvents(calendar.id, accessToken, timeMin, timeMax),
     ),
   );
-  const raws: RawCalendarEvent[] = [];
-  for (const result of perCalendar) {
-    if (result.status === "fulfilled") raws.push(...result.value);
-  }
+  // Tag each event with its source calendar. allSettled results are positionally
+  // aligned with `calendars`, so index i's events belong to calendars[i].
+  const sourced: SourcedEvent[] = [];
+  perCalendar.forEach((result, index) => {
+    if (result.status !== "fulfilled") return;
+    const calendar = calendars[index];
+    for (const raw of result.value) sourced.push({ raw, calendar });
+  });
 
   // 4. Merge: order by start (all-day first), dedupe shared invites, normalize.
-  return orderAndNormalize(raws, userZone);
+  return orderAndNormalize(sourced, userZone);
 }
 
 /**
@@ -265,20 +284,25 @@ export function resolveUserZone(refs: CalendarRef[]): string {
 /**
  * Order merged events by start, dedupe shared invites, normalize, and cap.
  * All-day events sort to the front of their day (their key is the day's start),
- * matching how a day view leads with them. Pure and unit-tested.
+ * matching how a day view leads with them. Each event is normalized against its
+ * source calendar so the result carries calendar identity. Pure and unit-tested.
+ *
+ * Dedupe keeps the FIRST occurrence in sorted order, so for a shared invite that
+ * appears on more than one of the user's calendars, the surviving event's
+ * `calendarId`/`calendarName` are those of whichever copy sorts first.
  */
 export function orderAndNormalize(
-  raws: RawCalendarEvent[],
+  sourced: SourcedEvent[],
   timeZone: string,
 ): NormalizedEvent[] {
-  const ordered = raws
-    .map((raw) => ({ raw, key: eventSortKey(raw, timeZone) }))
+  const ordered = sourced
+    .map((item) => ({ ...item, key: eventSortKey(item.raw, timeZone) }))
     .sort((a, b) => a.key - b.key);
 
   const out: NormalizedEvent[] = [];
   const seen = new Set<string>();
-  for (const { raw } of ordered) {
-    const normalized = normalizeCalendarEvent(raw, timeZone);
+  for (const { raw, calendar } of ordered) {
+    const normalized = normalizeCalendarEvent(raw, timeZone, calendar);
     if (!normalized) continue;
     const dedupeKey =
       typeof raw.iCalUID === "string" && raw.iCalUID.length > 0
@@ -319,10 +343,19 @@ export function eventSortKey(raw: RawCalendarEvent, timeZone: string): number {
  * when it should be dropped (cancelled, or no id/start). Pure and unit-tested.
  * All-day events (a `start.date` with no `dateTime`) render with an "All day"
  * label; a missing title falls back to "(No title)".
+ *
+ * `calendar` is the source calendar this event was read from; its id and name
+ * are carried onto the result so a merged, multi-calendar view can attribute
+ * and color each event by calendar identity.
+ *
+ * `startMs`/`endMs` are absolute instants (epoch ms) for client-side now/next
+ * computation; `durationMinutes` is derived from them. All three are populated
+ * only for timed events (all-day events have no clock time).
  */
 export function normalizeCalendarEvent(
   raw: RawCalendarEvent,
   timeZone: string,
+  calendar: CalendarRef,
 ): NormalizedEvent | null {
   if (!raw || raw.status === "cancelled") return null;
   if (typeof raw.id !== "string" || raw.id.length === 0) return null;
@@ -332,13 +365,24 @@ export function normalizeCalendarEvent(
       ? raw.summary.trim()
       : "(No title)";
 
+  const isAllDay = !raw.start?.dateTime && Boolean(raw.start?.date);
+
   let startTime: string;
   let endTime: string | undefined;
+  let startMs: number | undefined;
+  let endMs: number | undefined;
+  let durationMinutes: number | undefined;
   if (raw.start?.dateTime) {
     startTime = formatTimeInZone(raw.start.dateTime, timeZone);
     endTime = raw.end?.dateTime
       ? formatTimeInZone(raw.end.dateTime, timeZone)
       : undefined;
+    startMs = parseInstant(raw.start.dateTime);
+    endMs = raw.end?.dateTime ? parseInstant(raw.end.dateTime) : undefined;
+    if (startMs !== undefined && endMs !== undefined) {
+      const diff = endMs - startMs;
+      if (diff > 0) durationMinutes = Math.round(diff / 60_000);
+    }
   } else if (raw.start?.date) {
     startTime = "All day";
   } else {
@@ -356,7 +400,60 @@ export function normalizeCalendarEvent(
     raw.conferenceData?.conferenceSolution?.name ??
     (raw.hangoutLink ? "Google Meet" : null);
 
-  return { id: raw.id, title, startTime, endTime, attendees, conferenceLabel };
+  const location =
+    typeof raw.location === "string" && raw.location.trim().length > 0
+      ? raw.location.trim()
+      : undefined;
+
+  const joinUrl = resolveJoinUrl(raw);
+
+  const htmlLink =
+    typeof raw.htmlLink === "string" && raw.htmlLink.length > 0
+      ? raw.htmlLink
+      : undefined;
+
+  return {
+    id: raw.id,
+    title,
+    startTime,
+    endTime,
+    attendees,
+    conferenceLabel,
+    calendarId: calendar.id,
+    calendarName: calendar.summary,
+    isAllDay,
+    startMs,
+    endMs,
+    durationMinutes,
+    location,
+    joinUrl,
+    htmlLink,
+  };
+}
+
+/** Date.parse an ISO instant, or undefined if it is unparseable. */
+function parseInstant(iso: string): number | undefined {
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? undefined : ms;
+}
+
+/**
+ * The meeting join URL: the conference data's `video` entry point if present,
+ * else the legacy `hangoutLink`, else undefined. Non-video entry points (phone,
+ * SIP) are not join links for the card.
+ */
+function resolveJoinUrl(raw: RawCalendarEvent): string | undefined {
+  const video = raw.conferenceData?.entryPoints?.find(
+    (entry) =>
+      entry.entryPointType === "video" &&
+      typeof entry.uri === "string" &&
+      entry.uri.length > 0,
+  );
+  if (video?.uri) return video.uri;
+  if (typeof raw.hangoutLink === "string" && raw.hangoutLink.length > 0) {
+    return raw.hangoutLink;
+  }
+  return undefined;
 }
 
 /** Format an ISO instant as "HH:mm" in the given zone (24-hour). "" if invalid. */
