@@ -82,7 +82,34 @@ export const CLAUDE_FOR_LEGAL: VendorContentProvider = {
   },
 };
 
-/** Every vendor content provider, keyed by providerId. Step 4 grows this. */
+/**
+ * The legalOS system-agent tier ("Powered by legalOS", D-180). First-party,
+ * free, fully-locked agents seeded into departments. It shares the provider
+ * SHAPE (for the importer's plugin -> department map and for label/subline
+ * resolution), but is DELIBERATELY ABSENT from `VENDOR_CONTENT_PROVIDERS` and
+ * `VENDOR_PROVIDER_ORDER`: this tier is ALWAYS ON, never org-disableable, so it
+ * must not appear in the admin content-providers policy editor (which iterates
+ * `VENDOR_CONTENT_PROVIDERS`) and must not be gated by vendor-content settings.
+ * The launchpad includes its group unconditionally (see `getAgentsForDepartment‑
+ * Launchpad`), and label/subline resolution special-cases it (see
+ * `lib/agents/source.ts`). Tag form: `legalos:system/<skill>` (the parser
+ * requires a slash; `legalos:system` alone would parse to null).
+ */
+export const LEGALOS_SYSTEM_PROVIDER: VendorContentProvider = {
+  providerId: "legalos",
+  displayLabel: "Powered by legalOS",
+  launchpadSubline: "Free agents built into legalOS. Copy one to make it your own.",
+  sourceRepo: "",
+  upstreamCommit: "",
+  pluginDepartmentMap: { system: "general-tools" },
+};
+
+/** The `source_origin` prefix for the legalOS system tier (`legalos:system/<skill>`). */
+export const LEGALOS_SYSTEM_SOURCE_ID = LEGALOS_SYSTEM_PROVIDER.providerId;
+
+/** Every vendor content provider, keyed by providerId. Step 4 grows this.
+ *  NOTE: the legalOS system tier is intentionally NOT here (always-on, not a
+ *  disableable vendor). */
 export const VENDOR_CONTENT_PROVIDERS: Record<string, VendorContentProvider> = {
   [CLAUDE_FOR_LEGAL.providerId]: CLAUDE_FOR_LEGAL,
 };

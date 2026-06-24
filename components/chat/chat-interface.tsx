@@ -85,6 +85,11 @@ interface ChatInterfaceProps {
    * Customize choice in AgentHeader's top-right slot.
    */
   canManageTemplates?: boolean;
+  /**
+   * True for a fully-locked legalOS system-tier agent. Threaded straight to
+   * AgentHeader, which surfaces "Copy" for everyone (admins included).
+   */
+  isFullyLocked?: boolean;
   /** Attachment count for AgentHeader's "N attached" chip. */
   agentAttachmentCount: number;
   /**
@@ -131,6 +136,7 @@ export function ChatInterface({
   isOwner,
   isTemplate = false,
   canManageTemplates = false,
+  isFullyLocked = false,
   agentAttachmentCount,
   initialMessages = [],
   initialConversationId = null,
@@ -1039,6 +1045,7 @@ export function ChatInterface({
         isOwner={isOwner}
         isTemplate={isTemplate}
         canManageTemplates={canManageTemplates}
+        isFullyLocked={isFullyLocked}
         conversationId={conversationId}
         isDeleted={isDeleted ?? false}
         isEmpty={isEmpty}

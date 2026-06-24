@@ -3,6 +3,7 @@ import { cache } from "react";
 
 import {
   groupAgentsBySource,
+  launchpadGroupVisible,
   type ExternalAgentGroup,
 } from "@/lib/agents/source";
 import {
@@ -960,8 +961,12 @@ export async function getAgentsForDepartmentLaunchpad(
   // section hidden org-wide. Default-permit — a provider with no setting is on.
   const vendorSettings = await getVendorContentSettings();
   const allGroups = groupAgentsBySource(externalAgents.map(toLaunchpadAgent));
+  // The legalOS system tier is always on (never org-disableable); every other
+  // source obeys the org's vendor-content settings.
   const externalGroups = allGroups.filter((group) =>
-    vendorContentEnabledFromSettings(vendorSettings, group.sourceId),
+    launchpadGroupVisible(group.sourceId, (sourceId) =>
+      vendorContentEnabledFromSettings(vendorSettings, sourceId),
+    ),
   );
 
   return {

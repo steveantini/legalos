@@ -16,6 +16,13 @@ interface CustomizeTemplateButtonProps {
    * plus a copy of the source conversation into the new agent.
    */
   conversationId: string | null;
+  /**
+   * Idle/pending button text. Defaults to Customize; the fully-locked legalOS
+   * system tier passes "Copy"/"Copying…" since copying is the only way to adapt
+   * one. The fork behavior is identical either way.
+   */
+  label?: string;
+  pendingLabel?: string;
 }
 
 /**
@@ -35,6 +42,8 @@ interface CustomizeTemplateButtonProps {
 export function CustomizeTemplateButton({
   agentId,
   conversationId,
+  label = "Customize",
+  pendingLabel = "Customizing…",
 }: CustomizeTemplateButtonProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -66,7 +75,7 @@ export function CustomizeTemplateButton({
       onClick={handleClick}
       disabled={pending}
     >
-      {pending ? "Customizing…" : "Customize"}
+      {pending ? pendingLabel : label}
     </Button>
   );
 }

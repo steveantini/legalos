@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   externalCollapseSectionKey,
+  getDisplayLabelFromOrigin,
   getSourceDisplayLabel,
+  getSourceLaunchpadSubline,
   groupAgentsBySource,
+  launchpadGroupVisible,
   parseSourceOrigin,
 } from "./source";
 
@@ -74,6 +77,37 @@ describe("getSourceDisplayLabel", () => {
   });
   it("humanizes an unregistered source id", () => {
     expect(getSourceDisplayLabel("future-vendor")).toBe("Future Vendor");
+  });
+  it("labels the legalOS system tier 'Powered by legalOS'", () => {
+    expect(getSourceDisplayLabel("legalos")).toBe("Powered by legalOS");
+    expect(getDisplayLabelFromOrigin("legalos:system/contract-summarizer")).toBe(
+      "Powered by legalOS",
+    );
+  });
+});
+
+describe("legalOS system tier", () => {
+  it("carries its own launchpad subline; vendors use theirs; unknown has none", () => {
+    expect(getSourceLaunchpadSubline("legalos")).toMatch(/legalOS/);
+    expect(getSourceLaunchpadSubline("claude-for-legal")).toBeTruthy();
+    expect(getSourceLaunchpadSubline("future-vendor")).toBeUndefined();
+  });
+
+  it("renders as its own group, ordered FIRST, distinct from Claude for Legal", () => {
+    const groups = groupAgentsBySource([
+      a("c", "claude-for-legal:commercial-legal/nda"),
+      a("s", "legalos:system/contract-summarizer"),
+    ]);
+    expect(groups.map((g) => g.sourceId)).toEqual(["legalos", "claude-for-legal"]);
+    expect(groups[0].displayLabel).toBe("Powered by legalOS");
+    expect(groups[0].agents.map((x) => x.id)).toEqual(["s"]);
+  });
+
+  it("is ALWAYS visible on the launchpad even when vendor settings would disable it", () => {
+    const allDisabled = () => false;
+    expect(launchpadGroupVisible("legalos", allDisabled)).toBe(true);
+    expect(launchpadGroupVisible("claude-for-legal", allDisabled)).toBe(false);
+    expect(launchpadGroupVisible("claude-for-legal", () => true)).toBe(true);
   });
 });
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { evaluateAgentEditLock } from "@/lib/agents/lock";
 import { isCurrentUserOrgAdmin } from "@/lib/auth/access";
 import { SUPPORTED_MODEL_IDS } from "@/lib/llm/models";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -395,32 +396,34 @@ export async function updateAgentAction(
     return { ok: false, formError: "You don't have permission to edit this agent." };
   }
 
-  // C4L hybrid-edit guard: name, description, system_prompt, and
-  // tool_web_search are managed upstream and cannot be mutated even by
-  // org admins. The UI renders these fields read-only with hint text;
-  // this check rejects any value that arrives different from the DB
-  // (the only way that happens is a determined client bypassing the UI).
-  // Model, attachments, and default_output_format remain editable —
-  // they're the admin's adjust-to-your-org levers.
+  // Source-tier edit lock (lib/agents/lock.ts is the shared, testable rule):
+  //  - legalOS system tier (fully locked): no field is editable — reject any
+  //    submit. Adapting one is done by Copy (fork), not edit.
+  //  - Claude for Legal (hybrid): name, description, system_prompt, and
+  //    web_search are managed upstream and rejected if changed; model,
+  //    attachments, and output format stay editable. The UI renders the locked
+  //    fields read-only; this re-checks server-side against a client bypass.
   if (agent.source_origin !== null) {
-    const dbDescription = (agent.description ?? "") as string;
-    const submittedDescription = input.description ?? "";
     const dbToolsEnabled = Array.isArray(agent.tools_enabled)
       ? (agent.tools_enabled as unknown as string[])
       : [];
-    const dbWebSearch = dbToolsEnabled.includes("web_search");
-    const lockedChanges: string[] = [];
-    if (input.name !== agent.name) lockedChanges.push("name");
-    if (submittedDescription !== dbDescription) lockedChanges.push("description");
-    if (input.system_prompt !== agent.system_prompt) {
-      lockedChanges.push("system prompt");
-    }
-    if (input.tool_web_search !== dbWebSearch) lockedChanges.push("web search");
-    if (lockedChanges.length > 0) {
-      return {
-        ok: false,
-        formError: `These fields are managed by Claude for Legal and can't be changed: ${lockedChanges.join(", ")}. Refresh and try again.`,
-      };
+    const lock = evaluateAgentEditLock(
+      agent.source_origin,
+      {
+        name: agent.name,
+        description: (agent.description ?? "") as string,
+        systemPrompt: agent.system_prompt ?? "",
+        webSearch: dbToolsEnabled.includes("web_search"),
+      },
+      {
+        name: input.name,
+        description: input.description ?? "",
+        systemPrompt: input.system_prompt,
+        webSearch: input.tool_web_search,
+      },
+    );
+    if (!lock.ok) {
+      return { ok: false, formError: lock.formError };
     }
   }
 

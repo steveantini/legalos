@@ -17,6 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentFormResult } from "@/lib/actions/agents";
+import { isFullyLockedSource } from "@/lib/agents/lock";
 import { modelDisplayName } from "@/lib/llm/model-label";
 import { isSelectableModel, SELECTABLE_MODELS } from "@/lib/llm/models";
 
@@ -133,12 +134,18 @@ export function AgentForm({
     >,
   ) => (state.ok === false ? state.fieldErrors?.[field] : undefined);
 
-  // C4L-edit treatment: name, description, system prompt, and web-search
-  // are read-only and surface a "managed upstream" hint; model,
-  // attachments, and export format remain editable. Only meaningful in
-  // edit mode — create flows never carry a source_origin.
+  // Sourced-agent edit treatment. Two locked tiers (see lib/agents/lock.ts):
+  //  - Hybrid (Claude for Legal): name, description, system prompt, and web
+  //    search are read-only; model, attachments, and export format stay
+  //    editable. `isC4LEdit` drives those four shared fields.
+  //  - Fully locked (legalOS system tier): EVERYTHING is read-only including
+  //    model; attachments and the Save button are hidden. The only way to adapt
+  //    one is Copy (fork). Only meaningful in edit mode (create has no source).
   const isC4LEdit = mode === "edit" && !!sourceOrigin;
-  const lockedHint = "Managed by Claude for Legal.";
+  const isFullyLocked = mode === "edit" && isFullyLockedSource(sourceOrigin ?? null);
+  const lockedHint = isFullyLocked
+    ? "Managed by legalOS."
+    : "Managed by Claude for Legal.";
   const lockedFieldClass = isC4LEdit ? "bg-muted/40 text-muted-foreground" : "bg-card";
 
   const cancelHref =
@@ -172,7 +179,15 @@ export function AgentForm({
         </div>
       ) : null}
 
-      {isC4LEdit ? (
+      {isFullyLocked ? (
+        <div
+          role="note"
+          className="rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground"
+        >
+          This agent is provided by legalOS and can&rsquo;t be edited. Copy it
+          to make your own editable version.
+        </div>
+      ) : isC4LEdit ? (
         <div
           role="note"
           className="rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground"
@@ -250,8 +265,21 @@ export function AgentForm({
 
       <div className="space-y-2">
         <Label htmlFor="agent-model">Model</Label>
-        <Select name="model" defaultValue={defaults.model}>
-          <SelectTrigger id="agent-model" className="w-full bg-card">
+        {/* Fully-locked agents lock the model too; a hidden input carries the
+            current value so the field round-trips even though the Select is
+            disabled (the server short-circuits any change regardless). */}
+        {isFullyLocked ? (
+          <input type="hidden" name="model" value={defaults.model} />
+        ) : null}
+        <Select
+          name={isFullyLocked ? undefined : "model"}
+          defaultValue={defaults.model}
+          disabled={isFullyLocked}
+        >
+          <SelectTrigger
+            id="agent-model"
+            className={`w-full ${isFullyLocked ? lockedFieldClass : "bg-card"}`}
+          >
             <SelectValue placeholder="Select a model" />
           </SelectTrigger>
           <SelectContent>
@@ -284,6 +312,8 @@ export function AgentForm({
         </Select>
         {fieldError("model") ? (
           <p className="text-sm text-destructive">{fieldError("model")}</p>
+        ) : isFullyLocked ? (
+          <p className="text-sm text-muted-foreground">{lockedHint}</p>
         ) : null}
       </div>
 
@@ -365,27 +395,33 @@ export function AgentForm({
         )}
       </div>
 
-      <AgentAttachmentsSection
-        mode={mode}
-        agentId={agentId}
-        initialAttachments={existingAttachments.map((a) => ({
-          attachmentId: a.attachmentId,
-          storagePath: a.storagePath,
-          originalFilename: a.originalFilename,
-          contentType: a.contentType,
-          sizeBytes: a.sizeBytes,
-          extractedText: a.extractedText,
-          extractionWarning: a.extractionWarning,
-        }))}
-      />
+      {/* Fully-locked agents expose no editable attachments surface. */}
+      {!isFullyLocked ? (
+        <AgentAttachmentsSection
+          mode={mode}
+          agentId={agentId}
+          initialAttachments={existingAttachments.map((a) => ({
+            attachmentId: a.attachmentId,
+            storagePath: a.storagePath,
+            originalFilename: a.originalFilename,
+            contentType: a.contentType,
+            sizeBytes: a.sizeBytes,
+            extractedText: a.extractedText,
+            extractionWarning: a.extractionWarning,
+          }))}
+        />
+      ) : null}
 
       <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
         <Link href={cancelHref} className={buttonVariants({ variant: "ghost" })}>
-          Cancel
+          {isFullyLocked ? "Back" : "Cancel"}
         </Link>
-        <Button type="submit" disabled={pending}>
-          {pending ? submitLabelPending : submitLabelIdle}
-        </Button>
+        {/* No Save for a fully-locked agent: nothing is editable. */}
+        {!isFullyLocked ? (
+          <Button type="submit" disabled={pending}>
+            {pending ? submitLabelPending : submitLabelIdle}
+          </Button>
+        ) : null}
       </div>
     </form>
   );

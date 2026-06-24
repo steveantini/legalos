@@ -7,10 +7,10 @@ import { AgentGrid } from "@/components/workspace/agent-grid";
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
 import {
   externalCollapseSectionKey,
+  getSourceLaunchpadSubline,
   type ExternalAgentGroup,
 } from "@/lib/agents/source";
 import type { LaunchpadAgent } from "@/lib/auth/access";
-import { getVendorProvider } from "@/lib/content/vendor-registry";
 import {
   deptCollapsedSectionsKey,
   type CollapsedSectionsValue,
@@ -120,7 +120,7 @@ export function DepartmentLaunchpadContent({
             <CollapsibleSection
               key={group.sourceId}
               title={group.displayLabel}
-              description={getVendorProvider(group.sourceId)?.launchpadSubline}
+              description={getSourceLaunchpadSubline(group.sourceId)}
               sectionKey={key}
               preferenceKey={collapsePrefKey}
               defaultCollapsed={initialCollapsedState[key] ?? false}

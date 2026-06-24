@@ -1,5 +1,7 @@
 import {
   getVendorProvider,
+  LEGALOS_SYSTEM_PROVIDER,
+  LEGALOS_SYSTEM_SOURCE_ID,
   VENDOR_PROVIDER_ORDER,
 } from "@/lib/content/vendor-registry";
 
@@ -95,7 +97,36 @@ export function extractSourceId(rawSourceOrigin: string): string {
  * badges and the launchpad's per-vendor section titles.
  */
 export function getSourceDisplayLabel(sourceId: AgentSourceId): string {
+  if (sourceId === LEGALOS_SYSTEM_SOURCE_ID) {
+    return LEGALOS_SYSTEM_PROVIDER.displayLabel;
+  }
   return getVendorProvider(sourceId)?.displayLabel ?? humanizeSourceId(sourceId);
+}
+
+/**
+ * The one-line launchpad subline under a source's section heading. The legalOS
+ * system tier carries its own (it is not a vendor provider); registered vendors
+ * use their registry subline; unknown sources have none.
+ */
+export function getSourceLaunchpadSubline(
+  sourceId: AgentSourceId,
+): string | undefined {
+  if (sourceId === LEGALOS_SYSTEM_SOURCE_ID) {
+    return LEGALOS_SYSTEM_PROVIDER.launchpadSubline;
+  }
+  return getVendorProvider(sourceId)?.launchpadSubline;
+}
+
+/**
+ * Whether a source's launchpad section renders. The legalOS system tier is
+ * ALWAYS on (never org-disableable); every other source obeys the org's
+ * vendor-content settings (passed in as `isVendorEnabled` to keep this pure).
+ */
+export function launchpadGroupVisible(
+  sourceId: string,
+  isVendorEnabled: (sourceId: string) => boolean,
+): boolean {
+  return sourceId === LEGALOS_SYSTEM_SOURCE_ID || isVendorEnabled(sourceId);
 }
 
 /**
@@ -138,7 +169,12 @@ export type ExternalAgentGroup<T> = {
  */
 export function groupAgentsBySource<T extends { source_origin: string | null }>(
   agents: T[],
-  providerOrder: readonly string[] = VENDOR_PROVIDER_ORDER,
+  // The legalOS system tier leads (it is the platform's own free tier), then
+  // registered vendors in registry order, then any unknown source alphabetically.
+  providerOrder: readonly string[] = [
+    LEGALOS_SYSTEM_SOURCE_ID,
+    ...VENDOR_PROVIDER_ORDER,
+  ],
 ): ExternalAgentGroup<T>[] {
   const bySource = new Map<string, T[]>();
   for (const agent of agents) {

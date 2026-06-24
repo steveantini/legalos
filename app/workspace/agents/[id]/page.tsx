@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ChatInterface } from "@/components/chat/chat-interface";
+import { isFullyLockedSource } from "@/lib/agents/lock";
 import {
   getAgent,
   getConversationForChatSurface,
@@ -124,6 +125,7 @@ export default async function AgentChatPage({
         isOwner={isOwner}
         isTemplate={isTemplate}
         canManageTemplates={canManageTemplates}
+        isFullyLocked={isFullyLockedSource(agent.source_origin)}
         agentAttachmentCount={attachments.length}
         initialMessages={initialMessages}
         initialConversationId={initialConversationId}

@@ -27,6 +27,10 @@ import { CustomizeTemplateButton } from "./customize-template-button";
  * quiet maintenance, leaving Customize as the prominent call-to-action.
  * It shares the text-caption → text-foreground hover treatment with the
  * message action row's Copy / Download icons):
+ *   - `isFullyLocked` (legalOS system tier) → "Copy" button for EVERYONE,
+ *     admins included: the agent is view-only, so copying it into an editable
+ *     org-owned agent is the only way to adapt it, and the locked edit page
+ *     would otherwise be a dead end for admins.
  *   - `isTemplate && canManageTemplates` → "Edit" text link (admin
  *     path — the edit page admits org-admins on templates).
  *   - `isTemplate && !canManageTemplates` → "Customize" button (calls
@@ -68,6 +72,12 @@ interface AgentHeaderProps {
    */
   canManageTemplates?: boolean;
   /**
+   * True for a fully-locked legalOS system-tier agent. When set, the top-right
+   * action is "Copy" for everyone (admins included), since the agent is
+   * view-only and copying is the only way to adapt it.
+   */
+  isFullyLocked?: boolean;
+  /**
    * Live conversation id from ChatInterface state. Passed to the
    * Customize button so the customize flow can copy the active
    * conversation's messages into the new agent. Null until first turn.
@@ -94,6 +104,7 @@ export function AgentHeader({
   isOwner,
   isTemplate = false,
   canManageTemplates = false,
+  isFullyLocked = false,
   conversationId = null,
   isDeleted,
   isEmpty = false,
@@ -122,10 +133,20 @@ export function AgentHeader({
 
   const webSearchOn = isWebSearchOn(agent.tools_enabled);
 
-  // Top-right action: three-way branch keyed on isTemplate × canManage.
-  // Owner-of-user-agent (existing Session 19 path) is the fallback.
+  // Top-right action. A fully-locked system agent is view-only, so Copy is the
+  // sole affordance for everyone (admins included), ahead of the Edit/Customize
+  // branches keyed on isTemplate × canManage; owner-of-user-agent is the fallback.
   let topRightAction: React.ReactNode = null;
-  if (isTemplate && canManageTemplates) {
+  if (isFullyLocked) {
+    topRightAction = (
+      <CustomizeTemplateButton
+        agentId={agent.id}
+        conversationId={conversationId}
+        label="Copy"
+        pendingLabel="Copying…"
+      />
+    );
+  } else if (isTemplate && canManageTemplates) {
     topRightAction = (
       <Link
         href={`/workspace/agents/${agent.id}/edit`}

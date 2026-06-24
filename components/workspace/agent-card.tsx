@@ -24,6 +24,10 @@ import {
   restoreAgentAction,
   softDeleteAgentAction,
 } from "@/lib/actions/agents";
+import {
+  extractSourceId,
+  getSourceDisplayLabel,
+} from "@/lib/agents/source";
 import { logAgentClick } from "@/lib/analytics/events";
 
 interface AgentCardProps {
@@ -332,33 +336,36 @@ function EditableAgentCard({
   const [pending, startTransition] = useTransition();
 
   const isAdminMode = mode === "admin-template";
-  const isC4L =
-    agent.source_origin?.startsWith("claude-for-legal:") ?? false;
+  // Any sourced (vendor or platform) agent: attribute the delete dialog by its
+  // source label ("Claude for Legal", "Powered by legalOS", ...) and drop the
+  // forks-survive line (forking a sourced agent is rare). `extractSourceId` is
+  // robust to a malformed remainder, so this holds for every non-null source.
+  const sourceLabel = agent.source_origin
+    ? getSourceDisplayLabel(extractSourceId(agent.source_origin))
+    : null;
 
   // Three variants of the delete confirmation copy. Two-sentence pattern
   // from ux-writing.md: state the consequence + name the affected thing
   // + give the recovery window.
   //
-  //   1. Canonical (admin-template, not C4L) — keeps the forks-survive
-  //      reassurance (per D-041 + Step A.2 Thread 10). Admins forking
-  //      from a department template is the standard workflow; the line
-  //      is load-bearing for the actual concern.
+  //   1. Canonical (admin-template, no source_origin) — keeps the
+  //      forks-survive reassurance (per D-041 + Step A.2 Thread 10). Admins
+  //      forking from a department template is the standard workflow; the
+  //      line is load-bearing for the actual concern.
   //
-  //   2. C4L (admin-template, source_origin starts with
-  //      "claude-for-legal:") — drops the forks line as noise. The C4L
-  //      hybrid-edit pattern (commits around source_origin) lets users
-  //      customize model / references / export_format in place without
-  //      forking, so a forked-from-C4L agent is rare in practice and
-  //      mentioning it trains users to worry about a workflow that
-  //      isn't theirs.
+  //   2. Sourced (admin-template with a source_origin: Claude for Legal or the
+  //      legalOS system tier) — titled by the source label and drops the forks
+  //      line as noise. Sourced agents are adapted in place (C4L hybrid) or by
+  //      Copy (legalOS), so a forked-from-source agent is rare in practice and
+  //      mentioning it trains users to worry about a workflow that isn't theirs.
   //
   //   3. My-agent (personal, owner-deletable) — forks concept doesn't
   //      apply. Personal agents are leaves of the agent tree.
   let dialogTitle: string;
   let dialogBody: ReactNode;
 
-  if (isAdminMode && isC4L) {
-    dialogTitle = "Delete Claude for Legal agent?";
+  if (isAdminMode && sourceLabel) {
+    dialogTitle = `Delete ${sourceLabel} agent?`;
     dialogBody = (
       <>
         <strong>{agent.name}</strong>{" "}will be moved to the trash. Other
