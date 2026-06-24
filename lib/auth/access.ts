@@ -9,7 +9,6 @@ import {
   getVendorContentSettings,
   vendorContentEnabledFromSettings,
 } from "@/lib/content/content-settings";
-import { VENDOR_PROVIDER_ORDER } from "@/lib/content/vendor-registry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -887,12 +886,10 @@ export async function getAgentsForDepartmentLaunchpad(
   departmentAgents: LaunchpadAgent[];
   /** External (vendor) agents split into one group per source/vendor (Step 4),
    *  filtered to providers the org permits (Step 5). One group with the sole
-   *  vendor today (Claude for Legal) when permitted. */
+   *  vendor today (Claude for Legal) when permitted; empty when a department has
+   *  no vendor agents or the org disabled every provider, in which case the
+   *  launchpad renders no vendor section. */
   externalGroups: ExternalAgentGroup<LaunchpadAgent>[];
-  /** Whether the org permits vendor content at all (any registered provider
-   *  enabled). Drives whether the empty-state "curated content coming" section
-   *  shows: when false, the vendor surface is OFF org-wide and nothing renders. */
-  vendorContentEnabled: boolean;
   myAgents: LaunchpadAgent[];
 }> {
   const supabase = await createSupabaseServerClient();
@@ -966,16 +963,10 @@ export async function getAgentsForDepartmentLaunchpad(
   const externalGroups = allGroups.filter((group) =>
     vendorContentEnabledFromSettings(vendorSettings, group.sourceId),
   );
-  // The vendor surface is "on" when at least one registered provider is enabled;
-  // controls whether the empty-state section shows when a department has none.
-  const vendorContentEnabled = VENDOR_PROVIDER_ORDER.some((providerId) =>
-    vendorContentEnabledFromSettings(vendorSettings, providerId),
-  );
 
   return {
     departmentAgents: departmentAgents.map(toLaunchpadAgent),
     externalGroups,
-    vendorContentEnabled,
     myAgents: myAgents.map(toLaunchpadAgent),
   };
 }

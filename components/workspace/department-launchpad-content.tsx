@@ -10,10 +10,7 @@ import {
   type ExternalAgentGroup,
 } from "@/lib/agents/source";
 import type { LaunchpadAgent } from "@/lib/auth/access";
-import {
-  getVendorProvider,
-  VENDOR_CONTENT_PROVIDERS,
-} from "@/lib/content/vendor-registry";
+import { getVendorProvider } from "@/lib/content/vendor-registry";
 import {
   deptCollapsedSectionsKey,
   type CollapsedSectionsValue,
@@ -22,11 +19,10 @@ import {
 interface DepartmentLaunchpadContentProps {
   departmentAgents: LaunchpadAgent[];
   /** External (vendor) agents grouped by source — one section per vendor present
-   *  (already filtered to org-permitted providers). */
+   *  (already filtered to org-permitted providers). Empty when the department has
+   *  no vendor agents (or the org disabled every provider), in which case the
+   *  vendor section renders nothing. */
   externalGroups: ExternalAgentGroup<LaunchpadAgent>[];
-  /** Whether the org permits vendor content at all (Step 5). When false, NO
-   *  vendor surface renders — not even the empty-state section. */
-  vendorContentEnabled: boolean;
   myAgents: LaunchpadAgent[];
   departmentSlug: string;
   canManageTemplates: boolean;
@@ -66,7 +62,6 @@ interface DepartmentLaunchpadContentProps {
 export function DepartmentLaunchpadContent({
   departmentAgents,
   externalGroups,
-  vendorContentEnabled,
   myAgents,
   departmentSlug,
   canManageTemplates,
@@ -86,22 +81,6 @@ export function DepartmentLaunchpadContent({
   // The per-department preference row all of this launchpad's sections
   // persist their collapsed state under.
   const collapsePrefKey = deptCollapsedSectionsKey(departmentSlug);
-
-  // Empty-state shape when a department has NO external agents from any vendor:
-  // ONE empty section, not one-per-registered-provider. With the sole provider
-  // today (Claude for Legal) this renders the same section the old single
-  // bucket did (same title and key); its subline carries the what-this-is
-  // orientation, so the empty copy only says what's pending. With multiple
-  // providers it falls back to a generic "Curated content" title, no subline.
-  const providers = Object.values(VENDOR_CONTENT_PROVIDERS);
-  const soleProvider = providers.length === 1 ? providers[0] : null;
-  const emptyExternalTitle = soleProvider?.displayLabel ?? "Curated content";
-  const emptyExternalSectionKey = externalCollapseSectionKey(
-    soleProvider?.providerId ?? "claude-for-legal",
-  );
-  const emptyExternalCopy = soleProvider
-    ? "Coming to this department."
-    : "Curated agent libraries will appear here as they're added.";
 
   return (
     <>
@@ -129,10 +108,11 @@ export function DepartmentLaunchpadContent({
           from the source registry (Claude for Legal today; a future provider
           gets its own titled section automatically). `canManageTemplates` is
           forwarded so admin viewers get the overflow-menu affordances on the
-          cards. Governance (Step 5): when the org has turned vendor content OFF
-          (`vendorContentEnabled` false), the whole vendor surface is hidden — no
-          sections and no empty-state. When ON but a department has no vendor
-          agents, a single empty-state section renders (not one per provider). */}
+          cards. A department with no vendor agents renders nothing here (no
+          empty placeholder section): org-level provider enablement is applied
+          upstream when `externalGroups` is built, so a disabled provider, or a
+          department a provider simply doesn't cover, yields no group and no
+          section. */}
       {externalGroups.length > 0 ? (
         externalGroups.map((group) => {
           const key = externalCollapseSectionKey(group.sourceId);
@@ -155,20 +135,6 @@ export function DepartmentLaunchpadContent({
             </CollapsibleSection>
           );
         })
-      ) : vendorContentEnabled ? (
-        <CollapsibleSection
-          title={emptyExternalTitle}
-          description={soleProvider?.launchpadSubline}
-          sectionKey={emptyExternalSectionKey}
-          preferenceKey={collapsePrefKey}
-          defaultCollapsed={initialCollapsedState[emptyExternalSectionKey] ?? false}
-        >
-          <div className="rounded-[14px] bg-muted p-8 text-center">
-            <p className="text-[13px] leading-[1.5] text-muted-foreground">
-              {emptyExternalCopy}
-            </p>
-          </div>
-        </CollapsibleSection>
       ) : null}
 
       {/* My agents — user-owned personal agents. Always rendered with an

@@ -78,7 +78,7 @@ export default async function DepartmentLaunchpadPage({
   }
 
   const [
-    { departmentAgents, externalGroups, vendorContentEnabled, myAgents },
+    { departmentAgents, externalGroups, myAgents },
     canManageTemplates,
     collapsedPrefResult,
   ] = await Promise.all([
@@ -143,7 +143,6 @@ export default async function DepartmentLaunchpadPage({
       <DepartmentLaunchpadContent
         departmentAgents={departmentAgents}
         externalGroups={externalGroups}
-        vendorContentEnabled={vendorContentEnabled}
         myAgents={myAgents}
         departmentSlug={department.slug}
         canManageTemplates={canManageTemplates}
