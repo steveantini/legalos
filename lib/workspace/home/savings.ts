@@ -21,16 +21,14 @@ export type SavingsCell = {
 };
 
 /**
- * The book can compute savings only when it has at least one agent-mapped task
- * type (a measurable VOLUME) and a positive blended rate (at least one member
- * salary, for the COST). Otherwise the cells stay in the honest setup-needed
- * state. A computable book with zero user runs still yields an honest zero.
+ * The book can compute savings only when it has at least one task type (a
+ * measurable VOLUME — every task type is agent-mapped now, D-177) and a positive
+ * blended rate (at least one member salary, for the COST). Otherwise the cells
+ * stay in the honest setup-needed state. A computable book with zero user runs
+ * still yields an honest zero.
  */
 export function isSavingsComputable(config: TaskBookConfig): boolean {
-  return (
-    orgHourlyRate(config.members) > 0 &&
-    config.taskTypes.some((t) => t.agentId !== null)
-  );
+  return orgHourlyRate(config.members) > 0 && config.taskTypes.length > 0;
 }
 
 export function savingsCells(

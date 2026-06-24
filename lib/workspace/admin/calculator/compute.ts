@@ -29,7 +29,7 @@ export interface TaskTypeResult {
   id: string;
   label: string;
   runsPerYear: number;
-  /** True when the volume came from measured usage; false for a manual estimate. */
+  /** Always true: every task's volume is the mapped agent's measured usage. */
   runsMeasured: boolean;
   hoursSavedPerRun: number;
   annualHoursSaved: number;
@@ -60,13 +60,11 @@ export function orgHourlyRate(members: MemberLike[]): number {
 type MemberLike = { salary: number };
 
 export function resolveRuns(
-  taskType: Pick<TaskTypeConfig, "agentId" | "manualRunsPerYear">,
+  taskType: Pick<TaskTypeConfig, "agentId">,
   measured: MeasuredRuns,
 ): { runs: number; measured: boolean } {
-  if (taskType.agentId) {
-    return { runs: measured[taskType.agentId] ?? 0, measured: true };
-  }
-  return { runs: taskType.manualRunsPerYear ?? 0, measured: false };
+  // Volume is always the mapped agent's measured count (0 until it has run).
+  return { runs: measured[taskType.agentId] ?? 0, measured: true };
 }
 
 export function computeTaskBook(

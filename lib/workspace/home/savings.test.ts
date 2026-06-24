@@ -23,13 +23,12 @@ const FULL: TaskBookConfig = {
       agentId: AGENT,
       timeWithoutMinutes: 60,
       timeWithMinutes: 20,
-      manualRunsPerYear: null,
     },
   ],
 };
 
 describe("isSavingsComputable", () => {
-  it("is true only with a mapped agent (volume) AND a salary (rate)", () => {
+  it("is true with at least one task type (volume) AND a salary (rate)", () => {
     expect(isSavingsComputable(FULL)).toBe(true);
   });
 
@@ -37,13 +36,8 @@ describe("isSavingsComputable", () => {
     expect(isSavingsComputable({ ...FULL, members: [] })).toBe(false);
   });
 
-  it("is false with no agent-mapped task type (nothing measurable)", () => {
-    expect(
-      isSavingsComputable({
-        ...FULL,
-        taskTypes: [{ ...FULL.taskTypes[0], agentId: null, manualRunsPerYear: 10 }],
-      }),
-    ).toBe(false);
+  it("is false with no task types (nothing measurable)", () => {
+    expect(isSavingsComputable({ ...FULL, taskTypes: [] })).toBe(false);
   });
 
   it("is false for an empty book", () => {

@@ -1293,8 +1293,8 @@ export const DOC_PAGES: DocPage[] = [
               </li>
               <li>
                 Pick the agent that does it; its run volume becomes Measured
-                from the last 12 months of real usage. No agent yet? Choose
-                Manual estimate instead, labeled honestly as one.
+                from the last 12 months of real usage. Every task type maps to
+                an agent, so if you have none yet, create one first.
               </li>
               <li>Set the time saved per run; that part is your estimate.</li>
             </ol>

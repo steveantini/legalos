@@ -14,6 +14,7 @@ import type { TaskBookConfig } from "./types";
  */
 
 const AGENT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const AGENT2 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 describe("orgHourlyRate", () => {
   it("averages the fully-loaded rate across members with a salary", () => {
@@ -31,25 +32,14 @@ describe("orgHourlyRate", () => {
 });
 
 describe("resolveRuns", () => {
-  it("takes a measured count for a mapped agent (zero if no usage yet)", () => {
-    expect(resolveRuns({ agentId: AGENT, manualRunsPerYear: null }, { [AGENT]: 128 })).toEqual({
+  it("takes the mapped agent's measured count, zero if it has no usage yet", () => {
+    expect(resolveRuns({ agentId: AGENT }, { [AGENT]: 128 })).toEqual({
       runs: 128,
       measured: true,
     });
-    expect(resolveRuns({ agentId: AGENT, manualRunsPerYear: null }, {})).toEqual({
+    expect(resolveRuns({ agentId: AGENT }, {})).toEqual({
       runs: 0,
       measured: true,
-    });
-  });
-
-  it("falls back to the manual estimate when unmapped", () => {
-    expect(resolveRuns({ agentId: null, manualRunsPerYear: 50 }, {})).toEqual({
-      runs: 50,
-      measured: false,
-    });
-    expect(resolveRuns({ agentId: null, manualRunsPerYear: null }, {})).toEqual({
-      runs: 0,
-      measured: false,
     });
   });
 });
@@ -65,21 +55,19 @@ describe("computeTaskBook", () => {
         agentId: AGENT,
         timeWithoutMinutes: 60,
         timeWithMinutes: 20, // saves 40 min/run = 0.6667 h/run
-        manualRunsPerYear: null,
       },
       {
         id: "t2",
-        label: "Manual task",
-        agentId: null,
+        label: "Zero-delta task",
+        agentId: AGENT2,
         timeWithoutMinutes: 30,
         timeWithMinutes: 30, // saves 0
-        manualRunsPerYear: 100,
       },
     ],
   };
 
   it("blends measured volume with estimated time and rate, preserving the formulas", () => {
-    const r = computeTaskBook(config, { [AGENT]: 100 });
+    const r = computeTaskBook(config, { [AGENT]: 100, [AGENT2]: 100 });
 
     // t1: 40/60 h/run × 100 runs = 66.6667 h ; × 65 = 4333.33
     expect(r.taskTypes[0].runsPerYear).toBe(100);
@@ -87,8 +75,8 @@ describe("computeTaskBook", () => {
     expect(r.taskTypes[0].annualHoursSaved).toBeCloseTo(66.6667, 3);
     expect(r.taskTypes[0].annualSavings).toBeCloseTo(4333.33, 1);
 
-    // t2: 0 saved per run regardless of volume
-    expect(r.taskTypes[1].runsMeasured).toBe(false);
+    // t2: measured volume but 0 saved per run → 0 hours
+    expect(r.taskTypes[1].runsMeasured).toBe(true);
     expect(r.taskTypes[1].annualHoursSaved).toBe(0);
 
     expect(r.orgHourlyRate).toBeCloseTo(65, 6);

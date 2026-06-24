@@ -74,7 +74,7 @@ Last full truth pass: 2026-06-12 (D-157).
 |---|---|
 | Personal impact on the home page (runs, most-used agent, hours/cost given back) | D-143 (Impact cells) |
 | Leader view of adoption and engagement, real measured usage | D-082/D-144 (Insights) |
-| Built-in calculator: measured usage × your assumptions | D-142 (hybrid calculator) |
+| Built-in calculator: measured usage × your assumptions, agent-mapped and measured-only (no manual-estimate volume) | D-142 (hybrid calculator); D-177 (manual-estimate path removed, calculator agent-mapped only) |
 | Measured vs. estimate labeled everywhere | The D-142/D-145 honesty line |
 
 ## Admin and governance (`#governance`)

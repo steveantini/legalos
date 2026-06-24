@@ -1,6 +1,7 @@
 "use client";
 
 import { Info, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -53,14 +54,14 @@ function emptyMember(): DraftMember {
   return { id: newId(), name: "", salary: "" };
 }
 
-function emptyTaskType(): DraftTaskType {
+/** A new task row, mapped to an agent from the start (volume is always measured). */
+function newTaskType(agentId: string): DraftTaskType {
   return {
     id: newId(),
     label: "",
-    agentId: null,
+    agentId,
     timeWithoutMinutes: "",
     timeWithMinutes: "",
-    manualRunsPerYear: "",
   };
 }
 
@@ -123,7 +124,13 @@ export function HybridCalculator({
     update({ ...draft, members: draft.members.filter((m) => m.id !== id) });
   const patchTask = (id: string, patch: Partial<DraftTaskType>) =>
     update({ ...draft, taskTypes: draft.taskTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
-  const addTask = () => update({ ...draft, taskTypes: [...draft.taskTypes, emptyTaskType()] });
+  const addTask = () => {
+    // Default a new row to the first agent; the empty-agent case disables the
+    // button (a task type can only ever be an agent's measured volume).
+    const first = agents[0];
+    if (!first) return;
+    update({ ...draft, taskTypes: [...draft.taskTypes, newTaskType(first.id)] });
+  };
   const removeTask = (id: string) =>
     update({ ...draft, taskTypes: draft.taskTypes.filter((t) => t.id !== id) });
 
@@ -265,10 +272,23 @@ export function HybridCalculator({
         </div>
 
         {canEdit ? (
-          <Button type="button" variant="outline" size="sm" onClick={addTask}>
-            <Plus className="size-4" />
-            Add task type
-          </Button>
+          agents.length === 0 ? (
+            <p className="text-[13px] text-caption">
+              You need an active agent before you can measure a task.{" "}
+              <Link
+                href="/workspace/agents/new"
+                className="font-medium text-primary hover:underline"
+              >
+                Create an agent
+              </Link>{" "}
+              first.
+            </p>
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={addTask}>
+              <Plus className="size-4" />
+              Add task type
+            </Button>
+          )
         ) : null}
       </section>
 
@@ -309,9 +329,9 @@ export function HybridCalculator({
             Overall productivity gains
           </h3>
           <p className="mx-auto mb-5 max-w-[60ch] text-center text-[12px] leading-[1.5] text-muted-foreground">
-            A blended figure: measured run volume, your estimated time saved per
-            run, and your estimated rates. The volume is real; the time saved and
-            rates are estimates.
+            A blended figure: measured run volume (trailing 12 months), your
+            estimated time saved per run, and your estimated rates. The volume is
+            real; the time saved and rates are estimates.
           </p>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -435,8 +455,7 @@ function TaskTypeCard({
   onPatch: (patch: Partial<DraftTaskType>) => void;
   onRemove: () => void;
 }) {
-  const isMeasured = task.agentId !== null;
-  const mappedAgent = task.agentId ? agentsById.get(task.agentId) : undefined;
+  const mappedAgent = agentsById.get(task.agentId);
   const measuredRuns = mappedAgent?.runs ?? 0;
   const runsForDisplay = computed?.runsPerYear ?? 0;
 
@@ -467,20 +486,19 @@ function TaskTypeCard({
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-        {/* Volume */}
+        {/* Volume — always an agent's measured run count */}
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-[12px] text-caption">
-            Runs per year <Badge kind={isMeasured ? "measured" : "estimate"} />
+            Runs per year <Badge kind="measured" />
           </div>
           <select
-            aria-label="Volume source"
-            value={task.agentId ?? ""}
+            aria-label="Agent"
+            value={task.agentId}
             disabled={!canEdit}
-            onChange={(e) => onPatch({ agentId: e.target.value || null })}
+            onChange={(e) => onPatch({ agentId: e.target.value })}
             className={`${inputClass} w-full`}
           >
-            <option value="">Manual estimate</option>
-            {mappedAgent === undefined && task.agentId ? (
+            {mappedAgent === undefined ? (
               <option value={task.agentId}>Unavailable agent</option>
             ) : null}
             {agents.map((a) => (
@@ -489,22 +507,9 @@ function TaskTypeCard({
               </option>
             ))}
           </select>
-          {isMeasured ? (
-            <p className="text-[13px] tabular-nums text-foreground">
-              {measuredRuns.toLocaleString("en-US")} runs measured (last 12 months)
-            </p>
-          ) : (
-            <input
-              type="number"
-              min={0}
-              aria-label="Estimated runs per year"
-              placeholder="Runs per year"
-              value={task.manualRunsPerYear}
-              disabled={!canEdit}
-              onChange={(e) => onPatch({ manualRunsPerYear: e.target.value })}
-              className={`${inputClass} w-full text-right`}
-            />
-          )}
+          <p className="text-[13px] tabular-nums text-foreground">
+            {measuredRuns.toLocaleString("en-US")} runs measured (last 12 months)
+          </p>
         </div>
 
         {/* Time saved per run */}
@@ -578,7 +583,7 @@ function buildCsv(
     "Task Type,Volume Source,Runs Per Year,Measured,Minutes Saved Per Run (est),Annual Hours Saved,Annual Savings ($)\n";
   config.taskTypes.forEach((t, i) => {
     const r = result.taskTypes[i];
-    const source = t.agentId ? clean(agentsById.get(t.agentId)?.name ?? "Agent") : "Manual estimate";
+    const source = clean(agentsById.get(t.agentId)?.name ?? "Unavailable agent");
     const minutesSaved = Math.max(t.timeWithoutMinutes - t.timeWithMinutes, 0);
     csv +=
       `${clean(t.label)},${source},${r.runsPerYear},${r.runsMeasured ? "yes" : "no"},` +

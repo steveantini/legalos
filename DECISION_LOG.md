@@ -4558,3 +4558,24 @@ Status: Accepted
 - The DOM/scroll/interval behavior is not unit-tested (no jsdom harness, consistent with commit 1); the pure selection, palette, duration, and meta-composition logic is.
 
 **Consequences:** User-facing behavior changed, so the features tour, README, FEATURES_CLAIMS, and the calendar documentation are reconciled in this commit (D-157/D-158). No scope, data, or schema change; no migration. Color is from our curated palette, never the provider's (D-175). A natural follow-up, if wanted, is surfacing the calendar NAME (not just its color) on demand, the identity for which is already carried.
+
+---
+
+## D-177 — Productivity calculator is agent-mapped only; manual-estimate path removed; Impact is measured-only
+
+Date: 2026-06-24
+Status: Accepted
+
+**Decision:** Remove the "manual estimate" run-volume path from the productivity calculator. Every task type now maps to an agent, and its run volume is the agent's MEASURED usage; there is no hand-entered annual-runs estimate. This makes the calculator's preview and the home Impact band compute from the same measured basis (the prior divergence in D-176's investigation: a manual-estimate task populated the admin preview but, by design, never the measured Impact band, so an admin who modeled with a manual estimate saw "Setup needed" on the home card). The salary and per-run time delta remain estimates and stay labeled as such.
+
+**Reasoning:** The dual surfaces were confusing precisely because one (calculator preview) honored a manual estimate and the other (Impact band) did not. Impact is, and should be, measured-only — it reports what real usage gives back, not a projection. Rather than make the band honor manual estimates (which would let an unmeasured number masquerade as realized impact on every user's home), we removed the manual path so the calculator models the same measured reality the band reports. The intentional scope difference between the two surfaces is retained: the calculator preview blends the agent's ORG-WIDE trailing-12-month volume; the band blends the viewing USER's volume in the selected calendar window. Both are now purely measured.
+
+**How it was built (one commit):**
+- *Write strict, read tolerant (mandatory asymmetry).* The same parse path (`parseTaskBookConfig` → `getTaskBook`) feeds both the calculator page and the band and fails closed to the empty default book, so a single legacy `agentId: null` task must not collapse a whole org's config on read. The WRITE schema (`taskBookSchema`, used by `saveTaskBookAction`) now requires `agentId` to be a non-null uuid and drops `manualRunsPerYear`. The READ schema is deliberately separate and tolerant: it accepts `agentId: null` and a leftover `manualRunsPerYear` key (Zod strips it), then `parseTaskBookConfig` DROPS any null-agent task type and returns the rest of the book intact. `getTaskBook` still falls back to the empty default only on a genuine structural parse failure, never merely because a droppable manual task is present.
+- *Types/compute/gate.* `TaskTypeConfig.agentId` is now `string` (non-null) and `manualRunsPerYear` is gone (type + draft + converters). `resolveRuns` always returns the agent's measured count (`measured: true`); `isSavingsComputable` simplifies from "has an agent-mapped task" to `config.taskTypes.length > 0` (every task is mapped now), keeping the rate>0 clause.
+- *UI.* The task-type "Volume source" control drops the "Manual estimate" option and the manual runs input; a task type renders only its agent select plus the read-only "{n} runs measured (last 12 months)" line. "Add task type" defaults a new row to the first agent. The "Unavailable agent" option is kept so a task mapped to a since-deleted/deactivated agent still renders. The summary caption gains "(trailing 12 months)" so the preview's measured basis is unambiguous and not read as a projection.
+- *Empty-agent-list guard (turnkey).* Manual estimate had been the only run source when an org has zero active agents. With it gone, when `getOrgAgentsWithMeasuredRuns()` returns `[]`, "Add task type" is replaced by an inline empty state ("You need an active agent before you can measure a task. Create an agent first.", linking to `/workspace/agents/new`). Existing rows mapped to now-missing agents still render via "Unavailable agent". No org-level guarantee of ≥1 agent exists (agents come from seed, can be deactivated), though every live org is richly populated (97 / 104 active).
+
+**Backfill:** None. The live DB has zero manual tasks (verified read-only). The read-time coercion above covers any legacy or other-environment row, so no migration is written.
+
+**Consequences:** Behavior change, so the features tour, README, FEATURES_CLAIMS, and the insights/impact documentation are reconciled in this commit (the only rendered copy that named "Manual estimate" was the insights guide's task-mapping step). Two follow-up commits (B, C) complete this arc.
