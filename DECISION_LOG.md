@@ -4579,3 +4579,20 @@ Status: Accepted
 **Backfill:** None. The live DB has zero manual tasks (verified read-only). The read-time coercion above covers any legacy or other-environment row, so no migration is written.
 
 **Consequences:** Behavior change, so the features tour, README, FEATURES_CLAIMS, and the insights/impact documentation are reconciled in this commit (the only rendered copy that named "Manual estimate" was the insights guide's task-mapping step). Two follow-up commits (B, C) complete this arc.
+
+---
+
+## D-178 — Home Impact empty state: name the setup action, role-aware; computable-but-zero shows measured 0
+
+Date: 2026-06-24
+Status: Accepted
+
+**Decision:** Rework the home Impact band's Hours-saved / Cost-saved EMPTY STATE so it names the one action that populates it and stops over-promising. The headline changes from the conflated "Setup needed" to "Not set up yet"; admins get an action-specific CTA, "Map a task to an agent →" (routing to the calculator, gated on `isAdmin`), while non-admins see "Not set up yet" with no link (no dead CTA they can't act on). Copy and empty-state behavior only — no math/gate change (commit A already simplified the gate).
+
+**The computable-but-zero finding (verified, NOT changed):** the band already does the right thing for a set-up org in a quiet window. `savingsCells` returns `null` cells ONLY when `!isSavingsComputable`; when the book IS computable but the window has zero runs, it returns a real `current: 0` (an existing test, "returns an honest zero (not null) when the user has no runs", locks this). So a configured org with a quiet week already shows a measured 0.00 / $0 with the value treatment, not the empty state. No fix was needed here; the operator's earlier "Setup needed" was the not-computable case (a manual-estimate task → `isSavingsComputable` false), which D-177 fixed at the source.
+
+**Reasoning:** The old "Setup needed" + generic "Set up →" sent an admin to the calculator where they could save a config (e.g. a manual estimate) that still didn't populate the band — the same false-promise class the manual path created. With D-177 making every task agent-mapped, the real prerequisite is concrete and nameable: a team member (for the rate) plus a task mapped to an agent (for the volume). Naming the action in the cell makes the next step obvious; gating the link on `isAdmin` keeps a non-admin from facing a CTA they can't fulfill.
+
+**Deliberate deviation from the brief (honesty):** the brief's step 4 asked that, since "Impact is now measured-only," the savings cells "read measured." Only the run VOLUME became measured-only (D-177); the savings FIGURE is still a blend of measured volume × ESTIMATED time-saved-per-run × ESTIMATED rate, so it is genuinely an estimate. Relabeling it "measured" would over-claim and contradict the project's measured-vs-estimate honesty rule (D-142/D-145) and the product's own documentation ("Hours and cost saved are estimates"). So the "Estimated cost saved" label and the "Estimated from your usage and your team's assumptions" footnote are kept as-is. There are no measured/estimate BADGES in the band cells, so that clause of step 4 was moot.
+
+**How it was built:** `impact-cell.tsx` `SetupNeededCell` renders "Not set up yet" and, when `ctaHref` is present (admins only), the "Map a task to an agent →" link; discriminating per-cell aria-labels updated to the new action. `impact-band-client.tsx` keeps the `isAdmin`-gated `ctaHref` exactly as before (no new gating) and the empty-state footnote becomes the role-agnostic, non-imperative "Savings appear once the task book is set up." Agent runs / Top agent cells are untouched (already honest; the "{window}" noun reads "this week/this month/year to date"). The impact documentation's "Setup needed" reference is updated to "Not set up yet" with the concrete prerequisite. No tests changed: `savingsCells` is unchanged, and no test/snapshot asserts the empty-state copy.

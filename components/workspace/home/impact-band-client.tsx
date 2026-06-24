@@ -37,8 +37,9 @@ type ImpactBandClientProps = {
  * and reclaims the height the old in-container toggle row cost.
  * Agent runs and Top agent are measured from usage_events. Hours saved and
  * Estimated cost saved (calculator Step B) blend the user's measured run volume
- * with the org task book's estimated time/rate; they show live figures once an
- * admin configures the book, and an honest "Setup needed" cell until then.
+ * with the org task book's estimated time/rate; they show live figures (a
+ * measured 0 in a quiet window) once the book is computable, and an honest
+ * "Not set up yet" cell until an admin maps a task and adds a salary.
  *
  * Default timeframe is Week on every load; persisting the last choice is a v2
  * concern.
@@ -86,7 +87,7 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
                 mode="setup-needed"
                 label="Hours saved"
                 ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
-                ariaLabel="Set up hours saved tracking"
+                ariaLabel="Map a task to an agent to track hours saved"
               />
             )}
           </div>
@@ -107,7 +108,7 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
                 mode="setup-needed"
                 label="Estimated cost saved"
                 ctaHref={isAdmin ? "/workspace/admin/calculator" : undefined}
-                ariaLabel="Set up estimated cost saved tracking"
+                ariaLabel="Map a task to an agent to track cost saved"
               />
             )}
           </div>
@@ -137,7 +138,7 @@ export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
           <span className="text-[12px] text-caption">
             {current.hoursSaved
               ? "Estimated from your usage and your team’s assumptions."
-              : "Set up the task book to estimate savings."}
+              : "Savings appear once the task book is set up."}
           </span>
           {isAdmin && (
             <Link

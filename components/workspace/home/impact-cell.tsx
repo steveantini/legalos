@@ -27,12 +27,15 @@ type ImpactCellTextProps = ImpactCellBase & {
 
 type ImpactCellSetupProps = ImpactCellBase & {
   mode: "setup-needed";
-  /** Where "Set up →" routes; omitted for non-admins, who see no link. */
+  /**
+   * Where the action CTA routes (the calculator). Present only for admins, who
+   * can act; non-admins get no link, only the non-actionable "Not set up yet".
+   */
   ctaHref?: string;
   /**
-   * Discriminating accessible name for the link — the visible "Set up →"
-   * is identical across cells, so each passes its own label (e.g. "Set up
-   * hours saved tracking"). Applied only when `ctaHref` is present.
+   * Discriminating accessible name for the link — the visible CTA text is
+   * identical across cells, so each passes its own label. Applied only when
+   * `ctaHref` is present.
    */
   ariaLabel?: string;
 };
@@ -45,14 +48,14 @@ type ImpactCellProps =
 /**
  * One cell of the impact band. Three modes: `value` (a number with an optional
  * unit and delta), `text` (a primary/secondary pair, used for Top agent), and
- * `setup-needed` (a placeholder with a "Set up →" link).
+ * `setup-needed` (a not-set-up placeholder; admins get an action CTA).
  *
  * The `value` cell renders through the shared `MetricStat` primitive (presentation
  * unification), so it reads as the same family as Insights and the platform
  * analytics; the motivational delta uses the primary tone. The `text` and
  * `setup-needed` cells stay bespoke variants — Top agent's name+count and the
- * setup link don't map onto a generic scalar tile, and forcing them would lose
- * the admin "Set up" affordance.
+ * setup CTA don't map onto a generic scalar tile, and forcing them would lose
+ * the admin action affordance.
  */
 export function ImpactCell(props: ImpactCellProps) {
   if (props.mode === "value") {
@@ -97,7 +100,7 @@ function SetupNeededCell({ ctaHref, ariaLabel }: ImpactCellSetupProps) {
   return (
     <>
       <p className="mb-2 text-[20px] font-medium leading-[1.2] tracking-[-0.015em] text-muted-foreground">
-        Setup needed
+        Not set up yet
       </p>
       {ctaHref && (
         <Link
@@ -105,7 +108,7 @@ function SetupNeededCell({ ctaHref, ariaLabel }: ImpactCellSetupProps) {
           aria-label={ariaLabel}
           className="text-[12px] font-medium text-primary hover:underline"
         >
-          Set up →
+          Map a task to an agent →
         </Link>
       )}
     </>

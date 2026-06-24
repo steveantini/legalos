@@ -617,14 +617,16 @@ export const DOC_PAGES: DocPage[] = [
             <p className="font-medium text-foreground">Get the estimates configured</p>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5">
               <li>
-                Cells reading Setup needed mean the organization&rsquo;s task
-                book hasn&rsquo;t been filled in yet.
+                Cells reading Not set up yet mean the organization&rsquo;s task
+                book hasn&rsquo;t been set up: it needs a team member (for the
+                rate) and a task mapped to an agent (for the volume).
               </li>
               <li>
                 That lives in the Productivity Calculator, and only a super
                 admin can edit it; ask yours, or if that&rsquo;s you, the
-                insights guide walks through it. Admins see a direct link on
-                the card.
+                insights guide walks through it. Admins see a Map a task to an
+                agent link on the card; everyone else sees the card read Not set
+                up yet without a link.
               </li>
             </ol>
           </div>
