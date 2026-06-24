@@ -63,7 +63,18 @@ export async function CalendarConnectCard({
         <HelpLink topic="calendar" />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card p-5">
+      {/*
+        Height parity with the Impact band is by construction: the Impact band
+        must be the sole driver of the row's height. The connected schedule can
+        be arbitrarily tall, so it is rendered as an ABSOLUTE inset-0 layer (see
+        TodaySchedule) and contributes no intrinsic height to this frame. That
+        leaves only the ~36px heading row in this column's flow, so the grid's
+        items-stretch row sizes to Impact and stretches the schedule to match,
+        which finally bounds the timed list's scroll chain. The frame is the
+        positioning context and carries no padding (the padding moves onto each
+        interior layer); overflow-hidden + rounded-xl clip the scroll.
+      */}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
         {today?.status === "ok" ? (
           <TodaySchedule events={today.events} />
         ) : today?.status === "needs_reconnect" ? (
@@ -71,7 +82,9 @@ export async function CalendarConnectCard({
           // scope existed, so it can read its primary calendar but not enumerate
           // all the user's calendars. Prompt a reconnect (from Settings, where
           // disconnect + connect both live) rather than showing an empty day.
-          <>
+          // Short content stays in normal flow with its own p-5 (the frame no
+          // longer pads); it sits at the top of the Impact-height frame.
+          <div className="flex flex-col p-5">
             <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
               Calendar · reconnect needed
             </p>
@@ -90,9 +103,9 @@ export async function CalendarConnectCard({
             >
               Reconnect Google Calendar →
             </Button>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="flex flex-col p-5">
             <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-caption">
               Calendar · not connected
             </p>
@@ -113,7 +126,7 @@ export async function CalendarConnectCard({
             >
               Connect Google Calendar →
             </Button>
-          </>
+          </div>
         )}
       </div>
     </section>

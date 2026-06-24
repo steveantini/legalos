@@ -13,12 +13,16 @@ type TodayScheduleProps = {
  * all-day band over a scrolling list of timed events, so the card reads as an
  * intentional schedule rather than a flat, truncated list.
  *
- * Height contract (parity with the Impact band, by construction): the card
- * stretches to the Impact band's height through the parent grid
- * (`grid-cols-2 items-stretch`), the section (`flex h-full flex-col`), and the
- * card frame (`flex-1 min-h-0 overflow-hidden` in calendar-connect-card.tsx).
- * This component sets NO fixed or capped height. The header and all-day band are
- * pinned; the timed list (`TodayTimeline`) is a `flex-1 min-h-0` scroll region.
+ * Height contract (parity with the Impact band, by construction): this layer is
+ * rendered ABSOLUTE inset-0 inside the card frame (the relative positioning
+ * context in calendar-connect-card.tsx), so the schedule's content height never
+ * inflates the frame and the Impact band remains the sole driver of the row's
+ * height. The frame is stretched to Impact's height by the grid's items-stretch,
+ * and inset-0 stretches this layer to fill it. That finally bounds the flex
+ * chain, so the timed list (`TodayTimeline`, a `flex-1 min-h-0` scroll region)
+ * scrolls instead of growing the row. This component sets NO fixed or capped
+ * height; the padding that the frame used to carry lives here (`p-5`). The
+ * header and all-day band are pinned; only the timed list scrolls.
  *
  * Split server/client: this server component renders the date line, the pinned
  * all-day band, and the partition; the timed list is a client island
@@ -31,7 +35,7 @@ export function TodaySchedule({ events }: TodayScheduleProps) {
   const { allDay, timed } = partitionEvents(events);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="absolute inset-0 flex min-h-0 flex-col p-5">
       {/* Pinned header: the local date. Does not scroll. */}
       <div className="mb-3 flex items-center justify-end">
         <LocalDate
