@@ -3,9 +3,16 @@ import { describe, expect, it } from "vitest";
 import type { NormalizedEvent } from "@/lib/workspace/home/calendar-connection";
 
 import {
+  buildMetaSegments,
+  calendarColor,
+  CALENDAR_PALETTE,
   formatAttendees,
-  formatEventMeta,
+  formatDuration,
+  formatMetaLine,
+  nowLineIndex,
   partitionEvents,
+  selectFocus,
+  type TimedLike,
 } from "./today-schedule.helpers";
 
 /** A NormalizedEvent with sensible defaults, overridable per case. */
@@ -60,24 +67,120 @@ describe("formatAttendees", () => {
   });
 });
 
-describe("formatEventMeta", () => {
-  it("joins the attendee summary and conference label with a middot", () => {
-    expect(
-      formatEventMeta(
-        event({ attendees: ["Sarah Chen"], conferenceLabel: "Google Meet" }),
-      ),
-    ).toBe("Sarah Chen · Google Meet");
+describe("formatDuration", () => {
+  it("formats minutes, exact hours, and mixed", () => {
+    expect(formatDuration(45)).toBe("45 min");
+    expect(formatDuration(60)).toBe("1 hr");
+    expect(formatDuration(120)).toBe("2 hr");
+    expect(formatDuration(90)).toBe("1 hr 30 min");
   });
 
-  it("drops the empty side rather than leaving a stray separator", () => {
+  it("omits a missing or non-positive duration", () => {
+    expect(formatDuration(undefined)).toBe("");
+    expect(formatDuration(0)).toBe("");
+    expect(formatDuration(-10)).toBe("");
+  });
+});
+
+describe("calendarColor", () => {
+  it("is deterministic and stable for a given id", () => {
+    expect(calendarColor("amy@example.com")).toBe(calendarColor("amy@example.com"));
+  });
+
+  it("always returns a palette entry", () => {
+    for (const id of ["a", "primary@me", "leo", "social", "x".repeat(40)]) {
+      expect(CALENDAR_PALETTE).toContain(calendarColor(id));
+    }
+  });
+});
+
+describe("buildMetaSegments / formatMetaLine", () => {
+  it("orders present segments: location, duration, attendees, conference", () => {
+    const segments = buildMetaSegments(
+      event({
+        location: "Cafe Mox",
+        durationMinutes: 60,
+        attendees: ["Sarah Chen", "James Park"],
+        conferenceLabel: "Zoom",
+      }),
+    );
+    expect(segments.map((s) => s.kind)).toEqual([
+      "location",
+      "duration",
+      "attendees",
+      "conference",
+    ]);
+    expect(formatMetaLine(event({
+      location: "Cafe Mox",
+      durationMinutes: 60,
+      attendees: ["Sarah Chen", "James Park"],
+      conferenceLabel: "Zoom",
+    }))).toBe("Cafe Mox 1 hr · Sarah Chen, James Park · Zoom");
+  });
+
+  it("drops absent segments without stray separators", () => {
+    expect(formatMetaLine(event({ durationMinutes: 30 }))).toBe("30 min");
+    expect(formatMetaLine(event({ location: "Room 4" }))).toBe("Room 4");
+    expect(formatMetaLine(event({ conferenceLabel: "Google Meet" }))).toBe(
+      "Google Meet",
+    );
     expect(
-      formatEventMeta(event({ attendees: [], conferenceLabel: "Zoom" })),
-    ).toBe("Zoom");
+      formatMetaLine(event({ location: "Room 4", conferenceLabel: "Google Meet" })),
+    ).toBe("Room 4 · Google Meet");
     expect(
-      formatEventMeta(event({ attendees: ["Sarah Chen"], conferenceLabel: null })),
-    ).toBe("Sarah Chen");
-    expect(
-      formatEventMeta(event({ attendees: [], conferenceLabel: null })),
-    ).toBe("");
+      formatMetaLine(event({ attendees: ["Amy"], conferenceLabel: "Zoom" })),
+    ).toBe("Amy · Zoom");
+    expect(formatMetaLine(event({}))).toBe("");
+  });
+});
+
+describe("selectFocus", () => {
+  // 09:00-10:00, 11:00-12:00, 14:00-15:00 (epoch-ish minutes as ms for clarity).
+  const events: TimedLike[] = [
+    { startMs: 900, endMs: 1000 },
+    { startMs: 1100, endMs: 1200 },
+    { startMs: 1400, endMs: 1500 },
+  ];
+
+  it("focuses the in-progress event as Now", () => {
+    expect(selectFocus(events, 1150)).toEqual({ index: 1, state: "now" });
+  });
+
+  it("focuses the earliest upcoming event as Next when none is in progress", () => {
+    expect(selectFocus(events, 1050)).toEqual({ index: 1, state: "next" });
+    expect(selectFocus(events, 0)).toEqual({ index: 0, state: "next" });
+  });
+
+  it("returns null when the whole day is past", () => {
+    expect(selectFocus(events, 2000)).toBeNull();
+  });
+});
+
+describe("nowLineIndex", () => {
+  const events: TimedLike[] = [
+    { startMs: 900, endMs: 1000 },
+    { startMs: 1100, endMs: 1200 },
+    { startMs: 1400, endMs: 1500 },
+  ];
+
+  it("places the line at the top when now precedes all events", () => {
+    expect(nowLineIndex(events, 100)).toBe(0);
+  });
+
+  it("places the line at the boundary between started and upcoming events", () => {
+    expect(nowLineIndex(events, 1050)).toBe(1); // first started, two upcoming
+    expect(nowLineIndex(events, 1250)).toBe(2); // two started, one upcoming
+  });
+
+  it("keeps the line at the bottom while the last event is still in progress", () => {
+    expect(nowLineIndex(events, 1450)).toBe(3);
+  });
+
+  it("omits the line once the whole day is past", () => {
+    expect(nowLineIndex(events, 2000)).toBeNull();
+  });
+
+  it("returns null for an empty list", () => {
+    expect(nowLineIndex([], 100)).toBeNull();
   });
 });

@@ -694,13 +694,17 @@ export const DOC_PAGES: DocPage[] = [
         <MarketingSection title="What it shows">
           <p>
             Once connected, the Today card lists your meetings for the day, each
-            with its time, title, and attendees, and a label like Google Meet
-            when the event has a video link. It gathers events from every
-            calendar you keep visible in Google Calendar, not just your main one,
-            and merges them in time order, with all-day events at the top. The
-            day is bounded in your calendar&rsquo;s own timezone, so an evening
-            connection still shows today rather than tomorrow. legalOS reads with
-            a read-only scope, so it can show your schedule but can never change
+            with its time, title, length, location, and attendees, a label like
+            Google Meet when the event has a video link (which you can click to
+            join), and a colored dot marking which calendar it came from. It
+            gathers events from every calendar you keep visible in Google
+            Calendar, not just your main one, and merges them in time order, with
+            all-day events at the top. A live line marks the current time and a
+            small tag highlights what is happening now or coming up next, and the
+            list scrolls to it. The day is bounded in your calendar&rsquo;s own
+            timezone, so an evening connection still shows today rather than
+            tomorrow. legalOS reads with a read-only scope, so it can show your
+            schedule but can never change
             it.
           </p>
         </MarketingSection>

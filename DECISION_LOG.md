@@ -4535,3 +4535,26 @@ Status: Accepted
 - `normalizeCalendarEvent` takes the source `CalendarRef` and populates new `NormalizedEvent` fields: `calendarId`, `calendarName` (the ref's summary), `isAllDay`, `startMs`/`endMs`/`durationMinutes` (timed only; duration omitted when end missing or non-positive), `location` (trimmed, omitted when empty), `joinUrl` (video entry point, else `hangoutLink`), `htmlLink`. All existing fields are unchanged. The normalize tests are extended for each.
 
 **Consequences:** No scope change, no calendarList `fields`-mask change, no migration, and no user-facing behavior change this commit (so /features, README, FEATURES_CLAIMS, and the docs need no reconciliation, confirmed by grep). Commit 3 consumes these fields: per-calendar color from the curated palette keyed on `calendarId`, now/next anchoring via `startMs`/`endMs`, and location / join / open-in-Google affordances.
+
+---
+
+## D-176 — Today card: consume the fields (per-calendar color, richer meta, client now/next island)
+
+Date: 2026-06-24
+Status: Accepted
+
+**Decision:** Commit 3 of 3 of the Today-card redesign consumes the D-175 fields. The card now color-codes each event by its source calendar, shows each timed event's location and length plus join and open-in-Google links, and overlays a live "now" line with a "Now"/"Next" pill computed from the user's clock, scrolling to the focus event on open.
+
+**Reasoning:**
+- *Client island for now/next/scroll (UTC rationale).* The now-line position, the in-progress-vs-upcoming pill, and the initial scroll all depend on the current time, and a server render is UTC on Vercel (the same reason `LocalDate` is a client island), so a server-computed "now" would be wrong for evening US users and would hydrate-mismatch. So the timed list is extracted into a `"use client"` island (`today-timeline.tsx`) that computes all time-dependent state AFTER mount. The server (and the first client render) shows plain rows with no line and no pill, matching SSR exactly; the clock fills in on mount and re-evaluates each minute. `TodaySchedule` stays a server component (date line, pinned all-day band, partition). The clock is a single `useSyncExternalStore`-backed ticking source (null on the server snapshot), which avoids the project's forbidden setState-in-effect while staying hydration-safe.
+- *Stable-hash palette assignment.* Each calendar's color is a string hash of its `calendarId` into the curated palette (D-175), so a calendar keeps the same color across days with no stored state. Collisions (two calendars sharing a color) are possible but rare and purely cosmetic. The spine hairline stays neutral; only the per-row node dot and the all-day band dots take the color.
+- *Meta composition.* The meta line is built from present-only segments in a fixed order: location and duration form a leading logistics group (each icon-prefixed), then the attendee summary (the existing first-two-names + "+N"), then the conference label, the three groups middot-separated with empty groups dropped so there is never a stray separator. `formatDuration` renders "45 min" / "1 hr" / "1 hr 30 min". Lucide icons (the app's icon system) render inline so the single-line truncation holds.
+- *Join / open-in-Google links.* When `joinUrl` is present the conference label becomes the join anchor; when `htmlLink` is present the row title links to the event in Google. Both `target="_blank" rel="noopener noreferrer"` and keep truncation; absent fields render plain text, so the links are additive and low-risk.
+
+**How it was built:**
+- `today-schedule.helpers.ts` gains the pure, unit-tested logic: `CALENDAR_PALETTE` + `calendarColor`, `formatDuration`, `buildMetaSegments`/`formatMetaLine`, and the now/next math `selectFocus` + `nowLineIndex`. `formatEventMeta` (commit 1's string joiner) is replaced by the segment model.
+- `today-timeline.tsx` (new client island) renders the scroll region (slim scrollbar + edge fade, unchanged), the colored spine nodes, the focus pill, the inserted now-line with a local-time label, and the scroll-to-focus on mount (guarded so the 60s re-evaluation never yanks the user's scroll).
+- `today-schedule.tsx` renders `TodayTimeline` for the timed list and colors the all-day band dots. Parity-by-construction height, the empty state, and all commit 1/2 behavior are unchanged; nothing is fixed-height.
+- The DOM/scroll/interval behavior is not unit-tested (no jsdom harness, consistent with commit 1); the pure selection, palette, duration, and meta-composition logic is.
+
+**Consequences:** User-facing behavior changed, so the features tour, README, FEATURES_CLAIMS, and the calendar documentation are reconciled in this commit (D-157/D-158). No scope, data, or schema change; no migration. Color is from our curated palette, never the provider's (D-175). A natural follow-up, if wanted, is surfacing the calendar NAME (not just its color) on demand, the identity for which is already carried.

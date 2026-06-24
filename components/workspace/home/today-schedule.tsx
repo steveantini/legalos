@@ -1,7 +1,8 @@
 import { LocalDate } from "@/components/workspace/local-date";
 import type { NormalizedEvent } from "@/lib/workspace/home/calendar-connection";
 
-import { formatEventMeta, partitionEvents } from "./today-schedule.helpers";
+import { calendarColor, partitionEvents } from "./today-schedule.helpers";
+import { TodayTimeline } from "./today-timeline";
 
 type TodayScheduleProps = {
   events: NormalizedEvent[];
@@ -16,16 +17,15 @@ type TodayScheduleProps = {
  * stretches to the Impact band's height through the parent grid
  * (`grid-cols-2 items-stretch`), the section (`flex h-full flex-col`), and the
  * card frame (`flex-1 min-h-0 overflow-hidden` in calendar-connect-card.tsx).
- * This component sets NO fixed or capped height; it fills whatever height the
- * row gives it. The header and all-day band are pinned; the timed list is a
- * `flex-1 min-h-0 overflow-y-auto` region that scrolls when the day overflows.
- * The `min-h-0` chain (here, the frame, and the scroll region) is what lets the
- * scroll region shrink below its content instead of pushing the row taller.
+ * This component sets NO fixed or capped height. The header and all-day band are
+ * pinned; the timed list (`TodayTimeline`) is a `flex-1 min-h-0` scroll region.
  *
- * The display date is the `<LocalDate>` client island (the user's browser
- * clock; a server render is UTC on Vercel and shows tomorrow during US
- * evenings). The card frame and the "Today" section heading live in the parent;
- * this fills the padded interior.
+ * Split server/client: this server component renders the date line, the pinned
+ * all-day band, and the partition; the timed list is a client island
+ * (`TodayTimeline`) because its now-line, focus pill, and initial scroll depend
+ * on the user's clock (a server render is UTC on Vercel, the same reason
+ * `LocalDate` is an island). Per-calendar color is pure, so the all-day dots are
+ * colored here and the timed node dots in the island, both keyed on calendarId.
  */
 export function TodaySchedule({ events }: TodayScheduleProps) {
   const { allDay, timed } = partitionEvents(events);
@@ -47,7 +47,8 @@ export function TodaySchedule({ events }: TodayScheduleProps) {
       ) : (
         <>
           {/* Pinned all-day band, separated from the timed list by a hairline.
-              Omitted entirely when the day has no all-day events. */}
+              Omitted entirely when the day has no all-day events. The dot is
+              colored by source calendar, matching the timed spine nodes. */}
           {allDay.length > 0 ? (
             <ul className="mb-3 shrink-0 border-b border-hairline pb-3">
               {allDay.map((event) => (
@@ -57,7 +58,8 @@ export function TodaySchedule({ events }: TodayScheduleProps) {
                 >
                   <span
                     aria-hidden
-                    className="size-1.5 shrink-0 rounded-full bg-caption/60"
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: calendarColor(event.calendarId) }}
                   />
                   <span className="truncate text-[13px] font-medium text-foreground">
                     {event.title}
@@ -67,41 +69,8 @@ export function TodaySchedule({ events }: TodayScheduleProps) {
             </ul>
           ) : null}
 
-          {/* Scroll region: the timed events. Fills the remaining height and
-              scrolls on overflow, with a slim scrollbar and a soft edge fade. */}
-          {timed.length > 0 ? (
-            <ul className="scrollbar-slim scroll-fade-y min-h-0 flex-1 overflow-y-auto">
-              {timed.map((event) => {
-                const meta = formatEventMeta(event);
-                return (
-                  <li key={event.id} className="flex gap-3">
-                    <span className="w-14 shrink-0 pt-3 text-right font-mono text-[12px] tabular-nums text-caption">
-                      {event.startTime}
-                    </span>
-                    {/* Spine: a continuous hairline down the column with one
-                        node dot per row sitting on it (ring punches the line). */}
-                    <span
-                      aria-hidden
-                      className="relative w-[22px] shrink-0 self-stretch"
-                    >
-                      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-hairline" />
-                      <span className="absolute left-1/2 top-[18px] size-1.5 -translate-x-1/2 rounded-full bg-caption/70 ring-2 ring-card" />
-                    </span>
-                    <div className="min-w-0 flex-1 py-3">
-                      <p className="truncate text-[14px] font-medium text-foreground">
-                        {event.title}
-                      </p>
-                      {meta ? (
-                        <p className="truncate text-[12px] text-caption">
-                          {meta}
-                        </p>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
+          {/* Timed events: client island (now-line, focus, scroll). */}
+          {timed.length > 0 ? <TodayTimeline events={timed} /> : null}
         </>
       )}
     </div>
