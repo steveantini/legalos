@@ -52,10 +52,15 @@ describe("dayWindowInZone", () => {
 });
 
 describe("formatTimeInZone", () => {
-  it("formats an instant as 24-hour HH:mm in the zone", () => {
-    // 14:30 UTC is 10:30 in New York (EDT).
-    expect(formatTimeInZone("2026-06-23T14:30:00Z", "America/New_York")).toBe("10:30");
-    expect(formatTimeInZone("2026-06-23T14:30:00Z", "UTC")).toBe("14:30");
+  it("formats an instant as 12-hour h:mm AM/PM in the zone", () => {
+    // 14:30 UTC is 10:30 AM in New York (EDT), 2:30 PM in UTC.
+    expect(formatTimeInZone("2026-06-23T14:30:00Z", "America/New_York")).toBe(
+      "10:30 AM",
+    );
+    expect(formatTimeInZone("2026-06-23T14:30:00Z", "UTC")).toBe("2:30 PM");
+    // Noon and midnight read as 12 PM / 12 AM, not 0 or 24.
+    expect(formatTimeInZone("2026-06-23T12:00:00Z", "UTC")).toBe("12:00 PM");
+    expect(formatTimeInZone("2026-06-23T00:00:00Z", "UTC")).toBe("12:00 AM");
   });
 
   it("returns empty string for an unparseable instant", () => {
@@ -89,8 +94,8 @@ describe("normalizeCalendarEvent", () => {
     expect(normalizeCalendarEvent(raw, tz, cal)).toEqual({
       id: "evt1",
       title: "Deal review",
-      startTime: "10:00",
-      endTime: "11:00",
+      startTime: "10:00 AM",
+      endTime: "11:00 AM",
       attendees: ["Sarah Chen", "james@example.com"], // resource room excluded
       conferenceLabel: "Google Meet",
       calendarId: "cal-work",

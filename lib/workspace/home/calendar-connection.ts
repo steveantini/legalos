@@ -32,12 +32,12 @@ export type NormalizedEvent = {
   /** Meeting title, shown on the row's first line. */
   title: string;
   /**
-   * Display-ready local start time, e.g. "10:30". Pre-formatted (not an ISO
+   * Display-ready local start time, e.g. "10:30 AM". Pre-formatted (not an ISO
    * string) so the view stays purely presentational; the provider adapter
    * formats to the user's timezone when it normalizes the event.
    */
   startTime: string;
-  /** Display-ready local end time, e.g. "11:00". Omitted when unknown. */
+  /** Display-ready local end time, e.g. "11:00 AM". Omitted when unknown. */
   endTime?: string;
   /** Attendee display names, in the provider's order. */
   attendees: string[];

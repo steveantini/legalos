@@ -456,15 +456,15 @@ function resolveJoinUrl(raw: RawCalendarEvent): string | undefined {
   return undefined;
 }
 
-/** Format an ISO instant as "HH:mm" in the given zone (24-hour). "" if invalid. */
+/** Format an ISO instant as 12-hour "h:mm AM/PM" in the given zone. "" if invalid. */
 export function formatTimeInZone(iso: string, timeZone: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat("en-US", {
     timeZone,
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
-    hourCycle: "h23",
+    hour12: true,
   }).format(date);
 }
 

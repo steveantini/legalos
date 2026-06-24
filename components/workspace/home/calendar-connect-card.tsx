@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { HelpLink } from "@/components/workspace/help-link";
+import { LocalDate } from "@/components/workspace/local-date";
 import {
   getTodaysEvents,
   isCalendarConnected,
@@ -54,12 +55,23 @@ export async function CalendarConnectCard({
       className="flex h-full flex-col gap-3.5"
     >
       <div className="flex h-9 items-center justify-between">
-        <h2
-          id="today-section-heading"
-          className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
-        >
-          Today
-        </h2>
+        <div className="flex items-baseline gap-1.5">
+          <h2
+            id="today-section-heading"
+            className="text-[18px] font-medium tracking-[-0.005em] text-foreground"
+          >
+            Today
+          </h2>
+          {/* "Today · {date}". The mono caption date echoes the schedule's
+              times rather than competing with the sans heading. LocalDate is a
+              client island (the server clock is UTC); it renders empty until
+              hydrated, and `empty:hidden` hides the leading middot with it so
+              there is no dangling separator on the first paint. */}
+          <LocalDate
+            variant="short"
+            className="font-mono text-[13px] text-caption empty:hidden before:mr-1.5 before:content-['·']"
+          />
+        </div>
         <HelpLink topic="calendar" />
       </div>
 

@@ -1,4 +1,3 @@
-import { LocalDate } from "@/components/workspace/local-date";
 import type { NormalizedEvent } from "@/lib/workspace/home/calendar-connection";
 
 import { calendarColor, partitionEvents } from "./today-schedule.helpers";
@@ -24,26 +23,19 @@ type TodayScheduleProps = {
  * height; the padding that the frame used to carry lives here (`p-5`). The
  * header and all-day band are pinned; only the timed list scrolls.
  *
- * Split server/client: this server component renders the date line, the pinned
- * all-day band, and the partition; the timed list is a client island
- * (`TodayTimeline`) because its now-line, focus pill, and initial scroll depend
- * on the user's clock (a server render is UTC on Vercel, the same reason
- * `LocalDate` is an island). Per-calendar color is pure, so the all-day dots are
- * colored here and the timed node dots in the island, both keyed on calendarId.
+ * Split server/client: this server component renders the pinned all-day band
+ * and the partition; the timed list is a client island (`TodayTimeline`)
+ * because its now-line, focus pill, and initial scroll depend on the user's
+ * clock (a server render is UTC on Vercel). The local date now lives in the
+ * card's section heading ("Today · {date}"), not inside this layer. Per-calendar
+ * color is pure, so the all-day dots are colored here and the timed node dots in
+ * the island, both keyed on calendarId.
  */
 export function TodaySchedule({ events }: TodayScheduleProps) {
   const { allDay, timed } = partitionEvents(events);
 
   return (
     <div className="absolute inset-0 flex min-h-0 flex-col p-5">
-      {/* Pinned header: the local date. Does not scroll. */}
-      <div className="mb-3 flex items-center justify-end">
-        <LocalDate
-          variant="short"
-          className="font-mono text-[11px] text-caption"
-        />
-      </div>
-
       {events.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">
           Nothing on your calendar today.

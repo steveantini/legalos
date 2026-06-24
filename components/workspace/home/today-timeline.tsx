@@ -130,7 +130,7 @@ function EventRow({
 
   return (
     <li ref={rowRef} className="flex gap-3">
-      <span className="w-14 shrink-0 pt-3 text-right font-mono text-[12px] tabular-nums text-caption">
+      <span className="w-16 shrink-0 pt-3 text-right font-mono text-[12px] tabular-nums text-caption">
         {event.startTime}
       </span>
       {/* Spine: a continuous neutral hairline with one per-calendar-colored
@@ -262,15 +262,15 @@ function NowLine({ nowMs }: { nowMs: number | null }) {
   const label =
     nowMs === null
       ? ""
-      : new Intl.DateTimeFormat("en-GB", {
-          hour: "2-digit",
+      : new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
           minute: "2-digit",
-          hourCycle: "h23",
+          hour12: true,
         }).format(new Date(nowMs));
 
   return (
     <li className="flex items-stretch gap-3" aria-label={`Now, ${label}`}>
-      <span className="w-14 shrink-0" />
+      <span className="w-16 shrink-0" />
       <span aria-hidden className="relative w-[22px] shrink-0 self-stretch">
         <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-hairline" />
         <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-card" />
