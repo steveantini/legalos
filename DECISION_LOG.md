@@ -4596,3 +4596,16 @@ Status: Accepted
 **Deliberate deviation from the brief (honesty):** the brief's step 4 asked that, since "Impact is now measured-only," the savings cells "read measured." Only the run VOLUME became measured-only (D-177); the savings FIGURE is still a blend of measured volume × ESTIMATED time-saved-per-run × ESTIMATED rate, so it is genuinely an estimate. Relabeling it "measured" would over-claim and contradict the project's measured-vs-estimate honesty rule (D-142/D-145) and the product's own documentation ("Hours and cost saved are estimates"). So the "Estimated cost saved" label and the "Estimated from your usage and your team's assumptions" footnote are kept as-is. There are no measured/estimate BADGES in the band cells, so that clause of step 4 was moot.
 
 **How it was built:** `impact-cell.tsx` `SetupNeededCell` renders "Not set up yet" and, when `ctaHref` is present (admins only), the "Map a task to an agent →" link; discriminating per-cell aria-labels updated to the new action. `impact-band-client.tsx` keeps the `isAdmin`-gated `ctaHref` exactly as before (no new gating) and the empty-state footnote becomes the role-agnostic, non-imperative "Savings appear once the task book is set up." Agent runs / Top agent cells are untouched (already honest; the "{window}" noun reads "this week/this month/year to date"). The impact documentation's "Setup needed" reference is updated to "Not set up yet" with the concrete prerequisite. No tests changed: `savingsCells` is unchanged, and no test/snapshot asserts the empty-state copy.
+
+---
+
+## D-179 — Home Impact band default timeframe: Week → Month
+
+Date: 2026-06-24
+Status: Accepted
+
+**Decision:** The home Impact band defaults to the Month window on every load, instead of Week. The Week/Month/YTD toggle and all three windows' behavior are unchanged; only the initial selection changes.
+
+**Reasoning:** Legal work runs on a monthly-plus cadence, so the Week window frequently reads 0 runs even for a correctly configured, actively-used band — which made a freshly set-up Impact look broken on first load (the same false-alarm class as the empty-state confusion D-178 fixed). Month is representative and non-zero on arrival, so the card shows real value the moment it can. This is the last of the three-commit arc (D-177 calculator agent-mapped, D-178 empty-state copy, D-179 default window) that together make the home Impact card honest and non-misleading on a fresh, correctly-configured org.
+
+**How it was built (one line + comment):** `impact-band-client.tsx` `useState<Timeframe>` default `"week"` → `"month"`, with the adjacent doc comment updated to carry the cadence rationale. Nothing server-side keys off a week-first default: `getImpactBandData` already fetches all three windows (week/month/ytd) in parallel and returns them together, and the `EMPTY` error fallback shapes all three equally, so the client toggle merely selects which precomputed window renders — the flip changes no fetch and adds no round-trip. No copy or documentation named a default window (the impact guide only lists the three options), so there was nothing to reconcile; no test asserts the initial timeframe.

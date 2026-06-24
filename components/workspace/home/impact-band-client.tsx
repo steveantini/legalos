@@ -41,11 +41,14 @@ type ImpactBandClientProps = {
  * measured 0 in a quiet window) once the book is computable, and an honest
  * "Not set up yet" cell until an admin maps a task and adds a salary.
  *
- * Default timeframe is Week on every load; persisting the last choice is a v2
- * concern.
+ * Default timeframe is Month on every load: legal work runs on a monthly-plus
+ * cadence, so Week frequently reads 0 runs even for a correctly configured band,
+ * making a freshly set-up Impact look broken on arrival; Month is representative
+ * and non-zero. The Week/Month/YTD toggle is unchanged. Persisting the last
+ * choice is a v2 concern.
  */
 export function ImpactBandClient({ data, isAdmin }: ImpactBandClientProps) {
-  const [selected, setSelected] = useState<Timeframe>("week");
+  const [selected, setSelected] = useState<Timeframe>("month");
   const current = data[selected];
   const runsDelta = formatRunsDelta(current);
 
