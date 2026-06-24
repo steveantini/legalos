@@ -90,9 +90,10 @@ export default function FeaturesPage() {
           legal team is.
           legalOS ships with thirteen departments spanning deal work,
           regulatory and compliance, specialized practice areas, and
-          operations, each with its agents in three clearly marked tiers:
-          Approved agents your department has vetted and tested, a curated
-          library of Anthropic&rsquo;s legal agents ready to use, and My
+          operations, each with its agents in four clearly marked tiers:
+          Approved agents your department has vetted and tested, agents
+          powered by legalOS that ship free and you copy to make your own, a
+          curated library of Anthropic&rsquo;s legal agents ready to use, and My
           agents, the ones your own people create by giving them instructions
           and references. A new user reads the trust model at a glance, and
           access follows roles, so each person sees the departments that are

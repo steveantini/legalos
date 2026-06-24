@@ -97,18 +97,21 @@ export const DOC_PAGES: DocPage[] = [
     title: "The workspace and launchpad",
     summary: "Agent groups and their trust tiers, conversations, attachments, exports, and undo.",
     audience: "For everyone",
-    lead: "Each department opens to a launchpad: its agents, organized into three clearly marked groups so you always know what you’re working with.",
+    lead: "Each department opens to a launchpad: its agents, organized into four clearly marked groups so you always know what you’re working with.",
     body: (
       <>
-        <MarketingSection title="The three agent groups">
+        <MarketingSection title="The four agent groups">
           <p>
             <strong>Approved agents</strong>{" "}are the department&rsquo;s own,
-            vetted and tested by your department. <strong>Claude for
-            Legal</strong>{" "}is a curated library of Anthropic&rsquo;s legal
-            agents, ready to use. <strong>My agents</strong>{" "}are the ones you
-            create yourself, yours to shape and experiment with. Each group
-            carries a one-line description on the launchpad, so the trust
-            model reads at a glance.
+            vetted and tested by your department.{" "}
+            <strong>Powered by legalOS</strong>{" "}agents ship free with the
+            product, fully managed so you cannot change them, and yours to copy
+            into your own editable version. <strong>Claude for Legal</strong>
+            {" "}is a curated library of Anthropic&rsquo;s legal agents, ready
+            to use. <strong>My agents</strong>{" "}are the ones you create
+            yourself, yours to shape and experiment with. Each group carries a
+            one-line description on the launchpad, so the trust model reads at a
+            glance.
           </p>
         </MarketingSection>
         <MarketingSection title="Conversations">

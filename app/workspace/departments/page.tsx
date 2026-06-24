@@ -42,7 +42,8 @@ export default async function DepartmentsPage() {
           </h1>
           <p className="mt-[14px] max-w-[56ch] text-[14.5px] leading-[1.5] text-muted-foreground">
             Practice areas your team works across. Each holds canonical agents,
-            your team’s Claude for Legal imports, and personal agents.
+            agents powered by legalOS, your team’s Claude for Legal imports, and
+            personal agents.
           </p>
         </div>
         <p className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] tabular-nums text-caption">

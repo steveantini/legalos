@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "import-c4l": "tsx scripts/import-c4l-plugin.ts",
+    "seed-legalos-agents": "tsx scripts/seed-legalos-agents.ts",
     "seed-workflow-templates": "tsx scripts/seed-workflow-templates.ts",
     "mint-demo-token": "tsx scripts/mint-demo-token.ts",
     "reset-demo-org": "tsx scripts/reset-demo-org.ts"

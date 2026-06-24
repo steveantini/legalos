@@ -4632,3 +4632,22 @@ Status: Accepted
 **Org onboarding / future orgs:** no org-creation flow exists (orgs are deployment seed SQL); see the ROADMAP note under the platform-owner tier — onboarding is the parent work and baseline-agent-seeding (C4L + this tier) is a rider within it. Until then, ad hoc to the deployment org + the demo-org copy.
 
 **Tests:** `lib/agents/lock.test.ts` (the predicate + the edit-lock decision: legalOS rejects any submit incl. model; C4L allows model, rejects the four managed fields, names the source) and `lib/agents/source.test.ts` (label "Powered by legalOS", own group ordered first, always-visible launchpad helper, subline). No agent rows; verifiable purely through the lock/label/copy code paths.
+
+---
+
+## D-181 — Five "Powered by legalOS" system agents seeded into General Tools
+
+Date: 2026-06-24
+Status: Accepted
+
+**Decision:** Seed the five General Tools system agents that fill the tier established in D-180, and turn on the tier's user-facing prose (now accurate because the tier is non-empty). The agents are document-in-hand utilities, web search OFF for all five, markdown output, fully locked (D-180): Document Summarizer (`summarizer`), Term and Clause Extractor (`term-extractor`), Obligations and Dates Extractor (`obligations`), Plain-Language Rewriter (`plain-language`), PII Flagger (`pii-flagger`). Each: `type 'native'`, `is_template true`, `is_active true`, `created_by null`, model Sonnet, department `general-tools`, `source_origin 'legalos:system/<skill>'`, slug `legalos-system-<skill>`. The system prompts are finalized first-party copy, embedded verbatim from the spec (byte-checked against the source) and version-controlled in `lib/content/legalos-seed.ts`.
+
+**Seeding path (mirrors the C4L importer, with one deliberate difference — update-in-place):** a pure planner + executor (`lib/content/legalos-seed.ts`), a service-role store (`lib/content/legalos-store.ts`), and a one-shot CLI (`scripts/seed-legalos-agents.ts`, `npm run seed-legalos-agents`). Unlike C4L (an external library whose import never overwrites an existing active row — drift is only reported), legalOS agents are OUR records with no external curation authority, so a re-seed UPDATES the canonical name/description/system_prompt/model in place. That is how a prompt tweak ships post-dogfooding: edit `LEGALOS_SYSTEM_AGENTS`, re-run the command. Idempotent on `(org, slug)`; soft-deleted rows are never resurrected.
+
+**Isolation from C4L and from user forks:** the store lists only `source_origin LIKE 'legalos:%'` and the planner keys on the `legalos-system-<skill>` slug, so a C4L refresh and a legalOS seed never touch each other's rows, and a user's forked copy (`source_origin` null, a different slug) is never matched. The fork already clears `source_origin` (D-180), so a copy is an unlocked org-owned My-agent.
+
+**Scope — deployment org + demo, seeded directly.** The CLI seeds BOTH the deployment org (oldest, `is_demo = false`) and the demo org (`is_demo = true`) directly, idempotently on `(org, slug)`. This is consistent with how the demo gets agents: `demo-org.sql` copies all real-org agents (which now include the legalOS rows) on any future demo reset, by the same identity, so the two paths converge. There is no org-onboarding flow yet (ROADMAP, under the platform-owner tier); a future tenant would be seeded by that onboarding work. **Operator: run `npm run seed-legalos-agents`** to apply a prompt edit; it is safe to re-run.
+
+**Currency (D-157/D-158):** the tier prose is now reconciled across the /features tour ("four clearly marked tiers"), the /documentation launchpad guide ("The four agent groups", with the Powered-by-legalOS description: free, fully managed, copy-to-own), `app/workspace/departments/page.tsx`, and FEATURES_CLAIMS. This is the deferral from D-180 (commit 1 intentionally held the prose until the group was non-empty).
+
+**Tests:** `lib/content/legalos-seed.test.ts` covers the planner — inserts all five on a fresh org, idempotent re-seed (no-op), update-in-place on canonical drift, never resurrects a soft-deleted row, and never matches/touches a C4L row or a forked copy (different slugs). The five prompts were byte-verified against the spec file before commit.
