@@ -1,35 +1,38 @@
 import { LocalDate } from "@/components/workspace/local-date";
 import type { NormalizedEvent } from "@/lib/workspace/home/calendar-connection";
 
-/** Events beyond this count collapse into the "+N more later today" line. */
-const VISIBLE_LIMIT = 3;
+import { formatEventMeta, partitionEvents } from "./today-schedule.helpers";
 
 type TodayScheduleProps = {
   events: NormalizedEvent[];
 };
 
 /**
- * Connected-state interior of the Today card: today's meetings as a list of
- * rows (time on the left, title and attendees on the right), matching the
- * Claude Design schedule format. Pure presentational server component — it
- * renders whatever events it is handed; the display date is the
- * `<LocalDate>` client island (the user's browser clock — a server render
- * is UTC on Vercel and shows tomorrow during US evenings).
+ * Connected-state interior of the Today card: today's schedule as a pinned
+ * all-day band over a scrolling list of timed events, so the card reads as an
+ * intentional schedule rather than a flat, truncated list.
  *
- * Dormant for now: the Today card only mounts this when isCalendarConnected is
- * true, which never happens until calendar OAuth ships (Share and connector
- * hub arc, roadmap item 2). Built and ready so the surface lights up the
- * moment a real calendar connects.
+ * Height contract (parity with the Impact band, by construction): the card
+ * stretches to the Impact band's height through the parent grid
+ * (`grid-cols-2 items-stretch`), the section (`flex h-full flex-col`), and the
+ * card frame (`flex-1 min-h-0 overflow-hidden` in calendar-connect-card.tsx).
+ * This component sets NO fixed or capped height; it fills whatever height the
+ * row gives it. The header and all-day band are pinned; the timed list is a
+ * `flex-1 min-h-0 overflow-y-auto` region that scrolls when the day overflows.
+ * The `min-h-0` chain (here, the frame, and the scroll region) is what lets the
+ * scroll region shrink below its content instead of pushing the row taller.
  *
- * The card frame (rounded-xl border bg-card p-5) and the "Today" section
- * heading live in the parent; this fills the padded interior.
+ * The display date is the `<LocalDate>` client island (the user's browser
+ * clock; a server render is UTC on Vercel and shows tomorrow during US
+ * evenings). The card frame and the "Today" section heading live in the parent;
+ * this fills the padded interior.
  */
 export function TodaySchedule({ events }: TodayScheduleProps) {
-  const visible = events.slice(0, VISIBLE_LIMIT);
-  const hiddenCount = events.length - visible.length;
+  const { allDay, timed } = partitionEvents(events);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Pinned header: the local date. Does not scroll. */}
       <div className="mb-3 flex items-center justify-end">
         <LocalDate
           variant="short"
@@ -43,49 +46,64 @@ export function TodaySchedule({ events }: TodayScheduleProps) {
         </p>
       ) : (
         <>
-          <ul>
-            {visible.map((event) => (
-              <li
-                key={event.id}
-                className="flex gap-4 border-t border-hairline py-3 first:border-t-0 first:pt-0"
-              >
-                <span className="w-14 shrink-0 pt-px font-mono text-[12px] tabular-nums text-caption">
-                  {event.startTime}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-medium text-foreground">
+          {/* Pinned all-day band, separated from the timed list by a hairline.
+              Omitted entirely when the day has no all-day events. */}
+          {allDay.length > 0 ? (
+            <ul className="mb-3 shrink-0 border-b border-hairline pb-3">
+              {allDay.map((event) => (
+                <li
+                  key={event.id}
+                  className="flex items-center gap-2.5 py-0.5"
+                >
+                  <span
+                    aria-hidden
+                    className="size-1.5 shrink-0 rounded-full bg-caption/60"
+                  />
+                  <span className="truncate text-[13px] font-medium text-foreground">
                     {event.title}
-                  </p>
-                  <p className="truncate text-[12px] text-caption">
-                    {formatAttendees(event.attendees)}
-                    {event.conferenceLabel ? ` · ${event.conferenceLabel}` : ""}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
-          {hiddenCount > 0 ? (
-            // Becomes a Link to the full day view when the calendar surface
-            // ships; styled as a link today, no destination yet.
-            <p className="mt-3 text-[12px] font-medium text-primary">
-              +{hiddenCount} more later today
-            </p>
+          {/* Scroll region: the timed events. Fills the remaining height and
+              scrolls on overflow, with a slim scrollbar and a soft edge fade. */}
+          {timed.length > 0 ? (
+            <ul className="scrollbar-slim scroll-fade-y min-h-0 flex-1 overflow-y-auto">
+              {timed.map((event) => {
+                const meta = formatEventMeta(event);
+                return (
+                  <li key={event.id} className="flex gap-3">
+                    <span className="w-14 shrink-0 pt-3 text-right font-mono text-[12px] tabular-nums text-caption">
+                      {event.startTime}
+                    </span>
+                    {/* Spine: a continuous hairline down the column with one
+                        node dot per row sitting on it (ring punches the line). */}
+                    <span
+                      aria-hidden
+                      className="relative w-[22px] shrink-0 self-stretch"
+                    >
+                      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-hairline" />
+                      <span className="absolute left-1/2 top-[18px] size-1.5 -translate-x-1/2 rounded-full bg-caption/70 ring-2 ring-card" />
+                    </span>
+                    <div className="min-w-0 flex-1 py-3">
+                      <p className="truncate text-[14px] font-medium text-foreground">
+                        {event.title}
+                      </p>
+                      {meta ? (
+                        <p className="truncate text-[12px] text-caption">
+                          {meta}
+                        </p>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           ) : null}
         </>
       )}
     </div>
   );
-}
-
-/**
- * Attendee summary line: first two names, then "+N" for the rest, e.g.
- * "Sarah Chen, James Park +2". Empty string when there are no attendees, so
- * the line collapses rather than rendering a stray separator.
- */
-function formatAttendees(attendees: string[]): string {
-  if (attendees.length === 0) return "";
-  const shown = attendees.slice(0, 2);
-  const extra = attendees.length - shown.length;
-  return extra > 0 ? `${shown.join(", ")} +${extra}` : shown.join(", ");
 }

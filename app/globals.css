@@ -237,6 +237,44 @@
   scrollbar-gutter: stable;
 }
 
+/* Slim, theme-tinted scrollbar for internal scroll regions (e.g. the Today
+   card's timed-event list). A thin track-less bar so overflow scrolls without
+   heavy chrome; the thumb uses the existing hairline tokens and deepens to the
+   stronger border token on hover. Reusable on any overflow container. */
+@utility scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--hairline-strong);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--border-strong);
+  }
+}
+
+/* Soft top/bottom fade for a scroll region, so overflow reads as intentional
+   rather than hard-clipped. The mask is anchored to the visible box, so the
+   fade holds at the top and bottom edges as the content scrolls beneath it. */
+@utility scroll-fade-y {
+  --scroll-fade-mask: linear-gradient(
+    to bottom,
+    transparent 0,
+    black 12px,
+    black calc(100% - 12px),
+    transparent 100%
+  );
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+}
+
 /* ---------------------------------------------------------------------------
    Session 18c — chat surface keyframes
    ---------------------------------------------------------------------------
