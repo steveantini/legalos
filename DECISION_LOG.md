@@ -4816,3 +4816,10 @@ Status: Accepted
 **Live re-seed.** `npm run seed-builtin-agents` (update-in-place) reordered both orgs: each reported six UPDATED (every row's `sort_order` shifted under the new order), zero inserts, zero unchanged. Verified against the live DB that both orgs carry Document Comparison at `sort_order` 100 then the reading order 101-105. No duplicate or orphan; nothing else keys on the old order (the only consumer is the launchpad's `sort_order` sort).
 
 **Tests:** the planner inserts the six in the new order with `sort_order` 100-105 (Document Comparison first), and a stale-order re-seed reports six in-place updates (not inserts) bringing Document Comparison to 100 and PII Flagger to 105.
+
+## D-191 — Dogfooding pass for the built-in agents recorded as a standing roadmap item
+
+Date: 2026-06-25
+Status: Accepted
+
+**Decision:** Record a standing, operator-driven dogfooding pass for the built-in "Powered by legalOS" General Tools agents (especially Document Comparison) as a roadmap item (`docs/ROADMAP.md`, alongside org onboarding and migration-workflow hardening), not a discrete blocking arc. The v1 system prompts ship sound but unexercised; the right way to harden them is real-document use plus in-place tuning, which the existing seed mechanism already makes cheap (edit `BUILTIN_AGENTS` in `lib/content/builtin-agents-seed.ts`, re-run `npm run seed-builtin-agents`, update-in-place per D-181). First things to watch: the PII Flagger's "review aid, not a guarantee" humility and the Obligations and Dates Extractor's deliberate over-inclusion lean. The note also parks the D-189 redline reload-persistence gap (redline shows on the live turn, absent after reload) to be picked up if it annoys in real use, with the concrete approach already scoped (a nullable `messages.pre_step_result jsonb`, defensive selects). No code change in this entry; it exists so the intent is not lost and a future session does not re-derive it.
