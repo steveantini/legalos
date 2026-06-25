@@ -4689,3 +4689,16 @@ Status: Accepted
 **Deliberately NOT touched (scope discipline):** inline marketing PROSE that interpolates the name mid-sentence ("Welcome to legalOS", documentation body, support assistant copy) stays as literals — reviewed at actual rename time, reads better as prose; and the functional identifiers from D-182 (OAuth state cookies, the `legalos:connection-oauth-state` HMAC context, the chat draft `localStorage` key, the demo synthetic-email domain, the package name, the support email domain) — stable tokens, not display, unchanged.
 
 **A rename is now:** edit `siteConfig.siteTitle` (every structural wordmark + the built-in tier label/subline follow at once) + a review of the inline-prose literals + nothing for data (already brand-neutral, D-182). Proven by a local check: flipping `siteConfig.siteTitle` to a dummy propagates to the Wordmark, the tier label, and the subline, while the functional identifiers and prose literals (which read no config) do not move.
+
+---
+
+## D-184 — REBRANDING.md corrected to post-decoupling reality; migration-workflow hardening noted
+
+Date: 2026-06-24
+Status: Accepted
+
+**Decision:** Documentation close-out of the brand-decoupling arc (commit 3 of 3). No code or data change.
+
+**REBRANDING.md** was rewritten to match what is now true after D-182 (data/identifier decoupling) and D-183 (display-name centralization). The doc's old core claim ("nothing functional depends on the name; a rename = display-text find/replace") was made true again by the arc, but the doc predated the built-in agent tier and was briefly wrong about data. The rewrite gives an ordered rename runbook: (1) edit `siteConfig.siteTitle` (covers every structural wordmark via `<Wordmark/>` / `PRODUCT_NAME`), (2) review the inline marketing/docs PROSE deliberately left as literals (with the list of where it lives and the ~186-occurrence scale from the inventory), (3) DATA: nothing (the built-in tier uses the neutral `builtin` token, so no migration). It also documents the rename-EXCLUDED functional identifiers (OAuth state cookies + the `legalos:connection-oauth-state` HMAC context, the chat draft localStorage key, the demo synthetic-email domain, the npm package name, the auto-deriving MCP client name) with a one-line reason each, the SEPARATE ops items (support email domain, deployment domains), and the dummy-`siteTitle` verification captured in `wordmark.test.ts`.
+
+**ROADMAP:** added a migration-workflow hardening note next to the org-onboarding entry. Production migrations are currently hand-applied via the service-role path (the repo is unlinked from Supabase and the MCP is read-only); the committed SQL files are the canonical record but their application is manual and unaudited. The future direction is to link the repo and apply migrations through the tracked, versioned, auditable workflow. Framed as infrastructure hardening, not urgent, but increasingly important for auditability as the system scales.
