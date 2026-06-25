@@ -1,0 +1,23 @@
+# Supabase CLI project configuration.
+#
+# Stage 1 of adopting the tracked Supabase migration workflow (DECISION_LOG
+# D-192): repo scaffolding ONLY. The remote project is NOT linked by this file,
+# and nothing here contacts production. Linking and the one-time baseline
+# (`supabase login` -> `supabase link` -> `supabase db pull`) are operator-run
+# CREDENTIALED steps performed later; see docs/MIGRATIONS.md.
+#
+# NO SECRETS LIVE HERE. `project_id` below is the production project ref, which is
+# not sensitive (it appears in the project URL). The database password and the
+# Supabase access token are never committed; the CLI reads those at link time and
+# stores link state under supabase/.temp/ (gitignored).
+#
+# This file is intentionally MINIMAL: only `project_id` is set. The CLI applies
+# its defaults for every omitted section. We deliberately do NOT pin local-dev
+# settings (ports, db.major_version, auth, studio, etc.) here, both to keep the
+# scaffold small and to avoid committing a Postgres major-version pin that could
+# drift from production. If a future local-dev or branching workflow needs more,
+# add the specific sections then.
+
+# Distinguishes this project to the CLI; set to the production project ref so
+# CLI commands default to it. Not a secret.
+project_id = "knlnchvfjxchpbkuwtpp"
