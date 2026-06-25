@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   BUILTIN_AGENT_MODEL,
+  builtinToolsEnabled,
   type ExistingBuiltinAgent,
   type BuiltinAgentInsert,
   type BuiltinAgentUpdate,
@@ -56,7 +57,7 @@ function toInsertRow(row: BuiltinAgentInsert): AgentInsertRow {
     created_by: null,
     source_origin: row.sourceOrigin,
     sort_order: row.sortOrder,
-    tools_enabled: row.webSearch ? ["web_search"] : [],
+    tools_enabled: builtinToolsEnabled(row),
     default_output_format: row.defaultOutputFormat,
   };
 }

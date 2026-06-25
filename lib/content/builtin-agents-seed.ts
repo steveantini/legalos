@@ -1,6 +1,14 @@
+import {
+  DOCUMENT_COMPARE_PRE_STEP,
+  type PreStepId,
+} from "../agents/capabilities";
+
 /**
- * Built-in first-party agent seed (D-180/D-181, brand-decoupled D-182) — the five fully-locked
- * `builtin:tools` General Tools agents (tier established in D-180).
+ * Built-in first-party agent seed (D-180/D-181, brand-decoupled D-182) — the six fully-locked
+ * `builtin:tools` General Tools agents (tier established in D-180). The sixth,
+ * Document Comparison (D-186), is the first built-in to declare a deterministic
+ * PRE-STEP capability (see `lib/agents/capabilities.ts`); the other five carry
+ * model tools only.
  *
  * Mirrors the C4L import shape (a PURE planner + an injected store, see
  * `lib/content/c4l-import.ts`) so it is trivially unit-testable, but with one
@@ -33,7 +41,27 @@ export type BuiltinAgentDef = {
   systemPrompt: string;
   defaultOutputFormat: "markdown" | "docx";
   webSearch: boolean;
+  /**
+   * Deterministic code PRE-STEPS this agent declares (namespaced, run before the
+   * model — see `lib/agents/capabilities.ts`). Categorically different from the
+   * model-callable `webSearch` tool. Defaults to none; only Document Comparison
+   * carries one today.
+   */
+  preSteps?: readonly PreStepId[];
 };
+
+/**
+ * The `tools_enabled` jsonb a built-in agent is seeded with: its model tools
+ * (web_search) plus its declared pre-steps, in that order. One pure helper so the
+ * runtime store and the CLI store write the column identically (they used to
+ * duplicate the `webSearch ? ["web_search"] : []` literal).
+ */
+export function builtinToolsEnabled(row: {
+  webSearch: boolean;
+  preSteps?: readonly PreStepId[];
+}): string[] {
+  return [...(row.webSearch ? ["web_search"] : []), ...(row.preSteps ?? [])];
+}
 
 /** The stable identity slug for a built-in agent. */
 export function builtinSlug(skill: string): string {
@@ -107,7 +135,23 @@ If the input is missing or unsuitable: if no document is provided, ask for one. 
 
 Output format: a table. One row per flagged item, with columns for the type of information, the flagged value (or a safe partial reference to it), and its location in the document. Begin with one line stating plainly that this is a review aid, not a guarantee, and that nothing has been altered.`;
 
-/** The five seeded agents, in launchpad sort order. Prompts are verbatim (D-181). */
+const DOCUMENT_COMPARISON_PROMPT = `You are a document comparison tool. You are given a structured, authoritative list of the differences between two versions of a document, an original and a revised version, already computed for you. Your only job is to explain what changed and which changes matter. You work on any kind of document, in any field.
+
+The change set is authoritative and complete. You will receive the differences inside a block marked as authoritative. That block is the complete and only set of changes between the two documents. You explain those changes; you do not look for others. You never claim a change exists that is not in the block, you never speculate about changes the block might have missed, and you never suggest the comparison may be incomplete, unless the block itself is marked as truncated, in which case you say so plainly.
+
+What you do: walk through the changes and explain, in plain terms, what each one does, what the original said and what the revised version says in its place. Then organize them by significance. Lead with the consequential changes, the ones that alter an obligation, a deadline or date, an amount of money, a party or named entity, a right, or a defined term, and explain what each one changes. Group the minor changes, wording, formatting, typo fixes, and reordering that do not change meaning, and summarize them briefly rather than dwelling on each.
+
+What you never do: you never offer professional judgment or advice about the changes, you do not say whether a change is good, bad, acceptable, favorable, or whether the user should accept it, your job is to make clear what changed and why it is or is not consequential, and to leave the decision to the user. You never add information that is not derivable from the change set. You report and characterize; you do not counsel.
+
+Handling significance honestly: when you flag a change as consequential, say specifically what it affects, that a payment term moved, that a deadline shifted, that an obligated party changed, rather than a vague "this is important." When a change's significance is genuinely unclear from the text alone, say that it changes the wording of a given provision without overstating or understating what that means. Do not inflate a trivial change into a material one to seem thorough, and do not bury a material one among trivia.
+
+If there are no changes: if the change set indicates the two documents are identical, say so plainly and stop. Do not invent differences to have something to report.
+
+If the comparison is partial: if the change set is marked as truncated because a document was very long, give your explanation of the changes you were given, then state clearly that one or both documents exceeded the size limit and the comparison may not cover the entire document.
+
+Output format: prose, organized by significance. Begin with a one-line statement of the overall scope of the change (for example, that the revised version makes a handful of substantive changes plus minor wording edits, or that the changes are entirely cosmetic). Then the consequential changes, each explained. Then a brief summary of the minor ones. Use a short bulleted list only where it genuinely aids clarity for a set of discrete changes.`;
+
+/** The six seeded agents, in launchpad sort order. Prompts are verbatim (D-181, D-186). */
 export const BUILTIN_AGENTS: readonly BuiltinAgentDef[] = [
   {
     skill: "summarizer",
@@ -154,6 +198,19 @@ export const BUILTIN_AGENTS: readonly BuiltinAgentDef[] = [
     defaultOutputFormat: "markdown",
     webSearch: false,
   },
+  {
+    skill: "document-comparison",
+    name: "Document Comparison",
+    description:
+      "Compares two versions of a document and explains what changed and what matters.",
+    systemPrompt: DOCUMENT_COMPARISON_PROMPT,
+    defaultOutputFormat: "markdown",
+    webSearch: false,
+    // The first built-in to declare a deterministic pre-step: the chat run path
+    // runs the comparison engine in code before the model and feeds it the
+    // authoritative change set (commits 1-2; D-185/D-186).
+    preSteps: [DOCUMENT_COMPARE_PRE_STEP],
+  },
 ];
 
 /** The General Tools department slug every system agent lands in. */
@@ -182,6 +239,8 @@ export type BuiltinAgentInsert = {
   sourceOrigin: string;
   sortOrder: number;
   webSearch: boolean;
+  /** Declared deterministic pre-steps (namespaced); empty for all but Document Comparison. */
+  preSteps: readonly PreStepId[];
   defaultOutputFormat: string;
 };
 
@@ -242,6 +301,7 @@ export function planBuiltinSeed(input: {
         sourceOrigin: builtinSourceOrigin(agent.skill),
         sortOrder: SORT_ORDER_BASE + index,
         webSearch: agent.webSearch,
+        preSteps: agent.preSteps ?? [],
         defaultOutputFormat: agent.defaultOutputFormat,
       });
       return;

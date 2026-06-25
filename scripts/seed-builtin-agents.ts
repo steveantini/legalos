@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Seed the five the built-in agents (D-181) into General Tools.
+ * Seed the six built-in agents (D-181, D-186) into General Tools.
  *
  * Usage:
  *   npm run seed-builtin-agents
@@ -32,6 +32,7 @@ import { config } from "dotenv";
 
 import {
   BUILTIN_AGENT_MODEL,
+  builtinToolsEnabled,
   seedBuiltinAgents,
   type ExistingBuiltinAgent,
   type BuiltinAgentInsert,
@@ -112,7 +113,7 @@ function createCliStore(supabase: ServiceClient): BuiltinAgentsSeedStore {
         created_by: null,
         source_origin: row.sourceOrigin,
         sort_order: row.sortOrder,
-        tools_enabled: row.webSearch ? ["web_search"] : [],
+        tools_enabled: builtinToolsEnabled(row),
         default_output_format: row.defaultOutputFormat,
       }));
       const { error } = await supabase

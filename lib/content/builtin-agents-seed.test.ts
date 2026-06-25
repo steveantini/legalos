@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DOCUMENT_COMPARE_PRE_STEP,
+  hasDocumentComparePreStep,
+  parseAgentCapabilities,
+} from "@/lib/agents/capabilities";
+
+import {
   BUILTIN_AGENT_MODEL,
   BUILTIN_AGENTS,
   builtinSlug,
   builtinSourceOrigin,
+  builtinToolsEnabled,
   planBuiltinSeed,
   type ExistingBuiltinAgent,
 } from "./builtin-agents-seed";
@@ -44,9 +51,9 @@ describe("identity helpers", () => {
 });
 
 describe("planBuiltinSeed", () => {
-  it("inserts all five on a fresh org", () => {
+  it("inserts all six on a fresh org", () => {
     const p = plan([]);
-    expect(p.inserts).toHaveLength(5);
+    expect(p.inserts).toHaveLength(6);
     expect(p.updates).toHaveLength(0);
     expect(p.inserts.map((i) => i.slug)).toEqual([
       "builtin-summarizer",
@@ -54,9 +61,34 @@ describe("planBuiltinSeed", () => {
       "builtin-obligations",
       "builtin-plain-language",
       "builtin-pii-flagger",
+      "builtin-document-comparison",
     ]);
     expect(p.inserts.every((i) => i.departmentId === DEPT)).toBe(true);
     expect(p.inserts.every((i) => i.webSearch === false)).toBe(true);
+  });
+
+  it("seeds the Document Comparison agent with the deterministic pre-step capability", () => {
+    const p = plan([]);
+    const compare = p.inserts.find((i) => i.slug === "builtin-document-comparison");
+    expect(compare).toBeDefined();
+    expect(compare!.preSteps).toEqual([DOCUMENT_COMPARE_PRE_STEP]);
+    expect(compare!.webSearch).toBe(false);
+    // The tools_enabled actually written must route to a pre-step, never a model tool.
+    const toolsEnabled = builtinToolsEnabled(compare!);
+    expect(toolsEnabled).toEqual([DOCUMENT_COMPARE_PRE_STEP]);
+    expect(hasDocumentComparePreStep(toolsEnabled)).toBe(true);
+    const caps = parseAgentCapabilities(toolsEnabled);
+    expect(caps.preSteps).toEqual([DOCUMENT_COMPARE_PRE_STEP]);
+    expect(caps.modelTools).toEqual([]);
+
+    // The other five carry no pre-step (and an empty tools_enabled).
+    for (const insert of p.inserts.filter(
+      (i) => i.slug !== "builtin-document-comparison",
+    )) {
+      expect(insert.preSteps).toEqual([]);
+      expect(builtinToolsEnabled(insert)).toEqual([]);
+      expect(hasDocumentComparePreStep(builtinToolsEnabled(insert))).toBe(false);
+    }
   });
 
   it("is idempotent: a re-seed of unchanged rows does nothing", () => {
@@ -64,7 +96,7 @@ describe("planBuiltinSeed", () => {
     const p = plan(rows);
     expect(p.inserts).toHaveLength(0);
     expect(p.updates).toHaveLength(0);
-    expect(p.unchangedCount).toBe(5);
+    expect(p.unchangedCount).toBe(6);
   });
 
   it("UPDATES in place when a canonical field has drifted", () => {
@@ -85,7 +117,7 @@ describe("planBuiltinSeed", () => {
     );
     expect(p.updates[0].name).toBe("Document Summarizer");
     expect(p.updates[0].model).toBe(BUILTIN_AGENT_MODEL);
-    expect(p.unchangedCount).toBe(4);
+    expect(p.unchangedCount).toBe(5);
   });
 
   it("never resurrects a soft-deleted (filtered) row", () => {
@@ -97,7 +129,7 @@ describe("planBuiltinSeed", () => {
     // The filtered one is neither inserted nor updated.
     expect(p.inserts).toHaveLength(0);
     expect(p.updates).toHaveLength(0);
-    expect(p.unchangedCount).toBe(4);
+    expect(p.unchangedCount).toBe(5);
   });
 
   it("ignores Claude for Legal rows and user forks entirely (different slugs)", () => {
@@ -126,9 +158,9 @@ describe("planBuiltinSeed", () => {
       },
     ];
     const p = plan(foreign);
-    // All five system agents are missing by slug, so all five insert; the two
+    // All six system agents are missing by slug, so all six insert; the two
     // foreign rows are referenced nowhere.
-    expect(p.inserts).toHaveLength(5);
+    expect(p.inserts).toHaveLength(6);
     expect(p.updates).toHaveLength(0);
     expect(p.skippedFiltered).toHaveLength(0);
     const touched = [

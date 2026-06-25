@@ -35,7 +35,7 @@ Last full truth pass: 2026-06-12 (D-157).
 | Claim | Source |
 |---|---|
 | Thirteen departments across four practice clusters | Departments seed; CLAUDE.md overview |
-| Four clearly marked agent tiers: Approved agents (department-vetted), Powered by legalOS (free first-party, fully locked, copy-to-own), the Claude for Legal curated library, My agents | D-149 (the Approved-agents rename + group sublines, 28668d4); the tiered architecture; C4L import (D-051/D-110–D-114); the legalOS system tier (D-180 plumbing, D-181 the five General Tools agents) |
+| Four clearly marked agent tiers: Approved agents (department-vetted), Powered by legalOS (free first-party, fully locked, copy-to-own), the Claude for Legal curated library, My agents | D-149 (the Approved-agents rename + group sublines, 28668d4); the tiered architecture; C4L import (D-051/D-110–D-114); the legalOS system tier (D-180 plumbing, D-181 the five General Tools agents, D-186/D-187 Document Comparison as the sixth — the first to carry a deterministic pre-step) |
 | Anyone creates an agent with instructions and references | User-owned My agents; the agent form |
 | Access follows roles | RBAC + `user_department_roles` (0001) |
 
