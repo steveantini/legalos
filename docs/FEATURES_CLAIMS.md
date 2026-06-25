@@ -38,6 +38,7 @@ Last full truth pass: 2026-06-12 (D-157).
 | Four clearly marked agent tiers: Approved agents (department-vetted), Powered by legalOS (free first-party, fully locked, copy-to-own), the Claude for Legal curated library, My agents | D-149 (the Approved-agents rename + group sublines, 28668d4); the tiered architecture; C4L import (D-051/D-110–D-114); the legalOS system tier (D-180 plumbing, D-181 the five General Tools agents, D-186/D-187 Document Comparison as the sixth — the first to carry a deterministic pre-step) |
 | Anyone creates an agent with instructions and references | User-owned My agents; the agent form |
 | Access follows roles | RBAC + `user_department_roles` (0001) |
+| Document comparison: a deterministic comparison returning both a plain-language explanation of what changed and what matters AND a visual redline of the exact changes, both from one comparison so they agree | D-185 (engine), D-186 (pre-step pattern, prose), D-187 (agent), D-189 (visual redline renderer); `#document-comparison` |
 
 ## Workflows (`#workflows`)
 

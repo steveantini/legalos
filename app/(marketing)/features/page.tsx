@@ -101,6 +101,23 @@ export default function FeaturesPage() {
         </p>
       </MarketingSection>
 
+      <MarketingSection id="document-comparison" title="Document comparison">
+        <p>
+          <LeadIn>See exactly what changed between two versions</LeadIn>, and what
+          it means. Give the Document Comparison agent an original and a revised
+          document and it returns two things from one comparison: a plain-language
+          explanation of what changed and which changes matter, leading with the
+          consequential ones (a deadline, an amount, a party, a defined term) and
+          grouping the minor edits, and a visual redline that marks every
+          insertion and deletion inline so you can verify each change in place. The
+          difference here is trust: the changes are found by deterministic code, not
+          guessed by a model, so the comparison cannot miss a change or invent one,
+          and the explanation and the redline are built from the same result, so
+          they always agree. It is one of the agents that ship free with the
+          product, ready to use and yours to copy.
+        </p>
+      </MarketingSection>
+
       <MarketingSection id="workflows" title="Workflows">
         <p>
           <LeadIn>Multi-step legal work</LeadIn>, built without code and run

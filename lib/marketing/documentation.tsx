@@ -307,6 +307,20 @@ export const DOC_PAGES: DocPage[] = [
             page, which is built for corpus-scale work.
           </p>
         </MarketingSection>
+        <MarketingSection title="Comparing two documents">
+          <p>
+            The Document Comparison agent takes two versions of a document, an
+            original and a revised one, and tells you what changed. Add each
+            version to its labeled slot, Original and Revised, and send. You get a
+            plain-language explanation of what changed and which changes matter,
+            with the consequential ones first, and beneath it a visual redline
+            that marks every insertion and deletion inline so you can check each
+            change in place. The changes are found by deterministic code rather
+            than guessed, and the explanation and the redline come from the same
+            comparison, so they always agree. If you only add one version, it will
+            tell you which one is still needed.
+          </p>
+        </MarketingSection>
         <MarketingSection title="How to">
           <div>
             <p className="font-medium text-foreground">Put an agent&rsquo;s tools to work</p>

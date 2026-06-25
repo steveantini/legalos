@@ -14,8 +14,11 @@
  *
  * Assumes single-line `data:` per frame, matching 8a's SSE contract.
  * SSE spec allows multi-line data: which would require concatenating with
- * \n; expand if the contract evolves.
+ * \n; expand if the contract evolves. (A redline payload is JSON.stringify'd,
+ * which never emits a newline, so even a large change set rides one data line.)
  */
+
+import type { RedlinePayload } from "@/lib/agents/pre-steps/document-compare";
 
 /**
  * One citation source referenced by an assistant message. Mirrors the
@@ -124,6 +127,12 @@ export type ChatStreamEvent =
       url: string;
       domain: string;
       fetched_at?: string;
+    }
+  | {
+      // Document-comparison visual redline payload (D-189). Mirrors the
+      // server-side event; carries the same change set the prose was built from.
+      type: "pre_step_redline";
+      payload: RedlinePayload;
     }
   | {
       type: "done";

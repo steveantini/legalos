@@ -838,6 +838,10 @@ export async function POST(request: Request) {
       mcpAccessByName,
       mcpLoopEngaged,
       researchTool,
+      // The visual redline payload (comparison turns only); undefined otherwise.
+      // The same change set the pre-step injected into the model's input.
+      preStepRedline:
+        comparePreStep?.status === "ready" ? comparePreStep.redline : undefined,
       mode: {
         kind: "fresh",
         userMessageId: userMsg.id,

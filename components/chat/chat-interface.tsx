@@ -1088,6 +1088,13 @@ export function ChatInterface({
         });
         break;
       }
+      case "pre_step_redline": {
+        // The document-comparison visual redline (D-189), emitted after the prose.
+        // Attach it to the assistant turn; the bubble renders it beneath the
+        // explanation. Same change set the prose was built from (no second diff).
+        updateLastAssistant((m) => ({ ...m, redline: event.payload }));
+        break;
+      }
       case "done": {
         updateLastAssistant((m) => ({ ...m, id: event.assistant_message_id }));
         break;

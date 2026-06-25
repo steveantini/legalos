@@ -4,11 +4,13 @@ import { FileTextIcon } from "lucide-react";
 
 import { ConfirmationCard } from "./confirmation-card";
 import { CopyButton } from "./copy-button";
+import { DocumentRedline } from "./document-redline";
 import { MessageActionsMenu } from "./message-actions-menu";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { SourcesList } from "./sources-list";
 import { ToolTraceCard } from "./tool-trace-card";
 
+import type { RedlinePayload } from "@/lib/agents/pre-steps/document-compare";
 import type { ConfirmationDecision } from "@/lib/chat/mcp-confirmation";
 import type { ChatSource, ChatToolCall } from "@/lib/chat/sse-parser";
 
@@ -61,6 +63,14 @@ export type ChatMessage = {
     sizeBytes: number;
     contentType: string;
   }>;
+  /**
+   * The document-comparison visual redline (D-189). Present only on a comparison
+   * agent's assistant turn (carried by the `pre_step_redline` SSE event); rendered
+   * as a labeled section beneath the prose. Absent on every other message, so no
+   * other agent's rendering is affected. Not persisted yet, so it is present on the
+   * live turn but absent after a reload (a deliberate follow-up).
+   */
+  redline?: RedlinePayload;
 };
 
 /**
@@ -327,6 +337,12 @@ export function MessageBubble({
             />
           ) : null}
           <SourcesList sources={message.sources} />
+          {/* Prose leads, redline follows: the visual redline renders beneath the
+              explanation, the same change set the prose was built from. Present
+              only on a comparison turn, so other agents are unaffected. */}
+          {message.redline ? (
+            <DocumentRedline redline={message.redline} />
+          ) : null}
           {showCopy ? (
             <div className="mt-2 flex items-center gap-1">
               <CopyButton text={copyText} />

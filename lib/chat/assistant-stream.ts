@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { RedlinePayload } from "@/lib/agents/pre-steps/document-compare";
 import { executeMcpTool } from "@/lib/connections/mcp/execute-tool";
 import {
   executeInlineResearch,
@@ -174,6 +175,14 @@ export type ChatTurnContext = {
    * connections).
    */
   researchTool: AnthropicCustomTool | null;
+  /**
+   * The document-comparison redline payload computed by the pre-step (D-189),
+   * present only on a comparison agent's turn. Emitted once, after the prose, as a
+   * `pre_step_redline` SSE event so the client renders the visual redline beneath
+   * the explanation. Carried, never recomputed: the same change set the model
+   * explained. (Reload-persistence is a deliberate follow-up; see DECISION_LOG.)
+   */
+  preStepRedline?: RedlinePayload;
   mode: ChatTurnMode;
 };
 
@@ -211,6 +220,7 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
     mcpAccessByName,
     mcpLoopEngaged,
     researchTool,
+    preStepRedline,
     mode,
   } = ctx;
 
@@ -1137,6 +1147,15 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
         } else {
           console.error("usage_events insert failed", { code: usageErr.code });
         }
+      }
+
+      // Prose first, redline after: emit the visual-redline payload (comparison
+      // turns only) right before done, so the client renders it beneath the
+      // finished explanation. The same change set the prose was built from.
+      if (preStepRedline) {
+        controller.enqueue(
+          encodeSseEvent({ type: "pre_step_redline", payload: preStepRedline }),
+        );
       }
 
       controller.enqueue(

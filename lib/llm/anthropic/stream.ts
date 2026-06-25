@@ -21,6 +21,8 @@
  *   \n                    ← blank line terminates the event
  */
 
+import type { RedlinePayload } from "@/lib/agents/pre-steps/document-compare";
+
 /**
  * One citation source referenced by an assistant message. Generated
  * server-side when a citations_delta arrives; deduplicated within a
@@ -148,6 +150,14 @@ export type ChatStreamEvent =
       url: string;
       domain: string;
       fetched_at?: string;
+    }
+  | {
+      // The deterministic document-comparison change set, carried to the client
+      // for the visual redline (D-189). Derived from the SAME ComparisonResult the
+      // model-facing block was serialized from, so prose and redline share one
+      // source. Emitted once, after the prose, only on a comparison turn.
+      type: "pre_step_redline";
+      payload: RedlinePayload;
     }
   | {
       type: "done";

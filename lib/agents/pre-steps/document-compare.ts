@@ -45,12 +45,34 @@ export type PreStepDocument = {
 };
 
 /**
+ * The structured change set carried to the CLIENT for the visual redline (D-189).
+ * It is the SAME ComparisonResult the model-facing block was serialized from, so
+ * the prose explanation and the visual redline share one source and cannot
+ * disagree; the renderer walks `segments` and never runs a second diff. The
+ * normalized full texts are deliberately omitted (the renderer needs only the
+ * segments, which already carry their text); `summary` drives the header counts
+ * and the identical-docs state, `truncated` drives the partial-comparison notice.
+ */
+export type RedlinePayload = {
+  readonly segments: ComparisonResult["segments"];
+  readonly summary: ComparisonResult["summary"];
+  readonly truncated: ComparisonResult["truncated"];
+  readonly originalLabel: string;
+  readonly revisedLabel: string;
+};
+
+/**
  * The pre-step's outcome. Either the run is READY (the authoritative change-set
- * block is built and ready to inject as the model's input) or a GUARD fired (the
- * pre-step cannot run; the user gets a clear, friendly message and NO model turn).
+ * block is built and ready to inject as the model's input, plus the structured
+ * redline payload for the client) or a GUARD fired (the pre-step cannot run; the
+ * user gets a clear, friendly message and NO model turn).
  */
 export type DocumentComparePreStepOutcome =
-  | { readonly status: "ready"; readonly authoritativeBlock: string }
+  | {
+      readonly status: "ready";
+      readonly authoritativeBlock: string;
+      readonly redline: RedlinePayload;
+    }
   | { readonly status: "guard"; readonly message: string };
 
 /**
@@ -256,5 +278,15 @@ export function assembleDocumentComparePreStep(
       originalLabel: original.label,
       revisedLabel: revised.label,
     }),
+    // The redline payload is derived from the SAME `result` the block was
+    // serialized from: one computed change set drives both the prose and the
+    // visual redline, so they cannot disagree (D-189).
+    redline: {
+      segments: result.segments,
+      summary: result.summary,
+      truncated: result.truncated,
+      originalLabel: original.label,
+      revisedLabel: revised.label,
+    },
   };
 }
