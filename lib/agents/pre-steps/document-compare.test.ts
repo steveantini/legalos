@@ -129,14 +129,17 @@ describe("serializeComparison", () => {
 });
 
 describe("assembleDocumentComparePreStep", () => {
-  it("returns the authoritative change-set block for two readable documents", () => {
+  it("reads documents by ROLE (not order) and returns the authoritative block", () => {
+    // Pass revised BEFORE original to prove order does not matter: roles do.
     const outcome = assembleDocumentComparePreStep([
-      { label: "a.docx", text: "Net 30" },
-      { label: "b.docx", text: "Net 60" },
+      { role: "revised", label: "b.docx", text: "Net 60" },
+      { role: "original", label: "a.docx", text: "Net 30" },
     ]);
     expect(outcome.status).toBe("ready");
     if (outcome.status !== "ready") return;
     expect(outcome.authoritativeBlock).toContain('<document_comparison authoritative="true">');
+    expect(outcome.authoritativeBlock).toContain('Original document (older version): "a.docx"');
+    expect(outcome.authoritativeBlock).toContain('Revised document (newer version): "b.docx"');
     expect(outcome.authoritativeBlock).toContain('Removed from original: "30"');
     expect(outcome.authoritativeBlock).toContain('Added in revised: "60"');
   });
@@ -145,8 +148,8 @@ describe("assembleDocumentComparePreStep", () => {
     const docA = `${Array(150).fill("foo").join(" ")} ONEONE`;
     const docB = `${Array(150).fill("foo").join(" ")} TWOTWO`;
     const outcome = assembleDocumentComparePreStep([
-      { label: "a", text: docA },
-      { label: "b", text: docB },
+      { role: "original", label: "a", text: docA },
+      { role: "revised", label: "b", text: docB },
     ]);
     expect(outcome.status).toBe("ready");
     if (outcome.status !== "ready") return;
@@ -160,8 +163,8 @@ describe("assembleDocumentComparePreStep", () => {
 
   it("threads document truncation through into the block", () => {
     const outcome = assembleDocumentComparePreStep([
-      { label: "a", text: "Net 30", truncated: true },
-      { label: "b", text: "Net 60" },
+      { role: "original", label: "a", text: "Net 30", truncated: true },
+      { role: "revised", label: "b", text: "Net 60" },
     ]);
     expect(outcome.status).toBe("ready");
     if (outcome.status !== "ready") return;
@@ -170,50 +173,61 @@ describe("assembleDocumentComparePreStep", () => {
     );
   });
 
-  it("guards (no engine run) when not exactly two documents are provided", () => {
-    const zero = assembleDocumentComparePreStep([]);
-    expect(zero.status).toBe("guard");
-    if (zero.status === "guard") expect(zero.message).toContain("needs both to begin");
+  it("guards (no engine run) with a role-named message when a slot is missing", () => {
+    const none = assembleDocumentComparePreStep([]);
+    expect(none.status).toBe("guard");
+    if (none.status === "guard") {
+      expect(none.message).toContain("original version and the revised version");
+    }
 
-    const one = assembleDocumentComparePreStep([{ label: "a", text: "hi" }]);
-    expect(one.status).toBe("guard");
-    if (one.status === "guard") expect(one.message).toContain("only one was attached");
-
-    const three = assembleDocumentComparePreStep([
-      { label: "a", text: "x" },
-      { label: "b", text: "y" },
-      { label: "c", text: "z" },
+    const onlyOriginal = assembleDocumentComparePreStep([
+      { role: "original", label: "a", text: "hi" },
     ]);
-    expect(three.status).toBe("guard");
-    if (three.status === "guard") expect(three.message).toContain("but 3 were attached");
+    expect(onlyOriginal.status).toBe("guard");
+    if (onlyOriginal.status === "guard") {
+      expect(onlyOriginal.message).toContain("Add the revised version");
+    }
+
+    const onlyRevised = assembleDocumentComparePreStep([
+      { role: "revised", label: "b", text: "hi" },
+    ]);
+    expect(onlyRevised.status).toBe("guard");
+    if (onlyRevised.status === "guard") {
+      expect(onlyRevised.message).toContain("Add the original version");
+    }
   });
 
-  it("guards when a document has empty or whitespace-only text", () => {
-    const outcome = assembleDocumentComparePreStep([
-      { label: "a", text: "real content" },
-      { label: "b", text: "   \n  " },
+  it("guards with a role-named message when a slot's document has no text", () => {
+    const emptyOriginal = assembleDocumentComparePreStep([
+      { role: "original", label: "a", text: "  \n " },
+      { role: "revised", label: "b", text: "real content" },
     ]);
-    expect(outcome.status).toBe("guard");
-    if (outcome.status === "guard") {
-      expect(outcome.message).toContain("no readable text");
+    expect(emptyOriginal.status).toBe("guard");
+    if (emptyOriginal.status === "guard") {
+      expect(emptyOriginal.message).toContain("original document has no readable text");
+    }
+
+    const emptyRevised = assembleDocumentComparePreStep([
+      { role: "original", label: "a", text: "real content" },
+      { role: "revised", label: "b", text: "" },
+    ]);
+    expect(emptyRevised.status).toBe("guard");
+    if (emptyRevised.status === "guard") {
+      expect(emptyRevised.message).toContain("revised document has no readable text");
     }
   });
 
   it("keeps all guard copy free of em dashes (user-facing copy convention)", () => {
-    const messages = [
+    const guards = [
       assembleDocumentComparePreStep([]),
-      assembleDocumentComparePreStep([{ label: "a", text: "x" }]),
+      assembleDocumentComparePreStep([{ role: "original", label: "a", text: "x" }]),
+      assembleDocumentComparePreStep([{ role: "revised", label: "b", text: "x" }]),
       assembleDocumentComparePreStep([
-        { label: "a", text: "x" },
-        { label: "b", text: "y" },
-        { label: "c", text: "z" },
-      ]),
-      assembleDocumentComparePreStep([
-        { label: "a", text: "real" },
-        { label: "b", text: "" },
+        { role: "original", label: "a", text: "real" },
+        { role: "revised", label: "b", text: "" },
       ]),
     ];
-    for (const m of messages) {
+    for (const m of guards) {
       expect(m.status).toBe("guard");
       if (m.status === "guard") expect(m.message).not.toContain("—");
     }

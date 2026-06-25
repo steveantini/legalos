@@ -87,3 +87,36 @@ export function hasDocumentComparePreStep(toolsEnabled: unknown): boolean {
     DOCUMENT_COMPARE_PRE_STEP,
   );
 }
+
+/**
+ * Rebuild `tools_enabled` when an agent FORM re-saves a row. The agent form only
+ * renders MODEL-SIDE tools (today, the web-search toggle), so a naive rebuild
+ * (`webSearch ? ["web_search"] : []`) silently DROPS every capability kind the
+ * form does not control — which, before this helper, wiped a forked Document
+ * Comparison agent's `prestep:document_compare` on its first edit, turning it into
+ * a prose agent that claims an authoritative change set it never receives.
+ *
+ * The robust fix (D-188): reconstruct ONLY the model-tool portion from the form,
+ * and preserve every entry in the PRE-STEP NAMESPACE verbatim. Preservation keys
+ * on the `prestep:` namespace, NOT the known-id partition (parseAgentCapabilities,
+ * which intentionally drops unknown pre-steps so the runtime never offers/runs what
+ * it cannot understand). For preservation we want the opposite posture: keep even a
+ * `prestep:*` this build does not yet recognize, so a newer pre-step on an older
+ * deploy is never wiped by an edit. This preserves any capability the form cannot
+ * render, generically (not just `document_compare`, but a future second pre-step,
+ * known or not). Pure; the single source of truth both create and update call so
+ * they cannot drift.
+ */
+export function rebuildToolsEnabled(
+  existingTools: unknown,
+  modelTools: { webSearch: boolean },
+): string[] {
+  const existing = Array.isArray(existingTools)
+    ? existingTools.filter((e): e is string => typeof e === "string")
+    : [];
+  const preservedPreSteps = existing.filter((e) =>
+    e.startsWith(PRE_STEP_NAMESPACE),
+  );
+  const model = modelTools.webSearch ? ["web_search"] : [];
+  return [...model, ...preservedPreSteps];
+}

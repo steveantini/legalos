@@ -4,12 +4,14 @@ import { useRef, useState, type KeyboardEvent } from "react";
 
 import { AttachButton } from "./attach-button";
 import { AttachmentPrivacyNote } from "./attachment-privacy-note";
+import { DocumentCompareInput } from "./document-compare-input";
 import { DrivePicker, type DrivePickedFile } from "./drive-picker";
 import { ModelPicker } from "./model-picker";
 import { PendingAttachmentsRow } from "./pending-attachments-row";
 import { SendButton } from "./send-button";
 import { WebSearchIndicator } from "./web-search-indicator";
 
+import type { CompareRole } from "@/lib/agents/pre-steps/document-compare";
 import {
   isReady,
   MAX_ATTACHMENTS_PER_MESSAGE,
@@ -29,6 +31,12 @@ interface MessageInputProps {
    * form (session 17a polish iteration).
    */
   webSearchEnabled: boolean;
+  /**
+   * True for the Document Comparison agent (and forks of it). Replaces the generic
+   * attachment affordance with the two-slot Original/Revised input, and hides the
+   * generic attach button so the role slots are the only document intake (D-188).
+   */
+  documentCompareEnabled: boolean;
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
@@ -56,6 +64,8 @@ interface MessageInputProps {
   onAttachFiles: (files: File[]) => void;
   /** Fired with the files the user picked from the Google Drive picker. */
   onAttachDrive: (files: DrivePickedFile[]) => void;
+  /** Fired with a file and a role from a Document Comparison slot. */
+  onAttachForRole: (files: File[], role: CompareRole) => void;
   /** Fired with a pending attachment's localId to remove it before send. */
   onRemoveAttachment: (localId: string) => void;
   /**
@@ -104,6 +114,7 @@ export function MessageInput({
   agentId,
   agentModel,
   webSearchEnabled,
+  documentCompareEnabled,
   value,
   onChange,
   onSend,
@@ -113,6 +124,7 @@ export function MessageInput({
   pendingAttachments,
   onAttachFiles,
   onAttachDrive,
+  onAttachForRole,
   onRemoveAttachment,
   showPrivacyNote,
 }: MessageInputProps) {
@@ -171,10 +183,19 @@ export function MessageInput({
           right edge stays at the column; only the left border extends ~12px
           into the gutter. */}
       <div className="-ml-3 rounded-[14px] border border-border-strong bg-card shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10)] transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-primary/45 focus-within:shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.10),0_0_0_3px_oklch(0.4512_0.0766_258.9642_/_0.08)]">
-        <PendingAttachmentsRow
-          attachments={pendingAttachments}
-          onRemove={onRemoveAttachment}
-        />
+        {documentCompareEnabled ? (
+          <DocumentCompareInput
+            pendingAttachments={pendingAttachments}
+            onAttachForRole={onAttachForRole}
+            onRemoveAttachment={onRemoveAttachment}
+            disabled={disabled}
+          />
+        ) : (
+          <PendingAttachmentsRow
+            attachments={pendingAttachments}
+            onRemove={onRemoveAttachment}
+          />
+        )}
         <AttachmentPrivacyNote visible={showPrivacyNote} />
         <div className="px-3 pt-3">
           <label htmlFor="message-input" className="sr-only">
@@ -197,14 +218,18 @@ export function MessageInput({
         </div>
         <div className="flex items-center justify-between gap-3 px-3 pt-1 pb-2">
           <div className="flex items-center gap-2">
-            <AttachButton
-              disabled={disabled || atAttachmentCap}
-              reasonWhenDisabled={
-                atAttachmentCap ? "Up to 5 files per message" : null
-              }
-              onFilesSelected={onAttachFiles}
-              onChooseDrive={() => setDrivePickerOpen(true)}
-            />
+            {/* The Document Comparison agent's intake is the two role slots above,
+                so the generic attach button is hidden for it. */}
+            {documentCompareEnabled ? null : (
+              <AttachButton
+                disabled={disabled || atAttachmentCap}
+                reasonWhenDisabled={
+                  atAttachmentCap ? "Up to 5 files per message" : null
+                }
+                onFilesSelected={onAttachFiles}
+                onChooseDrive={() => setDrivePickerOpen(true)}
+              />
+            )}
             {webSearchEnabled ? <WebSearchIndicator agentId={agentId} /> : null}
           </div>
           <div className="flex items-center gap-2">

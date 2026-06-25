@@ -15,6 +15,7 @@ import {
   removeMessageAttachmentAction,
   uploadMessageAttachmentAction,
 } from "@/lib/actions/message-attachments";
+import type { CompareRole } from "@/lib/agents/pre-steps/document-compare";
 import {
   isReady,
   MAX_ATTACHMENTS_PER_MESSAGE,
@@ -34,6 +35,15 @@ import { cn } from "@/lib/utils";
  * localStorage key for the per-agent draft autosave (session 17b, spec §2.7).
  */
 const DRAFT_STORAGE_KEY = (agentId: string) => `legalos.draft.${agentId}`;
+
+/**
+ * Default instruction used when a Document Comparison turn is sent with the two
+ * slots filled but no typed message. The agent runs from its documents, so a typed
+ * prompt is optional; this gives the turn a valid, non-empty user message (the
+ * route requires one) and a clear instruction. Em-dash-free per the copy convention.
+ */
+const DOCUMENT_COMPARE_DEFAULT_PROMPT =
+  "Compare these two documents and explain what changed and what matters.";
 const DRAFT_DEBOUNCE_MS = 200;
 
 /**
@@ -64,6 +74,12 @@ interface ChatInterfaceProps {
   agentDescription: string | null;
   agentModel: string;
   webSearchEnabled: boolean;
+  /**
+   * True when the agent declares the document-compare deterministic pre-step
+   * (the locked built-in Document Comparison agent, and any fork of it). Swaps the
+   * generic attachment composer for the two-slot Original/Revised input (D-188).
+   */
+  documentCompareEnabled?: boolean;
   isDeleted?: boolean;
   /**
    * Owner-of-agent flag used by AgentHeader to gate the Edit link.
@@ -132,6 +148,7 @@ export function ChatInterface({
   agentDescription,
   agentModel,
   webSearchEnabled,
+  documentCompareEnabled = false,
   isDeleted,
   isOwner,
   isTemplate = false,
@@ -478,7 +495,18 @@ export function ChatInterface({
   }
 
   async function handleSend() {
-    const userMessage = draft.trim();
+    let userMessage = draft.trim();
+    // The Document Comparison agent runs from its two documents, so a typed
+    // message is optional: when the user sends with a slot filled but no text,
+    // supply a default instruction so the turn is valid (and any missing-slot
+    // guard still fires server-side rather than the send dead-ending here).
+    if (
+      !userMessage &&
+      documentCompareEnabled &&
+      pendingAttachments.some(isReady)
+    ) {
+      userMessage = DOCUMENT_COMPARE_DEFAULT_PROMPT;
+    }
     if (!userMessage || isStreaming) return;
     // A pending write-confirmation must be decided before the conversation
     // continues — otherwise the resumed turn would graft onto the wrong bubble
@@ -611,6 +639,83 @@ export function ChatInterface({
       iconType: file.iconType,
     }));
     setPendingAttachments((prev) => [...prev, ...newPending]);
+  }
+
+  /**
+   * Upload one document into a Document Comparison role slot ("original" /
+   * "revised"). Reuses the same upload pipeline as handleAttachFiles, with two
+   * differences: it holds at most one document per role (a new file REPLACES the
+   * slot's current one, purging the old upload from Storage), and it tags the
+   * pending attachment with its compareRole so the role rides the send payload to
+   * the deterministic pre-step. Used only by the two-slot DocumentCompareInput.
+   */
+  async function handleAttachForRole(files: File[], role: CompareRole) {
+    const file = files[0];
+    if (!file) return;
+
+    if (!privacyNoteHasBeenShown) {
+      setPrivacyNoteHasBeenShown(true);
+      setPrivacyNoteShouldShow(true);
+    }
+
+    // Replace whatever is already in this slot: purge a prior upload's Storage
+    // object (Drive/failed/attaching carry nothing to purge) and drop its chip.
+    const existing = pendingAttachments.find((p) => p.compareRole === role);
+    if (existing && existing.status === "ready" && "storagePath" in existing) {
+      const purge = new FormData();
+      purge.append("storage_path", existing.storagePath);
+      void removeMessageAttachmentAction(purge);
+    }
+
+    const localId = crypto.randomUUID();
+    setPendingAttachments((prev) => [
+      ...prev.filter((p) => p.compareRole !== role),
+      {
+        localId,
+        status: "attaching",
+        filename: file.name,
+        sizeBytes: file.size,
+        contentType: file.type,
+        compareRole: role,
+      },
+    ]);
+
+    const formData = new FormData();
+    formData.append("conversation_id", pendingConversationId);
+    formData.append("message_id", nextMessageId);
+    formData.append("file", file);
+    const result = await uploadMessageAttachmentAction(formData);
+
+    setPendingAttachments((prev) =>
+      prev.map((p) => {
+        if (p.localId !== localId) return p;
+        if (result.ok) {
+          return {
+            localId,
+            status: "ready",
+            filename: result.attachment.originalFilename,
+            sizeBytes: result.attachment.sizeBytes,
+            contentType: result.attachment.contentType,
+            storagePath: result.attachment.storagePath,
+            extractionWarning: result.attachment.extractionWarning,
+            compareRole: role,
+          };
+        }
+        return {
+          localId,
+          status: "failed",
+          filename: file.name,
+          sizeBytes: file.size,
+          contentType: file.type,
+          errorCode: result.error,
+          compareRole: role,
+        };
+      }),
+    );
+
+    if (result.ok && result.attachment.extractionWarning) {
+      toast.warning(`${file.name}: ${result.attachment.extractionWarning}`);
+    }
   }
 
   /**
@@ -1094,6 +1199,7 @@ export function ChatInterface({
             agentId={agentId}
             agentModel={agentModel}
             webSearchEnabled={webSearchEnabled}
+            documentCompareEnabled={documentCompareEnabled}
             value={draft}
             onChange={setDraft}
             onSend={handleSend}
@@ -1103,6 +1209,7 @@ export function ChatInterface({
             pendingAttachments={pendingAttachments}
             onAttachFiles={handleAttachFiles}
             onAttachDrive={handleAttachDriveFiles}
+            onAttachForRole={handleAttachForRole}
             onRemoveAttachment={handleRemoveAttachment}
             showPrivacyNote={privacyNoteShouldShow}
           />

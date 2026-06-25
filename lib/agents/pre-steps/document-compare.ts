@@ -16,11 +16,11 @@
  * Everything here is itself deterministic (no I/O, no clock, no randomness) and is
  * unit-tested.
  *
- * INTERIM ordering convention (until commit 4's role-aware two-input UI): the FIRST
- * document is the ORIGINAL (older) and the SECOND is the REVISED (newer). The
- * model-facing block LABELS which is which, so the model's prose is correct
- * regardless of how the documents arrive. Commit 4 replaces this positional
- * convention with explicit roles.
+ * ROLES, not order (D-188): each document carries an EXPLICIT role — "original" or
+ * "revised" — set by the two-slot input UI and carried through the send payload.
+ * The pre-step reads documents by role, never by position. (This replaced the
+ * commit-2/3 interim convention of "first attachment = original, second =
+ * revised", which is fully retired.)
  */
 
 import {
@@ -28,13 +28,17 @@ import {
   type ComparisonResult,
 } from "@/lib/deterministic/compare";
 
+/** Which version of the document this is, in the comparison. */
+export type CompareRole = "original" | "revised";
+
 /**
- * One document handed to the pre-step: a human label (its filename) plus
- * already-extracted, normalized text (lib/extract output — NEVER re-extracted
- * here). `truncated` is the caller's honest signal that this document hit the
- * extraction cap; it is surfaced verbatim in the serialized block.
+ * One document handed to the pre-step: its explicit ROLE, a human label (its
+ * filename), and already-extracted, normalized text (lib/extract output — NEVER
+ * re-extracted here). `truncated` is the caller's honest signal that this document
+ * hit the extraction cap; it is surfaced verbatim in the serialized block.
  */
 export type PreStepDocument = {
+  readonly role: CompareRole;
   readonly label: string;
   readonly text: string;
   readonly truncated?: boolean;
@@ -56,19 +60,23 @@ export type DocumentComparePreStepOutcome =
  */
 export const COMPARISON_CONTEXT_WORDS = 6;
 
-/** Guard copy is USER-FACING — kept free of em dashes per the copy convention. */
-function wrongCountMessage(count: number): string {
-  if (count === 0) {
-    return "This agent compares two documents and needs both to begin. Attach exactly two files, the original version first and the revised version second, then send your message again.";
-  }
-  if (count === 1) {
-    return "This agent compares two documents, but only one was attached. Attach the original version first and the revised version second, then send your message again.";
-  }
-  return `This agent compares exactly two documents, but ${count} were attached. Attach just two files, the original version first and the revised version second, then send your message again.`;
-}
-
-const EMPTY_DOCUMENT_MESSAGE =
-  "One of the attached documents has no readable text, so there is nothing to compare. Attach two documents that contain text, the original version first and the revised version second, then try again.";
+/**
+ * Role-aware guard copy, USER-FACING (kept free of em dashes per the copy
+ * convention). Each message names the specific role that is missing or unreadable,
+ * so the user knows exactly which slot to fill rather than a generic "needs two".
+ */
+const GUARD_MESSAGES = {
+  bothMissing:
+    "This agent compares two versions of a document. Add the original version and the revised version, then send your message again.",
+  missingOriginal:
+    "Add the original version to compare against the revised version, then send your message again.",
+  missingRevised:
+    "Add the revised version to compare against the original, then send your message again.",
+  emptyOriginal:
+    "The original document has no readable text, so there is nothing to compare. Add an original version that contains text, then try again.",
+  emptyRevised:
+    "The revised document has no readable text, so there is nothing to compare. Add a revised version that contains text, then try again.",
+} as const;
 
 function words(text: string): string[] {
   return text.trim().split(/\s+/).filter((w) => w.length > 0);
@@ -203,23 +211,39 @@ export function serializeComparison(
 }
 
 /**
- * Run the document-comparison pre-step over the resolved documents. Guards run
- * FIRST, deterministically, before the engine — so a malformed request never runs
- * the comparison or a speculative model turn:
- *   - not exactly two documents (zero, one, or three+) -> friendly guard;
- *   - either document has empty / unreadable text      -> friendly guard.
+ * Run the document-comparison pre-step over the resolved documents, reading each
+ * by its explicit ROLE (never by position). Guards run FIRST, deterministically,
+ * before the engine, and each names the specific role at fault, so a malformed
+ * request never runs the comparison or a speculative model turn:
+ *   - neither role provided          -> "add the original and the revised";
+ *   - the original slot is empty      -> "add the original version ...";
+ *   - the revised slot is empty       -> "add the revised version ...";
+ *   - a provided slot has no text     -> role-named empty-document guard.
  * Otherwise the engine runs over (original, revised) and the result is serialized
- * into the authoritative block.
+ * into the authoritative block. Extra documents in a role (the UI allows one per
+ * slot) resolve to the first of that role; a document with no role is ignored
+ * (the two-slot UI always sets one).
  */
 export function assembleDocumentComparePreStep(
   docs: readonly PreStepDocument[],
 ): DocumentComparePreStepOutcome {
-  if (docs.length !== 2) {
-    return { status: "guard", message: wrongCountMessage(docs.length) };
+  const original = docs.find((d) => d.role === "original");
+  const revised = docs.find((d) => d.role === "revised");
+
+  if (!original && !revised) {
+    return { status: "guard", message: GUARD_MESSAGES.bothMissing };
   }
-  const [original, revised] = docs;
-  if (original.text.trim().length === 0 || revised.text.trim().length === 0) {
-    return { status: "guard", message: EMPTY_DOCUMENT_MESSAGE };
+  if (!original) {
+    return { status: "guard", message: GUARD_MESSAGES.missingOriginal };
+  }
+  if (!revised) {
+    return { status: "guard", message: GUARD_MESSAGES.missingRevised };
+  }
+  if (original.text.trim().length === 0) {
+    return { status: "guard", message: GUARD_MESSAGES.emptyOriginal };
+  }
+  if (revised.text.trim().length === 0) {
+    return { status: "guard", message: GUARD_MESSAGES.emptyRevised };
   }
 
   const result = compareDocuments(

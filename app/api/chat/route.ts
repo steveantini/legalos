@@ -7,6 +7,7 @@ import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
 import { hasDocumentComparePreStep } from "@/lib/agents/capabilities";
 import {
   assembleDocumentComparePreStep,
+  type CompareRole,
   type DocumentComparePreStepOutcome,
   type PreStepDocument,
 } from "@/lib/agents/pre-steps/document-compare";
@@ -88,11 +89,18 @@ const ATTACHMENT_AGGREGATE_CHAR_BUDGET = 250_000;
 // send). The Drive mime_type is a free string — it may be a native Google type
 // (e.g. application/vnd.google-apps.document), exported at fetch time, so the
 // upload allowlist does not apply to it here.
+// `role` ("original" / "revised") is present ONLY for the Document Comparison
+// agent's two-slot input; it routes each document to its comparison role so the
+// pre-step reads by role, not attachment order (D-188). Optional and ignored by
+// every other agent.
+const compareRoleSchema = z.enum(["original", "revised"]).optional();
+
 const uploadAttachmentSchema = z.object({
   storage_path: z.string().min(1).max(1024),
   original_filename: z.string().min(1).max(512),
   content_type: z.enum(ALLOWED_MIME_TYPES),
   size_bytes: z.number().int().positive().max(MAX_BYTES),
+  role: compareRoleSchema,
 });
 
 const driveAttachmentSchema = z.object({
@@ -100,6 +108,7 @@ const driveAttachmentSchema = z.object({
   file_id: z.string().min(1).max(512),
   name: z.string().min(1).max(512),
   mime_type: z.string().min(1).max(255),
+  role: compareRoleSchema,
 });
 
 type UploadAttachmentItem = z.infer<typeof uploadAttachmentSchema>;
@@ -181,6 +190,9 @@ type MessageAttachmentRow = {
   extracted_text: string | null;
   source_type: string | null;
   source_metadata: unknown;
+  /** The storage key: an upload path, or `gdrive:<fileId>` for a Drive row.
+   *  Used to correlate a row back to its send-payload comparison role. */
+  storage_path: string;
 };
 
 /**
@@ -198,7 +210,9 @@ async function loadMessageAttachmentRows(
 ): Promise<MessageAttachmentRow[] | null> {
   const withSource = await supabase
     .from("message_attachments")
-    .select("original_filename, extracted_text, source_type, source_metadata")
+    .select(
+      "original_filename, extracted_text, source_type, source_metadata, storage_path",
+    )
     .eq("message_id", messageId)
     .order("created_at", { ascending: true });
 
@@ -209,7 +223,7 @@ async function loadMessageAttachmentRows(
   if (withSource.error.code === "42703") {
     const legacy = await supabase
       .from("message_attachments")
-      .select("original_filename, extracted_text")
+      .select("original_filename, extracted_text, storage_path")
       .eq("message_id", messageId)
       .order("created_at", { ascending: true });
     if (legacy.error) {
@@ -219,12 +233,17 @@ async function loadMessageAttachmentRows(
       return null;
     }
     return (legacy.data ?? []).map((row) => {
-      const r = row as { original_filename: string; extracted_text: string | null };
+      const r = row as {
+        original_filename: string;
+        extracted_text: string | null;
+        storage_path: string;
+      };
       return {
         original_filename: r.original_filename,
         extracted_text: r.extracted_text,
         source_type: null,
         source_metadata: null,
+        storage_path: r.storage_path,
       };
     });
   }
@@ -541,6 +560,20 @@ export async function POST(request: Request) {
     // block is byte-identical to before.
     const comparePreStepActive = hasDocumentComparePreStep(agentRow.tools_enabled);
 
+    // Map each send-payload attachment to its comparison role by storage key, so
+    // the pre-step reads documents by ROLE rather than position (the interim
+    // attachment-order convention is retired, D-188). Uploads key on storage_path;
+    // a Drive row keys on the `gdrive:<fileId>` storage_path the route writes for it.
+    const roleByStoragePath = new Map<string, CompareRole>();
+    if (comparePreStepActive) {
+      for (const att of attachments) {
+        if (!att.role) continue;
+        const key =
+          "source_type" in att ? `gdrive:${att.file_id}` : att.storage_path;
+        roleByStoragePath.set(key, att.role);
+      }
+    }
+
     let messageAttachmentBlocks = "";
     const compareDocs: PreStepDocument[] = [];
     if (attachments.length > 0) {
@@ -587,16 +620,21 @@ export async function POST(request: Request) {
           user.id,
         );
         if (comparePreStepActive) {
-          // The comparison documents, in deterministic created_at order (interim
-          // convention: first = original, second = revised; commit 4 adds explicit
-          // roles). An unreadable Drive row contributes empty text so the
-          // pre-step's empty-document guard catches it.
-          const text = resolved.kind === "text" ? resolved.text : "";
-          compareDocs.push({
-            label: row.original_filename,
-            text,
-            truncated: text.length >= ATTACHMENT_TEXT_LIMIT,
-          });
+          // Build a comparison document tagged with its EXPLICIT role (original /
+          // revised), correlated from the send payload by storage key. A row with
+          // no role (the two-slot UI always sets one) is skipped, so the role-aware
+          // guard reports the missing slot. An unreadable Drive row contributes
+          // empty text so the empty-document guard catches it.
+          const role = roleByStoragePath.get(row.storage_path);
+          if (role) {
+            const text = resolved.kind === "text" ? resolved.text : "";
+            compareDocs.push({
+              role,
+              label: row.original_filename,
+              text,
+              truncated: text.length >= ATTACHMENT_TEXT_LIMIT,
+            });
+          }
         } else if (resolved.kind === "text") {
           messageBlocks.push(
             `<attachment filename="${escapeAttributeValue(row.original_filename)}">\n${resolved.text}\n</attachment>`,
@@ -613,10 +651,10 @@ export async function POST(request: Request) {
     }
 
     // Run the document-compare pre-step (when active) BEFORE any model call. A
-    // guard (not exactly two documents, or an empty document) short-circuits with a
-    // friendly assistant reply and NO model turn. Note compareDocs is built from
-    // message attachments regardless of count, so zero attachments still reaches
-    // the guard here.
+    // role-aware guard (a missing original/revised slot, or an empty document)
+    // short-circuits with a friendly assistant reply that names the missing role
+    // and NO model turn. compareDocs is built regardless of count, so a send with
+    // an empty slot (or none) still reaches the guard here.
     let comparePreStep: DocumentComparePreStepOutcome | null = null;
     if (comparePreStepActive) {
       comparePreStep = assembleDocumentComparePreStep(compareDocs);

@@ -4,6 +4,7 @@ import {
   DOCUMENT_COMPARE_PRE_STEP,
   hasDocumentComparePreStep,
   parseAgentCapabilities,
+  rebuildToolsEnabled,
 } from "./capabilities";
 
 describe("parseAgentCapabilities", () => {
@@ -80,5 +81,50 @@ describe("hasDocumentComparePreStep", () => {
     expect(hasDocumentComparePreStep(["web_search"])).toBe(false);
     // An unknown prestep:* token is not the document-compare pre-step.
     expect(hasDocumentComparePreStep(["prestep:something_else"])).toBe(false);
+  });
+});
+
+describe("rebuildToolsEnabled", () => {
+  it("rebuilds the model-tool portion from the form while preserving pre-steps", () => {
+    // Editing a Document Comparison fork: toggling web search on/off must never
+    // drop the deterministic pre-step the form does not render.
+    expect(
+      rebuildToolsEnabled([DOCUMENT_COMPARE_PRE_STEP], { webSearch: false }),
+    ).toEqual([DOCUMENT_COMPARE_PRE_STEP]);
+    expect(
+      rebuildToolsEnabled([DOCUMENT_COMPARE_PRE_STEP], { webSearch: true }),
+    ).toEqual(["web_search", DOCUMENT_COMPARE_PRE_STEP]);
+    expect(
+      rebuildToolsEnabled(["web_search", DOCUMENT_COMPARE_PRE_STEP], {
+        webSearch: false,
+      }),
+    ).toEqual([DOCUMENT_COMPARE_PRE_STEP]);
+  });
+
+  it("preserves the pre-step partition GENERICALLY, including a future unrecognized one", () => {
+    // A pre-step token this build does NOT know about (not in PRE_STEP_IDS) must
+    // still survive a form edit: preservation keys on the namespace, not the
+    // known-id partition, so a newer pre-step on an older deploy is never wiped.
+    const future = "prestep:knowledge_search";
+    expect(
+      rebuildToolsEnabled([DOCUMENT_COMPARE_PRE_STEP, future], {
+        webSearch: false,
+      }),
+    ).toEqual([DOCUMENT_COMPARE_PRE_STEP, future]);
+    expect(
+      rebuildToolsEnabled(["web_search", future], { webSearch: true }),
+    ).toEqual(["web_search", future]);
+    // Dropping web search keeps the unrecognized pre-step untouched.
+    expect(
+      rebuildToolsEnabled(["web_search", future], { webSearch: false }),
+    ).toEqual([future]);
+  });
+
+  it("leaves an ordinary agent (no pre-step) controlled entirely by the form", () => {
+    expect(rebuildToolsEnabled([], { webSearch: false })).toEqual([]);
+    expect(rebuildToolsEnabled([], { webSearch: true })).toEqual(["web_search"]);
+    expect(rebuildToolsEnabled(["web_search"], { webSearch: false })).toEqual([]);
+    // Tolerant of the column's unknown shape.
+    expect(rebuildToolsEnabled(null, { webSearch: true })).toEqual(["web_search"]);
   });
 });

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { rebuildToolsEnabled } from "@/lib/agents/capabilities";
 import { evaluateAgentEditLock } from "@/lib/agents/lock";
 import { isCurrentUserOrgAdmin } from "@/lib/auth/access";
 import { SUPPORTED_MODEL_IDS } from "@/lib/llm/models";
@@ -200,10 +201,16 @@ export async function createAgentAction(
     return { ok: false, formError: "You don't have access to that department." };
   }
 
+  // A fork inherits the source template's non-model-tool capabilities (its
+  // deterministic pre-steps) so a copy of, e.g., the Document Comparison agent
+  // still runs the comparison. The form only controls model tools (web search),
+  // so the pre-step portion is preserved structurally via rebuildToolsEnabled
+  // rather than dropped (D-188).
+  let sourceTools: unknown = [];
   if (input.forked_from_agent_id) {
     const { data: template } = await supabase
       .from("agents")
-      .select("id, department_id, is_template, type")
+      .select("id, department_id, is_template, type, tools_enabled")
       .eq("id", input.forked_from_agent_id)
       .maybeSingle();
     if (
@@ -214,6 +221,7 @@ export async function createAgentAction(
     ) {
       return { ok: false, formError: "That template is not available to fork." };
     }
+    sourceTools = template.tools_enabled;
   }
 
   // Parse pending attachments uploaded as drafts during the form's life
@@ -243,7 +251,9 @@ export async function createAgentAction(
     }
   }
 
-  const toolsEnabled: string[] = input.tool_web_search ? ["web_search"] : [];
+  const toolsEnabled = rebuildToolsEnabled(sourceTools, {
+    webSearch: input.tool_web_search,
+  });
 
   const insertPayload = {
     id: input.agent_id,
@@ -427,7 +437,12 @@ export async function updateAgentAction(
     }
   }
 
-  const toolsEnabled: string[] = input.tool_web_search ? ["web_search"] : [];
+  // Rebuild only the model-tool portion from the form; preserve the row's
+  // existing pre-step capabilities untouched, so editing a forked Document
+  // Comparison agent never silently drops prestep:document_compare (D-188).
+  const toolsEnabled = rebuildToolsEnabled(agent.tools_enabled, {
+    webSearch: input.tool_web_search,
+  });
 
   const { error: updateError } = await supabase
     .from("agents")
@@ -784,7 +799,12 @@ export async function createTemplateAgentAction(
     return { ok: false, formError: "That department is not available." };
   }
 
-  const toolsEnabled: string[] = input.tool_web_search ? ["web_search"] : [];
+  // A from-scratch admin template has no source capabilities to preserve; the
+  // helper keeps this site uniform with create/update so the bare literal cannot
+  // be copied back in and silently drop a pre-step later (D-188).
+  const toolsEnabled = rebuildToolsEnabled([], {
+    webSearch: input.tool_web_search,
+  });
 
   const { error: insertError } = await supabase
     .from("agents")

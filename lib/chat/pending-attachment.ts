@@ -1,4 +1,5 @@
 import type { MessageAttachmentErrorCode } from "@/lib/actions/message-attachments";
+import type { CompareRole } from "@/lib/agents/pre-steps/document-compare";
 import type { DriveIconType } from "@/lib/connections/providers/google-drive-listing";
 import type { AllowedMimeType } from "@/lib/extract/extract";
 
@@ -23,6 +24,12 @@ export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
  *    support; rather than fake a cancel that cancels nothing, the chip waits
  *    out the upload. Files are capped at 20MB, so the wait is bounded.
  */
+// Each variant carries an OPTIONAL compareRole: set only in the Document
+// Comparison agent's two-slot input ("original" / "revised"), undefined for the
+// ordinary single/multi attachment composer. It rides from the slot through the
+// "attaching" -> "ready" transition into the send payload, where it tells the
+// server which document is which (replacing the retired attachment-order
+// convention, D-188).
 export type PendingAttachment =
   | {
       // Local-only identity; never reaches the server. React key + the handle
@@ -32,6 +39,7 @@ export type PendingAttachment =
       filename: string;
       sizeBytes: number;
       contentType: string;
+      compareRole?: CompareRole;
     }
   | {
       localId: string;
@@ -41,6 +49,7 @@ export type PendingAttachment =
       contentType: AllowedMimeType;
       storagePath: string;
       extractionWarning: string | null; // e.g. scanned PDF with no text layer
+      compareRole?: CompareRole;
     }
   | {
       localId: string;
@@ -49,6 +58,7 @@ export type PendingAttachment =
       sizeBytes: number;
       contentType: string;
       errorCode: MessageAttachmentErrorCode;
+      compareRole?: CompareRole;
     }
   | {
       // A connected-Drive file picked into the composer (M6b plumbing; the
@@ -69,6 +79,7 @@ export type PendingAttachment =
       // the mime→iconType mapping, so the chip renders the right glyph without
       // re-deriving it client-side. Display-only — not part of the send payload.
       iconType: DriveIconType;
+      compareRole?: CompareRole;
     };
 
 export type ReadyAttachment = Extract<PendingAttachment, { status: "ready" }>;
@@ -98,6 +109,8 @@ export type UploadSendItem = {
   original_filename: string;
   content_type: AllowedMimeType;
   size_bytes: number;
+  /** Comparison role, present only for the Document Comparison agent's two slots. */
+  role?: CompareRole;
 };
 
 /** A Drive-backed file riding the send payload (resolved live server-side). */
@@ -106,6 +119,8 @@ export type DriveSendItem = {
   file_id: string;
   name: string;
   mime_type: string;
+  /** Comparison role, present only for the Document Comparison agent's two slots. */
+  role?: CompareRole;
 };
 
 /**
@@ -126,6 +141,7 @@ export function toSendPayload(
         file_id: p.fileId,
         name: p.filename,
         mime_type: p.contentType,
+        ...(p.compareRole ? { role: p.compareRole } : {}),
       };
     }
     return {
@@ -133,6 +149,7 @@ export function toSendPayload(
       original_filename: p.filename,
       content_type: p.contentType,
       size_bytes: p.sizeBytes,
+      ...(p.compareRole ? { role: p.compareRole } : {}),
     };
   });
 }

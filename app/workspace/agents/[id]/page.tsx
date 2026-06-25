@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ChatInterface } from "@/components/chat/chat-interface";
+import { hasDocumentComparePreStep } from "@/lib/agents/capabilities";
 import { isFullyLockedSource } from "@/lib/agents/lock";
 import {
   getAgent,
@@ -65,6 +66,10 @@ export default async function AgentChatPage({
   const webSearchEnabled =
     Array.isArray(agent.tools_enabled) &&
     (agent.tools_enabled as unknown[]).includes("web_search");
+  // The Document Comparison agent (and any fork of it, which carries the
+  // capability) gets the role-aware two-document composer instead of the generic
+  // attachment input. Detected via the deterministic pre-step capability (D-188).
+  const documentCompareEnabled = hasDocumentComparePreStep(agent.tools_enabled);
   // Templates surface an Edit-vs-Customize top-right action in
   // AgentHeader. canManageTemplates is only fetched
   // when the agent is a template (templates with no admin viewer get the
@@ -121,6 +126,7 @@ export default async function AgentChatPage({
         agentDescription={agent.description}
         agentModel={agent.model ?? ""}
         webSearchEnabled={webSearchEnabled}
+        documentCompareEnabled={documentCompareEnabled}
         isDeleted={isDeleted}
         isOwner={isOwner}
         isTemplate={isTemplate}
