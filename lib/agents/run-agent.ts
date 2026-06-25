@@ -720,6 +720,15 @@ export async function runAgent(
     // System prompt: the same defense-wrapped agent prompt the chat path builds,
     // cached as a stable prefix. (Agent-attached reference grounding, which the
     // chat path also layers in, can be added later without a signature change.)
+    //
+    // DETERMINISTIC PRE-STEPS (e.g. document comparison) are NOT run here yet: a
+    // pre-step needs resolved document inputs, and a headless run takes a single
+    // string `input` with no attachments (see the grounding note above). The
+    // pre-step logic itself is path-agnostic and shared
+    // (lib/agents/pre-steps/document-compare.ts); when this path gains a document
+    // input it calls the SAME function the chat route does. Until then a
+    // pre-step-only agent (e.g. the comparison agent) has no documents to compare
+    // headlessly, so there is nothing to run here.
     const systemBlocks: AnthropicSystemBlock[] = [
       {
         type: "text",

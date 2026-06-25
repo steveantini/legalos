@@ -60,9 +60,33 @@ The change-set shape (`contract.ts`) is designed to serve **both** a visual
 redline renderer and a model reading it as authoritative input. See that file's
 doc comment for the rationale.
 
+### How comparison is consumed: the deterministic PRE-STEP pattern
+
+This engine is pure and consumer-agnostic; consumers live on the agent/run side
+and import it (never the reverse). The first consumer is the **document-compare
+pre-step** (`lib/agents/pre-steps/document-compare.ts`), which establishes a
+named pattern (DECISION_LOG D-186):
+
+> An agent can declare a **deterministic pre-step** — a pure code operation that
+> runs UNCONDITIONALLY, in code, BEFORE the model call, producing a structured
+> result injected as the model's AUTHORITATIVE input. The model explains the
+> result; it cannot ride past it or override it. This is categorically different
+> from the model-side tools in `tools_enabled` (web_search, MCP), which the model
+> chooses to call.
+
+The pre-step serializes a `ComparisonResult` into a model-facing change-set block
+(every change, bounded equal context, original/revised labels, truncation
+surfaced, an explicit no-changes block for identical inputs) and the run path
+injects THAT in place of the raw documents — the model never receives the two
+full docs as "compare these". The Knowledge section's future deterministic search
+is expected to follow this same pre-step pattern. As with the engine itself
+(restraint above), there is deliberately no generic pre-step framework: one
+pre-step exists; the second will inform any shared shape worth extracting.
+
 ### Out of scope for v1 (future layers)
 
 - Structural / clause-level / semantic-equivalence diffing (moved clauses,
   reordered sections, "means the same thing"). v1 is word-level textual diff.
-- The agent row, run-path wiring, UI, redline renderer, and model prose — all
-  later commits. This module is the engine only.
+- The agent row, seeding, UI, redline renderer, and model prose — all later
+  commits. This module is the engine only; the pre-step that consumes it (above)
+  ships inert until the comparison agent is seeded.

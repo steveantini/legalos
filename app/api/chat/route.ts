@@ -4,11 +4,21 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { MAX_BYTES } from "@/lib/actions/_attachment-shared";
+import { hasDocumentComparePreStep } from "@/lib/agents/capabilities";
+import {
+  assembleDocumentComparePreStep,
+  type DocumentComparePreStepOutcome,
+  type PreStepDocument,
+} from "@/lib/agents/pre-steps/document-compare";
 import { resolveGatedOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { resolveAttachmentText } from "@/lib/connections/attachment-content";
 import { getVisibleCollections } from "@/lib/knowledge/collections-data";
 import { buildResearchToolDef } from "@/lib/knowledge/research/inline";
-import { ALLOWED_MIME_TYPES, extractText } from "@/lib/extract/extract";
+import {
+  ALLOWED_MIME_TYPES,
+  ATTACHMENT_TEXT_LIMIT,
+  extractText,
+} from "@/lib/extract/extract";
 import {
   type AnthropicSystemBlock,
   type AnthropicTool,
@@ -18,6 +28,7 @@ import {
   wrapUserMessage,
 } from "@/lib/llm/anthropic/prompt-defense";
 import type { MessageRole, NativeAgent } from "@/lib/llm/anthropic/types";
+import { streamCannedAssistantTurn } from "@/lib/chat/canned-assistant-turn";
 import { streamChatTurn } from "@/lib/chat/assistant-stream";
 import { parseModelId } from "@/lib/llm/parse-model-id";
 import { checkChatRateLimit } from "@/lib/llm/rate-limit";
@@ -520,7 +531,18 @@ export async function POST(request: Request) {
     // ---- Load the message attachments' text + enforce the aggregate budget.
     // Soft cap checked here (not at upload) because only the send sees the full
     // set: a user may attach several small files and one large one.
+    //
+    // DETERMINISTIC PRE-STEP BRANCH (document comparison): when the agent declares
+    // the document-compare pre-step, the message attachments are NOT dumped as raw
+    // <attachment> context. They become the two documents the pre-step compares in
+    // code, BEFORE the model runs, and the model receives the authoritative change
+    // set (lib/agents/pre-steps/document-compare.ts). When the agent does NOT
+    // declare it (every agent today, until the compare agent is seeded), this whole
+    // block is byte-identical to before.
+    const comparePreStepActive = hasDocumentComparePreStep(agentRow.tools_enabled);
+
     let messageAttachmentBlocks = "";
+    const compareDocs: PreStepDocument[] = [];
     if (attachments.length > 0) {
       const msgAttRows = await loadMessageAttachmentRows(
         supabase,
@@ -564,7 +586,18 @@ export async function POST(request: Request) {
           },
           user.id,
         );
-        if (resolved.kind === "text") {
+        if (comparePreStepActive) {
+          // The comparison documents, in deterministic created_at order (interim
+          // convention: first = original, second = revised; commit 4 adds explicit
+          // roles). An unreadable Drive row contributes empty text so the
+          // pre-step's empty-document guard catches it.
+          const text = resolved.kind === "text" ? resolved.text : "";
+          compareDocs.push({
+            label: row.original_filename,
+            text,
+            truncated: text.length >= ATTACHMENT_TEXT_LIMIT,
+          });
+        } else if (resolved.kind === "text") {
           messageBlocks.push(
             `<attachment filename="${escapeAttributeValue(row.original_filename)}">\n${resolved.text}\n</attachment>`,
           );
@@ -574,15 +607,42 @@ export async function POST(request: Request) {
           );
         }
       }
-      messageAttachmentBlocks = messageBlocks.join("\n\n");
+      if (!comparePreStepActive) {
+        messageAttachmentBlocks = messageBlocks.join("\n\n");
+      }
+    }
+
+    // Run the document-compare pre-step (when active) BEFORE any model call. A
+    // guard (not exactly two documents, or an empty document) short-circuits with a
+    // friendly assistant reply and NO model turn. Note compareDocs is built from
+    // message attachments regardless of count, so zero attachments still reaches
+    // the guard here.
+    let comparePreStep: DocumentComparePreStepOutcome | null = null;
+    if (comparePreStepActive) {
+      comparePreStep = assembleDocumentComparePreStep(compareDocs);
+      if (comparePreStep.status === "guard") {
+        return streamCannedAssistantTurn({
+          supabase,
+          conversationId,
+          userMessageId: userMsg.id,
+          text: comparePreStep.message,
+        });
+      }
     }
 
     // Current user turn: attachment blocks (if any) prepended to the typed
     // message, all inside <user_input> per the prompt-defense contract —
-    // attachment content is user-supplied DATA, never instructions.
-    const userTurnBody = messageAttachmentBlocks
-      ? `${messageAttachmentBlocks}\n\n${user_message}`
-      : user_message;
+    // attachment content is user-supplied DATA, never instructions. When the
+    // document-compare pre-step ran, its authoritative change-set block REPLACES
+    // the raw attachment dump as that data: the model explains a change set it
+    // cannot alter, and the two full documents are never presented as "compare
+    // these" (which would reintroduce model-side diffing).
+    const userTurnBody =
+      comparePreStep?.status === "ready"
+        ? `${comparePreStep.authoritativeBlock}\n\n${user_message}`
+        : messageAttachmentBlocks
+          ? `${messageAttachmentBlocks}\n\n${user_message}`
+          : user_message;
     apiMessages.push({
       role: "user",
       content: wrapUserMessage(userTurnBody),
