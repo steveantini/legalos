@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Wordmark } from "@/components/brand/wordmark";
+
 import { LandingGlyph } from "./landing-glyph";
 
 /**
@@ -50,7 +52,7 @@ export function LandingHero({ isSignedIn }: { isSignedIn: boolean }) {
               style={{ animationDelay: "1700ms" }}
             >
               Welcome to{" "}
-              <span className="font-medium text-primary">legalOS</span>,
+              <Wordmark className="font-medium text-primary" />,
             </span>
           </span>
           <span className="landing-line-mask block pb-[0.18em]">

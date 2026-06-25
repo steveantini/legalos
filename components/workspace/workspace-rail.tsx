@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { siteConfig } from "@/config/site";
+import { Wordmark } from "@/components/brand/wordmark";
 import { getUserPreferenceAction } from "@/lib/actions/user-preferences";
 import type {
   AgentBreadcrumbContext,
@@ -211,7 +211,7 @@ export async function WorkspaceRail({
           aria-hidden
           className="h-[7px] w-[7px] rounded-full bg-primary"
         />
-        {siteConfig.siteTitle}
+        <Wordmark />
       </Link>
 
       {/* Departments group (Session 29: locked-but-visible).

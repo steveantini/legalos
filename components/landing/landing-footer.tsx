@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Wordmark } from "@/components/brand/wordmark";
+
 /**
  * Marketing landing footer (Session 22 Step B).
  *
@@ -75,7 +77,7 @@ export function LandingFooter() {
               aria-hidden
               className="inline-block h-[7px] w-[7px] rounded-full bg-primary"
             />
-            legalOS
+            <Wordmark />
           </div>
           <p className="mt-5 max-w-[36ch] text-[13px] leading-[1.55] text-muted-foreground">
             An operating system for modern legal departments.
@@ -128,7 +130,7 @@ export function LandingFooter() {
           launcher sits bottom-right, so they never collide there. */}
       <div className="mt-10 flex flex-col items-start gap-[10px] border-t border-hairline pt-5 font-mono text-[11px] uppercase tracking-[0.14em] text-caption min-[720px]:flex-row min-[720px]:items-center min-[720px]:justify-between min-[720px]:gap-0 min-[720px]:pr-16">
         <span>
-          © 2026 <span style={{ textTransform: "none" }}>legalOS</span>
+          © 2026 <Wordmark />
         </span>
         <span style={{ textTransform: "none" }}>v0.1.0</span>
       </div>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Wordmark } from "@/components/brand/wordmark";
+
 /**
  * Shared editorial shell for real (non-stub) marketing pages, extracted
  * from the Trust Center idiom (Tier 1a, D-126): a minimal brand header
@@ -59,7 +61,7 @@ export function MarketingPageShell({
             aria-hidden
             className="inline-block h-[7px] w-[7px] rounded-full bg-primary"
           />
-          legalOS
+          <Wordmark />
         </Link>
       </header>
 

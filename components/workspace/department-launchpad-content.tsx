@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Wordmark } from "@/components/brand/wordmark";
 import { AgentDetailsPanel } from "@/components/workspace/agent-details-panel";
 import { AgentGrid } from "@/components/workspace/agent-grid";
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
@@ -10,6 +11,7 @@ import {
   getSourceLaunchpadSubline,
   type ExternalAgentGroup,
 } from "@/lib/agents/source";
+import { BUILTIN_SOURCE_ID } from "@/lib/content/vendor-registry";
 import type { LaunchpadAgent } from "@/lib/auth/access";
 import {
   deptCollapsedSectionsKey,
@@ -116,10 +118,23 @@ export function DepartmentLaunchpadContent({
       {externalGroups.length > 0 ? (
         externalGroups.map((group) => {
           const key = externalCollapseSectionKey(group.sourceId);
+          // The built-in tier's label carries OUR wordmark. The eyebrow <h2>
+          // uppercases its text, so render the wordmark via <Wordmark/> to keep
+          // its canonical casing: "POWERED BY legalOS", not "POWERED BY LEGALOS".
+          // Other groups (incl. Anthropic's "Claude for Legal", not our brand)
+          // keep their plain-string label and may uppercase normally.
+          const title =
+            group.sourceId === BUILTIN_SOURCE_ID ? (
+              <>
+                Powered by <Wordmark />
+              </>
+            ) : (
+              group.displayLabel
+            );
           return (
             <CollapsibleSection
               key={group.sourceId}
-              title={group.displayLabel}
+              title={title}
               description={getSourceLaunchpadSubline(group.sourceId)}
               sectionKey={key}
               preferenceKey={collapsePrefKey}

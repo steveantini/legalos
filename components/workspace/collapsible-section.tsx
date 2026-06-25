@@ -10,8 +10,14 @@ import {
 import { type CollapsedSectionsValue } from "@/lib/preferences/keys";
 
 interface CollapsibleSectionProps {
-  /** Section heading text (e.g., "Approved agents"). */
-  title: string;
+  /**
+   * Section heading content (e.g., "Approved agents"). A ReactNode, not just a
+   * string, so a wordmark inside the (uppercased) eyebrow can render via
+   * `<Wordmark/>` and keep its canonical casing — the built-in tier's
+   * "Powered by <product>" needs this. A plain string is a valid ReactNode, so
+   * the existing string callers are unaffected.
+   */
+  title: React.ReactNode;
   /**
    * Optional one-line subline trailing beside the heading (e.g., "Vetted
    * and tested by your department."). Renders muted at 12px on the title

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { AgentAttachmentsSection } from "@/components/agents/agent-attachments-section";
+import { PRODUCT_NAME, Wordmark } from "@/components/brand/wordmark";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,13 +139,13 @@ export function AgentForm({
   //  - Hybrid (Claude for Legal): name, description, system prompt, and web
   //    search are read-only; model, attachments, and export format stay
   //    editable. `isC4LEdit` drives those four shared fields.
-  //  - Fully locked (legalOS system tier): EVERYTHING is read-only including
+  //  - Fully locked (built-in tier): EVERYTHING is read-only including
   //    model; attachments and the Save button are hidden. The only way to adapt
   //    one is Copy (fork). Only meaningful in edit mode (create has no source).
   const isC4LEdit = mode === "edit" && !!sourceOrigin;
   const isFullyLocked = mode === "edit" && isFullyLockedSource(sourceOrigin ?? null);
   const lockedHint = isFullyLocked
-    ? "Managed by legalOS."
+    ? `Managed by ${PRODUCT_NAME}.`
     : "Managed by Claude for Legal.";
   const lockedFieldClass = isC4LEdit ? "bg-muted/40 text-muted-foreground" : "bg-card";
 
@@ -184,8 +185,8 @@ export function AgentForm({
           role="note"
           className="rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground"
         >
-          This agent is provided by legalOS and can&rsquo;t be edited. Copy it
-          to make your own editable version.
+          This agent is provided by <Wordmark /> and can&rsquo;t be edited. Copy
+          it to make your own editable version.
         </div>
       ) : isC4LEdit ? (
         <div

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { siteConfig } from "@/config/site";
+import { Wordmark } from "@/components/brand/wordmark";
 import { PLATFORM_NAV_GROUPS } from "@/lib/platform/nav";
 import {
   ROLE_LABEL,
@@ -57,7 +57,7 @@ export function PlatformRail({
         className="flex items-center gap-[10px] rounded-md px-2 pt-[2px] text-[15px] font-semibold tracking-[-0.015em] transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-primary" />
-        {siteConfig.siteTitle}
+        <Wordmark />
       </Link>
 
       {/* Top-line Platform link — exact-match active on the landing only. */}

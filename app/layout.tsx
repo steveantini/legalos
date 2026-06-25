@@ -2,6 +2,9 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+
+import { PRODUCT_NAME } from "@/components/brand/wordmark";
+
 import "./globals.css";
 
 const interTight = localFont({
@@ -22,8 +25,8 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "legalOS",
-    template: "%s · legalOS",
+    default: PRODUCT_NAME,
+    template: `%s · ${PRODUCT_NAME}`,
   },
   description:
     "An operating system for legal departments: the AI-native entry point for the workflows, agents, and tools in-house legal teams use day-to-day.",

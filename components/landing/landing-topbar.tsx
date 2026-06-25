@@ -1,3 +1,4 @@
+import { Wordmark } from "@/components/brand/wordmark";
 import { LocalDate } from "@/components/workspace/local-date";
 
 /**
@@ -22,7 +23,7 @@ export function LandingTopbar() {
           aria-hidden
           className="landing-dot-in inline-block h-[7px] w-[7px] rounded-full bg-primary"
         />
-        legalOS
+        <Wordmark />
       </div>
 
       <div className="flex items-center gap-5 font-mono text-[11px] uppercase tracking-[0.16em] text-caption">

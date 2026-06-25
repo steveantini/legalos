@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { siteConfig } from "@/config/site";
+import { Wordmark } from "@/components/brand/wordmark";
 import { ADMIN_NAV_GROUPS } from "@/lib/admin/nav";
 import {
   ROLE_LABEL,
@@ -64,7 +64,7 @@ export function AdminRail({
           aria-hidden
           className="h-[7px] w-[7px] rounded-full bg-primary"
         />
-        {siteConfig.siteTitle}
+        <Wordmark />
       </Link>
 
       {/* Top-line Admin link — exact-match active on the landing only. */}

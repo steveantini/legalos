@@ -1,3 +1,4 @@
+import { siteConfig } from "@/config/site";
 import { BUILTIN_SOURCE_ID } from "@/lib/content/vendor-registry";
 
 import { extractSourceId, getSourceDisplayLabel } from "./source";
@@ -59,8 +60,9 @@ export function evaluateAgentEditLock(
   if (isFullyLockedSource(sourceOrigin)) {
     return {
       ok: false,
-      formError:
-        "This agent is provided by legalOS and can't be edited. Copy it to make your own editable version.",
+      // The product name flows from the single source (siteConfig.siteTitle), so
+      // a rename needs no edit here. siteTitle is unchanged, so the text is too.
+      formError: `This agent is provided by ${siteConfig.siteTitle} and can't be edited. Copy it to make your own editable version.`,
     };
   }
 
