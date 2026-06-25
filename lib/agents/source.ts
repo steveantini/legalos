@@ -1,7 +1,7 @@
+import { siteConfig } from "@/config/site";
 import {
+  BUILTIN_SOURCE_ID,
   getVendorProvider,
-  LEGALOS_SYSTEM_PROVIDER,
-  LEGALOS_SYSTEM_SOURCE_ID,
   VENDOR_PROVIDER_ORDER,
 } from "@/lib/content/vendor-registry";
 
@@ -97,36 +97,39 @@ export function extractSourceId(rawSourceOrigin: string): string {
  * badges and the launchpad's per-vendor section titles.
  */
 export function getSourceDisplayLabel(sourceId: AgentSourceId): string {
-  if (sourceId === LEGALOS_SYSTEM_SOURCE_ID) {
-    return LEGALOS_SYSTEM_PROVIDER.displayLabel;
+  // The built-in tier's label DERIVES from the product name (no hardcoded
+  // brand), computed live so a rename to siteConfig.siteTitle follows here.
+  if (sourceId === BUILTIN_SOURCE_ID) {
+    return `Powered by ${siteConfig.siteTitle}`;
   }
   return getVendorProvider(sourceId)?.displayLabel ?? humanizeSourceId(sourceId);
 }
 
 /**
- * The one-line launchpad subline under a source's section heading. The legalOS
- * system tier carries its own (it is not a vendor provider); registered vendors
- * use their registry subline; unknown sources have none.
+ * The one-line launchpad subline under a source's section heading. The built-in
+ * tier carries its own (it is not a vendor provider) and DERIVES it from the
+ * product name; registered vendors use their registry subline; unknown sources
+ * have none.
  */
 export function getSourceLaunchpadSubline(
   sourceId: AgentSourceId,
 ): string | undefined {
-  if (sourceId === LEGALOS_SYSTEM_SOURCE_ID) {
-    return LEGALOS_SYSTEM_PROVIDER.launchpadSubline;
+  if (sourceId === BUILTIN_SOURCE_ID) {
+    return `Free agents built into ${siteConfig.siteTitle}. Copy one to make it your own.`;
   }
   return getVendorProvider(sourceId)?.launchpadSubline;
 }
 
 /**
- * Whether a source's launchpad section renders. The legalOS system tier is
- * ALWAYS on (never org-disableable); every other source obeys the org's
- * vendor-content settings (passed in as `isVendorEnabled` to keep this pure).
+ * Whether a source's launchpad section renders. The built-in tier is ALWAYS on
+ * (never org-disableable); every other source obeys the org's vendor-content
+ * settings (passed in as `isVendorEnabled` to keep this pure).
  */
 export function launchpadGroupVisible(
   sourceId: string,
   isVendorEnabled: (sourceId: string) => boolean,
 ): boolean {
-  return sourceId === LEGALOS_SYSTEM_SOURCE_ID || isVendorEnabled(sourceId);
+  return sourceId === BUILTIN_SOURCE_ID || isVendorEnabled(sourceId);
 }
 
 /**
@@ -169,10 +172,10 @@ export type ExternalAgentGroup<T> = {
  */
 export function groupAgentsBySource<T extends { source_origin: string | null }>(
   agents: T[],
-  // The legalOS system tier leads (it is the platform's own free tier), then
+  // The built-in tier leads (it is the platform's own free tier), then
   // registered vendors in registry order, then any unknown source alphabetically.
   providerOrder: readonly string[] = [
-    LEGALOS_SYSTEM_SOURCE_ID,
+    BUILTIN_SOURCE_ID,
     ...VENDOR_PROVIDER_ORDER,
   ],
 ): ExternalAgentGroup<T>[] {

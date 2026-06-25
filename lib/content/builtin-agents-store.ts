@@ -1,25 +1,25 @@
 import "server-only";
 
 import {
-  LEGALOS_AGENT_MODEL,
-  type ExistingLegalosAgent,
-  type LegalosAgentInsert,
-  type LegalosAgentUpdate,
-  type LegalosSeedStore,
-} from "@/lib/content/legalos-seed";
+  BUILTIN_AGENT_MODEL,
+  type ExistingBuiltinAgent,
+  type BuiltinAgentInsert,
+  type BuiltinAgentUpdate,
+  type BuiltinAgentsSeedStore,
+} from "@/lib/content/builtin-agents-seed";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Service-role data access for the legalOS system-agent seed (D-181) — the
- * Supabase-backed `LegalosSeedStore`. Same custody pattern as the C4L store
+ * Service-role data access for the built-in agent seed (D-180/D-181, brand-decoupled D-182) — the
+ * Supabase-backed `BuiltinAgentsSeedStore`. Same custody pattern as the C4L store
  * (`lib/content/c4l-store.ts`): the AUTHORIZATION is the platform-owner gate on
  * whatever triggers a seed; the data op runs service-side, scoped by an explicit
  * `organization_id` filter.
  *
- * Reads/writes are isolated to the legalOS tier by `source_origin LIKE
- * 'legalos:%'`, so a C4L refresh and a legalOS seed never touch each other's
+ * Reads/writes are isolated to the built-in tier by `source_origin LIKE
+ * 'builtin:%'`, so a C4L refresh and a built-in seed never touch each other's
  * rows. Provided for a future platform-owner refresh button; the one-shot CLI
- * (`scripts/seed-legalos-agents.ts`) uses the same pure planner with its own
+ * (`scripts/seed-builtin-agents.ts`) uses the same pure planner with its own
  * self-contained client.
  */
 
@@ -41,7 +41,7 @@ type AgentInsertRow = {
   default_output_format: string;
 };
 
-function toInsertRow(row: LegalosAgentInsert): AgentInsertRow {
+function toInsertRow(row: BuiltinAgentInsert): AgentInsertRow {
   return {
     organization_id: row.organizationId,
     department_id: row.departmentId,
@@ -49,7 +49,7 @@ function toInsertRow(row: LegalosAgentInsert): AgentInsertRow {
     name: row.name,
     description: row.description,
     type: "native",
-    model: LEGALOS_AGENT_MODEL,
+    model: BUILTIN_AGENT_MODEL,
     system_prompt: row.systemPrompt,
     is_template: true,
     is_active: true,
@@ -61,21 +61,21 @@ function toInsertRow(row: LegalosAgentInsert): AgentInsertRow {
   };
 }
 
-/** Build the service-role-backed legalOS seed store. */
-export function createLegalosSeedStore(): LegalosSeedStore {
+/** Build the service-role-backed built-in agents seed store. */
+export function createBuiltinAgentsSeedStore(): BuiltinAgentsSeedStore {
   const admin = createSupabaseAdminClient();
 
   return {
-    async listExistingLegalosAgents(
+    async listExistingBuiltinAgents(
       organizationId: string,
-    ): Promise<ExistingLegalosAgent[]> {
+    ): Promise<ExistingBuiltinAgent[]> {
       const { data, error } = await admin
         .from("agents")
         .select(
           "id, slug, is_active, deleted_at, name, description, system_prompt, model",
         )
         .eq("organization_id", organizationId)
-        .like("source_origin", "legalos:%");
+        .like("source_origin", "builtin:%");
       if (error || !data) return [];
       return data.map((row) => ({
         id: row.id as string,
@@ -102,15 +102,15 @@ export function createLegalosSeedStore(): LegalosSeedStore {
       return data.id as string;
     },
 
-    async insertAgents(rows: LegalosAgentInsert[]): Promise<void> {
+    async insertAgents(rows: BuiltinAgentInsert[]): Promise<void> {
       if (rows.length === 0) return;
       const { error } = await admin.from("agents").insert(rows.map(toInsertRow));
       if (error) {
-        throw new Error(`legalOS agent insert failed: ${error.code ?? "unknown"}`);
+        throw new Error(`built-in agent insert failed: ${error.code ?? "unknown"}`);
       }
     },
 
-    async updateAgents(rows: LegalosAgentUpdate[]): Promise<void> {
+    async updateAgents(rows: BuiltinAgentUpdate[]): Promise<void> {
       for (const row of rows) {
         const { error } = await admin
           .from("agents")
@@ -123,7 +123,7 @@ export function createLegalosSeedStore(): LegalosSeedStore {
           .eq("id", row.id);
         if (error) {
           throw new Error(
-            `legalOS agent update failed (${row.slug}): ${error.code ?? "unknown"}`,
+            `built-in agent update failed (${row.slug}): ${error.code ?? "unknown"}`,
           );
         }
       }

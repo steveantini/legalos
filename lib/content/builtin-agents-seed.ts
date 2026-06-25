@@ -1,18 +1,18 @@
 /**
- * "Powered by legalOS" system-agent seed (D-181) — the five fully-locked
- * `legalos:system` General Tools agents (tier established in D-180).
+ * Built-in first-party agent seed (D-180/D-181, brand-decoupled D-182) — the five fully-locked
+ * `builtin:tools` General Tools agents (tier established in D-180).
  *
  * Mirrors the C4L import shape (a PURE planner + an injected store, see
  * `lib/content/c4l-import.ts`) so it is trivially unit-testable, but with one
  * deliberate difference: UPDATE-IN-PLACE. C4L agents are an external library, so
  * its import never overwrites an existing active row (drift is reported, not
- * applied). legalOS system agents are OUR records with NO external curation
+ * applied). Built-in agents are OUR records with NO external curation
  * authority, so a re-seed is how a prompt tweak ships: the canonical
  * name/description/system_prompt/model are written back over an existing active
  * row.
  *
  * Isolation from C4L is by identity: the store lists only `source_origin LIKE
- * 'legalos:%'` rows, and the planner keys on the `legalos-system-<skill>` slug,
+ * 'builtin:%'` rows, and the planner keys on the `builtin-<skill>` slug,
  * so a C4L row (`c4l-…`) or a user's forked copy (`source_origin` null, a
  * different slug) is never matched or touched. Soft-deleted rows are never
  * resurrected.
@@ -21,12 +21,12 @@
  * fetched from anywhere — these are first-party agents.
  */
 
-/** The model every legalOS system agent runs (parity with the C4L store). */
-export const LEGALOS_AGENT_MODEL = "anthropic/claude-sonnet-4-6";
+/** The model every built-in agent runs (parity with the C4L store). */
+export const BUILTIN_AGENT_MODEL = "anthropic/claude-sonnet-4-6";
 
 /** One first-party system-agent definition. */
-export type LegalosSystemAgentDef = {
-  /** Skill segment: the `legalos:system/<skill>` suffix and `legalos-system-<skill>` slug. */
+export type BuiltinAgentDef = {
+  /** Skill segment: the `builtin:tools/<skill>` suffix and `builtin-<skill>` slug. */
   skill: string;
   name: string;
   description: string;
@@ -35,14 +35,14 @@ export type LegalosSystemAgentDef = {
   webSearch: boolean;
 };
 
-/** The stable identity slug for a legalOS system agent. */
-export function legalosSystemSlug(skill: string): string {
-  return `legalos-system-${skill}`;
+/** The stable identity slug for a built-in agent. */
+export function builtinSlug(skill: string): string {
+  return `builtin-${skill}`;
 }
 
-/** The provenance stamp for a legalOS system agent (slash form the parser needs). */
-export function legalosSystemSourceOrigin(skill: string): string {
-  return `legalos:system/${skill}`;
+/** The provenance stamp for a built-in agent (slash form the parser needs). */
+export function builtinSourceOrigin(skill: string): string {
+  return `builtin:tools/${skill}`;
 }
 
 const DOCUMENT_SUMMARIZER_PROMPT = `You are a document summarization tool. Your only job is to produce a faithful, well-structured summary of a document the user gives you. You work on any kind of document, in any field, and you do not assume what kind of document it is unless the content tells you.
@@ -108,7 +108,7 @@ If the input is missing or unsuitable: if no document is provided, ask for one. 
 Output format: a table. One row per flagged item, with columns for the type of information, the flagged value (or a safe partial reference to it), and its location in the document. Begin with one line stating plainly that this is a review aid, not a guarantee, and that nothing has been altered.`;
 
 /** The five seeded agents, in launchpad sort order. Prompts are verbatim (D-181). */
-export const LEGALOS_SYSTEM_AGENTS: readonly LegalosSystemAgentDef[] = [
+export const BUILTIN_AGENTS: readonly BuiltinAgentDef[] = [
   {
     skill: "summarizer",
     name: "Document Summarizer",
@@ -157,10 +157,10 @@ export const LEGALOS_SYSTEM_AGENTS: readonly LegalosSystemAgentDef[] = [
 ];
 
 /** The General Tools department slug every system agent lands in. */
-export const LEGALOS_SYSTEM_DEPARTMENT_SLUG = "general-tools";
+export const BUILTIN_DEPARTMENT_SLUG = "general-tools";
 
-/** An existing legalOS system agent row, as the planner needs to reason about it. */
-export type ExistingLegalosAgent = {
+/** An existing built-in agent row, as the planner needs to reason about it. */
+export type ExistingBuiltinAgent = {
   id: string;
   slug: string;
   /** Soft-deleted out of the UI (deleted_at set and/or is_active false): never revive. */
@@ -172,7 +172,7 @@ export type ExistingLegalosAgent = {
 };
 
 /** A row to INSERT for a new system agent. */
-export type LegalosAgentInsert = {
+export type BuiltinAgentInsert = {
   organizationId: string;
   departmentId: string;
   slug: string;
@@ -186,7 +186,7 @@ export type LegalosAgentInsert = {
 };
 
 /** An UPDATE to bring an existing active row back to canonical (prompt-tweak ships). */
-export type LegalosAgentUpdate = {
+export type BuiltinAgentUpdate = {
   id: string;
   slug: string;
   name: string;
@@ -196,10 +196,10 @@ export type LegalosAgentUpdate = {
 };
 
 /** The deterministic outcome of planning a seed — pure data, no I/O. */
-export type LegalosSeedPlan = {
-  inserts: LegalosAgentInsert[];
+export type BuiltinSeedPlan = {
+  inserts: BuiltinAgentInsert[];
   /** Existing active rows whose canonical fields drifted — UPDATED in place. */
-  updates: LegalosAgentUpdate[];
+  updates: BuiltinAgentUpdate[];
   /** Slugs skipped because their existing row is soft-deleted/filtered. */
   skippedFiltered: string[];
   /** Existing active rows already matching canonical — nothing to do. */
@@ -210,25 +210,25 @@ const SORT_ORDER_BASE = 100;
 
 /**
  * Plan the seed: PURE. Given the agent definitions, the resolved General Tools
- * department id, and the existing legalOS rows (keyed by slug), decide what to
+ * department id, and the existing built-in (builtin:%) rows (keyed by slug), decide what to
  * insert / update / skip WITHOUT touching anything. Update-in-place is the
  * deliberate difference from the C4L planner.
  */
-export function planLegalosSeed(input: {
-  agents: readonly LegalosSystemAgentDef[];
+export function planBuiltinSeed(input: {
+  agents: readonly BuiltinAgentDef[];
   organizationId: string;
   departmentId: string;
-  existingBySlug: Map<string, ExistingLegalosAgent>;
-}): LegalosSeedPlan {
+  existingBySlug: Map<string, ExistingBuiltinAgent>;
+}): BuiltinSeedPlan {
   const { agents, organizationId, departmentId, existingBySlug } = input;
 
-  const inserts: LegalosAgentInsert[] = [];
-  const updates: LegalosAgentUpdate[] = [];
+  const inserts: BuiltinAgentInsert[] = [];
+  const updates: BuiltinAgentUpdate[] = [];
   const skippedFiltered: string[] = [];
   let unchangedCount = 0;
 
   agents.forEach((agent, index) => {
-    const slug = legalosSystemSlug(agent.skill);
+    const slug = builtinSlug(agent.skill);
     const existing = existingBySlug.get(slug);
 
     if (!existing) {
@@ -239,7 +239,7 @@ export function planLegalosSeed(input: {
         name: agent.name,
         description: agent.description,
         systemPrompt: agent.systemPrompt,
-        sourceOrigin: legalosSystemSourceOrigin(agent.skill),
+        sourceOrigin: builtinSourceOrigin(agent.skill),
         sortOrder: SORT_ORDER_BASE + index,
         webSearch: agent.webSearch,
         defaultOutputFormat: agent.defaultOutputFormat,
@@ -257,7 +257,7 @@ export function planLegalosSeed(input: {
       existing.name !== agent.name ||
       (existing.description ?? "") !== agent.description ||
       (existing.systemPrompt ?? "") !== agent.systemPrompt ||
-      (existing.model ?? "") !== LEGALOS_AGENT_MODEL;
+      (existing.model ?? "") !== BUILTIN_AGENT_MODEL;
 
     if (drifted) {
       updates.push({
@@ -266,7 +266,7 @@ export function planLegalosSeed(input: {
         name: agent.name,
         description: agent.description,
         systemPrompt: agent.systemPrompt,
-        model: LEGALOS_AGENT_MODEL,
+        model: BUILTIN_AGENT_MODEL,
       });
     } else {
       unchangedCount += 1;
@@ -276,21 +276,21 @@ export function planLegalosSeed(input: {
   return { inserts, updates, skippedFiltered, unchangedCount };
 }
 
-/** Data access the executor needs (Supabase-backed in `legalos-store.ts`; faked in tests). */
-export interface LegalosSeedStore {
-  /** Every legalOS system agent row for the org (INCLUDING soft-deleted), via `source_origin LIKE 'legalos:%'`. */
-  listExistingLegalosAgents(organizationId: string): Promise<ExistingLegalosAgent[]>;
+/** Data access the executor needs (Supabase-backed in `builtin-agents-store.ts`; faked in tests). */
+export interface BuiltinAgentsSeedStore {
+  /** Every built-in agent row for the org (INCLUDING soft-deleted), via `source_origin LIKE 'builtin:%'`. */
+  listExistingBuiltinAgents(organizationId: string): Promise<ExistingBuiltinAgent[]>;
   /** Resolve the General Tools department id within the org, or null if absent. */
   resolveDepartmentId(
     organizationId: string,
     departmentSlug: string,
   ): Promise<string | null>;
-  insertAgents(rows: LegalosAgentInsert[]): Promise<void>;
-  updateAgents(rows: LegalosAgentUpdate[]): Promise<void>;
+  insertAgents(rows: BuiltinAgentInsert[]): Promise<void>;
+  updateAgents(rows: BuiltinAgentUpdate[]): Promise<void>;
 }
 
 /** The seed result: the plan plus what was actually applied. */
-export type LegalosSeedResult = LegalosSeedPlan & {
+export type BuiltinSeedResult = BuiltinSeedPlan & {
   insertedCount: number;
   updatedCount: number;
   /** Set when the org has no General Tools department (nothing could be seeded). */
@@ -303,15 +303,15 @@ export type LegalosSeedResult = LegalosSeedPlan & {
  * (returns `missingDepartment`, applies nothing) so a misconfigured org never
  * throws.
  */
-export async function seedLegalosSystemAgents(input: {
+export async function seedBuiltinAgents(input: {
   organizationId: string;
-  store: LegalosSeedStore;
-}): Promise<LegalosSeedResult> {
+  store: BuiltinAgentsSeedStore;
+}): Promise<BuiltinSeedResult> {
   const { organizationId, store } = input;
 
   const departmentId = await store.resolveDepartmentId(
     organizationId,
-    LEGALOS_SYSTEM_DEPARTMENT_SLUG,
+    BUILTIN_DEPARTMENT_SLUG,
   );
   if (!departmentId) {
     return {
@@ -325,11 +325,11 @@ export async function seedLegalosSystemAgents(input: {
     };
   }
 
-  const existing = await store.listExistingLegalosAgents(organizationId);
+  const existing = await store.listExistingBuiltinAgents(organizationId);
   const existingBySlug = new Map(existing.map((row) => [row.slug, row]));
 
-  const plan = planLegalosSeed({
-    agents: LEGALOS_SYSTEM_AGENTS,
+  const plan = planBuiltinSeed({
+    agents: BUILTIN_AGENTS,
     organizationId,
     departmentId,
     existingBySlug,

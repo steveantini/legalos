@@ -4,7 +4,7 @@ import { evaluateAgentEditLock, isFullyLockedSource } from "./lock";
 
 const NATIVE = null;
 const C4L = "claude-for-legal:commercial-legal/nda";
-const SYSTEM = "legalos:system/contract-summarizer";
+const SYSTEM = "builtin:tools/contract-summarizer";
 
 const fields = (over: Partial<Parameters<typeof evaluateAgentEditLock>[1]> = {}) => ({
   name: "Agent",
@@ -15,13 +15,13 @@ const fields = (over: Partial<Parameters<typeof evaluateAgentEditLock>[1]> = {})
 });
 
 describe("isFullyLockedSource", () => {
-  it("is true for the legalOS system tier, false for C4L and native", () => {
+  it("is true for the built-in tier, false for C4L and native", () => {
     expect(isFullyLockedSource(SYSTEM)).toBe(true);
     expect(isFullyLockedSource(C4L)).toBe(false);
     expect(isFullyLockedSource(NATIVE)).toBe(false);
   });
-  it("holds even for the malformed (no-slash) legalos:system form", () => {
-    expect(isFullyLockedSource("legalos:system")).toBe(true);
+  it("holds even for the malformed (no-slash) builtin:tools form", () => {
+    expect(isFullyLockedSource("builtin:tools")).toBe(true);
   });
 });
 
@@ -32,7 +32,7 @@ describe("evaluateAgentEditLock", () => {
     ).toEqual({ ok: true });
   });
 
-  it("rejects ANY submit for a fully-locked legalOS agent (model included)", () => {
+  it("rejects ANY submit for a fully-locked built-in agent (model included)", () => {
     // Even with every managed field identical, the system tier is not editable.
     const res = evaluateAgentEditLock(SYSTEM, fields(), fields());
     expect(res.ok).toBe(false);

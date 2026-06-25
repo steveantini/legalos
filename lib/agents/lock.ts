@@ -1,11 +1,11 @@
-import { LEGALOS_SYSTEM_SOURCE_ID } from "@/lib/content/vendor-registry";
+import { BUILTIN_SOURCE_ID } from "@/lib/content/vendor-registry";
 
 import { extractSourceId, getSourceDisplayLabel } from "./source";
 
 /**
  * The agent edit-lock tiers, by `source_origin`. Two locked tiers exist:
  *
- *   - FULLY LOCKED (legalOS system tier, `legalos:...`): nothing is user-
+ *   - FULLY LOCKED (built-in tier, `builtin:...`): nothing is user-
  *     editable. The only way to adapt one is to Copy it into an org-owned
  *     agent (the fork clears `source_origin`, yielding a normal editable
  *     My-agent). Stricter than the C4L hybrid lock.
@@ -20,13 +20,13 @@ import { extractSourceId, getSourceDisplayLabel } from "./source";
  * agree on the same rule, and so the rule is unit-testable without a database.
  */
 
-/** True when a `source_origin` belongs to the fully-locked legalOS system tier. */
+/** True when a `source_origin` belongs to the fully-locked built-in tier. */
 export function isFullyLockedSource(sourceOrigin: string | null): boolean {
   if (!sourceOrigin) return false;
   // extractSourceId reads only the prefix before the colon, so this holds even
-  // for the malformed `legalos:system` (no slash) form, not just the canonical
-  // `legalos:system/<skill>`.
-  return extractSourceId(sourceOrigin) === LEGALOS_SYSTEM_SOURCE_ID;
+  // for the malformed `builtin:tools` (no slash) form, not just the canonical
+  // `builtin:tools/<skill>`.
+  return extractSourceId(sourceOrigin) === BUILTIN_SOURCE_ID;
 }
 
 /** The managed fields the hybrid (C4L) lock compares; model/output stay editable. */

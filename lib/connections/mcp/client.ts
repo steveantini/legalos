@@ -6,6 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 
+import { siteConfig } from "@/config/site";
 import type {
   McpToolAnnotations,
   McpToolDescriptor,
@@ -40,8 +41,13 @@ import type {
  *   - client.close()                            // always, in finally
  */
 
-/** Identity legalOS presents to MCP servers in the handshake. */
-const CLIENT_INFO = { name: "legalos", version: "1.0.0" } as const;
+/**
+ * Identity the product presents to MCP servers in the handshake. Derived from
+ * the central product name (`siteConfig.siteTitle`) so it carries no hardcoded
+ * brand and renames automatically — it is an identifying name field, so nothing
+ * external keys on the exact literal (D-182).
+ */
+const CLIENT_INFO = { name: siteConfig.siteTitle, version: "1.0.0" };
 
 /** Per-request timeout (ms) for connect and tool calls, so a hung server can't hang the caller. */
 const REQUEST_TIMEOUT_MS = 15_000;

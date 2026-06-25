@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { siteConfig } from "@/config/site";
 import {
   externalCollapseSectionKey,
   getDisplayLabelFromOrigin,
@@ -78,17 +79,32 @@ describe("getSourceDisplayLabel", () => {
   it("humanizes an unregistered source id", () => {
     expect(getSourceDisplayLabel("future-vendor")).toBe("Future Vendor");
   });
-  it("labels the legalOS system tier 'Powered by legalOS'", () => {
-    expect(getSourceDisplayLabel("legalos")).toBe("Powered by legalOS");
-    expect(getDisplayLabelFromOrigin("legalos:system/contract-summarizer")).toBe(
-      "Powered by legalOS",
+  it("labels the built-in tier 'Powered by <product>', derived from siteConfig", () => {
+    expect(getSourceDisplayLabel("builtin")).toBe(
+      `Powered by ${siteConfig.siteTitle}`,
     );
+    expect(getDisplayLabelFromOrigin("builtin:tools/contract-summarizer")).toBe(
+      `Powered by ${siteConfig.siteTitle}`,
+    );
+  });
+
+  it("derives the built-in label + subline from the product name (a rename follows)", () => {
+    const original = siteConfig.siteTitle;
+    try {
+      siteConfig.siteTitle = "NovaLaw";
+      expect(getSourceDisplayLabel("builtin")).toBe("Powered by NovaLaw");
+      expect(getSourceLaunchpadSubline("builtin")).toBe(
+        "Free agents built into NovaLaw. Copy one to make it your own.",
+      );
+    } finally {
+      siteConfig.siteTitle = original;
+    }
   });
 });
 
-describe("legalOS system tier", () => {
+describe("built-in agent tier", () => {
   it("carries its own launchpad subline; vendors use theirs; unknown has none", () => {
-    expect(getSourceLaunchpadSubline("legalos")).toMatch(/legalOS/);
+    expect(getSourceLaunchpadSubline("builtin")).toContain(siteConfig.siteTitle);
     expect(getSourceLaunchpadSubline("claude-for-legal")).toBeTruthy();
     expect(getSourceLaunchpadSubline("future-vendor")).toBeUndefined();
   });
@@ -96,16 +112,16 @@ describe("legalOS system tier", () => {
   it("renders as its own group, ordered FIRST, distinct from Claude for Legal", () => {
     const groups = groupAgentsBySource([
       a("c", "claude-for-legal:commercial-legal/nda"),
-      a("s", "legalos:system/contract-summarizer"),
+      a("s", "builtin:tools/contract-summarizer"),
     ]);
-    expect(groups.map((g) => g.sourceId)).toEqual(["legalos", "claude-for-legal"]);
-    expect(groups[0].displayLabel).toBe("Powered by legalOS");
+    expect(groups.map((g) => g.sourceId)).toEqual(["builtin", "claude-for-legal"]);
+    expect(groups[0].displayLabel).toBe(`Powered by ${siteConfig.siteTitle}`);
     expect(groups[0].agents.map((x) => x.id)).toEqual(["s"]);
   });
 
   it("is ALWAYS visible on the launchpad even when vendor settings would disable it", () => {
     const allDisabled = () => false;
-    expect(launchpadGroupVisible("legalos", allDisabled)).toBe(true);
+    expect(launchpadGroupVisible("builtin", allDisabled)).toBe(true);
     expect(launchpadGroupVisible("claude-for-legal", allDisabled)).toBe(false);
     expect(launchpadGroupVisible("claude-for-legal", () => true)).toBe(true);
   });

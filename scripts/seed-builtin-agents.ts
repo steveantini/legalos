@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Seed the five "Powered by legalOS" system agents (D-181) into General Tools.
+ * Seed the five the built-in agents (D-181) into General Tools.
  *
  * Usage:
- *   npm run seed-legalos-agents
+ *   npm run seed-builtin-agents
  *
  * Requirements:
  *   - SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL in .env.local.
@@ -14,10 +14,10 @@
  *     (organization_id, slug): a re-run INSERTS only new agents and UPDATES
  *     existing canonical rows in place (name / description / system_prompt /
  *     model), which is how a prompt tweak ships post-dogfooding. Soft-deleted
- *     rows are never resurrected; rows outside `source_origin LIKE 'legalos:%'`
+ *     rows are never resurrected; rows outside `source_origin LIKE 'builtin:%'`
  *     (Claude for Legal, user forks) are never touched.
  *   - The agent definitions and prompts are version-controlled in
- *     `lib/content/legalos-seed.ts`; this script only wires a service client to
+ *     `lib/content/builtin-agents-seed.ts`; this script only wires a service client to
  *     the pure planner/executor. Re-run this command to push a prompt edit.
  *
  * (The demo org also receives these rows via demo-org.sql's copy-all-agents step
@@ -31,13 +31,13 @@ import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 
 import {
-  LEGALOS_AGENT_MODEL,
-  seedLegalosSystemAgents,
-  type ExistingLegalosAgent,
-  type LegalosAgentInsert,
-  type LegalosAgentUpdate,
-  type LegalosSeedStore,
-} from "../lib/content/legalos-seed";
+  BUILTIN_AGENT_MODEL,
+  seedBuiltinAgents,
+  type ExistingBuiltinAgent,
+  type BuiltinAgentInsert,
+  type BuiltinAgentUpdate,
+  type BuiltinAgentsSeedStore,
+} from "../lib/content/builtin-agents-seed";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
@@ -57,19 +57,19 @@ function createServiceClient(): ServiceClient {
   });
 }
 
-/** A LegalosSeedStore backed by the CLI's service client (same logic as legalos-store.ts). */
-function createCliStore(supabase: ServiceClient): LegalosSeedStore {
+/** A BuiltinAgentsSeedStore backed by the CLI's service client (same logic as builtin-agents-store.ts). */
+function createCliStore(supabase: ServiceClient): BuiltinAgentsSeedStore {
   return {
-    async listExistingLegalosAgents(
+    async listExistingBuiltinAgents(
       organizationId: string,
-    ): Promise<ExistingLegalosAgent[]> {
+    ): Promise<ExistingBuiltinAgent[]> {
       const { data, error } = await supabase
         .from("agents")
         .select(
           "id, slug, is_active, deleted_at, name, description, system_prompt, model",
         )
         .eq("organization_id", organizationId)
-        .like("source_origin", "legalos:%");
+        .like("source_origin", "builtin:%");
       if (error || !data) return [];
       return (data as Record<string, unknown>[]).map((row) => ({
         id: row.id as string,
@@ -96,7 +96,7 @@ function createCliStore(supabase: ServiceClient): LegalosSeedStore {
       return (data as { id: string }).id;
     },
 
-    async insertAgents(rows: LegalosAgentInsert[]): Promise<void> {
+    async insertAgents(rows: BuiltinAgentInsert[]): Promise<void> {
       if (rows.length === 0) return;
       const payload = rows.map((row) => ({
         organization_id: row.organizationId,
@@ -105,7 +105,7 @@ function createCliStore(supabase: ServiceClient): LegalosSeedStore {
         name: row.name,
         description: row.description,
         type: "native",
-        model: LEGALOS_AGENT_MODEL,
+        model: BUILTIN_AGENT_MODEL,
         system_prompt: row.systemPrompt,
         is_template: true,
         is_active: true,
@@ -121,7 +121,7 @@ function createCliStore(supabase: ServiceClient): LegalosSeedStore {
       if (error) throw new Error(`insert failed: ${error.message}`);
     },
 
-    async updateAgents(rows: LegalosAgentUpdate[]): Promise<void> {
+    async updateAgents(rows: BuiltinAgentUpdate[]): Promise<void> {
       for (const row of rows) {
         const { error } = await supabase
           .from("agents")
@@ -172,7 +172,7 @@ async function main() {
     const tier = org.is_demo ? "demo" : "deployment";
     console.log(`\nSeeding "${org.name}" (${tier} org)...`);
     try {
-      const result = await seedLegalosSystemAgents({
+      const result = await seedBuiltinAgents({
         organizationId: org.id,
         store,
       });

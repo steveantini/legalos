@@ -18,6 +18,8 @@
  * `-legal` suffix stripped; all nine targets are real department slugs.
  */
 
+import { siteConfig } from "@/config/site";
+
 /**
  * A vendor that ships curated content (agents) into legalOS departments. The
  * `providerId` matches the `source_origin` prefix the import stamps on each
@@ -83,8 +85,8 @@ export const CLAUDE_FOR_LEGAL: VendorContentProvider = {
 };
 
 /**
- * The legalOS system-agent tier ("Powered by legalOS", D-180). First-party,
- * free, fully-locked agents seeded into departments. It shares the provider
+ * The built-in first-party agent tier (D-180/D-181, brand-decoupled in D-182).
+ * Free, fully-locked agents seeded into departments. It shares the provider
  * SHAPE (for the importer's plugin -> department map and for label/subline
  * resolution), but is DELIBERATELY ABSENT from `VENDOR_CONTENT_PROVIDERS` and
  * `VENDOR_PROVIDER_ORDER`: this tier is ALWAYS ON, never org-disableable, so it
@@ -92,20 +94,25 @@ export const CLAUDE_FOR_LEGAL: VendorContentProvider = {
  * `VENDOR_CONTENT_PROVIDERS`) and must not be gated by vendor-content settings.
  * The launchpad includes its group unconditionally (see `getAgentsForDepartment‑
  * Launchpad`), and label/subline resolution special-cases it (see
- * `lib/agents/source.ts`). Tag form: `legalos:system/<skill>` (the parser
- * requires a slash; `legalos:system` alone would parse to null).
+ * `lib/agents/source.ts`). The internal token is the brand-neutral `builtin`
+ * (D-182): tag form `builtin:tools/<skill>` (the parser requires a slash;
+ * `builtin:tools` alone would parse to null), slug form `builtin-<skill>`.
+ * NOTHING here hardcodes the product name: the label/subline DERIVE from
+ * `siteConfig.siteTitle`, so a rename touches no data and no tier code.
  */
-export const LEGALOS_SYSTEM_PROVIDER: VendorContentProvider = {
-  providerId: "legalos",
-  displayLabel: "Powered by legalOS",
-  launchpadSubline: "Free agents built into legalOS. Copy one to make it your own.",
+export const BUILTIN_PROVIDER: VendorContentProvider = {
+  providerId: "builtin",
+  // DERIVED from siteConfig (no hardcoded product name); source.ts re-derives
+  // these live at call time for display. See the JSDoc above.
+  displayLabel: `Powered by ${siteConfig.siteTitle}`,
+  launchpadSubline: `Free agents built into ${siteConfig.siteTitle}. Copy one to make it your own.`,
   sourceRepo: "",
   upstreamCommit: "",
-  pluginDepartmentMap: { system: "general-tools" },
+  pluginDepartmentMap: { tools: "general-tools" },
 };
 
-/** The `source_origin` prefix for the legalOS system tier (`legalos:system/<skill>`). */
-export const LEGALOS_SYSTEM_SOURCE_ID = LEGALOS_SYSTEM_PROVIDER.providerId;
+/** The `source_origin` prefix for the built-in tier (`builtin:tools/<skill>`). */
+export const BUILTIN_SOURCE_ID = BUILTIN_PROVIDER.providerId;
 
 /** Every vendor content provider, keyed by providerId. Step 4 grows this.
  *  NOTE: the legalOS system tier is intentionally NOT here (always-on, not a
