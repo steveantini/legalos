@@ -61,9 +61,13 @@ pointing at the internal docs that already hold the detail.
 
 ## Standing operational practices
 
-- **Migrations:** applied by hand in the Supabase SQL Editor; the repo is
-  deliberately unlinked; never `supabase db push`. Migrations are idempotent
-  (tables → helpers → policies; the 0070 lesson).
+- **Migrations:** the tracked Supabase CLI workflow (repo linked + ledger
+  baselined, D-192/D-193/D-194). Claude Code authors the timestamped migration
+  file; the operator applies it with `supabase db push` from their own machine
+  (CC holds no credentials; the MCP stays read-only). Keep migrations idempotent
+  (tables → helpers → policies; the 0070 lesson). CLI auth is via session env
+  vars (`SUPABASE_ACCESS_TOKEN` / `SUPABASE_DB_PASSWORD`), the keychain having
+  failed on this machine. Full procedure: `docs/MIGRATIONS.md`.
 - **Deploys:** push-to-main auto-deploys via GitHub→Vercel; verify the SHA is
   READY on the canonical domain after pushing.
 - **Setup and env:** `SETUP.md` and `.env.example`. The MCP agent-tools flag

@@ -106,7 +106,7 @@ SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 
 ### 3d. Apply the migrations
 
-Apply **every** migration in `supabase/migrations/`, in filename order (`0001_initial_schema.sql` through the latest), each as a separate query in the Supabase dashboard → **SQL Editor**. The migrations are append-only and ordered; applying only the first leaves you with a first-phase schema that is missing chat, the agents runtime, attachments, connections, the admin area, workflows, and demo access. The repo is intentionally unlinked from the Supabase CLI, so apply them by hand in the dashboard (never `supabase db push`).
+Apply **every** migration in `supabase/migrations/`, in filename order (`0001_initial_schema.sql` through the timestamped files like `20260625163357_*.sql`), each as a separate query in the Supabase dashboard → **SQL Editor**. The migrations are append-only and ordered; applying only the first leaves you with a first-phase schema that is missing chat, the agents runtime, attachments, connections, the admin area, workflows, and demo access. For a fresh fork the dashboard SQL Editor is the simplest path. (The primary deployment now uses the tracked Supabase CLI workflow — repo linked, ledger baselined, new migrations applied with `supabase db push`; if you link your own project you can adopt the same flow. See `docs/MIGRATIONS.md`.)
 
 After `0001`, you should see the core tables created (`organizations`, `users`, `departments`, `user_department_roles`, `agents`); the later migrations add many more (conversations, messages, usage_events, attachments, connections, workflow tables, the demo tables, and so on).
 

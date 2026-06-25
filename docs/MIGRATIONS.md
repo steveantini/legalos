@@ -1,69 +1,98 @@
 # Database migrations
 
-This repo is moving from **hand-applied** SQL migrations to the **tracked Supabase
-CLI migration workflow** (linked repo + ledgered, replayable migrations). The move
-is incremental and deliberately non-disruptive to the live production database,
-which serves real traffic on the canonical domains.
+This repo uses the **tracked Supabase CLI migration workflow**: the repo is
+linked to the production project, the migration ledger is baselined, and new
+migrations are authored as timestamped files and applied with `supabase db push`.
+The earlier **hand-applied** path (SQL pasted into the Supabase SQL editor via the
+service-role) is retired for new schema changes, though the 76 historical files it
+produced are kept verbatim as the canonical baseline.
 
 ## Where things stand
+
+**Live and baselined (2026-06-25).** The project (ref `knlnchvfjxchpbkuwtpp`) is
+CLI-linked, the `supabase_migrations` ledger exists in production, and
+`supabase migration list` shows Local == Remote. The inaugural tracked migration
+(`20260625163357_add_pre_step_result_to_messages`) was authored in-repo and applied
+with `supabase db push`. The workflow is validated end to end.
 
 **Historical record (do not rewrite).** `supabase/migrations/0001_*.sql` through
 `0076_*.sql` are the canonical historical record. They are plain SQL, sequentially
 numbered (`NNNN_name.sql`), and were **applied to production BY HAND** via the
-Supabase SQL editor / service-role path (the repo was never CLI-linked). A
-read-only scoping pass found **no detectable schema drift**: running these files
-against an empty database reproduces the current production schema (37 public
-tables + 9 `operator_*` analytics views all match; spot-checked column-level).
-These files stay exactly as they are. The hand-apply path remains the working
-fallback until the tracked workflow is validated end to end.
+Supabase SQL editor / service-role path (the repo was not yet CLI-linked when they
+landed). A read-only scoping pass found **no detectable schema drift**: running
+these files against an empty database reproduces the current production schema (37
+public tables + 9 `operator_*` analytics views all match; spot-checked
+column-level). These files stay exactly as they are. New migrations follow the
+CLI's timestamped naming (below), so the ledger and file order agree from here on.
 
 > Seed DATA is a separate concern from SCHEMA. The built-in "Powered by legalOS"
 > agents and the Claude for Legal library exist in production only because their
 > seeding SCRIPTS were hand-run (they are not in committed seed SQL). That
 > reproducibility gap is tracked under the org-onboarding roadmap item, not here.
 
-**No CLI ledger in production yet.** The project (ref `knlnchvfjxchpbkuwtpp`) has
-never been CLI-linked: there is no `supabase_migrations` ledger in prod, and
-`supabase migration list` returns empty. We are adopting tracked migrations
-**going forward via a one-time baseline** that records current prod as the
-starting point. We are **NOT** rewriting history and **NOT** replaying the 76
-files against prod (that would try to re-create existing objects and fail).
+## How the baseline was established
 
-## What stage 1 did (this commit, no production contact)
+The ledger was **NOT** created via `supabase db pull`. Because the 76 sequential
+files already are the authoritative history, pulling a fresh single-file baseline
+would have discarded that granularity. Instead the existing files were registered
+into the remote ledger as already-applied:
 
-- Added `supabase/config.toml` (minimal: `project_id` = the prod ref, which is not
-  secret). No token, password, or other secret is committed.
-- Left all 76 `supabase/migrations/*.sql` and all `supabase/seed/*` files
-  untouched.
-- Confirmed `.gitignore` covers CLI local artifacts (`supabase/.temp/`,
-  `supabase/.branches/`) and env files.
-- Ran **no** CLI commands and made **no** contact with the live project.
+```sh
+supabase migration repair --status applied 0001 0002 … 0076
+```
 
-## NEXT STEPS (operator-run, CREDENTIALED — not done by an agent)
+This marks `0001`..`0076` as applied in the remote `supabase_migrations` ledger
+without re-running them against production (which would try to re-create existing
+objects and fail). The 76 files are retained on disk as history; only the ledger
+rows were added. After the repair, `supabase migration list` shows every historical
+file as applied on both Local and Remote.
 
-These require the operator's Supabase account access (a personal access token and
-the database password) and must be run by a human. An agent must not hold these
-credentials.
+## Going-forward workflow
 
-1. `supabase login` — authenticate the CLI (personal access token). **Human only.**
-2. `supabase link --project-ref knlnchvfjxchpbkuwtpp` — link the repo to prod
-   (prompts for the DB password). Link state is written under `supabase/.temp/`
-   (gitignored). **Human only.**
-3. **Baseline:** `supabase db pull` — generate a single baseline migration that
-   captures current prod schema and seeds the `supabase_migrations` ledger as
-   "applied from here." Review the generated baseline: its forward diff should be
-   **empty** (no pending changes). A non-empty diff IS the drift inventory and
-   must be reconciled before proceeding. **Recommended: dry-run on a Supabase
-   branch / throwaway project first**, so setup never touches prod.
+For every new schema change:
 
-After the baseline shows a clean diff, the workflow going forward is:
+1. `supabase migration new <name>` — a LOCAL-ONLY command that writes an empty
+   timestamped file (`supabase/migrations/YYYYMMDDHHMMSS_<name>.sql`) and makes no
+   DB contact.
+2. Edit the generated file with the migration SQL. Keep changes additive and
+   safe-under-live-traffic where possible (the project runs real production
+   traffic; there is no separate staging DB today).
+3. `supabase db push` — applies the pending migration(s) to production and records
+   them in the ledger. Success = the new migration appears in the Remote column of
+   `supabase migration list`.
 
-- `supabase migration new <name>` -> edit the generated SQL -> `supabase db push`
-  (recorded in the ledger). The first genuinely new tracked migration is intended
-  to be the nullable `messages.pre_step_result jsonb` column (the Document
-  Comparison redline reload-persistence follow-up, D-189) — an additive,
-  nullable, no-default column on a hot-path table, which is a safe, low-risk
-  change to validate the new workflow.
+**Authoring vs. application.** Claude Code AUTHORS migration files (and the
+defensive code that tolerates the column/table being absent until the migration
+lands); the OPERATOR runs `supabase db push` from their own machine. The agent
+holds no Supabase credentials and the Supabase MCP is read-only. CI-applied
+migrations (a deploy gate that runs `db push` automatically) remain a future
+option, but CC-authors / operator-pushes is the current path.
 
-Until that first `db push` succeeds (ideally first on a branch), the hand-apply
-path stays available, so there is no flag-day risk to production.
+## CLI authentication on this operator's machine
+
+`supabase login` opens a browser flow and then tries to store the access token in
+the macOS keychain. On this operator's machine that keychain write fails (the login
+keychain password has drifted from the account password, so the keychain prompt
+cannot be satisfied). The working alternative is to authenticate via environment
+variables for the shell session instead of the keychain:
+
+```sh
+export SUPABASE_ACCESS_TOKEN=…   # personal access token, scoped to the CLI
+export SUPABASE_DB_PASSWORD=…    # the project database password
+```
+
+With both exported, `supabase link`, `supabase migration repair`, and
+`supabase db push` run without any keychain interaction. The exports live only in
+the session shell; nothing is written to the repo (`.gitignore` covers
+`supabase/.temp/` and env files), and no secret is committed (`config.toml` carries
+only the non-secret `project_id`).
+
+### Security follow-ups from setup
+
+- **Rotate the CLI-local access token.** The `SUPABASE_ACCESS_TOKEN` used for setup
+  was created for this work; rotate (revoke + reissue) it in the Supabase dashboard
+  once the workflow is settled, and keep CLI tokens narrowly scoped.
+- **The database password was reset during setup.** The project DB password was
+  reset to obtain a known `SUPABASE_DB_PASSWORD` for linking. Treat the current
+  value as the canonical one; if it is rotated again, re-export it for future CLI
+  sessions.

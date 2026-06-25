@@ -44,7 +44,7 @@ Several People features (role editor, deactivation) cannot be fully exercised so
 
 ### How the work runs (process)
 
-Three-actor pattern: Claude Chat writes patch prompts; the operator pastes them to Claude Code (CC); the operator pastes CC's reports back. CC works autonomously (autonomy mode set) and applies the end-of-task commit + push without asking. Migrations are applied BY HAND by the operator in the Supabase SQL Editor (the repo is unlinked; CC never runs db push), and security-critical migrations are applied BEFORE the dependent feature is used. Credentials/secrets are never pasted in chat, the operator enters them directly into Vercel/Supabase/.env. Docs are amortized into each feature commit. Prod auto-deploys from origin/main to the canonical Vercel domain; the operator reviews in prod.
+Three-actor pattern: Claude Chat writes patch prompts; the operator pastes them to Claude Code (CC); the operator pastes CC's reports back. CC works autonomously (autonomy mode set) and applies the end-of-task commit + push without asking. Migrations now run through the tracked Supabase CLI workflow (the repo is CLI-linked and the ledger baselined as of 2026-06-25, D-192/D-193/D-194): CC AUTHORS the timestamped migration file (and defensive code that tolerates the schema change being absent until it lands), the OPERATOR applies it with `supabase db push` from their own machine (CC holds no Supabase credentials; the MCP is read-only), and security-critical migrations are applied BEFORE the dependent feature is used. See `docs/MIGRATIONS.md` for the full procedure. Credentials/secrets are never pasted in chat, the operator enters them directly into Vercel/Supabase/.env. Docs are amortized into each feature commit. Prod auto-deploys from origin/main to the canonical Vercel domain; the operator reviews in prod.
 
 ## The three actors
 
@@ -354,7 +354,7 @@ CRITICAL fact for any future session: the M4b OAuth `invalid_client` failure was
 
 Google Cloud setup: a Workspace Cloud org was provisioned. The OAuth consent screen is Internal (no verification friction, no 7-day refresh-token expiry). Scope is `drive.readonly`. Env vars `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `CONNECTION_TOKEN_ENCRYPTION_KEY`, and `NEXT_PUBLIC_SITE_URL` are set in Vercel and in `.env.local`.
 
-Migration workflow reminder: migrations are applied BY HAND in the Supabase SQL Editor (the repo is intentionally unlinked; never `supabase db push`). Migrations 0044, 0045, and 0046 are all applied and verified live.
+Migration workflow reminder (as of that session): migrations were applied BY HAND in the Supabase SQL Editor; migrations 0044, 0045, and 0046 are all applied and verified live. (Superseded 2026-06-25, D-192/D-193/D-194: the repo is now CLI-linked and the ledger baselined, so new migrations run through `supabase db push` per `docs/MIGRATIONS.md`. The 0001-0076 hand-applied files remain the canonical baseline.)
 
 Strict A held the entire arc: no admin pages were modified. The Admin polish arc is the deferred next follow-up (roadmap item 1).
 
@@ -418,7 +418,7 @@ For the fresh chat to know where things live:
 
 ## Migration history summary
 
-Current HEAD on main: 0066 (the per-organization connection scoping fix). All migrations applied to the live Supabase database via the dashboard SQL editor (the project's standard migration-application path; the repo is intentionally unlinked, so never `supabase db push`). The migrations after the admin arc cover the connections BYO-model/MCP work, workflows (0060 through 0063), demo access (0064/0065), and the connection org-scoping fix (0066). The seed files in `supabase/seed/` are maintained in sync as the schema evolves.
+Migration application is now the tracked Supabase CLI workflow (2026-06-25, D-192/D-193/D-194): the repo is CLI-linked, the ledger was baselined by marking the 76 historical `0001`-`0076` files applied via `supabase migration repair --status applied` (the files are kept as the canonical baseline), and new migrations are timestamped files applied with `supabase db push` (CC authors, operator pushes). The first tracked migration is `20260625163357_add_pre_step_result_to_messages` (D-193). Everything through `0076` had been applied to the live database BY HAND via the dashboard SQL editor before the link (the historical path): the admin arc, the connections BYO-model/MCP work, workflows (0060 through 0063), demo access (0064/0065), the connection org-scoping fix (0066), and the later 0067-0076. The seed files in `supabase/seed/` are maintained in sync as the schema evolves. See `docs/MIGRATIONS.md`.
 
 Recent migrations of note:
 - 0047 — organizations.default_model (A2b org default model)
