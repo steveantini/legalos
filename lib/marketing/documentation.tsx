@@ -510,8 +510,11 @@ export const DOC_PAGES: DocPage[] = [
             On the Research page, write your question, pick the collections to
             read, and review the preview: how many documents are in scope and
             roughly how long the run will take. Then run it. Research reads
-            every document in scope live, where it lives; nothing is copied or
-            stored, and legalOS keeps only an inventory of titles.
+            every document in scope live, where it lives, and never copies it;
+            legalOS stores no full text of your documents and builds no search
+            index over them. What it keeps for an answer is the findings and a
+            short supporting quote from each document, so you can verify the
+            result.
           </p>
         </MarketingSection>
         <MarketingSection title="The answer and the findings">

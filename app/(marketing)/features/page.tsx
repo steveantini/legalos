@@ -175,15 +175,18 @@ export default function FeaturesPage() {
         <p>
           <LeadIn>legalOS doesn&rsquo;t ask you to migrate</LeadIn>{" "}your
           knowledge. It lives scattered across drives, document systems, and
-          contract repositories. Administrators draw named collections over
-          the repositories you already use, like a contracts folder in Google
-          Drive, and every collection shows exactly where its documents live.
-          Then anyone can ask an institutional question across the
-          collections they choose, like which of our vendor agreements
-          auto-renew, and get a citation-backed answer with per-document
-          findings. Every document in scope is read live, where it lives;
-          nothing is copied or stored, and legalOS keeps only an inventory of
-          titles, never the documents.
+          contract repositories. Administrators draw named Collections over
+          the repositories you already use, like a contracts folder in the
+          drive you already have, and every collection shows exactly where its
+          documents live: legalOS keeps an inventory of what&rsquo;s there,
+          your files never move, and their contents are never stored. Then
+          anyone can ask an institutional question across the collections they
+          choose, like which of our vendor agreements auto-renew, and get a
+          clear answer backed by citations, with a short supporting quote from
+          each document so you can verify it. Every document in scope is read
+          live, where it lives, and never copied; legalOS stores no full text
+          and builds no search index over your documents, keeping only the
+          findings and the short cited quotes that back up an answer.
         </p>
         <p>
           Your agents can draw on the same capability in conversation,

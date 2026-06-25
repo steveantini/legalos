@@ -74,10 +74,11 @@ type RailGroup = {
  * Workflows / Help; Integrations was retired in M7, D-071); the multi-leaf shape was added in
  * the follow-up so the rail can express each category's intended
  * subsurface layout even before those subsurfaces ship. Knowledge
- * carries the settled two-leaf shape (Knowledge arc Step 1): Research
- * (coming-soon) and Collections (live). The former Vault and Sources
- * leaves are retired — Vault dissolved into Collections, Sources was
- * superseded by the connector catalog and its governance.
+ * carries the settled two-leaf shape (Knowledge arc Step 1), ordered
+ * setup-before-use: Collections (live) then Research (live as of Step 2).
+ * The former Vault and Sources leaves are retired — Vault dissolved into
+ * Collections, Sources was superseded by the connector catalog and its
+ * governance.
  *
  * The "My Workflows" leaf was renamed from the Session 31 follow-up's
  * "All Workflows" — the list contains workflows the user / org has
@@ -98,21 +99,22 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     caption: "Knowledge",
     landingHref: "/workspace/knowledge",
     groupKey: "knowledge",
-    // The settled Knowledge shape: Research (the question engine over
-    // collections, live as of Step 2) and Collections (admin-drawn scopes
-    // over connected repositories, Step 1). The former Vault leaf dissolved
-    // into Collections; Sources was superseded by the connector catalog +
-    // governance.
+    // The settled Knowledge shape, ordered setup-before-use: Collections
+    // (admin-drawn scopes over connected repositories, Step 1) come first
+    // because you create a Collection so you can run Research over it; then
+    // Research (the question engine over collections, live as of Step 2).
+    // The former Vault leaf dissolved into Collections; Sources was
+    // superseded by the connector catalog + governance.
     leaves: [
-      {
-        label: "Research",
-        slug: "knowledge-research",
-        href: "/workspace/knowledge/research",
-      },
       {
         label: "Collections",
         slug: "knowledge-collections",
         href: "/workspace/knowledge/collections",
+      },
+      {
+        label: "Research",
+        slug: "knowledge-research",
+        href: "/workspace/knowledge/research",
       },
     ],
   },

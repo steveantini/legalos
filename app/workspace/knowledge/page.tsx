@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PRODUCT_NAME } from "@/components/brand/wordmark";
 import { HelpLink } from "@/components/workspace/help-link";
 
 export const metadata: Metadata = {
@@ -8,12 +9,15 @@ export const metadata: Metadata = {
 
 /**
  * Group landing for the Knowledge resource group — both leaves live as of
- * Step 2: Research (citation-backed answers across collections) and
- * Collections (admin-drawn, transparently-sourced scopes over connected
- * repositories). The former Vault leaf dissolved into Collections; Sources
- * was superseded by the connector catalog and its governance. Copy mirrors
- * the rail's `RESOURCE_GROUPS` Knowledge leaves, em-dash-free per the
- * external-copy convention.
+ * Step 2, ordered setup-before-use: Collections (admin-drawn,
+ * transparently-sourced scopes over connected repositories) come first
+ * because you create a Collection so you can run Research over it; then
+ * Research (citation-backed answers across collections). The former Vault
+ * leaf dissolved into Collections; Sources was superseded by the connector
+ * catalog and its governance. Copy mirrors the rail's `RESOURCE_GROUPS`
+ * Knowledge leaves, drive-agnostic and em-dash-free per the external-copy
+ * convention; the product name routes through PRODUCT_NAME so a rename flows
+ * through.
  */
 const KNOWLEDGE_CHILDREN: ReadonlyArray<{
   title: string;
@@ -21,16 +25,14 @@ const KNOWLEDGE_CHILDREN: ReadonlyArray<{
   description: string;
 }> = [
   {
-    title: "Research",
-    href: "/workspace/knowledge/research",
-    description:
-      "Ask a question across the collections you choose and get a citation-backed answer with per-document findings, a cost preview before every run, and honest reporting of anything that couldn't be read.",
-  },
-  {
     title: "Collections",
     href: "/workspace/knowledge/collections",
-    description:
-      "Named scopes your administrators draw over connected repositories, like a contracts folder in Google Drive. Every collection shows exactly where its documents live; legalOS keeps an inventory, never the documents.",
+    description: `Point ${PRODUCT_NAME} at the folders your team already uses, in whatever drive they live in. A Collection is just a named set of documents, the folders you want ${PRODUCT_NAME} to work with, like your contracts or your policy library. ${PRODUCT_NAME} keeps an inventory of what's there and where it lives; your files never move and their contents are never stored.`,
+  },
+  {
+    title: "Research",
+    href: "/workspace/knowledge/research",
+    description: `Ask a question across the Collections you choose and get a clear answer backed by citations, with a short supporting quote from each document so you can verify it. Your documents are read live from where they live, never copied, and ${PRODUCT_NAME} tells you plainly if anything couldn't be read.`,
   },
 ];
 export default function KnowledgePage() {
@@ -42,9 +44,10 @@ export default function KnowledgePage() {
             Knowledge
           </h1>
           <p className="mt-[14px] max-w-[56ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            Your team&rsquo;s knowledge, where it already lives. Collections draw
-            named scopes over the repositories you use; Research answers
-            questions across them.
+            Your team&rsquo;s documents, searchable in plain language, without
+            moving them. Set up Collections that point at the folders you
+            already use, then use Research to ask questions across them and get
+            answers backed by citations.
           </p>
         </div>
         <HelpLink topic="knowledge" className="mt-3" />
