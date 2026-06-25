@@ -151,8 +151,28 @@ If the comparison is partial: if the change set is marked as truncated because a
 
 Output format: prose, organized by significance. Begin with a one-line statement of the overall scope of the change (for example, that the revised version makes a handful of substantive changes plus minor wording edits, or that the changes are entirely cosmetic). Then the consequential changes, each explained. Then a brief summary of the minor ones. Use a short bulleted list only where it genuinely aids clarity for a set of discrete changes.`;
 
-/** The six seeded agents, in launchpad sort order. Prompts are verbatim (D-181, D-186). */
+/**
+ * The six seeded agents, in launchpad sort order (D-190): Document Comparison
+ * leads as the flagship (the deterministic-engine tool), then a deliberate
+ * reading order over a document — understand it (summarize), pull from it (terms,
+ * obligations), transform it (rewrite), check it (PII). Array position drives
+ * `sort_order` (SORT_ORDER_BASE + index), which the launchpad sorts by. Prompts
+ * are verbatim (D-181, D-186).
+ */
 export const BUILTIN_AGENTS: readonly BuiltinAgentDef[] = [
+  {
+    skill: "document-comparison",
+    name: "Document Comparison",
+    description:
+      "Compares two versions of a document and explains what changed and what matters.",
+    systemPrompt: DOCUMENT_COMPARISON_PROMPT,
+    defaultOutputFormat: "markdown",
+    webSearch: false,
+    // The first built-in to declare a deterministic pre-step: the chat run path
+    // runs the comparison engine in code before the model and feeds it the
+    // authoritative change set (commits 1-2; D-185/D-186).
+    preSteps: [DOCUMENT_COMPARE_PRE_STEP],
+  },
   {
     skill: "summarizer",
     name: "Document Summarizer",
@@ -198,19 +218,6 @@ export const BUILTIN_AGENTS: readonly BuiltinAgentDef[] = [
     defaultOutputFormat: "markdown",
     webSearch: false,
   },
-  {
-    skill: "document-comparison",
-    name: "Document Comparison",
-    description:
-      "Compares two versions of a document and explains what changed and what matters.",
-    systemPrompt: DOCUMENT_COMPARISON_PROMPT,
-    defaultOutputFormat: "markdown",
-    webSearch: false,
-    // The first built-in to declare a deterministic pre-step: the chat run path
-    // runs the comparison engine in code before the model and feeds it the
-    // authoritative change set (commits 1-2; D-185/D-186).
-    preSteps: [DOCUMENT_COMPARE_PRE_STEP],
-  },
 ];
 
 /** The General Tools department slug every system agent lands in. */
@@ -226,6 +233,8 @@ export type ExistingBuiltinAgent = {
   description: string | null;
   systemPrompt: string | null;
   model: string | null;
+  /** Current launchpad order; canonicalized to the array position on re-seed (D-190). */
+  sortOrder: number | null;
 };
 
 /** A row to INSERT for a new system agent. */
@@ -252,6 +261,8 @@ export type BuiltinAgentUpdate = {
   description: string;
   systemPrompt: string;
   model: string;
+  /** Canonical launchpad order (array position); brings a re-ordered row in line (D-190). */
+  sortOrder: number;
 };
 
 /** The deterministic outcome of planning a seed — pure data, no I/O. */
@@ -289,6 +300,7 @@ export function planBuiltinSeed(input: {
   agents.forEach((agent, index) => {
     const slug = builtinSlug(agent.skill);
     const existing = existingBySlug.get(slug);
+    const sortOrder = SORT_ORDER_BASE + index;
 
     if (!existing) {
       inserts.push({
@@ -299,7 +311,7 @@ export function planBuiltinSeed(input: {
         description: agent.description,
         systemPrompt: agent.systemPrompt,
         sourceOrigin: builtinSourceOrigin(agent.skill),
-        sortOrder: SORT_ORDER_BASE + index,
+        sortOrder,
         webSearch: agent.webSearch,
         preSteps: agent.preSteps ?? [],
         defaultOutputFormat: agent.defaultOutputFormat,
@@ -317,7 +329,8 @@ export function planBuiltinSeed(input: {
       existing.name !== agent.name ||
       (existing.description ?? "") !== agent.description ||
       (existing.systemPrompt ?? "") !== agent.systemPrompt ||
-      (existing.model ?? "") !== BUILTIN_AGENT_MODEL;
+      (existing.model ?? "") !== BUILTIN_AGENT_MODEL ||
+      existing.sortOrder !== sortOrder;
 
     if (drifted) {
       updates.push({
@@ -327,6 +340,7 @@ export function planBuiltinSeed(input: {
         description: agent.description,
         systemPrompt: agent.systemPrompt,
         model: BUILTIN_AGENT_MODEL,
+        sortOrder,
       });
     } else {
       unchangedCount += 1;

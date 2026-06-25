@@ -67,7 +67,7 @@ function createCliStore(supabase: ServiceClient): BuiltinAgentsSeedStore {
       const { data, error } = await supabase
         .from("agents")
         .select(
-          "id, slug, is_active, deleted_at, name, description, system_prompt, model",
+          "id, slug, is_active, deleted_at, name, description, system_prompt, model, sort_order",
         )
         .eq("organization_id", organizationId)
         .like("source_origin", "builtin:%");
@@ -80,6 +80,7 @@ function createCliStore(supabase: ServiceClient): BuiltinAgentsSeedStore {
         description: (row.description as string | null) ?? null,
         systemPrompt: (row.system_prompt as string | null) ?? null,
         model: (row.model as string | null) ?? null,
+        sortOrder: (row.sort_order as number | null) ?? null,
       }));
     },
 
@@ -131,6 +132,7 @@ function createCliStore(supabase: ServiceClient): BuiltinAgentsSeedStore {
             description: row.description,
             system_prompt: row.systemPrompt,
             model: row.model,
+            sort_order: row.sortOrder,
           } as unknown as never)
           .eq("id", row.id);
         if (error) throw new Error(`update failed (${row.slug}): ${error.message}`);

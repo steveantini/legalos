@@ -4801,3 +4801,18 @@ The model already produces the prose materiality ("what changed and what matters
 **Placement and scope.** The redline renders beneath the prose, default-visible in a bordered, scroll-bounded section (the payoff is seen, not hidden behind a click), with a header showing the change count and the document labels, an identical-docs "no changes" state, and a truncation notice consistent with the prose. It renders ONLY when `message.redline` is present, which only a comparison turn carries, so no other agent's rendering changes. The engine, the serializer's authoritative-change-set contract, and the prose prompt are untouched; side-by-side, redline export, and in-redline editing are out of scope.
 
 **Tests:** the renderer maps each segment type to the right treatment (equal/insert/delete/replace), shows the identical-docs empty state, surfaces the truncation notice, uses semantic `<ins>`/`<del>` (not color-only), and carries the long-token wrap class; rendered via `renderToStaticMarkup` so the component is covered without a DOM environment.
+
+## D-190 — Built-in agent order: Document Comparison first, then a reading order
+
+Date: 2026-06-25
+Status: Accepted
+
+**Decision:** Order the six built-in General Tools agents so Document Comparison leads, followed by a deliberate reading order: Document Comparison, Document Summarizer, Term and Clause Extractor, Obligations and Dates Extractor, Plain-Language Rewriter, PII Flagger. Document Comparison is the flagship (the deterministic-engine tool) and should lead; the rest follow how you work over a document, understand it (summarize), pull from it (terms, obligations), transform it (rewrite), check it (PII). Seed-data / `sort_order` only: no behavior, prompt, or engine change.
+
+**Ordering key.** The launchpad sorts agents within a group by `sort_order` ascending, then `name` (`lib/auth/access.ts`), so `sort_order` is authoritative and this needed no UI change. Built-in `sort_order` is `SORT_ORDER_BASE (100) + array index` in `BUILTIN_AGENTS`, so the array order IS the display order; the reorder was moving Document Comparison to the front of that array (it had been appended last in D-187).
+
+**`sort_order` is now part of the update path (the load-bearing fix).** The seed planner previously set `sort_order` only on INSERT; drift detection and the update payload covered name/description/system_prompt/model but NOT `sort_order`, so a re-seed of already-seeded rows would not have moved them. Since all six rows already exist, the reorder would have been inert without this. `sort_order` is now: read in `listExistingBuiltinAgents` (both the runtime store and the CLI store), compared in the planner's drift check, carried on `BuiltinAgentUpdate`, and written by `updateAgents` (both stores). The update-in-place pattern (D-181) now keeps the launchpad order canonical to the array on every re-seed, not just the prompts.
+
+**Live re-seed.** `npm run seed-builtin-agents` (update-in-place) reordered both orgs: each reported six UPDATED (every row's `sort_order` shifted under the new order), zero inserts, zero unchanged. Verified against the live DB that both orgs carry Document Comparison at `sort_order` 100 then the reading order 101-105. No duplicate or orphan; nothing else keys on the old order (the only consumer is the launchpad's `sort_order` sort).
+
+**Tests:** the planner inserts the six in the new order with `sort_order` 100-105 (Document Comparison first), and a stale-order re-seed reports six in-place updates (not inserts) bringing Document Comparison to 100 and PII Flagger to 105.
