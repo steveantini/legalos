@@ -62,6 +62,28 @@ export type RedlinePayload = {
 };
 
 /**
+ * Rehydrate a persisted RedlinePayload from the messages.pre_step_result jsonb
+ * column on reload (D-193). The value is OUR OWN write (the exact RedlinePayload
+ * the pre-step produced and the live SSE event carried), so this is a structural
+ * sanity guard, not a deep validator: it confirms the top-level shape is intact
+ * and returns the value typed, or `undefined` so the caller degrades to prose-only
+ * (the pre-D-193 reload behavior) for a null, legacy, or malformed value. It does
+ * NOT recompute a diff — the persisted change set is the single source of truth.
+ */
+export function coerceRedlinePayload(
+  value: unknown,
+): RedlinePayload | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  if (!Array.isArray(v.segments)) return undefined;
+  if (!v.summary || typeof v.summary !== "object") return undefined;
+  if (!v.truncated || typeof v.truncated !== "object") return undefined;
+  if (typeof v.originalLabel !== "string") return undefined;
+  if (typeof v.revisedLabel !== "string") return undefined;
+  return value as RedlinePayload;
+}
+
+/**
  * The pre-step's outcome. Either the run is READY (the authoritative change-set
  * block is built and ready to inject as the model's input, plus the structured
  * redline payload for the client) or a GUARD fired (the pre-step cannot run; the

@@ -32,6 +32,7 @@ import type { ModelCredential } from "@/lib/connections/providers/types";
 import { resolveModelCredential } from "@/lib/llm/model-credential";
 import { computeCostMicroUsd } from "@/lib/llm/pricing";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isUndefinedColumnError } from "@/lib/supabase/errors";
 import {
   assembleDecisionToolResult,
   buildConfirmationPayload,
@@ -458,13 +459,31 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
           tokens_out: tokensOut,
           sources,
           tool_calls: toolCalls,
+          // Persist the Document Comparison redline so it survives a page reload
+          // (D-193). This is the SAME change set the live `pre_step_redline` SSE
+          // event carries — one source, never recomputed on read — so the prose
+          // and the rehydrated redline cannot disagree. Only comparison turns set
+          // it; every other turn leaves the column NULL. The column's migration is
+          // applied separately by the operator, so the write degrades gracefully
+          // if the column is briefly absent (see the undefined-column retry
+          // below): chat keeps working and the redline simply stays un-persisted,
+          // i.e. today's prose-only-on-reload behavior, until the migration lands.
+          ...(preStepRedline ? { pre_step_result: preStepRedline } : {}),
         };
         if (assistantMessageId === null) {
-          const { data, error } = await supabase
+          let { data, error } = await supabase
             .from("messages")
             .insert(row)
             .select("id")
             .single();
+          if (error && isUndefinedColumnError(error) && "pre_step_result" in row) {
+            delete row.pre_step_result;
+            ({ data, error } = await supabase
+              .from("messages")
+              .insert(row)
+              .select("id")
+              .single());
+          }
           if (error || !data) {
             console.error("assistant message insert failed", {
               code: error?.code,
@@ -474,10 +493,17 @@ export function streamChatTurn(ctx: ChatTurnContext): Response {
           assistantMessageId = data.id;
           return assistantMessageId;
         }
-        const { error } = await supabase
+        let { error } = await supabase
           .from("messages")
           .update(row)
           .eq("id", assistantMessageId);
+        if (error && isUndefinedColumnError(error) && "pre_step_result" in row) {
+          delete row.pre_step_result;
+          ({ error } = await supabase
+            .from("messages")
+            .update(row)
+            .eq("id", assistantMessageId));
+        }
         if (error) {
           console.error("assistant message update failed", { code: error.code });
           return null;

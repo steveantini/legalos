@@ -11,6 +11,7 @@ import {
   vendorContentEnabledFromSettings,
 } from "@/lib/content/content-settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isUndefinedColumnError } from "@/lib/supabase/errors";
 
 /**
  * Server-side authorization helpers.
@@ -1077,6 +1078,14 @@ export interface ConversationMessage {
   sources: unknown;
   tool_calls: unknown;
   /**
+   * Structured pre-step result for this turn (Document Comparison's redline,
+   * D-193), as stored in the messages.pre_step_result jsonb column. `unknown`
+   * because it is hydrated JSONB the caller validates before use; absent
+   * (undefined) when selected from an environment whose migration has not yet
+   * added the column, or null on any turn that ran no pre-step.
+   */
+  pre_step_result?: unknown;
+  /**
    * Per-message file attachments (chat attachments arc), hydrated alongside
    * the message so the chat surface renders attachment chips on reload, not
    * just optimistically. Empty for messages with no attachments.
@@ -1122,13 +1131,31 @@ export async function getConversationForChatSurface(
     return null;
   }
 
-  const { data: messages } = await supabase
+  // Select the optional pre_step_result column (the Document Comparison redline,
+  // D-193) alongside the established columns. The column's migration is applied
+  // separately from this code's deploy, so the read degrades gracefully: if the
+  // column does not exist yet in this environment, PostgREST raises
+  // undefined_column and we retry WITHOUT it, hydrating prose-only (today's
+  // behavior) rather than failing the whole conversation load.
+  const baseColumns = "id, role, content, sources, tool_calls";
+  const primary = await supabase
     .from("messages")
-    .select("id, role, content, sources, tool_calls")
+    .select(`${baseColumns}, pre_step_result`)
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
+  // `unknown[]` because the two selects below infer different row shapes (one with
+  // pre_step_result, one without); the rows are cast to ConversationMessage next.
+  let messageData: unknown[] | null = primary.data;
+  if (primary.error && isUndefinedColumnError(primary.error)) {
+    const fallback = await supabase
+      .from("messages")
+      .select(baseColumns)
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+    messageData = fallback.data;
+  }
 
-  const messageRows = (messages ?? []) as Array<
+  const messageRows = (messageData ?? []) as Array<
     Omit<ConversationMessage, "attachments">
   >;
 

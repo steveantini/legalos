@@ -7,6 +7,7 @@ import { compareDocuments } from "@/lib/deterministic/compare";
 
 import {
   assembleDocumentComparePreStep,
+  coerceRedlinePayload,
   COMPARISON_CONTEXT_WORDS,
   serializeComparison,
 } from "./document-compare";
@@ -231,6 +232,54 @@ describe("assembleDocumentComparePreStep", () => {
       expect(m.status).toBe("guard");
       if (m.status === "guard") expect(m.message).not.toContain("—");
     }
+  });
+});
+
+describe("coerceRedlinePayload (reload rehydration, D-193)", () => {
+  /** The exact redline the pre-step persists on a comparison turn. */
+  function readyRedline() {
+    const outcome = assembleDocumentComparePreStep([
+      { role: "original", label: "a.docx", text: "Net 30 net" },
+      { role: "revised", label: "b.docx", text: "Net 60 net" },
+    ]);
+    if (outcome.status !== "ready") throw new Error("expected ready");
+    return outcome.redline;
+  }
+
+  it("rehydrates the persisted payload after a jsonb (JSON) round-trip, intact", () => {
+    const persisted = readyRedline();
+    // Simulate the storage path: write to jsonb, read back as unknown JSON.
+    const fromColumn = JSON.parse(JSON.stringify(persisted)) as unknown;
+    const rehydrated = coerceRedlinePayload(fromColumn);
+    // Deep-equal to the original: the change set is carried verbatim, not recomputed.
+    expect(rehydrated).toEqual(persisted);
+    // And it is a usable payload (labels + the change segments survived).
+    expect(rehydrated?.originalLabel).toBe("a.docx");
+    expect(rehydrated?.revisedLabel).toBe("b.docx");
+    expect(rehydrated?.summary.changed).toBe(true);
+  });
+
+  it("degrades to prose-only (undefined) for an absent or null value", () => {
+    // A non-comparison turn stores NULL; an un-migrated environment yields undefined.
+    expect(coerceRedlinePayload(null)).toBeUndefined();
+    expect(coerceRedlinePayload(undefined)).toBeUndefined();
+  });
+
+  it("degrades to prose-only (undefined) for malformed / partial values", () => {
+    const good = JSON.parse(JSON.stringify(readyRedline())) as Record<
+      string,
+      unknown
+    >;
+    // Each required field, individually missing, must reject the whole payload.
+    expect(coerceRedlinePayload({ ...good, segments: undefined })).toBeUndefined();
+    expect(coerceRedlinePayload({ ...good, summary: undefined })).toBeUndefined();
+    expect(coerceRedlinePayload({ ...good, truncated: undefined })).toBeUndefined();
+    expect(coerceRedlinePayload({ ...good, originalLabel: 42 })).toBeUndefined();
+    expect(coerceRedlinePayload({ ...good, revisedLabel: null })).toBeUndefined();
+    // Non-objects and junk types reject too.
+    expect(coerceRedlinePayload("not an object")).toBeUndefined();
+    expect(coerceRedlinePayload(123)).toBeUndefined();
+    expect(coerceRedlinePayload([])).toBeUndefined();
   });
 });
 

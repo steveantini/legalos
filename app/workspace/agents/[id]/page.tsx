@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { hasDocumentComparePreStep } from "@/lib/agents/capabilities";
+import { coerceRedlinePayload } from "@/lib/agents/pre-steps/document-compare";
 import { isFullyLockedSource } from "@/lib/agents/lock";
 import {
   getAgent,
@@ -174,5 +175,9 @@ function messageRowToChatMessage(row: ConversationMessage): ChatMessage {
     toolCalls: Array.isArray(row.tool_calls)
       ? (row.tool_calls as ChatToolCall[])
       : [],
+    // Rehydrate the Document Comparison redline from the persisted change set
+    // (D-193) so it re-renders on reload exactly as it did live. coerce returns
+    // undefined for a null / legacy / un-migrated value, degrading to prose-only.
+    redline: coerceRedlinePayload(row.pre_step_result),
   };
 }

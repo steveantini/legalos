@@ -4,7 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { compareDocuments } from "@/lib/deterministic/compare";
-import type { RedlinePayload } from "@/lib/agents/pre-steps/document-compare";
+import {
+  coerceRedlinePayload,
+  type RedlinePayload,
+} from "@/lib/agents/pre-steps/document-compare";
 
 import { DocumentRedline } from "./document-redline";
 
@@ -102,5 +105,19 @@ describe("DocumentRedline", () => {
     const html = render(payload("Net 30", "Net 60"));
     expect(html).toContain("original.docx");
     expect(html).toContain("revised.docx");
+  });
+
+  it("renders the same redline after a persist + rehydrate round-trip (D-193)", () => {
+    // The reload path: a live payload is stored to jsonb, read back as unknown,
+    // coerced, and rendered. It must produce the same marks it did live, proving
+    // the redline survives reload from the persisted change set (no recompute).
+    const live = payload("Net 30", "Net 60");
+    const fromColumn = JSON.parse(JSON.stringify(live)) as unknown;
+    const rehydrated = coerceRedlinePayload(fromColumn);
+    expect(rehydrated).toBeDefined();
+    const liveHtml = render(live);
+    const reloadHtml = render(rehydrated!);
+    expect(reloadHtml).toBe(liveHtml);
+    expect(reloadHtml).toMatch(/<del[^>]*>30<\/del><ins[^>]*>60<\/ins>/);
   });
 });
