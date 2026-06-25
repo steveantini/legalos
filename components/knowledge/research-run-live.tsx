@@ -14,10 +14,13 @@ import {
   advanceResearchRunAction,
   cancelResearchRun,
 } from "@/lib/actions/research";
-import type {
-  ResearchCitation,
-  ResearchFindingView,
-  ResearchRunStatus,
+import {
+  classifyResearchFailure,
+  RESEARCH_DOC_CAP_WHY,
+  RESEARCH_ENUMERATION_WHY,
+  type ResearchCitation,
+  type ResearchFindingView,
+  type ResearchRunStatus,
 } from "@/lib/knowledge/research/shared";
 
 /**
@@ -46,7 +49,7 @@ export type LiveRunInitial = {
 };
 
 const TERMINAL: ResearchRunStatus[] = ["completed", "failed", "cancelled"];
-/** Loop backstop far above any capped run (segments of 12 over cap 5000). */
+/** Loop backstop far above any capped run (segments of 12 over cap 1000). */
 const MAX_ADVANCES = 600;
 
 export function ResearchRunLive({
@@ -177,12 +180,35 @@ export function ResearchRunLive({
       </div>
 
       {status === "failed" && failureReason ? (
-        <p
+        <div
           role="alert"
-          className="max-w-[70ch] rounded-lg border border-warn-fg/30 bg-paper-2 px-4 py-3 text-[13px] leading-[1.5] text-warn-fg"
+          className="max-w-[70ch] rounded-lg border border-warn-fg/30 bg-paper-2 px-4 py-3"
         >
-          {failureReason}
-        </p>
+          <p className="text-[13px] leading-[1.5] text-warn-fg">
+            {failureReason}
+          </p>
+          {/* The matching "why", chosen by the failure's KIND so the two
+              distinct limits (admin document cap vs. fixed enumeration
+              budget) never get the wrong explanation. */}
+          {(() => {
+            const kind = classifyResearchFailure(failureReason);
+            if (kind === "other") return null;
+            const why =
+              kind === "doc_cap"
+                ? RESEARCH_DOC_CAP_WHY
+                : RESEARCH_ENUMERATION_WHY;
+            return (
+              <details className="group mt-2">
+                <summary className="cursor-pointer list-none text-[12px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                  Why?
+                </summary>
+                <p className="mt-1.5 text-[12px] leading-[1.5] text-caption">
+                  {why}
+                </p>
+              </details>
+            );
+          })()}
+        </div>
       ) : null}
 
       {status === "cancelled" ? (

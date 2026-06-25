@@ -11,8 +11,11 @@ import {
 } from "@/lib/knowledge/research/classify";
 import { processResearchSegment } from "@/lib/knowledge/research/engine-core";
 import {
+  classifyResearchFailure,
+  docCapExceededMessage,
   estimateResearchPreview,
   isReadableMimeType,
+  RESEARCH_ENUMERATION_MESSAGE,
   type ResearchDocumentRef,
 } from "@/lib/knowledge/research/shared";
 
@@ -23,24 +26,49 @@ import {
  * (every input document yields exactly one finding, failures included).
  */
 
-const PRICING = { inputPerMillion: 10, outputPerMillion: 50 };
-
 describe("estimateResearchPreview", () => {
-  it("produces an honest low–high range and never zero", () => {
-    const preview = estimateResearchPreview(200, 200, PRICING);
-    expect(preview.estCostLowUsd).toBeGreaterThanOrEqual(1);
-    expect(preview.estCostHighUsd).toBeGreaterThan(preview.estCostLowUsd);
+  it("produces an honest minute range and never zero, no money", () => {
+    const preview = estimateResearchPreview(200, 200);
+    expect(preview.documentCount).toBe(200);
+    expect(preview.estMinutesLow).toBeGreaterThanOrEqual(1);
     expect(preview.estMinutesHigh).toBeGreaterThan(preview.estMinutesLow);
     expect(preview.overCap).toBe(false);
-    // Sanity on magnitude: 200 docs at 2k–10k tokens ≈ $4–$22 at $10/MTok.
-    expect(preview.estCostLowUsd).toBeGreaterThanOrEqual(4);
-    expect(preview.estCostHighUsd).toBeLessThanOrEqual(30);
+    // Money is never computed or shown to the user anymore.
+    expect(preview).not.toHaveProperty("estCostLowUsd");
+    expect(preview).not.toHaveProperty("estCostHighUsd");
   });
 
   it("flags over-cap scopes instead of silently truncating", () => {
-    const preview = estimateResearchPreview(487, 200, PRICING);
+    const preview = estimateResearchPreview(487, 200);
     expect(preview.overCap).toBe(true);
     expect(preview.cap).toBe(200);
+  });
+});
+
+describe("over-limit messages and classification", () => {
+  it("states the exact count and the workspace limit in the doc-cap message", () => {
+    const message = docCapExceededMessage(487, 200);
+    expect(message).toContain("487 documents");
+    expect(message).toContain("limit of 200");
+    expect(message).toContain("Policy & access");
+  });
+
+  it("classifies each failure to its distinct kind, never conflated", () => {
+    expect(classifyResearchFailure(docCapExceededMessage(487, 200))).toBe(
+      "doc_cap",
+    );
+    expect(classifyResearchFailure(RESEARCH_ENUMERATION_MESSAGE)).toBe(
+      "enumeration",
+    );
+    expect(classifyResearchFailure("A connection became unavailable.")).toBe(
+      "other",
+    );
+    expect(classifyResearchFailure(null)).toBe("other");
+  });
+
+  it("keeps the enumeration message free of a number or an admin lever", () => {
+    expect(RESEARCH_ENUMERATION_MESSAGE).not.toMatch(/\d/);
+    expect(RESEARCH_ENUMERATION_MESSAGE.toLowerCase()).not.toContain("admin");
   });
 });
 

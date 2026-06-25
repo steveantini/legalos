@@ -227,7 +227,7 @@ export async function deleteResearchRun(
 }
 
 const capSchema = z.object({
-  cap: z.number().int().min(1).max(5000),
+  cap: z.number().int().min(1).max(1000),
 });
 
 /** Update the per-run document cap (super admin; Policy & access). */
@@ -240,7 +240,7 @@ export async function updateResearchDocumentCap(input: {
   }
   const parsed = capSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Enter a cap between 1 and 5000." };
+    return { ok: false, error: "Enter a cap between 1 and 1000." };
   }
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase

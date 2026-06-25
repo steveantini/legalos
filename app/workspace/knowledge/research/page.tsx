@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 
 import { ResearchView, type ScopeOption } from "@/components/knowledge/research-view";
 import { HelpLink } from "@/components/workspace/help-link";
-import { requireAuthUser, getOrganizationDefaultModel } from "@/lib/auth/access";
+import { requireAuthUser } from "@/lib/auth/access";
 import { getVisibleCollections } from "@/lib/knowledge/collections-data";
 import { getResearchDocumentCap } from "@/lib/knowledge/research/engine";
 import { listResearchRuns } from "@/lib/knowledge/research/data";
-import { DEFAULT_MODEL_FALLBACK, MODEL_BY_ID } from "@/lib/llm/models";
 
 export const metadata: Metadata = {
   title: "Research",
@@ -28,16 +27,11 @@ export const maxDuration = 300;
 export default async function ResearchPage() {
   await requireAuthUser();
 
-  const [collections, cap, runs, defaultModel] = await Promise.all([
+  const [collections, cap, runs] = await Promise.all([
     getVisibleCollections(),
     getResearchDocumentCap(),
     listResearchRuns(),
-    getOrganizationDefaultModel(),
   ]);
-
-  const model =
-    MODEL_BY_ID[defaultModel ?? DEFAULT_MODEL_FALLBACK] ??
-    MODEL_BY_ID[DEFAULT_MODEL_FALLBACK];
 
   const scopeOptions: ScopeOption[] = collections.map((collection) => ({
     id: collection.id,
@@ -66,15 +60,7 @@ export default async function ResearchPage() {
         <HelpLink topic="knowledge" className="mt-3" />
       </header>
 
-      <ResearchView
-        collections={scopeOptions}
-        cap={cap}
-        pricing={{
-          inputPerMillion: model.pricing.inputPerMillion,
-          outputPerMillion: model.pricing.outputPerMillion,
-        }}
-        runs={runs}
-      />
+      <ResearchView collections={scopeOptions} cap={cap} runs={runs} />
     </main>
   );
 }

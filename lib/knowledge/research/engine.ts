@@ -24,7 +24,9 @@ import {
   type SegmentFinding,
 } from "@/lib/knowledge/research/engine-core";
 import {
+  docCapExceededMessage,
   isReadableMimeType,
+  RESEARCH_ENUMERATION_MESSAGE,
   RESEARCH_SEGMENT_DOCS,
   type ResearchCitation,
   type ResearchDocumentRef,
@@ -373,8 +375,9 @@ async function advancePlanning(run: RunRow): Promise<AdvanceResult> {
   );
 
   if (!enumeration.completed) {
-    const reason =
-      "This scope is too large to enumerate in one pass. Narrow the scope to fewer or smaller folders.";
+    // The ENUMERATION-BUDGET decline: a fixed technical limit, distinct from
+    // the admin document cap below. The surface attaches the matching "why".
+    const reason = RESEARCH_ENUMERATION_MESSAGE;
     await failRun(run.id, reason);
     return { ...emptyResult(run), status: "failed", failureReason: reason };
   }
@@ -392,7 +395,9 @@ async function advancePlanning(run: RunRow): Promise<AdvanceResult> {
 
   const cap = await getResearchDocumentCap();
   if (readable.length > cap) {
-    const reason = `This scope contains ${readable.length} readable documents; the per-run cap is ${cap}. Narrow the scope, or an administrator can raise the cap in Policy & access.`;
+    // The DOCUMENT-CAP decline (admin-adjustable): the exact live count is
+    // known here, so the message states it.
+    const reason = docCapExceededMessage(readable.length, cap);
     await failRun(run.id, reason);
     return { ...emptyResult(run), status: "failed", failureReason: reason };
   }

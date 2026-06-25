@@ -5,7 +5,9 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
 import {
+  docCapExceededMessage,
   estimateResearchPreview,
+  RESEARCH_DOC_CAP_WHY,
   type ResearchPreview,
 } from "@/lib/knowledge/research/shared";
 import { cn } from "@/lib/utils";
@@ -21,8 +23,10 @@ import { cn } from "@/lib/utils";
  * collection cards, each keeping its real source visible in condensed form
  * (the standing transparency rule). The section's subline IS the live
  * summary: "Select at least one collection to begin." until a scope is
- * picked, then the document-and-cost estimate — one line, one location, no
+ * picked, then the document-and-time estimate — one line, one location, no
  * standing nag; the Run button simply stays disabled until the ask is valid.
+ * No money is ever shown: the per-run document limit, not a dollar figure, is
+ * the deliberate-scope lever.
  *
  * A REUSABLE component on purpose: it owns its own question/selection state
  * and reports the ask upward through `onRun`, so when follow-up refinement
@@ -58,13 +62,11 @@ function relativeTime(iso: string): string {
 export function ResearchAskComposer({
   collections,
   cap,
-  pricing,
   pending,
   onRun,
 }: {
   collections: ScopeOption[];
   cap: number;
-  pricing: { inputPerMillion: number; outputPerMillion: number };
   pending: boolean;
   onRun: (question: string, collectionIds: string[]) => void;
 }) {
@@ -80,9 +82,7 @@ export function ResearchAskComposer({
     0,
   );
   const preview: ResearchPreview | null =
-    selected.length > 0
-      ? estimateResearchPreview(documentCount, cap, pricing)
-      : null;
+    selected.length > 0 ? estimateResearchPreview(documentCount, cap) : null;
   const canRun =
     question.trim().length >= 8 &&
     preview !== null &&
@@ -97,10 +97,10 @@ export function ResearchAskComposer({
 
   // The section subline IS the live selection summary — guidance with
   // nothing selected, the running estimate once scopes are picked, in the
-  // units that matter to the asker: documents and time. (Cost is still
-  // computed and recorded to the ledger; spend oversight lives in admin
-  // analytics, not in this line.) Same preview math as the confirm box, so
-  // the two can never disagree.
+  // units that matter to the asker: documents and time. No money: usage is
+  // still recorded to the ledger for admin analytics, but spend never appears
+  // on this surface. Same preview math as the confirm box, so the two can
+  // never disagree.
   const scopeSummary = preview
     ? `${selectedCollections.length} ${
         selectedCollections.length === 1 ? "collection" : "collections"
@@ -197,31 +197,42 @@ export function ResearchAskComposer({
         </div>
       </CollapsibleSection>
 
-      {/* The full confirm preview: the same numbers as the live line, plus
-          the stated assumptions and the honest over-cap message. */}
+      {/* The confirm preview. Under the cap: an honest hedged scope signal
+          (the inventory count can diverge from the live count, so "About",
+          and the exact number lands post-start as "Reading documents… X of
+          Y"). Over the cap: the document-cap pre-empt (message A) with an
+          inline "why" — the friendly pre-launch stop; the engine stays the
+          real guard. The enumeration-budget limit can't be known pre-run, so
+          it never appears here, only as a post-enumeration failure. */}
       {preview ? (
-        <div className="max-w-[70ch] rounded-lg border border-hairline bg-paper-2 px-4 py-3">
-          {preview.overCap ? (
+        preview.overCap ? (
+          <div className="max-w-[70ch] rounded-lg border border-warn-fg/30 bg-paper-2 px-4 py-3">
             <p className="text-[13px] leading-[1.5] text-warn-fg">
-              This scope contains about {preview.documentCount} documents; the
-              per-run cap is {preview.cap}. Narrow the scope, or an
-              administrator can raise the cap in Policy &amp; access.
+              {docCapExceededMessage(preview.documentCount, preview.cap)}
             </p>
-          ) : (
+            <details className="group mt-2">
+              <summary className="cursor-pointer list-none text-[12px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                Why is there a limit?
+              </summary>
+              <p className="mt-1.5 text-[12px] leading-[1.5] text-caption">
+                {RESEARCH_DOC_CAP_WHY}
+              </p>
+            </details>
+          </div>
+        ) : (
+          <div className="max-w-[70ch] rounded-lg border border-hairline bg-paper-2 px-4 py-3">
             <p className="text-[13px] leading-[1.5] text-foreground">
               About {preview.documentCount}{" "}
-              {preview.documentCount === 1 ? "document" : "documents"} across{" "}
-              {selectedCollections.length}{" "}
-              {selectedCollections.length === 1 ? "collection" : "collections"}{" "}
-              · roughly {preview.estMinutesLow}–{preview.estMinutesHigh}{" "}
+              {preview.documentCount === 1 ? "document" : "documents"} across
+              your selected collections. Give it a moment once you start,
+              we&rsquo;ll confirm the exact count as we go.
+            </p>
+            <p className="mt-1 text-[11.5px] leading-[1.5] text-caption">
+              Roughly {preview.estMinutesLow}&ndash;{preview.estMinutesHigh}{" "}
               minutes.
             </p>
-          )}
-          <p className="mt-1 text-[11.5px] leading-[1.5] text-caption">
-            Estimated from the synced inventory; the run reads live, so the
-            real count is confirmed at the start.
-          </p>
-        </div>
+          </div>
+        )
       ) : null}
     </div>
   );

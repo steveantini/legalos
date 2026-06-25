@@ -517,6 +517,24 @@ export const DOC_PAGES: DocPage[] = [
             result.
           </p>
         </MarketingSection>
+        <MarketingSection title="When a run is too large">
+          <p>
+            A single run reads each document closely, so it works best on a
+            focused scope. Two things can make a run decline before it starts,
+            and they are different. The first is a per-run document limit: how
+            many documents one run may read, set by your administrators for the
+            workspace (1 to 1000, 200 by default). If your scope is over it,
+            the run tells you the count and the limit and asks you to narrow
+            your collections or question, or an admin can raise the limit in
+            Policy and access. The second is structural: legalOS scans your
+            folders live each time, so it is never working from a stale
+            picture, and a very large or deeply nested folder structure cannot
+            be fully scanned in one pass. When that happens the run asks you to
+            narrow to fewer or smaller folders, or to split your search across
+            a few runs. This second limit is not a setting an administrator can
+            change.
+          </p>
+        </MarketingSection>
         <MarketingSection title="The answer and the findings">
           <p>
             You watch progress as documents are read, with findings filling in
@@ -533,7 +551,7 @@ export const DOC_PAGES: DocPage[] = [
           <p>
             Past runs are kept and reopenable, and an interrupted run resumes
             where it left off. You can delete your own runs (findings are
-            removed; cost records are retained), and a completed run exports
+            removed; usage records are retained), and a completed run exports
             to Word as a memo carrying the question, the scope, the cited
             answer, and the findings.
           </p>
@@ -886,10 +904,11 @@ export const DOC_PAGES: DocPage[] = [
         </MarketingSection>
         <MarketingSection title="The research document cap">
           <p>
-            How many documents a single research run may read, 200 by default.
-            A scope over the cap is declined before it runs, with the cap
-            named, so research cost stays a deliberate choice rather than a
-            surprise.
+            How many documents a single research run may read, 200 by default,
+            adjustable from 1 to 1000. A scope over the limit is declined
+            before it runs, with the limit named, so each run stays fast,
+            focused, and a deliberate choice. The ceiling reflects how much one
+            run can read live and well, not a storage limit.
           </p>
         </MarketingSection>
         <MarketingSection title="Content libraries">
@@ -950,10 +969,10 @@ export const DOC_PAGES: DocPage[] = [
           <div>
             <p className="font-medium text-foreground">Set the research document cap</p>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>Under Research, set Documents per run (1 to 5000).</li>
+              <li>Under Research, set Documents per run (1 to 1000).</li>
               <li>
-                Select Save. A research scope over the cap is declined before
-                it runs, with the cap named.
+                Select Save. A research scope over the limit is declined
+                before it runs, with the limit named.
               </li>
             </ol>
           </div>

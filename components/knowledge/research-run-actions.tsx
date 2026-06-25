@@ -97,7 +97,7 @@ export function ResearchRunActions({
         toast.error(result.error);
         return;
       }
-      toast.success("Run deleted. Cost records are retained.");
+      toast.success("Run deleted. Usage records are retained.");
       router.push("/workspace/knowledge/research");
       router.refresh();
     });
@@ -151,7 +151,7 @@ export function ResearchRunActions({
           <DialogHeader>
             <DialogTitle>Delete this research run?</DialogTitle>
             <DialogDescription>
-              Its findings will be removed. Cost records are retained.
+              Its findings will be removed. Usage records are retained.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

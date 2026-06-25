@@ -27,7 +27,7 @@ export function ResearchCapEditor({
   const [pending, startTransition] = useTransition();
 
   const parsed = Number.parseInt(value, 10);
-  const valid = Number.isFinite(parsed) && parsed >= 1 && parsed <= 5000;
+  const valid = Number.isFinite(parsed) && parsed >= 1 && parsed <= 1000;
   const dirty = valid && parsed !== savedCap;
 
   function handleSave() {
@@ -52,9 +52,9 @@ export function ResearchCapEditor({
         Research
       </h2>
       <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
-        How many documents one research run may read. A larger scope is
-        declined before it runs, with this cap named, so cost stays a
-        deliberate choice.
+        How many documents one research run may read (1 to 1000, default 200).
+        A larger scope is declined before it runs, with this limit named, so
+        each run stays fast, focused, and a deliberate choice.
       </p>
 
       <div className="mt-4 flex items-center gap-3 rounded-lg bg-paper-2 px-5 py-3">
@@ -71,7 +71,7 @@ export function ResearchCapEditor({
               type="number"
               inputMode="numeric"
               min={1}
-              max={5000}
+              max={1000}
               value={value}
               onChange={(event) => setValue(event.target.value)}
               className="w-[110px] bg-background"
@@ -88,7 +88,7 @@ export function ResearchCapEditor({
             </Button>
             {!valid ? (
               <p className="text-[12.5px] text-destructive">
-                Enter a number between 1 and 5000.
+                Enter a number between 1 and 1000.
               </p>
             ) : null}
           </>
