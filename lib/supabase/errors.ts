@@ -21,3 +21,15 @@ type CodedError = { code?: string | null } | null | undefined;
 export function isUndefinedColumnError(error: CodedError): boolean {
   return error?.code === "42703";
 }
+
+/**
+ * True when an error means a TABLE/relation is absent — Postgres undefined_table
+ * (SQLSTATE 42P01) or PostgREST's schema-cache miss for an unknown table
+ * (PGRST205). The table-level companion to isUndefinedColumnError: use it to
+ * tolerate a not-yet-applied table migration whose code deploy may land before
+ * the migration (e.g. the documents anchor, Structured Query commit 1), falling
+ * back to the pre-migration path until the table exists.
+ */
+export function isUndefinedTableError(error: CodedError): boolean {
+  return error?.code === "42P01" || error?.code === "PGRST205";
+}

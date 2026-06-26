@@ -21,12 +21,20 @@ import {
   listRemoteFolderChildren,
   type EnumerationTarget,
 } from "@/lib/knowledge/enumeration";
+import {
+  buildAnchorRows,
+  buildInventoryRows,
+} from "@/lib/knowledge/document-anchor";
 import { resolveEnumerationTarget } from "@/lib/knowledge/targets";
 import {
   runSyncSegment,
   type SyncCursor,
   type SyncSource,
 } from "@/lib/knowledge/sync";
+import {
+  isUndefinedColumnError,
+  isUndefinedTableError,
+} from "@/lib/supabase/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -330,6 +338,20 @@ export async function syncCollection(input: {
   const { collectionId, cursor, sourceIds } = parsed.data;
 
   const supabase = await createSupabaseServerClient();
+
+  // The collection's organization scopes the canonical document anchors the
+  // sync materializes below (the anchor identity is org + connection +
+  // external_id). RLS guarantees a super admin only reaches their own org's
+  // collections, so this read both authorizes and supplies the org id.
+  const { data: collectionRow, error: collectionError } = await supabase
+    .from("collections")
+    .select("organization_id")
+    .eq("id", collectionId)
+    .single();
+  if (collectionError || !collectionRow) return { ok: false, error: GENERIC_ERROR };
+  const organizationId = (collectionRow as { organization_id: string })
+    .organization_id;
+
   const { data: sourceRows, error: sourcesError } = await supabase
     .from("collection_sources")
     .select("id, connection_id, root_reference, display_path, recursive")
@@ -344,6 +366,10 @@ export async function syncCollection(input: {
     display_path: string;
     recursive: boolean;
   }[];
+
+  // The connection a source reads through identifies the file together with
+  // its external_id; the anchor upsert needs it per source.
+  const connectionBySource = new Map(rows.map((r) => [r.id, r.connection_id]));
 
   if (rows.length === 0) {
     return {
@@ -393,6 +419,14 @@ export async function syncCollection(input: {
 
   const displayPathBySource = new Map(rows.map((r) => [r.id, r.display_path]));
 
+  // Whether the canonical documents anchor is reachable. It is only absent in
+  // the brief window where this code is deployed but the anchor migration has
+  // not been applied yet (the operator pushes it separately). The first write
+  // that hits a missing table/column flips this off and the sync falls back to
+  // the pre-anchor inventory shape for the rest of the run; the next sync after
+  // the migration lands materializes anchors. See lib/supabase/errors.ts.
+  let anchorsAvailable = true;
+
   try {
     const result = await runSyncSegment(syncSources, cursor, {
       listChildren: (source, folderId, pageToken) =>
@@ -400,22 +434,71 @@ export async function syncCollection(input: {
 
       upsertDocuments: async (source, entries) => {
         const nowIso = new Date().toISOString();
+        const connectionId = connectionBySource.get(source.id)!;
         for (let i = 0; i < entries.length; i += UPSERT_CHUNK) {
-          const chunk = entries.slice(i, i + UPSERT_CHUNK).map((entry) => ({
-            collection_id: collectionId,
-            collection_source_id: source.id,
-            external_id: entry.id,
-            title: entry.name,
-            mime_type: entry.mimeType ?? "",
-            size_bytes: entry.sizeBytes,
-            modified_at_source: entry.modifiedAt,
-            source_url: entry.url,
-            last_seen_at: nowIso,
-            status: "present",
-          }));
-          const { error } = await supabase
+          const slice = entries.slice(i, i + UPSERT_CHUNK);
+
+          // 1) Canonical anchors first: one row per (org, connection,
+          //    external_id), so a file shared across collections is extracted
+          //    once later, never twice. Metadata is refreshed to this sync.
+          //    The returned ids link the inventory rows below.
+          let anchorIdByExternalId: Map<string, string> | null = null;
+          if (anchorsAvailable) {
+            const anchorRows = buildAnchorRows(
+              organizationId,
+              connectionId,
+              slice,
+              nowIso,
+            );
+            const { data, error } = await supabase
+              .from("documents")
+              .upsert(anchorRows, {
+                onConflict: "organization_id,connection_id,external_id",
+              })
+              .select("id, external_id");
+            if (error) {
+              // Migration not applied yet: degrade to legacy inventory writes
+              // for the rest of this sync rather than failing it.
+              if (isUndefinedTableError(error) || isUndefinedColumnError(error)) {
+                anchorsAvailable = false;
+              } else {
+                throw new Error("anchor write failed");
+              }
+            } else {
+              anchorIdByExternalId = new Map(
+                (data as { id: string; external_id: string }[]).map((r) => [
+                  r.external_id,
+                  r.id,
+                ]),
+              );
+            }
+          }
+
+          // 2) Inventory rows, linked to their anchor when one exists.
+          const chunk = buildInventoryRows(
+            collectionId,
+            source.id,
+            slice,
+            nowIso,
+            anchorIdByExternalId,
+          );
+          let { error } = await supabase
             .from("collection_documents")
             .upsert(chunk, { onConflict: "collection_source_id,external_id" });
+          // The document_id column lands with the same migration as the table,
+          // so this only triggers in the same pre-migration window: retry the
+          // legacy shape without the link.
+          if (error && isUndefinedColumnError(error)) {
+            anchorsAvailable = false;
+            const legacy = chunk.map((row) => {
+              const copy = { ...row };
+              delete copy.document_id;
+              return copy;
+            });
+            ({ error } = await supabase
+              .from("collection_documents")
+              .upsert(legacy, { onConflict: "collection_source_id,external_id" }));
+          }
           if (error) throw new Error("inventory write failed");
         }
       },
