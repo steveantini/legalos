@@ -1,5 +1,6 @@
 "use client";
 
+import { GapSuggestionFlow } from "@/components/knowledge/gap-suggestion-flow";
 import type {
   StructuredQueryCaveats,
   StructuredQueryGroup,
@@ -21,10 +22,13 @@ import type {
  */
 export function StructuredQueryResultView({
   result,
+  collectionId,
   onAdjust,
   onAskAnother,
 }: {
   result: PresentedResult;
+  /** The collection the question ran over, for the gap → suggest flow. */
+  collectionId: string | null;
   onAdjust: () => void;
   onAskAnother: () => void;
 }) {
@@ -40,7 +44,7 @@ export function StructuredQueryResultView({
       </div>
 
       {result.kind === "gap" ? (
-        <GapBlock gap={result} />
+        <GapBlock gap={result} collectionId={collectionId} />
       ) : (
         <AnswerBlock answer={result} />
       )}
@@ -70,7 +74,13 @@ export function StructuredQueryResultView({
  * me to start tracking <concept>?" offer when schema-grows-on-demand lands —
  * additive here (a button beneath the available-fields line), never a rewrite.
  */
-function GapBlock({ gap }: { gap: PresentedGap }) {
+function GapBlock({
+  gap,
+  collectionId,
+}: {
+  gap: PresentedGap;
+  collectionId: string | null;
+}) {
   return (
     <div className="max-w-[75ch] rounded-xl border border-hairline bg-paper-2 p-5">
       <p className="text-[15px] leading-[1.55] text-foreground">
@@ -85,8 +95,11 @@ function GapBlock({ gap }: { gap: PresentedGap }) {
             <span className="text-foreground">{attribute.label}</span>
           </span>
         ))}
-        . Try asking about one of those.
+        . Try asking about one of those{collectionId ? ", or suggest tracking this one" : ""}.
       </p>
+      {/* Phase two: offer to start tracking the missing field. Additive to the
+          gap above; needs the collection the question ran over. */}
+      {collectionId ? <GapSuggestionFlow gap={gap} collectionId={collectionId} /> : null}
     </div>
   );
 }

@@ -208,6 +208,15 @@ export default function FeaturesPage() {
           Research: where Research reads and reasons, Structured Query counts,
           the same way every time.
         </p>
+        <p>
+          And when you ask about something a collection doesn&rsquo;t track yet,
+          it says so and lets you suggest it. legalOS drafts the new field for an
+          administrator to review and approve; once approved and the collection
+          is updated, that field is tracked permanently and becomes exactly
+          queryable, extracted with the same cited evidence as every other field,
+          never guessed on the fly. Your collections grow to fit the questions
+          your team actually asks.
+        </p>
       </MarketingSection>
 
       <MarketingSection id="measurement" title="Measurement">

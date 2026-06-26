@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { SchemaSuggestionReview } from "@/components/knowledge/schema-suggestion-review";
 import { StructuredQueryComposer } from "@/components/knowledge/structured-query-composer";
 import { StructuredQueryResultView } from "@/components/knowledge/structured-query-result";
 import { Button } from "@/components/ui/button";
+import type { SchemaSuggestionView } from "@/lib/knowledge/schema-suggestions-shared";
 import {
   Dialog,
   DialogContent,
@@ -53,9 +55,11 @@ function relativeTime(iso: string): string {
 export function StructuredQueryView({
   collections,
   history,
+  suggestions,
 }: {
   collections: QueryableCollection[];
   history: StructuredQueryHistoryItem[];
+  suggestions: SchemaSuggestionView[];
 }) {
   const router = useRouter();
   const [result, setResult] = useState<PresentedResult | null>(null);
@@ -125,6 +129,7 @@ export function StructuredQueryView({
     return (
       <StructuredQueryResultView
         result={result}
+        collectionId={lastCollectionId}
         onAdjust={handleAdjust}
         onAskAnother={() => {
           setResult(null);
@@ -158,6 +163,27 @@ export function StructuredQueryView({
           initialCollectionId={prefill?.collectionId ?? null}
         />
       )}
+
+      {suggestions.length > 0 ? (
+        <section aria-labelledby="structured-query-suggestions">
+          <h2
+            id="structured-query-suggestions"
+            className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
+          >
+            Suggested fields
+          </h2>
+          <div className="mt-2 flex flex-col gap-2">
+            {suggestions.map((suggestion) => (
+              <div key={suggestion.id}>
+                <p className="mb-1 text-[12px] text-caption">
+                  From &ldquo;{suggestion.sourceQuestion}&rdquo; · {suggestion.collectionName}
+                </p>
+                <SchemaSuggestionReview suggestion={suggestion} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {history.length > 0 ? (
         <section aria-labelledby="structured-query-history">

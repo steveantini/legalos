@@ -71,6 +71,7 @@ Last full truth pass: 2026-06-12 (D-157).
 | Structured Query: ask an exact question in plain language about a collection's defined fields and get a precise count you can check; the exact/repeatable companion to Research's read-and-reason | D-197/D-198/D-199 (anchor, schema, extraction with verified citations), D-200 (the pure deterministic query engine), D-201 (the NL question surface: model translates to the IR, pure engine counts, interpreted query shown and re-runnable) |
 | The interpreted query is shown in plain language and the count's honesty caveats (unverified citations, not-found, partially-read, unprepared) are reachable, not hidden; each matching document carries its supporting quote | D-200 (engine caveats + matched ids), D-201 (presentation: exact lead, reachable caveats, per-document citations, stale-data notice) |
 | Asking about a field the collection does not track is answered honestly by naming what it does track (no opaque failure) | D-201 (the honest-gap response; the phase-two schema-grows-on-demand seam) |
+| Schema-grows-on-demand: a member can suggest tracking a missing field; a model drafts it; an admin reviews/edits and approves; on approval it is added and (after a deliberate Update) becomes a permanent, citation-backed, exactly-queryable field, never an on-the-fly guess | D-202 (member-suggests/admin-approves via a single changeable approval gate; model-drafted definition with admin review/edit before commit; reuses derived-staleness + Prepare/Update, no new extraction and no auto-run) |
 
 ## Measurement (`#measurement`)
 

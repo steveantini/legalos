@@ -582,6 +582,20 @@ export const DOC_PAGES: DocPage[] = [
             needs updating, the answer says so rather than resting silently on
             stale extractions. Your recent questions are kept and can be re-run.
           </p>
+          <p>
+            If you ask about something the collection doesn&rsquo;t track yet, it
+            tells you and offers to start tracking it. You suggest the field;
+            legalOS drafts its definition (a name, a type, and a description of
+            what to find), and an administrator reviews and edits that draft
+            before approving it. On approval the field is added to the
+            collection&rsquo;s schema, which marks the collection as needing an
+            update; an administrator then runs Update (the same deliberate step
+            as any other change, so extraction is never a surprise cost), and
+            once it finishes the new field is a permanent, exactly-queryable
+            attribute backed by citations like every other. It is added the
+            careful way, defined and then extracted with evidence, never answered
+            by a guess.
+          </p>
         </MarketingSection>
         <MarketingSection title="How to">
           <div>
@@ -619,6 +633,12 @@ export const DOC_PAGES: DocPage[] = [
                 Read the exact count, check the interpreted query shown beneath
                 it, and open the matching documents to see each supporting quote.
                 Re-run a recent question any time from the list below.
+              </li>
+              <li>
+                If the collection doesn&rsquo;t track what you asked about, select
+                Suggest tracking it. An administrator reviews the drafted field
+                and approves it; after they run Update on the collection, ask your
+                question again and it will be answered.
               </li>
             </ol>
           </div>

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { StructuredQueryView } from "@/components/knowledge/structured-query-view";
 import { HelpLink } from "@/components/workspace/help-link";
 import { requireAuthUser } from "@/lib/auth/access";
+import { listSchemaSuggestions } from "@/lib/knowledge/schema-suggestions";
 import {
   getQueryableCollections,
   listStructuredQueries,
@@ -29,9 +30,10 @@ export const maxDuration = 60;
 export default async function StructuredQueryPage() {
   await requireAuthUser();
 
-  const [collections, history] = await Promise.all([
+  const [collections, history, suggestions] = await Promise.all([
     getQueryableCollections(),
     listStructuredQueries(),
+    listSchemaSuggestions(),
   ]);
 
   return (
@@ -51,7 +53,11 @@ export default async function StructuredQueryPage() {
         <HelpLink topic="knowledge" className="mt-3" />
       </header>
 
-      <StructuredQueryView collections={collections} history={history} />
+      <StructuredQueryView
+        collections={collections}
+        history={history}
+        suggestions={suggestions}
+      />
     </main>
   );
 }

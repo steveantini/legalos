@@ -10,8 +10,14 @@ import {
   type StructuredQuery,
   type StructuredQueryResult,
 } from "@/lib/deterministic/structured-query";
+import {
+  buildDraftSystemPrompt,
+  buildDraftUserPrompt,
+  parseDraftOutput,
+} from "@/lib/knowledge/attribute-draft";
 import { COLLECTION_ATTRIBUTE_TYPES, type CollectionAttributeType } from "@/lib/knowledge/collection-schema";
 import { getVisibleCollections } from "@/lib/knowledge/collections-data";
+import type { ProposedAttribute } from "@/lib/knowledge/schema-suggestions-shared";
 import type {
   MatchedDocument,
   QueryableAttribute,
@@ -157,7 +163,7 @@ type ModelContext = {
 /** Output budget for the translation: a small JSON envelope, never prose. */
 const TRANSLATE_MAX_TOKENS = 1_000;
 
-async function resolveTranslateModelContext(
+async function resolveKnowledgeModelContext(
   organizationId: string,
   userId: string,
 ): Promise<ModelContext> {
@@ -244,7 +250,7 @@ export async function translateQuestionToQuery(args: {
   userId: string;
 }): Promise<TranslationOutcome> {
   const { question, attributes, organizationId, userId } = args;
-  const ctx = await resolveTranslateModelContext(organizationId, userId);
+  const ctx = await resolveKnowledgeModelContext(organizationId, userId);
   let text: string;
   try {
     text = await structuredQueryModelCall(
@@ -258,6 +264,42 @@ export async function translateQuestionToQuery(args: {
     return { kind: "unparseable" };
   }
   return parseTranslationOutput(text, attributes.map((a) => a.key));
+}
+
+/** Output budget for an attribute draft: a single small JSON object. */
+const DRAFT_MAX_TOKENS = 600;
+
+/**
+ * Draft a proposed attribute definition for schema-grows-on-demand (phase two):
+ * from a gapped question and the concept it asked about, propose a label, type,
+ * options (for enum), and the load-bearing description. Reuses the SAME
+ * model-agnostic call as translation. The result is a PROPOSAL an admin reviews
+ * and edits before anything is committed; null when the model produced nothing
+ * usable (the caller then offers a minimal editable draft). The model never
+ * answers the question, only proposes a structure to track it.
+ */
+export async function draftAttributeDefinition(args: {
+  question: string;
+  missingConcept: string;
+  existing: QueryableAttribute[];
+  organizationId: string;
+  userId: string;
+}): Promise<ProposedAttribute | null> {
+  const { question, missingConcept, existing, organizationId, userId } = args;
+  const ctx = await resolveKnowledgeModelContext(organizationId, userId);
+  let text: string;
+  try {
+    text = await structuredQueryModelCall(
+      ctx,
+      buildDraftSystemPrompt(existing),
+      buildDraftUserPrompt(question, missingConcept),
+      DRAFT_MAX_TOKENS,
+    );
+  } catch (err) {
+    console.error("attribute draft model call failed", err);
+    return null;
+  }
+  return parseDraftOutput(text);
 }
 
 // ---------------------------------------------------------------------------
