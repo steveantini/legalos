@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { SchemaSuggestionReview } from "@/components/knowledge/schema-suggestion-review";
 import { StructuredQueryComposer } from "@/components/knowledge/structured-query-composer";
 import { StructuredQueryResultView } from "@/components/knowledge/structured-query-result";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { SchemaSuggestionView } from "@/lib/knowledge/schema-suggestions-shared";
 import {
   Dialog,
@@ -54,10 +54,17 @@ function relativeTime(iso: string): string {
 
 export function StructuredQueryView({
   collections,
+  schemalessCollections,
+  canDefineSchemas,
   history,
   suggestions,
 }: {
   collections: QueryableCollection[];
+  /** Visible, synced collections that have NO schema yet (an admin's next step
+   * is to define one). Used only to choose the right empty state. */
+  schemalessCollections: { id: string; name: string }[];
+  /** Whether the viewer may define schemas (the super-admin schema-write gate). */
+  canDefineSchemas: boolean;
   history: StructuredQueryHistoryItem[];
   suggestions: SchemaSuggestionView[];
 }) {
@@ -142,18 +149,10 @@ export function StructuredQueryView({
   return (
     <div className="flex flex-col gap-8">
       {collections.length === 0 ? (
-        <p className="max-w-[62ch] rounded-lg bg-paper-2 px-5 py-4 text-[13.5px] leading-[1.5] text-muted-foreground">
-          Structured Query answers exact questions about the fields a collection
-          tracks, and there are no prepared collections visible to you yet. An
-          administrator defines the fields and prepares a collection in{" "}
-          <Link
-            href="/workspace/knowledge/collections"
-            className="font-medium text-foreground underline-offset-2 hover:underline"
-          >
-            Collections
-          </Link>
-          ; once that&rsquo;s done, you can ask here.
-        </p>
+        <StructuredQueryEmptyState
+          canDefineSchemas={canDefineSchemas}
+          schemalessCollections={schemalessCollections}
+        />
       ) : (
         <StructuredQueryComposer
           collections={collections}
@@ -270,6 +269,91 @@ export function StructuredQueryView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * The state-aware, role-aware empty state. The composer gate is SCHEMA-DEFINED
+ * (a collection with `schemaAttributes.length > 0`), never preparation, so an
+ * empty surface means no visible collection has a schema yet. Three honest
+ * situations, each with the precise next action:
+ *  A) an admin with synced collection(s) but no schema → define the fields
+ *     (deep-linked to define-schema on the specific collection when there's one);
+ *  B) an admin with no collections at all → set up a collection first;
+ *  C) a member with nothing set up → honest wait-for-admin, no dead-end button.
+ */
+function StructuredQueryEmptyState({
+  canDefineSchemas,
+  schemalessCollections,
+}: {
+  canDefineSchemas: boolean;
+  schemalessCollections: { id: string; name: string }[];
+}) {
+  // STATE C — the viewer cannot define schemas and nothing is set up for them.
+  if (!canDefineSchemas) {
+    return (
+      <EmptyCard>
+        Your team hasn&rsquo;t set up any fields to query yet. Once an
+        administrator does, this is where you&rsquo;ll ask precise questions about
+        your documents.
+      </EmptyCard>
+    );
+  }
+
+  // STATE B — an admin with no collections at all.
+  if (schemalessCollections.length === 0) {
+    return (
+      <EmptyCard action={{ href: "/workspace/knowledge/collections", label: "Set up a collection" }}>
+        Set up a collection of documents first, then define the fields you want
+        to track, and you can ask exact questions about them here.
+      </EmptyCard>
+    );
+  }
+
+  // STATE A — an admin with synced collection(s), but none has a schema yet.
+  // Deep-link to define-schema on the specific collection when there is one.
+  const single = schemalessCollections.length === 1 ? schemalessCollections[0] : null;
+  const action = single
+    ? { href: `/workspace/knowledge/collections?schema=${single.id}`, label: "Define fields" }
+    : { href: "/workspace/knowledge/collections", label: "Define fields" };
+  return (
+    <EmptyCard action={action}>
+      {single ? (
+        <>
+          <span className="font-medium text-foreground">{single.name}</span> is
+          synced and ready. Define the fields you want to track, like agreement
+          type or effective date, and you can start asking exact questions about
+          them.
+        </>
+      ) : (
+        <>
+          Your collections are synced and ready. Define the fields you want to
+          track on one, like agreement type or effective date, and you can start
+          asking exact questions about them.
+        </>
+      )}
+    </EmptyCard>
+  );
+}
+
+/** A muted empty-state card with an optional primary action that reads as a
+ * single obvious next click (a button-styled link). */
+function EmptyCard({
+  children,
+  action,
+}: {
+  children: ReactNode;
+  action?: { href: string; label: string };
+}) {
+  return (
+    <div className="flex max-w-[62ch] flex-col items-start gap-3 rounded-lg bg-paper-2 px-5 py-4">
+      <p className="text-[13.5px] leading-[1.5] text-muted-foreground">{children}</p>
+      {action ? (
+        <Link href={action.href} className={buttonVariants()}>
+          {action.label}
+        </Link>
+      ) : null}
     </div>
   );
 }

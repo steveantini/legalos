@@ -16,7 +16,7 @@ import {
   parseDraftOutput,
 } from "@/lib/knowledge/attribute-draft";
 import { COLLECTION_ATTRIBUTE_TYPES, type CollectionAttributeType } from "@/lib/knowledge/collection-schema";
-import { getVisibleCollections } from "@/lib/knowledge/collections-data";
+import { getVisibleCollections, type CollectionView } from "@/lib/knowledge/collections-data";
 import type { ProposedAttribute } from "@/lib/knowledge/schema-suggestions-shared";
 import type {
   MatchedDocument,
@@ -387,25 +387,53 @@ export async function loadMatchedCitations(
  * the one source; the schema attributes are readable to members for visible
  * collections as of this commit's migration.
  */
+function toQueryableCollection(c: CollectionView): QueryableCollection {
+  return {
+    id: c.id,
+    name: c.name,
+    description: c.description,
+    provenance: c.sources.map((s) => s.displayPath),
+    documentCount: c.presentCount,
+    lastSyncedAt: c.lastSyncedAt,
+    attributes: c.schemaAttributes.map((a) => ({
+      key: a.key,
+      label: a.label,
+      type: a.type,
+      ...(a.options && a.options.length > 0 ? { options: a.options } : {}),
+    })),
+    preparationState: c.preparationState,
+  };
+}
+
 export async function getQueryableCollections(): Promise<QueryableCollection[]> {
   const collections = await getVisibleCollections();
   return collections
     .filter((c) => c.schemaAttributes.length > 0)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      provenance: c.sources.map((s) => s.displayPath),
-      documentCount: c.presentCount,
-      lastSyncedAt: c.lastSyncedAt,
-      attributes: c.schemaAttributes.map((a) => ({
-        key: a.key,
-        label: a.label,
-        type: a.type,
-        ...(a.options && a.options.length > 0 ? { options: a.options } : {}),
-      })),
-      preparationState: c.preparationState,
-    }));
+    .map(toQueryableCollection);
+}
+
+/**
+ * The setup inputs the Structured Query surface needs to choose a state-aware
+ * empty state (commit: state-aware empty states). From ONE visible-collections
+ * read it returns both the QUERYABLE collections (a schema is defined, so the
+ * composer renders) and the SCHEMALESS ones (visible, synced, but no schema yet,
+ * so an admin's next step is to define one). The composer gate is schema-defined
+ * (`queryable`), never preparation — a schema'd-but-unprepared collection is
+ * queryable and surfaces its own "not prepared" notice on an answer.
+ */
+export async function getStructuredQuerySetup(): Promise<{
+  queryable: QueryableCollection[];
+  schemaless: { id: string; name: string }[];
+}> {
+  const collections = await getVisibleCollections();
+  return {
+    queryable: collections
+      .filter((c) => c.schemaAttributes.length > 0)
+      .map(toQueryableCollection),
+    schemaless: collections
+      .filter((c) => c.schemaAttributes.length === 0)
+      .map((c) => ({ id: c.id, name: c.name })),
+  };
 }
 
 /**

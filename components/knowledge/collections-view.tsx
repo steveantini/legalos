@@ -88,16 +88,26 @@ export function CollectionsView({
   departments,
   eligibleConnections,
   canEdit,
+  initialSchemaCollectionId,
 }: {
   collections: CollectionViewModel[];
   departments: { id: string; name: string }[];
   eligibleConnections: EligibleSourceConnection[];
   canEdit: boolean;
+  /** When set (the `?schema=<id>` deep-link from Structured Query), open the
+   * define-schema dialog for that collection on first render. */
+  initialSchemaCollectionId?: string;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState | null>(null);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-  const [schemaFor, setSchemaFor] = useState<CollectionViewModel | null>(null);
+  // Lazy initializer (not an effect) so the deep-link opens the schema dialog on
+  // mount with no cascading-render setState-in-effect.
+  const [schemaFor, setSchemaFor] = useState<CollectionViewModel | null>(() =>
+    canEdit && initialSchemaCollectionId
+      ? collections.find((c) => c.id === initialSchemaCollectionId) ?? null
+      : null,
+  );
   const [deleteTarget, setDeleteTarget] =
     useState<CollectionViewModel | null>(null);
   const [pendingDelete, startDelete] = useTransition();

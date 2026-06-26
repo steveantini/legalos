@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 
 import { StructuredQueryView } from "@/components/knowledge/structured-query-view";
 import { HelpLink } from "@/components/workspace/help-link";
-import { requireAuthUser } from "@/lib/auth/access";
+import { isCurrentUserSuperAdmin, requireAuthUser } from "@/lib/auth/access";
 import { listSchemaSuggestions } from "@/lib/knowledge/schema-suggestions";
 import {
-  getQueryableCollections,
+  getStructuredQuerySetup,
   listStructuredQueries,
 } from "@/lib/knowledge/structured-query";
 
@@ -30,10 +30,11 @@ export const maxDuration = 60;
 export default async function StructuredQueryPage() {
   await requireAuthUser();
 
-  const [collections, history, suggestions] = await Promise.all([
-    getQueryableCollections(),
+  const [setup, history, suggestions, canDefineSchemas] = await Promise.all([
+    getStructuredQuerySetup(),
     listStructuredQueries(),
     listSchemaSuggestions(),
+    isCurrentUserSuperAdmin(),
   ]);
 
   return (
@@ -44,17 +45,20 @@ export default async function StructuredQueryPage() {
             Structured Query
           </h1>
           <p className="mt-[14px] max-w-[62ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            Ask an exact question about the fields a collection tracks, in plain
-            language, and get a precise count you can check. Every answer shows
-            how your question was read and a supporting quote from each matching
-            document. It is the exact, repeatable companion to Research.
+            Ask precise questions about your documents and get exact, checkable
+            answers, not a summary, but a real result you can verify. Every
+            answer shows how your question was read and a supporting quote from
+            each document it drew on. It&rsquo;s the exact, repeatable companion
+            to Research.
           </p>
         </div>
         <HelpLink topic="knowledge" className="mt-3" />
       </header>
 
       <StructuredQueryView
-        collections={collections}
+        collections={setup.queryable}
+        schemalessCollections={setup.schemaless}
+        canDefineSchemas={canDefineSchemas}
         history={history}
         suggestions={suggestions}
       />
