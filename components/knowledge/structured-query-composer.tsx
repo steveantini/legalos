@@ -101,6 +101,11 @@ export function StructuredQueryComposer({
               onSelect={() => setSelectedId(collection.id)}
               inputType="radio"
               inputName="structured-query-collection"
+              // With a single collection the sole card is always auto-selected,
+              // so the darker selected shade distinguishes nothing and only adds
+              // weight; show the lighter resting shade (matching Research) and
+              // only apply the selected treatment when there is a choice to make.
+              showSelectedStyle={collections.length > 1}
             />
           ))}
         </div>

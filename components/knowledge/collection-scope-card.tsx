@@ -19,6 +19,7 @@ export function CollectionScopeCard({
   inputType,
   inputName,
   title,
+  showSelectedStyle = true,
 }: {
   name: string;
   documentCount: number;
@@ -32,13 +33,19 @@ export function CollectionScopeCard({
   /** Radio group name, so single-select cards share a group. */
   inputName?: string;
   title?: string;
+  /** Whether the darker selected treatment is shown. The selection still
+   * registers (the input stays checked); this only governs the visual. Pass
+   * false when selection carries no information, e.g. a sole auto-selected
+   * collection, so the card matches the lighter resting shade rather than
+   * adding weight that distinguishes nothing. */
+  showSelectedStyle?: boolean;
 }) {
   return (
     <label
       title={title}
       className={cn(
         "flex cursor-pointer flex-col gap-1 rounded-lg border px-4 py-3 transition-colors duration-hover ease-soft has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring motion-reduce:transition-none",
-        selected
+        selected && showSelectedStyle
           ? "border-hairline-strong bg-secondary"
           : "border-hairline bg-paper-2 hover:bg-secondary",
       )}
