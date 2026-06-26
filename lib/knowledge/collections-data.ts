@@ -10,6 +10,13 @@ import {
   parseCollectionAttributes,
   type CollectionAttribute,
 } from "@/lib/knowledge/collection-schema";
+import {
+  deriveCollectionPreparationState,
+  selectStaleExtractionWork,
+  type CollectionPreparationState,
+  type ExistingExtraction,
+  type ExtractionDocumentRef,
+} from "@/lib/knowledge/extraction/extract";
 import { hasEnumerationAdapter } from "@/lib/knowledge/enumeration";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isUndefinedTableError } from "@/lib/supabase/errors";
@@ -55,6 +62,14 @@ export type CollectionView = {
    * admin-only, so a non-admin read returns nothing and the field stays empty.
    */
   schemaAttributes: CollectionAttribute[];
+  /**
+   * The DERIVED preparation state (Structured Query commit 3): whether the
+   * collection's documents have been extracted against its current schema, and
+   * whether anything is stale. Drives the Prepare / Update action label. Always
+   * "no_schema" for non-admins (they never receive a schema). Computed from
+   * live staleness, never a stored flag.
+   */
+  preparationState: CollectionPreparationState;
 };
 
 // Embed shapes the untyped server client returns, asserted at the boundary.
@@ -141,21 +156,162 @@ async function getConnectionDisplayMap(
  * Collections read — the same graceful degradation the anchor write uses
  * (Structured Query commit 1).
  */
-async function getCollectionSchemaMap(): Promise<Map<string, CollectionAttribute[]>> {
+/** One collection's schema as the data layer carries it: the attributes for
+ * display, plus the id and version the derived-staleness computation needs. */
+type SchemaEntry = {
+  id: string;
+  version: number;
+  attributes: CollectionAttribute[];
+};
+
+async function getCollectionSchemaMap(): Promise<Map<string, SchemaEntry>> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("collection_schemas")
-    .select("collection_id, attributes");
+    .select("id, collection_id, version, attributes");
   if (error) {
     if (!isUndefinedTableError(error)) {
       console.error("collection_schemas read failed", { code: error.code });
     }
     return new Map();
   }
-  const rows = (data ?? []) as { collection_id: string; attributes: unknown }[];
+  const rows = (data ?? []) as {
+    id: string;
+    collection_id: string;
+    version: number;
+    attributes: unknown;
+  }[];
   return new Map(
-    rows.map((row) => [row.collection_id, parseCollectionAttributes(row.attributes)]),
+    rows.map((row) => [
+      row.collection_id,
+      {
+        id: row.id,
+        version: row.version,
+        attributes: parseCollectionAttributes(row.attributes),
+      },
+    ]),
   );
+}
+
+/**
+ * The DERIVED preparation state for each collection that has a schema, computed
+ * from live staleness (the document anchors' modified times, the existing
+ * extraction rows, and the schema version). Two scoped reads total, not per
+ * collection. Tolerates the pre-migration window: an absent document_extractions
+ * table reads as "nothing extracted yet", so collections show "not prepared"
+ * honestly until the migration lands.
+ */
+async function getPreparationStateMap(
+  schemaMap: Map<string, SchemaEntry>,
+): Promise<Map<string, CollectionPreparationState>> {
+  const states = new Map<string, CollectionPreparationState>();
+  const collectionIds = [...schemaMap.keys()];
+  if (collectionIds.length === 0) return states;
+
+  const supabase = await createSupabaseServerClient();
+
+  // Present, anchored documents for these collections, with the anchor's live
+  // modified time (the doc-changed staleness input).
+  const { data: invData, error: invError } = await supabase
+    .from("collection_documents")
+    .select("collection_id, document_id, documents(modified_at_source)")
+    .in("collection_id", collectionIds)
+    .eq("status", "present")
+    .not("document_id", "is", null);
+  if (invError) {
+    console.error("preparation inventory read failed", { code: invError.code });
+    return states;
+  }
+
+  const docsByCollection = new Map<string, ExtractionDocumentRef[]>();
+  const seenPerCollection = new Map<string, Set<string>>();
+  const allDocumentIds = new Set<string>();
+  for (const raw of (invData ?? []) as unknown as {
+    collection_id: string;
+    document_id: string;
+    documents: { modified_at_source: string | null } | null;
+  }[]) {
+    if (!raw.document_id) continue;
+    let seen = seenPerCollection.get(raw.collection_id);
+    if (!seen) {
+      seen = new Set();
+      seenPerCollection.set(raw.collection_id, seen);
+    }
+    if (seen.has(raw.document_id)) continue;
+    seen.add(raw.document_id);
+    allDocumentIds.add(raw.document_id);
+    const list = docsByCollection.get(raw.collection_id) ?? [];
+    // Only documentId and modifiedAtSource matter to staleness; the rest are
+    // placeholders (the engine loads full refs when it actually extracts).
+    list.push({
+      documentId: raw.document_id,
+      externalId: "",
+      title: "",
+      connectionId: "",
+      sourceUrl: null,
+      modifiedAtSource: raw.documents?.modified_at_source ?? null,
+    });
+    docsByCollection.set(raw.collection_id, list);
+  }
+
+  // Existing extraction rows for those documents (the freshness inputs).
+  const existingByDocId = new Map<string, ExistingExtraction[]>();
+  if (allDocumentIds.size > 0) {
+    const { data: exData, error: exError } = await supabase
+      .from("document_extractions")
+      .select(
+        "document_id, attribute_key, document_modified_at_source, extracted_against_schema_version, source_collection_schema_id",
+      )
+      .in("document_id", [...allDocumentIds]);
+    if (exError) {
+      if (!isUndefinedTableError(exError)) {
+        console.error("document_extractions read failed", { code: exError.code });
+      }
+      // Absent table → no extractions; states fall to "not prepared" honestly.
+    } else {
+      for (const row of (exData ?? []) as {
+        document_id: string;
+        attribute_key: string;
+        document_modified_at_source: string | null;
+        extracted_against_schema_version: number;
+        source_collection_schema_id: string | null;
+      }[]) {
+        const list = existingByDocId.get(row.document_id) ?? [];
+        list.push({
+          documentId: row.document_id,
+          attributeKey: row.attribute_key,
+          documentModifiedAtSource: row.document_modified_at_source,
+          extractedAgainstSchemaVersion: row.extracted_against_schema_version,
+          sourceCollectionSchemaId: row.source_collection_schema_id,
+        });
+        existingByDocId.set(row.document_id, list);
+      }
+    }
+  }
+
+  for (const [collectionId, schema] of schemaMap) {
+    const documents = docsByCollection.get(collectionId) ?? [];
+    const existing = documents.flatMap(
+      (doc) => existingByDocId.get(doc.documentId) ?? [],
+    );
+    const staleWork = selectStaleExtractionWork(
+      documents,
+      schema.attributes,
+      schema.id,
+      schema.version,
+      existing,
+    );
+    states.set(
+      collectionId,
+      deriveCollectionPreparationState({
+        documentCount: documents.length,
+        attributeCount: schema.attributes.length,
+        staleWork,
+        existingCount: existing.length,
+      }),
+    );
+  }
+  return states;
 }
 
 /**
@@ -185,6 +341,9 @@ export async function getVisibleCollections(): Promise<CollectionView[]> {
   if (error || !data) return [];
 
   const rows = data as unknown as CollectionRow[];
+  // The derived preparation state for collections that carry a schema (two
+  // scoped reads), so each card shows Prepare / Update / Ready honestly.
+  const preparationStates = await getPreparationStateMap(schemaMap);
 
   return Promise.all(
     rows.map(async (row) => {
@@ -218,7 +377,8 @@ export async function getVisibleCollections(): Promise<CollectionView[]> {
         presentCount: present.count ?? 0,
         missingCount: missing.count ?? 0,
         lastSyncedAt: row.last_synced_at,
-        schemaAttributes: schemaMap.get(row.id) ?? [],
+        schemaAttributes: schemaMap.get(row.id)?.attributes ?? [],
+        preparationState: preparationStates.get(row.id) ?? "no_schema",
       };
     }),
   );

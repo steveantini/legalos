@@ -1140,6 +1140,26 @@ export const DOC_PAGES: DocPage[] = [
             the definition that a later step will read.
           </p>
         </MarketingSection>
+        <MarketingSection title="Preparing a collection">
+          <p>
+            Once a collection has a schema and a synced inventory, Prepare reads
+            each document and pulls out the defined attributes, storing each
+            value with a short verbatim quote from the document that supports it.
+            Every quote is checked against the source text, so a value you can
+            see is a value you can trace. When an attribute is not in a document,
+            it is recorded as not found rather than guessed, and if a document
+            was too long to read in full, that is noted too. The first run is
+            called Prepare; afterwards the button reads Update, and it only does
+            the work that is needed: a document is re-read when it has changed
+            upstream or when you have changed the schema, and is otherwise left
+            as it is. The card shows where things stand, not prepared, ready, or
+            needs updating, so you always know whether the structured data is
+            current. Prepare is separate from Sync: Sync refreshes the list of
+            documents, Prepare refreshes the data extracted from them. A sync
+            never extracts; it only keeps the inventory current, which is what
+            lets Update know what has changed.
+          </p>
+        </MarketingSection>
         <MarketingSection title="How to">
           <p className="text-[13.5px] text-muted-foreground">
             Managing collections is super admin only; everyone else sees the
@@ -1203,6 +1223,26 @@ export const DOC_PAGES: DocPage[] = [
               <li>
                 Select Save schema. Nothing is extracted yet; you are defining
                 what to extract. The card shows how many attributes are defined.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Prepare the structured data</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                With a schema defined and the inventory synced, select Prepare
+                on the collection&rsquo;s card. (After the first run the button
+                reads Update.)
+              </li>
+              <li>
+                Progress shows live as it reads each document and extracts the
+                attributes. When it finishes, you see how many documents were
+                prepared, how many could not be read, and how many values were
+                found.
+              </li>
+              <li>
+                Run Update whenever documents or the schema have changed; it
+                re-reads only what is stale and leaves current data as it is.
               </li>
             </ol>
           </div>

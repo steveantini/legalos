@@ -31,6 +31,10 @@ import {
 } from "@/lib/knowledge/document-anchor";
 import { resolveEnumerationTarget } from "@/lib/knowledge/targets";
 import {
+  advanceCollectionPreparation,
+  type PrepareSegmentResult,
+} from "@/lib/knowledge/extraction/engine";
+import {
   runSyncSegment,
   type SyncCursor,
   type SyncSource,
@@ -101,6 +105,13 @@ const syncInputSchema = z.object({
   cursor: syncCursorSchema.nullable(),
   /** Snapshot of source ids the cursor was minted against (order matters). */
   sourceIds: z.array(uuid).max(100).nullable(),
+});
+
+const prepareInputSchema = z.object({
+  collectionId: uuid,
+  /** Documents this run already tried and could not read, carried so the
+   * client-driven loop advances past them instead of retrying forever. */
+  failedDocumentIds: z.array(uuid).max(5000).nullable(),
 });
 
 // ---------------------------------------------------------------------------
@@ -653,4 +664,41 @@ export async function syncCollection(input: {
         "The sync hit a problem reading a source and stopped. Nothing was lost; run sync again.",
     };
   }
+}
+
+/**
+ * Advance a collection's PREPARATION by one segment (super admin) — the
+ * user-facing "Prepare" (first run) / "Update" (subsequent) action. Reads the
+ * stale documents, extracts the schema's attributes with verified citations, and
+ * stores values keyed to the document anchor. Deliberately distinct from Sync:
+ * Sync refreshes the file INVENTORY, Prepare/Update refreshes the extracted
+ * STRUCTURED DATA. The heavy lifting (derived staleness, the reconcile, the
+ * model calls) lives in lib/knowledge/extraction/engine; this is the gate and
+ * the path revalidation. The client loops it until completed, echoing back the
+ * documents that could not be read so the run advances past them.
+ */
+export async function prepareCollection(input: {
+  collectionId: string;
+  failedDocumentIds: string[] | null;
+}): Promise<PrepareSegmentResult> {
+  await requireAuthUser();
+  if (!(await isCurrentUserSuperAdmin())) {
+    return { ok: false, error: NOT_ALLOWED };
+  }
+  const parsed = prepareInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
+
+  const profile = await getCurrentUserProfile();
+  if (!profile?.organization_id) return { ok: false, error: GENERIC_ERROR };
+
+  const result = await advanceCollectionPreparation({
+    collectionId: parsed.data.collectionId,
+    organizationId: profile.organization_id,
+    userId: profile.id,
+    failedDocumentIds: parsed.data.failedDocumentIds ?? [],
+  });
+
+  // On completion, refresh so each card recomputes its derived preparation state.
+  if (result.ok && result.completed) revalidatePath(COLLECTIONS_PATH);
+  return result;
 }

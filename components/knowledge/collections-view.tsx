@@ -19,11 +19,16 @@ import {
   addCollectionSource,
   browseSourceFolder,
   deleteCollection,
+  prepareCollection,
   removeCollectionSource,
   saveCollection,
   saveCollectionSchema,
   syncCollection,
 } from "@/lib/actions/collections";
+import {
+  composePreparationBasis,
+  type PreparationTally,
+} from "@/lib/knowledge/extraction/extract";
 import {
   COLLECTION_ATTRIBUTE_TYPES,
   makeUniqueAttributeKey,
@@ -108,6 +113,11 @@ export function CollectionsView({
   // Per-collection sync progress; presence = running.
   const [syncProgress, setSyncProgress] = useState<
     Record<string, { documents: number }>
+  >({});
+  // Per-collection preparation progress; presence = running. `verb` follows the
+  // state (Prepare on first run, Update after).
+  const [prepProgress, setPrepProgress] = useState<
+    Record<string, { prepared: number; total: number; verb: "Prepare" | "Update" }>
   >({});
 
   const canAddSources = eligibleConnections.length > 0;
@@ -205,6 +215,73 @@ export function CollectionsView({
     }
   }
 
+  async function runPrepare(
+    collectionId: string,
+    verb: "Prepare" | "Update",
+  ) {
+    if (prepProgress[collectionId]) return;
+    setPrepProgress((prev) => ({
+      ...prev,
+      [collectionId]: { prepared: 0, total: 0, verb },
+    }));
+    let failedDocumentIds: string[] | null = null;
+    let total = 0;
+    const acc: PreparationTally = {
+      documentsPrepared: 0,
+      documentsUnreadable: 0,
+      attributesFound: 0,
+      attributesNotFound: 0,
+      attributesUnverified: 0,
+      attributesReadIncomplete: 0,
+    };
+    // A generous backstop (segments of 4 documents each), matching runSync.
+    const MAX_SEGMENTS = 400;
+    try {
+      for (let segment = 0; segment < MAX_SEGMENTS; segment += 1) {
+        const result = await prepareCollection({ collectionId, failedDocumentIds });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        if (segment === 0) total = result.documentsStale;
+        acc.documentsPrepared += result.tally.documentsPrepared;
+        acc.documentsUnreadable += result.tally.documentsUnreadable;
+        acc.attributesFound += result.tally.attributesFound;
+        acc.attributesNotFound += result.tally.attributesNotFound;
+        acc.attributesUnverified += result.tally.attributesUnverified;
+        acc.attributesReadIncomplete += result.tally.attributesReadIncomplete;
+        failedDocumentIds = result.failedDocumentIds;
+        setPrepProgress((prev) => ({
+          ...prev,
+          [collectionId]: {
+            prepared: acc.documentsPrepared + acc.documentsUnreadable,
+            total,
+            verb,
+          },
+        }));
+        if (result.completed) {
+          toast.success(
+            total === 0
+              ? "Already up to date."
+              : composePreparationBasis(acc, total),
+          );
+          router.refresh();
+          return;
+        }
+      }
+      toast.error(
+        "Preparation is taking unusually long and paused for now. Run Update to continue.",
+      );
+      router.refresh();
+    } finally {
+      setPrepProgress((prev) => {
+        const next = { ...prev };
+        delete next[collectionId];
+        return next;
+      });
+    }
+  }
+
   function handleDelete(collection: CollectionViewModel) {
     if (pendingDelete) return;
     startDelete(async () => {
@@ -250,7 +327,9 @@ export function CollectionsView({
               canEdit={canEdit}
               canAddSources={canAddSources}
               syncing={syncProgress[collection.id] ?? null}
+              preparing={prepProgress[collection.id] ?? null}
               onSync={() => runSync(collection.id)}
+              onPrepare={(verb) => runPrepare(collection.id, verb)}
               onEdit={() => setForm({ mode: "edit", collection })}
               onDelete={() => setDeleteTarget(collection)}
               onAddSource={() => setPickerFor(collection.id)}
@@ -346,6 +425,33 @@ function schemaLine(collection: CollectionViewModel): string {
   return n === 1 ? "1 attribute defined" : `${n} attributes defined`;
 }
 
+/** The verb the Prepare/Update action shows: first run prepares, later runs
+ * update. (Internally this is extraction; the user-facing word is Prepare/Update.) */
+function preparationVerb(
+  state: CollectionViewModel["preparationState"],
+): "Prepare" | "Update" {
+  return state === "not_prepared" ? "Prepare" : "Update";
+}
+
+/** The plain-language preparation status shown under the schema line (admins). */
+function preparationLine(
+  state: CollectionViewModel["preparationState"],
+): string | null {
+  switch (state) {
+    case "no_documents":
+      return "Sync documents, then prepare their structured data";
+    case "not_prepared":
+      return "Structured data not prepared";
+    case "needs_updating":
+      return "Structured data needs updating";
+    case "ready":
+      return "Structured data ready";
+    case "no_schema":
+    default:
+      return null;
+  }
+}
+
 function inventoryLine(collection: CollectionViewModel): string {
   const parts: string[] = [];
   const n = collection.presentCount;
@@ -366,7 +472,9 @@ function CollectionCard({
   canEdit,
   canAddSources,
   syncing,
+  preparing,
   onSync,
+  onPrepare,
   onEdit,
   onDelete,
   onAddSource,
@@ -376,7 +484,9 @@ function CollectionCard({
   canEdit: boolean;
   canAddSources: boolean;
   syncing: { documents: number } | null;
+  preparing: { prepared: number; total: number; verb: "Prepare" | "Update" } | null;
   onSync: () => void;
+  onPrepare: (verb: "Prepare" | "Update") => void;
   onEdit: () => void;
   onDelete: () => void;
   onAddSource: () => void;
@@ -385,6 +495,14 @@ function CollectionCard({
   const hasUsableSource = collection.sources.some(
     (source) => source.connectionStatus === "active",
   );
+  const prepState = collection.preparationState;
+  const prepVerb = preparationVerb(prepState);
+  const prepStatus = preparationLine(prepState);
+  // Prepare/Update is offered only once a schema and documents exist, and the
+  // collection has work to do (not_prepared or needs_updating). A "ready"
+  // collection shows its status without an idle button.
+  const canPrepare =
+    prepState === "not_prepared" || prepState === "needs_updating";
 
   return (
     <section
@@ -451,7 +569,21 @@ function CollectionCard({
               : inventoryLine(collection)}
           </p>
           {canEdit ? (
-            <p className="text-[12px] text-caption">{schemaLine(collection)}</p>
+            <p className="text-[12px] text-caption">
+              {schemaLine(collection)}
+              {prepStatus ? (
+                <>
+                  {" · "}
+                  {preparing
+                    ? `${preparing.verb === "Prepare" ? "Preparing" : "Updating"}…${
+                        preparing.total > 0
+                          ? ` ${preparing.prepared} of ${preparing.total}`
+                          : ""
+                      }`
+                    : prepStatus}
+                </>
+              ) : null}
+            </p>
           ) : null}
         </div>
         {canEdit ? (
@@ -481,7 +613,7 @@ function CollectionCard({
                 variant="outline"
                 size="sm"
                 onClick={onSync}
-                disabled={syncing !== null || !hasUsableSource}
+                disabled={syncing !== null || preparing !== null || !hasUsableSource}
                 title={
                   hasUsableSource
                     ? "Refresh the document inventory from the repositories"
@@ -489,6 +621,25 @@ function CollectionCard({
                 }
               >
                 {syncing ? "Syncing…" : "Sync"}
+              </Button>
+            ) : null}
+            {canPrepare ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onPrepare(prepVerb)}
+                disabled={preparing !== null || syncing !== null || !hasUsableSource}
+                title={
+                  hasUsableSource
+                    ? "Read the documents and extract the defined attributes with cited evidence"
+                    : "No usable source connections right now"
+                }
+              >
+                {preparing
+                  ? preparing.verb === "Prepare"
+                    ? "Preparing…"
+                    : "Updating…"
+                  : prepVerb}
               </Button>
             ) : null}
           </div>
