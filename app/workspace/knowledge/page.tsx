@@ -8,11 +8,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * Group landing for the Knowledge resource group — both leaves live as of
- * Step 2, ordered setup-before-use: Collections (admin-drawn,
- * transparently-sourced scopes over connected repositories) come first
- * because you create a Collection so you can run Research over it; then
- * Research (citation-backed answers across collections). The former Vault
+ * Group landing for the Knowledge resource group — three leaves, ordered
+ * setup-before-use: Collections (admin-drawn, transparently-sourced scopes
+ * over connected repositories) come first because you create a Collection so
+ * you can ask over it; then the two question tools, Research (citation-backed
+ * read-and-reason answers across collections) and Structured Query (exact,
+ * repeatable counts over a collection's prepared fields). The former Vault
  * leaf dissolved into Collections; Sources was superseded by the connector
  * catalog and its governance. Copy mirrors the rail's `RESOURCE_GROUPS`
  * Knowledge leaves, drive-agnostic and em-dash-free per the external-copy
@@ -33,6 +34,11 @@ const KNOWLEDGE_CHILDREN: ReadonlyArray<{
     title: "Research",
     href: "/workspace/knowledge/research",
     description: `Ask a question across the Collections you choose and get a clear answer backed by citations, with a short supporting quote from each document so you can verify it. Your documents are read live from where they live, never copied, and ${PRODUCT_NAME} tells you plainly if anything couldn't be read.`,
+  },
+  {
+    title: "Structured Query",
+    href: "/workspace/knowledge/structured-query",
+    description: `Ask an exact question in plain language about the fields a Collection tracks, like how many agreements are NDAs or how many auto-renew, and get a precise count you can check. ${PRODUCT_NAME} shows you how it read your question and a supporting quote from each matching document. It is the exact, repeatable companion to Research's read-and-reason answers.`,
   },
 ];
 export default function KnowledgePage() {

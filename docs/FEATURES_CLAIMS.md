@@ -68,6 +68,9 @@ Last full truth pass: 2026-06-12 (D-157).
 | Citation-backed answers with per-document findings; documents read live and never copied; legalOS stores no full document text and builds no search index; what it keeps for an answer is the findings plus a short verbatim supporting quote (≤600 chars) per document, so the answer is verifiable | D-153 (the engine; findings-only persistence), D-195 (corrected from the earlier "nothing copied or stored" overstatement to the verifiable-quote framing) |
 | Agents use the same capability inline; larger questions point at the Research page | D-155 (the native tool, 15-document inline cap, honest handoff) |
 | Honest preview before each run; unreadable documents reported plainly | D-153 (preview + basis lines) |
+| Structured Query: ask an exact question in plain language about a collection's defined fields and get a precise count you can check; the exact/repeatable companion to Research's read-and-reason | D-197/D-198/D-199 (anchor, schema, extraction with verified citations), D-200 (the pure deterministic query engine), D-201 (the NL question surface: model translates to the IR, pure engine counts, interpreted query shown and re-runnable) |
+| The interpreted query is shown in plain language and the count's honesty caveats (unverified citations, not-found, partially-read, unprepared) are reachable, not hidden; each matching document carries its supporting quote | D-200 (engine caveats + matched ids), D-201 (presentation: exact lead, reachable caveats, per-document citations, stale-data notice) |
+| Asking about a field the collection does not track is answered honestly by naming what it does track (no opaque failure) | D-201 (the honest-gap response; the phase-two schema-grows-on-demand seam) |
 
 ## Measurement (`#measurement`)
 

@@ -1,27 +1,56 @@
 import "server-only";
 
-import { COLLECTION_ATTRIBUTE_TYPES, type CollectionAttributeType } from "@/lib/knowledge/collection-schema";
-import { isUndefinedTableError } from "@/lib/supabase/errors";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type Anthropic from "@anthropic-ai/sdk";
+
+import { getOrganizationDefaultModel } from "@/lib/auth/access";
+import type { ModelCredential } from "@/lib/connections/providers/types";
 import {
   runStructuredQuery,
   type ExtractedAttributeValue,
   type StructuredQuery,
   type StructuredQueryResult,
 } from "@/lib/deterministic/structured-query";
+import { COLLECTION_ATTRIBUTE_TYPES, type CollectionAttributeType } from "@/lib/knowledge/collection-schema";
+import { getVisibleCollections } from "@/lib/knowledge/collections-data";
+import type {
+  MatchedDocument,
+  QueryableAttribute,
+  QueryableCollection,
+  StructuredQueryHistoryItem,
+} from "@/lib/knowledge/structured-query-shared";
+import {
+  buildTranslateSystemPrompt,
+  buildTranslateUserPrompt,
+  parseTranslationOutput,
+  type TranslationOutcome,
+} from "@/lib/knowledge/structured-query-translate";
+import {
+  streamAnthropicChat,
+  type AnthropicSystemBlock,
+} from "@/lib/llm/anthropic/chat";
+import { resolveModelCredential } from "@/lib/llm/model-credential";
+import { DEFAULT_MODEL_FALLBACK } from "@/lib/llm/models";
+import { parseModelId } from "@/lib/llm/parse-model-id";
+import { computeCostMicroUsd } from "@/lib/llm/pricing";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isUndefinedTableError } from "@/lib/supabase/errors";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * The IMPURE boundary for Structured Query (D-200): load a collection's
- * extracted rows from the database, then hand them to the PURE engine
- * (`runStructuredQuery`, in `lib/deterministic/`). This deliberately lives OUTSIDE
- * the deterministic module — it does I/O — so the pure/impure line stays exactly
- * where the deterministic README's contract put it: the engine never touches the
- * database; this loader never counts or filters (it only fetches and maps).
+ * The IMPURE boundary for Structured Query (commit 5). It is everything the
+ * question surface needs that the PURE engine (`runStructuredQuery`, in
+ * `lib/deterministic/`) must never touch: the ONE model call that TRANSLATES a
+ * plain-language question into the engine's IR, the database reads that feed and
+ * verify a count, and the member-facing collection/history reads. The pure/
+ * impure line stays exactly where the deterministic README's contract put it —
+ * the engine never does I/O or calls a model; this module never counts or
+ * filters (the engine does). The model PROPOSES the IR here; the pure engine
+ * DISPOSES.
  *
- * Commit 5 adds the natural-language → query translation and the user-facing
- * question UI ON TOP of this; this commit is the engine plus its thin reader.
- * No model is involved here (extraction already ran in commit 3); this is a
- * read-only count over already-prepared values.
+ * MODEL-AGNOSTIC, by the same path Research and extraction use:
+ * `structuredQueryModelCall` rides `streamAnthropicChat` through the per-org
+ * default-model + credential resolution (managed or bring-your-own key), and
+ * logs spend to `usage_events` (org + user + model, no agent, no research run).
  */
 
 const ATTRIBUTE_TYPES = new Set<string>(COLLECTION_ATTRIBUTE_TYPES);
@@ -111,4 +140,278 @@ export async function runCollectionStructuredQuery(
   });
 
   return runStructuredQuery(rows, query);
+}
+
+// ---------------------------------------------------------------------------
+// NL → IR translation (the one model step) — model-agnostic, the extraction idiom
+// ---------------------------------------------------------------------------
+
+type ModelContext = {
+  organizationId: string;
+  userId: string;
+  modelId: string; // full canonical id (vendor/model), for pricing + the ledger
+  bareModel: string; // bare id for the SDK call
+  credential: ModelCredential;
+};
+
+/** Output budget for the translation: a small JSON envelope, never prose. */
+const TRANSLATE_MAX_TOKENS = 1_000;
+
+async function resolveTranslateModelContext(
+  organizationId: string,
+  userId: string,
+): Promise<ModelContext> {
+  const modelId = (await getOrganizationDefaultModel()) ?? DEFAULT_MODEL_FALLBACK;
+  const { vendor, model } = parseModelId(modelId);
+  const credential = await resolveModelCredential({ organizationId, userId, vendor });
+  return { organizationId, userId, modelId, bareModel: model, credential };
+}
+
+/** One non-streaming translation model call: drive the SDK stream to completion,
+ * record the usage ledger row (org + user + model, no agent, no research run),
+ * and return the text. Failure to log never fails the call. Mirrors
+ * extractionModelCall exactly so model-agnosticism is identical across features. */
+async function structuredQueryModelCall(
+  ctx: ModelContext,
+  system: string,
+  user: string,
+  maxTokens: number,
+): Promise<string> {
+  const systemBlocks: AnthropicSystemBlock[] = [{ type: "text", text: system }];
+  const r = streamAnthropicChat({
+    model: ctx.bareModel,
+    credential: ctx.credential,
+    systemBlocks,
+    messages: [{ role: "user", content: user }],
+    maxTokens,
+  });
+  const final = await r.finalMessage();
+  const usage = await r.finalUsage();
+
+  const text = (final.content as Anthropic.Messages.ContentBlock[])
+    .filter((block): block is Anthropic.Messages.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+
+  let costMicroUsd = 0;
+  try {
+    costMicroUsd = computeCostMicroUsd(
+      usage.input_tokens,
+      usage.output_tokens,
+      usage.cache_creation_input_tokens,
+      usage.cache_read_input_tokens,
+      0,
+      ctx.modelId,
+    );
+  } catch (err) {
+    console.error("structured-query cost computation failed — recording 0", err);
+  }
+
+  try {
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin.from("usage_events").insert({
+      organization_id: ctx.organizationId,
+      user_id: ctx.userId,
+      model: ctx.modelId,
+      tokens_in: usage.input_tokens,
+      tokens_out: usage.output_tokens,
+      cache_creation_tokens: usage.cache_creation_input_tokens,
+      cache_read_tokens: usage.cache_read_input_tokens,
+      web_search_count: 0,
+      cost_micro_usd: costMicroUsd,
+    });
+    if (error) {
+      console.error("structured-query usage_events insert failed", { code: error.code });
+    }
+  } catch (err) {
+    console.error("structured-query usage_events insert threw", err);
+  }
+
+  return text;
+}
+
+/**
+ * Translate a plain-language question into the structured-query IR against a
+ * collection's fields. The model proposes; the defensive parser + the commit-4
+ * zod schema + the known-key check decide (an off-schema or malformed query
+ * never reaches the engine). A model-call failure degrades to `unparseable`
+ * (an honest "I could not turn that into an exact query"), never a thrown 500.
+ */
+export async function translateQuestionToQuery(args: {
+  question: string;
+  attributes: QueryableAttribute[];
+  organizationId: string;
+  userId: string;
+}): Promise<TranslationOutcome> {
+  const { question, attributes, organizationId, userId } = args;
+  const ctx = await resolveTranslateModelContext(organizationId, userId);
+  let text: string;
+  try {
+    text = await structuredQueryModelCall(
+      ctx,
+      buildTranslateSystemPrompt(attributes),
+      buildTranslateUserPrompt(question),
+      TRANSLATE_MAX_TOKENS,
+    );
+  } catch (err) {
+    console.error("structured-query translation model call failed", err);
+    return { kind: "unparseable" };
+  }
+  return parseTranslationOutput(text, attributes.map((a) => a.key));
+}
+
+// ---------------------------------------------------------------------------
+// Citations for matched documents (the count made CHECKABLE)
+// ---------------------------------------------------------------------------
+
+type CitationValue = MatchedDocument["values"][number];
+
+/**
+ * For the matched documents, load the supporting citation(s) so a count is
+ * verifiable, not just asserted: per document, its title and, for each attribute
+ * the query referenced, the found value with its verbatim quote and verification
+ * flag. Titles come from the member-readable inventory (`collection_documents`;
+ * the `documents` anchor read is admin-only), values from `document_extractions`
+ * (member-readable for a visible collection as of this commit's migration).
+ * Returns one entry per input id, in the given order.
+ */
+export async function loadMatchedCitations(
+  collectionId: string,
+  documentIds: string[],
+  referencedAttributes: QueryableAttribute[],
+): Promise<MatchedDocument[]> {
+  if (documentIds.length === 0) return [];
+  const supabase = await createSupabaseServerClient();
+
+  const { data: invData } = await supabase
+    .from("collection_documents")
+    .select("document_id, title")
+    .eq("collection_id", collectionId)
+    .in("document_id", documentIds);
+  const titleByDoc = new Map<string, string>();
+  for (const raw of invData ?? []) {
+    const r = raw as { document_id: string | null; title: string };
+    if (r.document_id) titleByDoc.set(r.document_id, r.title);
+  }
+
+  const labelByKey = new Map(referencedAttributes.map((a) => [a.key, a.label]));
+  const keys = referencedAttributes.map((a) => a.key);
+  const valuesByDoc = new Map<string, CitationValue[]>();
+  if (keys.length > 0) {
+    const { data: exData, error } = await supabase
+      .from("document_extractions")
+      .select("document_id, attribute_key, value_text, citation_excerpt, citation_verified")
+      .in("document_id", documentIds)
+      .in("attribute_key", keys)
+      .eq("found", true);
+    if (error && !isUndefinedTableError(error)) {
+      console.error("structured-query citations read failed", { code: error.code });
+    }
+    for (const raw of exData ?? []) {
+      const r = raw as {
+        document_id: string;
+        attribute_key: string;
+        value_text: string | null;
+        citation_excerpt: string | null;
+        citation_verified: boolean;
+      };
+      const list = valuesByDoc.get(r.document_id) ?? [];
+      list.push({
+        label: labelByKey.get(r.attribute_key) ?? r.attribute_key,
+        value: r.value_text ?? "",
+        excerpt: r.citation_excerpt ?? "",
+        verified: r.citation_verified,
+      });
+      valuesByDoc.set(r.document_id, list);
+    }
+  }
+
+  return documentIds.map((id) => ({
+    documentId: id,
+    title: titleByDoc.get(id)?.trim() || "Untitled document",
+    values: valuesByDoc.get(id) ?? [],
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Member-facing reads (the query surface)
+// ---------------------------------------------------------------------------
+
+/**
+ * The collections the current user can QUERY: their RLS-visible collections that
+ * define at least one attribute, projected to the member-facing shape (label /
+ * type / options — never the admin's extraction `description`). Reuses
+ * `getVisibleCollections` so visibility, preparation state, and counts come from
+ * the one source; the schema attributes are readable to members for visible
+ * collections as of this commit's migration.
+ */
+export async function getQueryableCollections(): Promise<QueryableCollection[]> {
+  const collections = await getVisibleCollections();
+  return collections
+    .filter((c) => c.schemaAttributes.length > 0)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      provenance: c.sources.map((s) => s.displayPath),
+      documentCount: c.presentCount,
+      lastSyncedAt: c.lastSyncedAt,
+      attributes: c.schemaAttributes.map((a) => ({
+        key: a.key,
+        label: a.label,
+        type: a.type,
+        ...(a.options && a.options.length > 0 ? { options: a.options } : {}),
+      })),
+      preparationState: c.preparationState,
+    }));
+}
+
+/**
+ * The user's recent asked questions (own, plus the org's for admins, per RLS),
+ * newest first. Tolerant of the pre-migration window: an absent
+ * `structured_queries` table reads as "no history yet".
+ */
+export async function listStructuredQueries(
+  limit = 20,
+): Promise<StructuredQueryHistoryItem[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("structured_queries")
+    .select(
+      "id, question, interpreted_summary, understood, matched_count, total_count, collection_id, created_at, collections(name)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    if (!isUndefinedTableError(error)) {
+      console.error("structured_queries read failed", { code: error.code });
+    }
+    return [];
+  }
+  return (data ?? []).map((raw) => {
+    // The to-one `collections` embed is a single object at runtime; cast through
+    // unknown since these reads are not backed by generated DB types.
+    const r = raw as unknown as {
+      id: string;
+      question: string;
+      interpreted_summary: string;
+      understood: boolean;
+      matched_count: number | null;
+      total_count: number | null;
+      collection_id: string;
+      created_at: string;
+      collections: { name: string } | null;
+    };
+    return {
+      id: r.id,
+      question: r.question,
+      interpretedSummary: r.interpreted_summary,
+      understood: r.understood,
+      matchedCount: r.matched_count,
+      totalCount: r.total_count,
+      collectionId: r.collection_id,
+      collectionName: r.collections?.name ?? "a collection",
+      createdAt: r.created_at,
+    };
+  });
 }

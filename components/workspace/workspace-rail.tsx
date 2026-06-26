@@ -100,11 +100,12 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     landingHref: "/workspace/knowledge",
     groupKey: "knowledge",
     // The settled Knowledge shape, ordered setup-before-use: Collections
-    // (admin-drawn scopes over connected repositories, Step 1) come first
-    // because you create a Collection so you can run Research over it; then
-    // Research (the question engine over collections, live as of Step 2).
-    // The former Vault leaf dissolved into Collections; Sources was
-    // superseded by the connector catalog + governance.
+    // (admin-drawn scopes over connected repositories) come first because you
+    // create a Collection so you can ask over it; then the two question tools,
+    // Research (read-and-reason answers with citations) and Structured Query
+    // (exact, repeatable counts over a collection's prepared fields). The
+    // former Vault leaf dissolved into Collections; Sources was superseded by
+    // the connector catalog + governance.
     leaves: [
       {
         label: "Collections",
@@ -115,6 +116,11 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
         label: "Research",
         slug: "knowledge-research",
         href: "/workspace/knowledge/research",
+      },
+      {
+        label: "Structured Query",
+        slug: "knowledge-structured-query",
+        href: "/workspace/knowledge/structured-query",
       },
     ],
   },

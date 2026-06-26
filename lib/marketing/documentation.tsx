@@ -489,9 +489,9 @@ export const DOC_PAGES: DocPage[] = [
     slug: "knowledge",
     group: "users",
     title: "Knowledge and Research",
-    summary: "Collections of your team’s documents, and citation-backed answers across them.",
+    summary: "Collections of your team’s documents, citation-backed answers across them, and exact questions over the fields they track.",
     audience: "For everyone",
-    lead: "Your team’s documents stay where they live. Collections give them a shape, and Research asks questions across them.",
+    lead: "Your team’s documents stay where they live. Collections give them a shape, Research asks reasoned questions across them, and Structured Query answers exact questions over the fields a collection tracks.",
     body: (
       <>
         <MarketingSection title="Collections, as you see them">
@@ -556,6 +556,33 @@ export const DOC_PAGES: DocPage[] = [
             answer, and the findings.
           </p>
         </MarketingSection>
+        <MarketingSection title="Structured Query: exact questions">
+          <p>
+            Research reads and reasons; Structured Query counts. When you need an
+            exact, repeatable answer, like how many agreements are NDAs or how
+            many auto-renew, use Structured Query. It works over the fields a
+            collection tracks: an administrator defines those fields (agreement
+            type, effective date, whether a contract auto-renews) and prepares
+            the collection once, and the page shows you which fields you can ask
+            about. You ask in plain language; legalOS translates your question
+            into an exact query, shows you how it read it (&ldquo;Counting
+            documents where Agreement type is NDA&rdquo;), and runs it the same
+            way every time, so the same question over the same data always gives
+            the same count.
+          </p>
+          <p>
+            The exact count leads. Beneath it, the honesty is reachable rather
+            than hidden: how many matches rest on a quote that couldn&rsquo;t be
+            verified, how many documents were left out because the field
+            wasn&rsquo;t found, and whether any document was only partially read.
+            Each matching document is listed with its supporting quote, so the
+            count is something you can check, not just trust. If you ask about
+            something the collection doesn&rsquo;t track, it tells you plainly
+            and names what it does track. If the collection&rsquo;s data
+            needs updating, the answer says so rather than resting silently on
+            stale extractions. Your recent questions are kept and can be re-run.
+          </p>
+        </MarketingSection>
         <MarketingSection title="How to">
           <div>
             <p className="font-medium text-foreground">Run research</p>
@@ -573,6 +600,25 @@ export const DOC_PAGES: DocPage[] = [
               <li>
                 Select Run research and watch progress as documents are read,
                 findings filling in as it goes.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Ask a structured question</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Open Knowledge in the rail and pick Structured Query.</li>
+              <li>
+                Choose one collection. The fields it tracks appear beneath it, so
+                you know what you can ask about.
+              </li>
+              <li>
+                Ask in plain language, like &ldquo;how many agreements are
+                NDAs?&rdquo; or &ldquo;how many auto-renew?&rdquo;
+              </li>
+              <li>
+                Read the exact count, check the interpreted query shown beneath
+                it, and open the matching documents to see each supporting quote.
+                Re-run a recent question any time from the list below.
               </li>
             </ol>
           </div>
