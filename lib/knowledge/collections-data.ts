@@ -6,8 +6,13 @@ import {
   canServerEnumerate,
   getTrustedMcpServer,
 } from "@/lib/connections/providers/mcp-registry";
+import {
+  parseCollectionAttributes,
+  type CollectionAttribute,
+} from "@/lib/knowledge/collection-schema";
 import { hasEnumerationAdapter } from "@/lib/knowledge/enumeration";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isUndefinedTableError } from "@/lib/supabase/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -44,6 +49,12 @@ export type CollectionView = {
   presentCount: number;
   missingCount: number;
   lastSyncedAt: string | null;
+  /**
+   * The collection's Structured Query schema attributes (empty when none is
+   * defined). Only admins receive these: the collection_schemas read policy is
+   * admin-only, so a non-admin read returns nothing and the field stays empty.
+   */
+  schemaAttributes: CollectionAttribute[];
 };
 
 // Embed shapes the untyped server client returns, asserted at the boundary.
@@ -123,6 +134,31 @@ async function getConnectionDisplayMap(
 }
 
 /**
+ * The org's collection schema definitions (Structured Query), keyed by
+ * collection id. RLS scopes the read to admins in the org, so a non-admin gets
+ * an empty map. Tolerates the pre-migration window: if collection_schemas does
+ * not exist yet, this degrades to "no schemas" rather than failing the whole
+ * Collections read — the same graceful degradation the anchor write uses
+ * (Structured Query commit 1).
+ */
+async function getCollectionSchemaMap(): Promise<Map<string, CollectionAttribute[]>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("collection_schemas")
+    .select("collection_id, attributes");
+  if (error) {
+    if (!isUndefinedTableError(error)) {
+      console.error("collection_schemas read failed", { code: error.code });
+    }
+    return new Map();
+  }
+  const rows = (data ?? []) as { collection_id: string; attributes: unknown }[];
+  return new Map(
+    rows.map((row) => [row.collection_id, parseCollectionAttributes(row.attributes)]),
+  );
+}
+
+/**
  * Every collection visible to the current user (RLS decides), with sources,
  * department visibility, and inventory counts. Counts run as two cheap
  * head-only count queries per collection — fine at admin-drawn scale (tens
@@ -134,7 +170,7 @@ export async function getVisibleCollections(): Promise<CollectionView[]> {
   if (!organizationId) return [];
 
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }, connectionDisplay] = await Promise.all([
+  const [{ data, error }, connectionDisplay, schemaMap] = await Promise.all([
     supabase
       .from("collections")
       .select(
@@ -144,6 +180,7 @@ export async function getVisibleCollections(): Promise<CollectionView[]> {
       )
       .order("created_at", { ascending: true }),
     getConnectionDisplayMap(organizationId),
+    getCollectionSchemaMap(),
   ]);
   if (error || !data) return [];
 
@@ -181,6 +218,7 @@ export async function getVisibleCollections(): Promise<CollectionView[]> {
         presentCount: present.count ?? 0,
         missingCount: missing.count ?? 0,
         lastSyncedAt: row.last_synced_at,
+        schemaAttributes: schemaMap.get(row.id) ?? [],
       };
     }),
   );

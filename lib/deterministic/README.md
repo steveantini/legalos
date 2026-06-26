@@ -83,6 +83,25 @@ is expected to follow this same pre-step pattern. As with the engine itself
 (restraint above), there is deliberately no generic pre-step framework: one
 pre-step exists; the second will inform any shared shape worth extracting.
 
+### The two layers, named (and where Structured Query lives)
+
+The architecture already runs on a two-layer split, worth stating plainly so the
+next operation has a defined home. A **pure operation** is the standard above
+(D-185): a pure function, no I/O, model, clock, or randomness, exhaustively
+unit-testable, producing a typed structured result — `compareDocuments` today,
+and the future `runStructuredQuery` query engine. An **impure pre-step consumer**
+is the code that produces that operation's input: it does I/O and may call a
+model, so it is **model-driven but VERIFIABLE** (cited, bounded, re-runnable) —
+the same status Research has, not the determinism standard. **Structured Query
+spans both layers, by design:** its EXTRACTION (reading documents, asking a model
+to pull each defined attribute with citations, commit 3) lives in the impure,
+verifiable layer; its QUERY (counting and filtering the extracted structured
+values to answer a question, commit 4) is a pure operation held to the full
+determinism standard. This README extends the written contract only — no engine,
+registry, or framework is built here (the D-185 restraint holds); the split just
+names where commit 4's pure query engine will live and why it is separate from
+the model-driven extraction that feeds it.
+
 ### Out of scope for v1 (future layers)
 
 - Structural / clause-level / semantic-equivalence diffing (moved clauses,

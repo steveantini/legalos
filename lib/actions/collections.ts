@@ -22,6 +22,10 @@ import {
   type EnumerationTarget,
 } from "@/lib/knowledge/enumeration";
 import {
+  collectionSchemaInputSchema,
+  type CollectionSchemaInput,
+} from "@/lib/knowledge/collection-schema";
+import {
   buildAnchorRows,
   buildInventoryRows,
 } from "@/lib/knowledge/document-anchor";
@@ -196,6 +200,79 @@ export async function deleteCollection(
   if (error) return { ok: false, error: GENERIC_ERROR };
   revalidatePath(COLLECTIONS_PATH);
   return { ok: true };
+}
+
+/**
+ * Define (create or replace) a collection's schema — the set of attributes
+ * Structured Query will later extract (super admin). Nothing is extracted here;
+ * this persists the definition only.
+ *
+ * One row per collection (UNIQUE collection_id). We branch insert/update
+ * explicitly rather than upsert so `version` increments meaningfully (an edit is
+ * traceable, the Workflows-style versioning) and created_by_user_id is preserved
+ * across edits. The attributes are validated at this write boundary with the
+ * shared zod schema; the RLS policy of migration 20260626120000 re-enforces the
+ * super-admin-in-org rule at the database (the established double-gate).
+ */
+export async function saveCollectionSchema(
+  input: CollectionSchemaInput,
+): Promise<CollectionActionResult> {
+  await requireAuthUser();
+  if (!(await isCurrentUserSuperAdmin())) {
+    return { ok: false, error: NOT_ALLOWED };
+  }
+  const parsed = collectionSchemaInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Check the attributes and try again.",
+    };
+  }
+  const { collectionId, attributes } = parsed.data;
+
+  const profile = await getCurrentUserProfile();
+  if (!profile?.organization_id) return { ok: false, error: GENERIC_ERROR };
+
+  const supabase = await createSupabaseServerClient();
+
+  // Confirm the collection is one this admin's org can see (RLS scopes the read
+  // to the org). This both fences cross-tenant writes and yields a clean error.
+  const { data: collection, error: collectionError } = await supabase
+    .from("collections")
+    .select("id")
+    .eq("id", collectionId)
+    .maybeSingle();
+  if (collectionError) return { ok: false, error: GENERIC_ERROR };
+  if (!collection) return { ok: false, error: "Collection not found." };
+
+  const { data: existing, error: readError } = await supabase
+    .from("collection_schemas")
+    .select("id, version")
+    .eq("collection_id", collectionId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: GENERIC_ERROR };
+
+  if (existing) {
+    const { error } = await supabase
+      .from("collection_schemas")
+      .update({
+        attributes,
+        version: ((existing as { version: number }).version ?? 1) + 1,
+      })
+      .eq("id", (existing as { id: string }).id);
+    if (error) return { ok: false, error: GENERIC_ERROR };
+  } else {
+    const { error } = await supabase.from("collection_schemas").insert({
+      collection_id: collectionId,
+      organization_id: profile.organization_id,
+      attributes,
+      created_by_user_id: profile.id,
+    });
+    if (error) return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(COLLECTIONS_PATH);
+  return { ok: true, collectionId };
 }
 
 // ---------------------------------------------------------------------------

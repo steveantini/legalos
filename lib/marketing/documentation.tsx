@@ -1126,6 +1126,20 @@ export const DOC_PAGES: DocPage[] = [
             future part of Research.
           </p>
         </MarketingSection>
+        <MarketingSection title="Defining a schema">
+          <p>
+            A collection can carry a schema: the set of attributes worth pulling
+            from its documents. Each attribute is a name, a type (text, number,
+            date, yes/no, or one of a fixed set), and a plain-language
+            description of what to extract, like &ldquo;the contract version
+            number, often labeled Version near the title.&rdquo; The description
+            is what later finds the attribute, so it is worth writing well. An
+            attribute&rsquo;s name can be edited freely; its stable identifier is
+            fixed the first time you save, so renaming never loses anything tied
+            to it. Defining a schema does not extract anything on its own; it is
+            the definition that a later step will read.
+          </p>
+        </MarketingSection>
         <MarketingSection title="How to">
           <p className="text-[13.5px] text-muted-foreground">
             Managing collections is super admin only; everyone else sees the
@@ -1174,6 +1188,21 @@ export const DOC_PAGES: DocPage[] = [
               <li>
                 Re-sync whenever the repository has moved on; documents gone
                 upstream are marked missing rather than silently dropped.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Define a schema</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Select Define schema on the collection&rsquo;s card.</li>
+              <li>
+                Add an attribute, then give it a name, a type, and a
+                description of what to extract. For a one-of type, list the
+                allowed values separated by commas.
+              </li>
+              <li>
+                Select Save schema. Nothing is extracted yet; you are defining
+                what to extract. The card shows how many attributes are defined.
               </li>
             </ol>
           </div>
