@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 
+import { CollectionScopeCard } from "@/components/knowledge/collection-scope-card";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
 import {
@@ -10,7 +11,6 @@ import {
   RESEARCH_DOC_CAP_WHY,
   type ResearchPreview,
 } from "@/lib/knowledge/research/shared";
-import { cn } from "@/lib/utils";
 
 /**
  * The Research ask composer (Knowledge arc Step 2, hierarchy polish): the
@@ -148,52 +148,26 @@ export function ResearchAskComposer({
         defaultCollapsed={false}
         description={<span aria-live="polite">{scopeSummary}</span>}
       >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {collections.map((collection) => {
-            const checked = selected.includes(collection.id);
-            return (
-              <label
-                key={collection.id}
-                title={
-                  collection.lastSyncedAt
-                    ? `Synced ${relativeTime(collection.lastSyncedAt)}`
-                    : "Not synced yet"
-                }
-                className={cn(
-                  "flex cursor-pointer flex-col gap-1 rounded-lg border px-3.5 py-2.5 transition-colors duration-hover ease-soft has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring motion-reduce:transition-none",
-                  checked
-                    ? "border-hairline-strong bg-secondary"
-                    : "border-hairline bg-paper-2 hover:bg-secondary",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={checked}
-                  onChange={() => toggleCollection(collection.id)}
-                />
-                <span className="flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 truncate text-[13.5px] font-medium text-foreground">
-                    {collection.name}
-                  </span>
-                  <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
-                    {collection.documentCount}{" "}
-                    {collection.documentCount === 1 ? "doc" : "docs"}
-                  </span>
-                </span>
-                {/* Condensed, always-present provenance (the transparency
-                    rule; never hover-only). */}
-                {collection.provenance.map((path) => (
-                  <span
-                    key={path}
-                    className="block truncate font-mono text-[11px] leading-[1.5] text-caption"
-                  >
-                    {path}
-                  </span>
-                ))}
-              </label>
-            );
-          })}
+        {/* Single-column stack of the shared scope card (same treatment as
+            Structured Query, minus the fields), so the two pages are siblings.
+            The source path renders in plain sans, not monospace. */}
+        <div className="flex flex-col gap-2">
+          {collections.map((collection) => (
+            <CollectionScopeCard
+              key={collection.id}
+              name={collection.name}
+              documentCount={collection.documentCount}
+              provenance={collection.provenance}
+              selected={selected.includes(collection.id)}
+              onSelect={() => toggleCollection(collection.id)}
+              inputType="checkbox"
+              title={
+                collection.lastSyncedAt
+                  ? `Synced ${relativeTime(collection.lastSyncedAt)}`
+                  : "Not synced yet"
+              }
+            />
+          ))}
         </div>
       </CollapsibleSection>
 

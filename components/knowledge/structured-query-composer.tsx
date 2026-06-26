@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 
+import { CollectionScopeCard } from "@/components/knowledge/collection-scope-card";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
 import {
@@ -9,7 +10,6 @@ import {
   QUESTION_MIN_LENGTH,
   type QueryableCollection,
 } from "@/lib/knowledge/structured-query-shared";
-import { cn } from "@/lib/utils";
 
 /**
  * The Structured Query ask composer (commit 5), a deliberate SIBLING of the
@@ -79,76 +79,32 @@ export function StructuredQueryComposer({
         </div>
       </div>
 
-      {/* Scope: a single collection, in the launchpad's collapsible idiom. */}
+      {/* Scope (Zone 1): the single collection and what it tracks, as ONE card.
+          The tracked-field pills live inside the card (the merge), so there is
+          no separate "tracks these fields" box. A single-column stack gives the
+          pills room and matches the Research scope treatment. */}
       <CollapsibleSection
         title="Collection"
         sectionKey="structured-query-scope"
         defaultCollapsed={false}
         description={<span aria-live="polite">{scopeSummary}</span>}
       >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {collections.map((collection) => {
-            const checked = selectedId === collection.id;
-            return (
-              <label
-                key={collection.id}
-                className={cn(
-                  "flex cursor-pointer flex-col gap-1 rounded-lg border px-3.5 py-2.5 transition-colors duration-hover ease-soft has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring motion-reduce:transition-none",
-                  checked
-                    ? "border-hairline-strong bg-secondary"
-                    : "border-hairline bg-paper-2 hover:bg-secondary",
-                )}
-              >
-                <input
-                  type="radio"
-                  name="structured-query-collection"
-                  className="sr-only"
-                  checked={checked}
-                  onChange={() => setSelectedId(collection.id)}
-                />
-                <span className="flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 truncate text-[13.5px] font-medium text-foreground">
-                    {collection.name}
-                  </span>
-                  <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
-                    {collection.documentCount}{" "}
-                    {collection.documentCount === 1 ? "doc" : "docs"}
-                  </span>
-                </span>
-                {collection.provenance.map((path) => (
-                  <span
-                    key={path}
-                    className="block truncate font-mono text-[11px] leading-[1.5] text-caption"
-                  >
-                    {path}
-                  </span>
-                ))}
-              </label>
-            );
-          })}
+        <div className="flex flex-col gap-2">
+          {collections.map((collection) => (
+            <CollectionScopeCard
+              key={collection.id}
+              name={collection.name}
+              documentCount={collection.documentCount}
+              provenance={collection.provenance}
+              fields={collection.attributes.map((attribute) => attribute.label)}
+              selected={selectedId === collection.id}
+              onSelect={() => setSelectedId(collection.id)}
+              inputType="radio"
+              inputName="structured-query-collection"
+            />
+          ))}
         </div>
       </CollapsibleSection>
-
-      {/* The exact-tool tell: the fields you can actually ask about. Quiet, not
-          a lecture, and only once a collection is chosen. */}
-      {selected ? (
-        <div className="max-w-[70ch] rounded-lg border border-hairline bg-paper-2 px-4 py-3">
-          <p className="text-[12px] font-medium text-muted-foreground">
-            {selected.name} tracks these fields, and answers are exact and
-            checkable:
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {selected.attributes.map((attribute) => (
-              <span
-                key={attribute.key}
-                className="rounded-md border border-hairline bg-card px-2 py-0.5 text-[12px] text-foreground"
-              >
-                {attribute.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

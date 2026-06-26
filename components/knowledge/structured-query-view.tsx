@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState, useTransition } from "react";
@@ -184,8 +185,14 @@ export function StructuredQueryView({
         </section>
       ) : null}
 
+      {/* Zone 2: history. A quiet hairline marks the break from the scope zone
+          above; the rows are flat at rest (no fill) so the zone recedes as
+          reference material. */}
       {history.length > 0 ? (
-        <section aria-labelledby="structured-query-history">
+        <section
+          aria-labelledby="structured-query-history"
+          className="border-t border-hairline pt-7"
+        >
           <h2
             id="structured-query-history"
             className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
@@ -196,38 +203,33 @@ export function StructuredQueryView({
             {history.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-2 border-b border-hairline last:border-b-0"
+                className="flex items-center gap-1 border-b border-hairline last:border-b-0"
               >
                 <button
                   type="button"
                   onClick={() => handleRerun(item)}
                   disabled={pending}
-                  className="group flex min-w-0 flex-1 items-center gap-4 rounded-lg bg-paper-2 px-4 py-3 text-left transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 motion-reduce:transition-none"
+                  className="flex min-w-0 flex-1 items-center gap-4 rounded-lg px-4 py-2.5 text-left transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 motion-reduce:transition-none"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] font-medium text-foreground">
+                    <span className="block truncate text-[13px] text-foreground">
                       {item.question}
                     </span>
-                    <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
+                    <span className="mt-0.5 block truncate text-[11.5px] text-caption">
                       {item.understood
                         ? `${item.matchedCount ?? 0} of ${item.totalCount ?? 0} · ${item.interpretedSummary}`
                         : "Not tracked by this collection"}{" "}
                       · {item.collectionName} · {relativeTime(item.createdAt)}
                     </span>
                   </span>
-                  <span
-                    aria-hidden
-                    className="shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
-                  >
-                    →
-                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(item)}
-                  className="shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+                  aria-label="Delete this question"
+                  className="shrink-0 rounded-md p-1.5 text-muted-foreground/45 transition-colors duration-hover ease-soft hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
                 >
-                  Delete
+                  <Trash2 aria-hidden className="size-[15px]" strokeWidth={1.75} />
                 </button>
               </div>
             ))}

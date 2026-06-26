@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -173,8 +174,14 @@ export function ResearchView({
         />
       )}
 
+      {/* Zone 2: history. A quiet hairline marks the break from the scope zone
+          above; the rows are flat at rest so the zone recedes as reference
+          material. Mirrors the Structured Query recent-questions treatment. */}
       {runs.length > 0 ? (
-        <section aria-labelledby="research-history">
+        <section
+          aria-labelledby="research-history"
+          className="border-t border-hairline pt-7"
+        >
           <h2
             id="research-history"
             className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
@@ -190,17 +197,17 @@ export function ResearchView({
               return (
                 <div
                   key={run.id}
-                  className="flex items-center gap-2 border-b border-hairline last:border-b-0"
+                  className="flex items-center gap-1 border-b border-hairline last:border-b-0"
                 >
                   <Link
                     href={`/workspace/knowledge/research/${run.id}`}
-                    className="group flex min-w-0 flex-1 items-center gap-4 rounded-lg bg-paper-2 px-4 py-3 transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+                    className="flex min-w-0 flex-1 items-center gap-4 rounded-lg px-4 py-2.5 transition-colors duration-release ease-release hover:bg-secondary hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13.5px] font-medium text-foreground">
+                      <span className="block truncate text-[13px] text-foreground">
                         {run.question}
                       </span>
-                      <span className="mt-0.5 block text-[12px] text-muted-foreground">
+                      <span className="mt-0.5 block truncate text-[11.5px] text-caption">
                         {run.scope.map((c) => c.name).join(", ")} ·{" "}
                         {statusLabel(run.status)} ·{" "}
                         {run.documentsTotal > 0
@@ -209,22 +216,18 @@ export function ResearchView({
                         {relativeTime(run.createdAt)}
                       </span>
                     </span>
-                    <span
-                      aria-hidden
-                      className="shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
-                    >
-                      →
-                    </span>
                   </Link>
                   {/* Delete sits OUTSIDE the link (no nested interactives).
-                      Settled runs only; an in-progress run cancels first. */}
+                      Settled runs only; an in-progress run cancels first.
+                      Quiet muted icon so it recedes behind the row content. */}
                   {terminal ? (
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(run)}
-                      className="shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+                      aria-label="Delete this run"
+                      className="shrink-0 rounded-md p-1.5 text-muted-foreground/45 transition-colors duration-hover ease-soft hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
                     >
-                      Delete
+                      <Trash2 aria-hidden className="size-[15px]" strokeWidth={1.75} />
                     </button>
                   ) : null}
                 </div>
