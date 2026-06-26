@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 /**
@@ -21,10 +22,14 @@ export function LandingRow({
   label,
   description,
   href,
+  indicator,
 }: {
   label: string;
   description: string;
   href: string;
+  /** An optional calm trailing indicator (e.g. an unseen count), rendered just
+   * before the arrow. Undefined renders nothing. */
+  indicator?: ReactNode;
 }) {
   return (
     <div className="border-b border-hairline last:border-b-0">
@@ -38,9 +43,10 @@ export function LandingRow({
         <span className="flex-1 text-[13.5px] leading-[1.5] text-caption">
           {description}
         </span>
+        {indicator ? <span className="ml-auto shrink-0">{indicator}</span> : null}
         <span
           aria-hidden
-          className="ml-auto shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none"
+          className={`${indicator ? "" : "ml-auto "}shrink-0 text-primary opacity-40 transition-opacity duration-hover ease-soft group-hover:opacity-100 motion-reduce:transition-none`}
         >
           →
         </span>

@@ -138,6 +138,15 @@ export const DOC_PAGES: DocPage[] = [
             find Trash from the agents area whenever something is in it.
           </p>
         </MarketingSection>
+        <MarketingSection title="Sending feedback">
+          <p>
+            A quiet Feedback control sits at the bottom of the left rail, on
+            every page. Use it to send a note any time, a bug, an idea, or
+            something that felt off. It opens in place, so you never lose your
+            spot, and it carries the page you were on so you can write just a
+            line. We read every note that comes through.
+          </p>
+        </MarketingSection>
         <MarketingSection title="How to">
           <div>
             <p className="font-medium text-foreground">Create an agent of your own</p>

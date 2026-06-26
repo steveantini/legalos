@@ -73,4 +73,19 @@ export const PLATFORM_NAV_GROUPS: ReadonlyArray<PlatformNavGroup> = [
       },
     ],
   },
+  {
+    caption: "Signals",
+    items: [
+      {
+        label: "Feedback",
+        href: "/workspace/platform/feedback",
+        description:
+          "Notes customers send from inside the app, with the context they were in, and where each one stands.",
+      },
+    ],
+  },
 ];
+
+/** The Feedback area's href, shared by the landing (for the calm unseen count)
+ * so the indicator attaches to the right row without hardcoding it twice. */
+export const PLATFORM_FEEDBACK_HREF = "/workspace/platform/feedback";

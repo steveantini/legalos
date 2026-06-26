@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FeedbackLauncher } from "@/components/workspace/feedback-launcher";
 import { signOut } from "@/lib/actions/auth";
 import { MODES, getCurrentMode } from "@/lib/workspace/modes";
 
@@ -55,16 +56,22 @@ export function WorkspaceProfileBlock({
   );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            aria-label={`Account menu for ${displayName}`}
-            className="mt-auto flex w-full items-center gap-[10px] rounded-md border-t border-hairline-strong px-2 pb-[2px] pt-[14px] text-left transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          />
-        }
-      >
+    // The rail footer cluster, pinned to the bottom: the quiet feedback
+    // affordance (present on every authenticated page through this shared block)
+    // sits just above the account menu. `mt-auto` lives on the cluster so both
+    // pin together.
+    <div className="mt-auto flex flex-col gap-1">
+      <FeedbackLauncher />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label={`Account menu for ${displayName}`}
+              className="flex w-full items-center gap-[10px] rounded-md border-t border-hairline-strong px-2 pb-[2px] pt-[14px] text-left transition-colors duration-release ease-release motion-reduce:transition-none hover:bg-hairline hover:duration-hover hover:ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            />
+          }
+        >
         <span
           aria-hidden
           className="grid h-7 w-7 place-items-center rounded-full bg-foreground text-[11px] font-medium text-background"
@@ -107,6 +114,7 @@ export function WorkspaceProfileBlock({
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import { LandingRow } from "@/components/workspace/landing-row";
-import { PLATFORM_NAV_GROUPS } from "@/lib/platform/nav";
+import { countNewFeedback } from "@/lib/feedback/data";
+import { PLATFORM_FEEDBACK_HREF, PLATFORM_NAV_GROUPS } from "@/lib/platform/nav";
 import { captionLabel } from "@/lib/workspace/rail-styles";
 
 /**
@@ -16,8 +17,11 @@ import { captionLabel } from "@/lib/workspace/rail-styles";
  * (Step 3) and the empty state gives way to real rows automatically, with no
  * change here. The width and the `<main>` come from the platform layout.
  */
-export default function PlatformLandingPage() {
+export default async function PlatformLandingPage() {
   const hasAreas = PLATFORM_NAV_GROUPS.length > 0;
+  // The calm unseen-feedback cue: a quiet count, not a red anxiety-badge, and
+  // only on the owner's landing (never shown to a submitting user).
+  const newFeedback = await countNewFeedback();
 
   return (
     <>
@@ -52,6 +56,13 @@ export default function PlatformLandingPage() {
                     label={item.label}
                     description={item.description}
                     href={item.href}
+                    indicator={
+                      item.href === PLATFORM_FEEDBACK_HREF && newFeedback > 0 ? (
+                        <span className="text-[12.5px] tabular-nums text-muted-foreground">
+                          {newFeedback} new
+                        </span>
+                      ) : undefined
+                    }
                   />
                 ))}
               </div>
