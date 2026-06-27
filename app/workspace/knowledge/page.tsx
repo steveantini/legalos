@@ -49,11 +49,14 @@ export default function KnowledgePage() {
           <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
             Knowledge
           </h1>
-          <p className="mt-[14px] max-w-[56ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+          <p className="mt-[14px] max-w-[62ch] text-[14.5px] leading-[1.5] text-muted-foreground">
             Your team&rsquo;s documents, searchable in plain language, without
-            moving them. Set up Collections that point at the folders you
-            already use, then use Research to ask questions across them and get
-            answers backed by citations.
+            moving them. Two ways to ask across them: Research reads and reasons
+            (it is non-deterministic, weighing and interpreting like a careful
+            analyst), and Structured Query answers exactly (it is deterministic,
+            so the same question always returns the same precise, repeatable
+            result). Set up Collections first, then use whichever fits the
+            question.
           </p>
         </div>
         <HelpLink topic="knowledge" className="mt-3" />

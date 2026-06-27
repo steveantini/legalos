@@ -5137,3 +5137,18 @@ Status: Accepted (deferral)
 **When resumed, Step Two is:** a Resend (or chosen provider) account; the API key held as a SECRET (operator-set in Vercel env vars, never hardcoded or committed); domain verification of the branded sender; the notification abstraction wired to the reserved seam; and the recipient address as config (defaulting to the platform owner's email). No schema change is anticipated (the `feedback` row already carries everything a notification needs).
 
 **Consequences:** No code change now; this is a recorded deferral (DECISION_LOG + a standing ROADMAP item under the platform-owner arc). Step One stands alone as a complete, useful capability. Resume Step Two once the company name and domain exist.
+
+## D-206 — Deterministic / non-deterministic nomenclature woven into the Knowledge descriptions
+
+Date: 2026-06-27
+Status: Accepted
+
+**Context:** The Knowledge surfaces (the landing, Research, Structured Query) now describe two tools whose essential difference is determinism: Research reasons (non-deterministic), Structured Query counts (deterministic). The audience includes AI-literate users for whom that vocabulary is precise and meaningful. This records the decision to use the terms explicitly, and the rules that keep them from excluding anyone.
+
+**Decision:** Weave "deterministic" / "non-deterministic" into the three Knowledge descriptions, governed by three rules: (1) the terms are NEVER load-bearing for comprehension, each is paired in the same breath with its plain meaning, so an AI-focused reader gets the signal and everyone else understands from the gloss; (2) each tool's nature is framed as a STRENGTH, never an apology (non-deterministic = judgment and interpretation, the right tool when a question needs reasoning; deterministic = exact and repeatable, the same answer every time), never "might vary" / "only counts"; (3) the CONTRAST is named once, on the Knowledge landing where both tools appear together, and each page then anchors only its OWN side lightly, so the full contrast is not repeated on every surface. The treatment reads as one consistent voice across all three (precise term + plain gloss, confident tone on both sides). No em dashes in the rendered copy (the gloss uses parentheses, commas, and colons). Wording only, no behavior or layout.
+
+**Why:** this makes concrete the D-201 principle that a user must always be able to tell whether the tool they are using is deterministic (exact, repeatable) or non-deterministic (reasoned, probabilistic), conveyed professionally and matter-of-factly. Naming it in the descriptions, with the plain gloss, is the calm, non-condescending way to carry that distinction the eventual merged experience must preserve.
+
+**Currency:** the three in-product Knowledge descriptions carry the explicit vocabulary; the marketing `/features` tour and the `/documentation` guide already carry the same contrast in plain language ("reads and reasons" vs. counts "the same way every time") and were left as-is, keeping the explicit jargon on the in-product surfaces where the AI-literate audience is and not forcing it onto the broader prospect-facing tour.
+
+**Consequences:** Three description edits (Knowledge landing intro, Research page intro, Structured Query page intro). The Structured Query closing was merged rather than appended so its existing "exact, repeatable companion" line and the new deterministic sentence do not say the same thing twice. No code, behavior, or layout change.

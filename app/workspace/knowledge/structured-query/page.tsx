@@ -48,8 +48,9 @@ export default async function StructuredQueryPage() {
             Ask precise questions about your documents and get exact, checkable
             answers, not a summary, but a real result you can verify. Every
             answer shows how your question was read and a supporting quote from
-            each document it drew on. It&rsquo;s the exact, repeatable companion
-            to Research.
+            each document it drew on. It is deterministic: ask the same question
+            twice and you get the exact same answer, every time, the precise and
+            repeatable companion to Research&rsquo;s reasoning.
           </p>
         </div>
         <HelpLink topic="knowledge" className="mt-3" />

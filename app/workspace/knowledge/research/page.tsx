@@ -51,10 +51,13 @@ export default async function ResearchPage() {
           <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
             Research
           </h1>
-          <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+          <p className="mt-[14px] max-w-[62ch] text-[14.5px] leading-[1.5] text-muted-foreground">
             Ask a question across the collections you choose. Every document in
             scope is read where it lives and the answer comes back with
-            citations and per-document findings.
+            citations and per-document findings. Research is non-deterministic by
+            design: it reads and reasons over your documents, weighing and
+            interpreting rather than just matching, so it is the right tool when
+            a question needs judgment, not a precise count.
           </p>
         </div>
         <HelpLink topic="knowledge" className="mt-3" />
