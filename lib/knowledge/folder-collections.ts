@@ -41,3 +41,18 @@ export function synthesizeFolderName(pathNames: string[], serverName: string): s
   const name = last || serverName.trim() || "Folder";
   return name.slice(0, 80);
 }
+
+/**
+ * Dedupe document refs by their canonical anchor id, keeping the first seen.
+ * This is the EXTRACT-ONCE guarantee for a per-set schema (Step 3a): when a
+ * schema's documents are unioned across all the folders that share it, a file
+ * reachable through two of those folders appears once, so it is extracted once.
+ * Pure, so the invariant is unit-tested without a database.
+ */
+export function dedupeDocumentRefsById<T extends { documentId: string }>(refs: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const ref of refs) {
+    if (!byId.has(ref.documentId)) byId.set(ref.documentId, ref);
+  }
+  return [...byId.values()];
+}

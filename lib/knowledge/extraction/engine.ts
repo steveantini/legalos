@@ -22,6 +22,7 @@ import {
   processExtractionSegment,
   type ExtractionResultRow,
 } from "@/lib/knowledge/extraction/engine-core";
+import { dedupeDocumentRefsById } from "@/lib/knowledge/folder-collections";
 import {
   readRemoteDocument,
   type EnumerationTarget,
@@ -195,28 +196,40 @@ type InventoryRow = {
   } | null;
 };
 
-/** Present, anchored documents for the collection, deduped to one ref per
- * anchor (the same file reachable through two sources is one document). */
-async function loadCollectionDocuments(
-  collectionId: string,
+/**
+ * Present, anchored documents across EVERY folder sharing this schema (the set),
+ * deduped to one ref per anchor (Step 3a). A file reachable through two folders
+ * of the set is one document, so it is extracted ONCE (extract-once across the
+ * set). For a set-of-one this returns exactly the home folder's documents, so
+ * behavior is identical to the prior per-collection load.
+ */
+async function loadSchemaSetDocuments(
+  schemaId: string,
 ): Promise<ExtractionDocumentRef[]> {
   const supabase = await createSupabaseServerClient();
+  const { data: members, error: membersError } = await supabase
+    .from("collections")
+    .select("id")
+    .eq("schema_id", schemaId);
+  if (membersError || !members) return [];
+  const collectionIds = (members as { id: string }[]).map((m) => m.id);
+  if (collectionIds.length === 0) return [];
+
   const { data, error } = await supabase
     .from("collection_documents")
     .select(
       "document_id, documents(external_id, title, source_url, connection_id, modified_at_source)",
     )
-    .eq("collection_id", collectionId)
+    .in("collection_id", collectionIds)
     .eq("status", "present")
     .not("document_id", "is", null);
   if (error || !data) return [];
 
-  const byId = new Map<string, ExtractionDocumentRef>();
+  const refs: ExtractionDocumentRef[] = [];
   for (const row of data as unknown as InventoryRow[]) {
     const anchor = row.documents;
     if (!row.document_id || !anchor) continue;
-    if (byId.has(row.document_id)) continue;
-    byId.set(row.document_id, {
+    refs.push({
       documentId: row.document_id,
       externalId: anchor.external_id,
       title: anchor.title,
@@ -225,7 +238,7 @@ async function loadCollectionDocuments(
       modifiedAtSource: anchor.modified_at_source,
     });
   }
-  return [...byId.values()];
+  return dedupeDocumentRefsById(refs);
 }
 
 /** Existing extraction rows for these documents (the staleness inputs). Tolerates
@@ -282,11 +295,29 @@ export async function advanceCollectionPreparation(args: {
   const { collectionId, organizationId, userId } = args;
   const supabase = await createSupabaseServerClient();
 
-  // 1) The schema definition (and version) driving this reconcile.
+  // 1) Resolve the schema (the document KIND) this folder belongs to, then load
+  //    the schema entity. Per-set: the schema is shared via collections.schema_id,
+  //    so preparing one folder prepares its whole set (below). Set-of-one behaves
+  //    exactly as the prior per-collection reconcile.
+  const { data: colData, error: colError } = await supabase
+    .from("collections")
+    .select("schema_id")
+    .eq("id", collectionId)
+    .maybeSingle();
+  if (colError) {
+    return { ok: false, error: "Could not load this collection." };
+  }
+  const schemaId = (colData as { schema_id: string | null } | null)?.schema_id ?? null;
+  if (!schemaId) {
+    return {
+      ok: false,
+      error: "Define a schema for this collection before preparing it.",
+    };
+  }
   const { data: schemaData, error: schemaError } = await supabase
     .from("collection_schemas")
     .select("id, version, attributes")
-    .eq("collection_id", collectionId)
+    .eq("id", schemaId)
     .maybeSingle();
   if (schemaError) {
     return { ok: false, error: "Could not load this collection's schema." };
@@ -308,8 +339,9 @@ export async function advanceCollectionPreparation(args: {
     };
   }
 
-  // 2) The documents and the existing extractions → the derived stale work set.
-  const documents = await loadCollectionDocuments(collectionId);
+  // 2) The set's documents (every folder sharing this schema, deduped to one
+  //    ref per anchor → extract-once) and existing extractions → stale work.
+  const documents = await loadSchemaSetDocuments(schemaRow.id);
   const existing = await loadExistingExtractions(
     documents.map((document) => document.documentId),
   );

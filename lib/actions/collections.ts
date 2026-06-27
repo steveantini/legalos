@@ -253,38 +253,52 @@ export async function saveCollectionSchema(
 
   // Confirm the collection is one this admin's org can see (RLS scopes the read
   // to the org). This both fences cross-tenant writes and yields a clean error.
+  // Operate on the schema ENTITY via the per-set pointer (Step 3a). A collection
+  // already pointing at a schema edits that shared entity (version++ marks the
+  // whole set stale); a collection with none gets a new entity, then points at
+  // it. For a set-of-one this is exactly the prior per-collection behavior.
   const { data: collection, error: collectionError } = await supabase
     .from("collections")
-    .select("id")
+    .select("id, name, schema_id")
     .eq("id", collectionId)
     .maybeSingle();
   if (collectionError) return { ok: false, error: GENERIC_ERROR };
   if (!collection) return { ok: false, error: "Collection not found." };
+  const col = collection as { id: string; name: string; schema_id: string | null };
 
-  const { data: existing, error: readError } = await supabase
-    .from("collection_schemas")
-    .select("id, version")
-    .eq("collection_id", collectionId)
-    .maybeSingle();
-  if (readError) return { ok: false, error: GENERIC_ERROR };
-
-  if (existing) {
+  if (col.schema_id) {
+    const { data: existing, error: readError } = await supabase
+      .from("collection_schemas")
+      .select("version")
+      .eq("id", col.schema_id)
+      .maybeSingle();
+    if (readError) return { ok: false, error: GENERIC_ERROR };
     const { error } = await supabase
       .from("collection_schemas")
       .update({
         attributes,
-        version: ((existing as { version: number }).version ?? 1) + 1,
+        version: ((existing as { version: number } | null)?.version ?? 1) + 1,
       })
-      .eq("id", (existing as { id: string }).id);
+      .eq("id", col.schema_id);
     if (error) return { ok: false, error: GENERIC_ERROR };
   } else {
-    const { error } = await supabase.from("collection_schemas").insert({
-      collection_id: collectionId,
-      organization_id: profile.organization_id,
-      attributes,
-      created_by_user_id: profile.id,
-    });
-    if (error) return { ok: false, error: GENERIC_ERROR };
+    const { data: created, error } = await supabase
+      .from("collection_schemas")
+      .insert({
+        collection_id: collectionId,
+        organization_id: profile.organization_id,
+        name: col.name,
+        attributes,
+        created_by_user_id: profile.id,
+      })
+      .select("id")
+      .single();
+    if (error || !created) return { ok: false, error: GENERIC_ERROR };
+    const { error: pointError } = await supabase
+      .from("collections")
+      .update({ schema_id: (created as { id: string }).id })
+      .eq("id", collectionId);
+    if (pointError) return { ok: false, error: GENERIC_ERROR };
   }
 
   revalidatePath(COLLECTIONS_PATH);

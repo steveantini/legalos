@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dedupeDocumentRefsById,
   ensureFolderCollectionCore,
   synthesizeFolderName,
   type FolderKey,
@@ -70,6 +71,30 @@ describe("ensureFolderCollectionCore — idempotency", () => {
     const reused = await ensureFolderCollectionCore(key, store);
     expect(reused).toBe("col_1");
     expect(store.creates).toBe(0);
+  });
+});
+
+describe("dedupeDocumentRefsById — extract-once across a per-set union", () => {
+  it("a document reachable through two folders of the set appears once", () => {
+    // The same anchor (doc1) reached via two folders, plus a distinct doc.
+    const union = [
+      { documentId: "doc1", externalId: "x", from: "folderA" },
+      { documentId: "doc2", externalId: "y", from: "folderA" },
+      { documentId: "doc1", externalId: "x", from: "folderB" },
+    ];
+    const deduped = dedupeDocumentRefsById(union);
+    expect(deduped.map((d) => d.documentId).sort()).toEqual(["doc1", "doc2"]);
+    // First-seen wins, so the shared doc is extracted once (from folderA here).
+    expect(deduped.find((d) => d.documentId === "doc1")?.from).toBe("folderA");
+  });
+
+  it("is a no-op when there are no duplicates", () => {
+    const refs = [{ documentId: "a" }, { documentId: "b" }, { documentId: "c" }];
+    expect(dedupeDocumentRefsById(refs)).toHaveLength(3);
+  });
+
+  it("handles an empty union", () => {
+    expect(dedupeDocumentRefsById([])).toEqual([]);
   });
 });
 

@@ -19,7 +19,10 @@ import {
 } from "@/lib/knowledge/extraction/extract";
 import { hasEnumerationAdapter } from "@/lib/knowledge/enumeration";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isUndefinedTableError } from "@/lib/supabase/errors";
+import {
+  isUndefinedColumnError,
+  isUndefinedTableError,
+} from "@/lib/supabase/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -164,7 +167,61 @@ type SchemaEntry = {
   attributes: CollectionAttribute[];
 };
 
+/**
+ * Per collection, its schema entry, resolved via the per-set `collections.schema_id`
+ * pointer (Step 3a): folders sharing a schema all map to the one entry. Keyed by
+ * COLLECTION id so every downstream consumer (getVisibleCollections, the
+ * preparation-state derivation) is unchanged; only the resolution path moved from
+ * the schema's own collection_id to the schema_id pointer. Behavior is identical
+ * for a set-of-one. Tolerates the pre-migration window: if `collections.schema_id`
+ * does not exist yet, it falls back to the legacy 1:1 mapping so the Knowledge
+ * surfaces render correctly until the migration lands.
+ */
 async function getCollectionSchemaMap(): Promise<Map<string, SchemaEntry>> {
+  const supabase = await createSupabaseServerClient();
+  const { data: cols, error: colsError } = await supabase
+    .from("collections")
+    .select("id, schema_id");
+  if (colsError) {
+    if (isUndefinedColumnError(colsError)) {
+      return getCollectionSchemaMapLegacy();
+    }
+    if (!isUndefinedTableError(colsError)) {
+      console.error("collections schema-pointer read failed", { code: colsError.code });
+    }
+    return new Map();
+  }
+
+  const { data: schemas, error: schemasError } = await supabase
+    .from("collection_schemas")
+    .select("id, version, attributes");
+  if (schemasError) {
+    if (!isUndefinedTableError(schemasError)) {
+      console.error("collection_schemas read failed", { code: schemasError.code });
+    }
+    return new Map();
+  }
+  const byId = new Map<string, SchemaEntry>(
+    ((schemas ?? []) as { id: string; version: number; attributes: unknown }[]).map(
+      (s) => [
+        s.id,
+        { id: s.id, version: s.version, attributes: parseCollectionAttributes(s.attributes) },
+      ],
+    ),
+  );
+
+  const map = new Map<string, SchemaEntry>();
+  for (const c of (cols ?? []) as { id: string; schema_id: string | null }[]) {
+    if (!c.schema_id) continue;
+    const entry = byId.get(c.schema_id);
+    if (entry) map.set(c.id, entry);
+  }
+  return map;
+}
+
+/** Pre-migration fallback: the legacy 1:1 mapping keyed by the schema's own
+ * collection_id (before `collections.schema_id` exists). */
+async function getCollectionSchemaMapLegacy(): Promise<Map<string, SchemaEntry>> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("collection_schemas")
@@ -175,14 +232,13 @@ async function getCollectionSchemaMap(): Promise<Map<string, SchemaEntry>> {
     }
     return new Map();
   }
-  const rows = (data ?? []) as {
-    id: string;
-    collection_id: string;
-    version: number;
-    attributes: unknown;
-  }[];
   return new Map(
-    rows.map((row) => [
+    ((data ?? []) as {
+      id: string;
+      collection_id: string;
+      version: number;
+      attributes: unknown;
+    }[]).map((row) => [
       row.collection_id,
       {
         id: row.id,

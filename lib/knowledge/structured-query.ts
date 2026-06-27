@@ -67,25 +67,27 @@ function toAttributeType(value: string): CollectionAttributeType {
 }
 
 /**
- * Run a structured query over one collection's prepared documents. RLS scopes
- * every read to the caller's organization. The scope is the collection's
- * present, anchored documents; their extracted values (every attribute, shared
- * across collections by the document anchor) are loaded and the pure engine
- * counts. Tolerant of the pre-migration window: an absent `document_extractions`
- * table reads as "nothing prepared", so the engine returns an honest zero result
- * rather than failing.
+ * Run a structured query over a SET of folders' prepared documents (Step 3a).
+ * RLS scopes every read to the caller's organization. The scope is the union of
+ * the folders' present, anchored documents, deduped by anchor (a file in two
+ * folders counts once); their extracted values are loaded and the pure engine
+ * counts. A single-element `collectionIds` reproduces the prior per-collection
+ * behavior exactly. Tolerant of the pre-migration window: an absent
+ * `document_extractions` table reads as "nothing prepared", so the engine
+ * returns an honest zero result rather than failing.
  */
 export async function runCollectionStructuredQuery(
-  collectionId: string,
+  collectionIds: string[],
   query: StructuredQuery,
 ): Promise<StructuredQueryResult> {
+  if (collectionIds.length === 0) return runStructuredQuery([], query);
   const supabase = await createSupabaseServerClient();
 
-  // The collection's present, anchored documents (the query's document scope).
+  // The folders' present, anchored documents, unioned and deduped by anchor.
   const { data: invData, error: invError } = await supabase
     .from("collection_documents")
     .select("document_id")
-    .eq("collection_id", collectionId)
+    .in("collection_id", collectionIds)
     .eq("status", "present")
     .not("document_id", "is", null);
   if (invError) {

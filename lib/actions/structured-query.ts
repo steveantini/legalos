@@ -260,7 +260,10 @@ async function executeQuery(
   collection: QueryableCollection,
   query: StructuredQuery,
 ): Promise<ExecutedQuery> {
-  const result = await runCollectionStructuredQuery(collection.id, query);
+  // Step 3a: the loader takes a folder set; the current single-collection ask
+  // passes a one-element array (identical result). 3b widens this to the picked
+  // set sharing the schema.
+  const result = await runCollectionStructuredQuery([collection.id], query);
   const shownIds = [...result.matchedDocumentIds].slice(0, MAX_SHOWN_MATCHES);
   const matches = await loadMatchedCitations(
     collection.id,
