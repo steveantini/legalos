@@ -19,10 +19,7 @@ import {
 } from "@/lib/knowledge/extraction/extract";
 import { hasEnumerationAdapter } from "@/lib/knowledge/enumeration";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import {
-  isUndefinedColumnError,
-  isUndefinedTableError,
-} from "@/lib/supabase/errors";
+import { isUndefinedTableError } from "@/lib/supabase/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -194,9 +191,6 @@ async function getCollectionSchemaMap(): Promise<Map<string, SchemaEntry>> {
     .from("collections")
     .select("id, schema_id");
   if (colsError) {
-    if (isUndefinedColumnError(colsError)) {
-      return getCollectionSchemaMapLegacy();
-    }
     if (!isUndefinedTableError(colsError)) {
       console.error("collections schema-pointer read failed", { code: colsError.code });
     }
@@ -233,37 +227,6 @@ async function getCollectionSchemaMap(): Promise<Map<string, SchemaEntry>> {
     if (entry) map.set(c.id, entry);
   }
   return map;
-}
-
-/** Pre-migration fallback: the legacy 1:1 mapping keyed by the schema's own
- * collection_id (before `collections.schema_id` exists). */
-async function getCollectionSchemaMapLegacy(): Promise<Map<string, SchemaEntry>> {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("collection_schemas")
-    .select("id, collection_id, version, attributes");
-  if (error) {
-    if (!isUndefinedTableError(error)) {
-      console.error("collection_schemas read failed", { code: error.code });
-    }
-    return new Map();
-  }
-  return new Map(
-    ((data ?? []) as {
-      id: string;
-      collection_id: string;
-      version: number;
-      attributes: unknown;
-    }[]).map((row) => [
-      row.collection_id,
-      {
-        id: row.id,
-        name: null,
-        version: row.version,
-        attributes: parseCollectionAttributes(row.attributes),
-      },
-    ]),
-  );
 }
 
 /**
@@ -393,21 +356,27 @@ async function getPreparationStateMap(
  * head-only count queries per collection — fine at admin-drawn scale (tens
  * of collections); a grouped view is the upgrade path if that ever grows.
  */
-export async function getVisibleCollections(): Promise<CollectionView[]> {
+async function loadCollections(curatedOnly: boolean): Promise<CollectionView[]> {
   const profile = await getCurrentUserProfile();
   const organizationId = profile?.organization_id;
   if (!organizationId) return [];
 
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }, connectionDisplay, schemaMap] = await Promise.all([
-    supabase
-      .from("collections")
-      .select(
-        `id, name, description, visibility, last_synced_at,
+  let query = supabase
+    .from("collections")
+    .select(
+      `id, name, description, visibility, last_synced_at,
          collection_sources(id, connection_id, root_reference, display_path, recursive, last_synced_at),
          collection_departments(department_id, departments(name))`,
-      )
-      .order("created_at", { ascending: true }),
+    )
+    .order("created_at", { ascending: true });
+  // Curated-only excludes the invisible auto-folder collections that
+  // folder-picking creates (Step 3c): they are backing records, not collections
+  // the legacy route manages.
+  if (curatedOnly) query = query.eq("is_auto_folder", false);
+
+  const [{ data, error }, connectionDisplay, schemaMap] = await Promise.all([
+    query,
     getConnectionDisplayMap(organizationId),
     getCollectionSchemaMap(),
   ]);
@@ -457,6 +426,25 @@ export async function getVisibleCollections(): Promise<CollectionView[]> {
       };
     }),
   );
+}
+
+/**
+ * All collections the caller can see, INCLUDING the invisible auto-folder
+ * collections that folder-picking creates (Research and Structured Query show
+ * these as the folders you pick over). RLS scopes visibility.
+ */
+export async function getVisibleCollections(): Promise<CollectionView[]> {
+  return loadCollections(false);
+}
+
+/**
+ * The admin-curated collections the legacy Collections route manages
+ * (is_auto_folder = false): named, department-scopable, multi-source. Excludes
+ * the auto-folder backing records, which must never appear as editable cards on
+ * that route (Step 3c).
+ */
+export async function getManageableCollections(): Promise<CollectionView[]> {
+  return loadCollections(true);
 }
 
 /** A connected server that can back a collection source. */

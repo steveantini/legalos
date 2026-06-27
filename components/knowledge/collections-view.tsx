@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FolderPickerDialog } from "@/components/knowledge/folder-picker-dialog";
 import { SchemaBuilderDialog } from "@/components/knowledge/schema-builder-dialog";
 import { usePrepareLoop } from "@/components/knowledge/use-prepare-loop";
 import {
   addCollectionSource,
-  browseSourceFolder,
   deleteCollection,
   removeCollectionSource,
   saveCollection,
@@ -28,9 +28,8 @@ import {
 } from "@/lib/actions/collections";
 import { type CollectionSchemaInput } from "@/lib/knowledge/collection-schema";
 import type {
-  BrowseEntry,
   CollectionInput,
-  SourceInput,
+  FolderDescriptor,
 } from "@/lib/knowledge/collections-shared";
 import type {
   CollectionView as CollectionViewModel,
@@ -77,26 +76,16 @@ export function CollectionsView({
   departments,
   eligibleConnections,
   canEdit,
-  initialSchemaCollectionId,
 }: {
   collections: CollectionViewModel[];
   departments: { id: string; name: string }[];
   eligibleConnections: EligibleSourceConnection[];
   canEdit: boolean;
-  /** When set (the `?schema=<id>` deep-link from Structured Query), open the
-   * define-schema dialog for that collection on first render. */
-  initialSchemaCollectionId?: string;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState | null>(null);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-  // Lazy initializer (not an effect) so the deep-link opens the schema dialog on
-  // mount with no cascading-render setState-in-effect.
-  const [schemaFor, setSchemaFor] = useState<CollectionViewModel | null>(() =>
-    canEdit && initialSchemaCollectionId
-      ? collections.find((c) => c.id === initialSchemaCollectionId) ?? null
-      : null,
-  );
+  const [schemaFor, setSchemaFor] = useState<CollectionViewModel | null>(null);
   const [deleteTarget, setDeleteTarget] =
     useState<CollectionViewModel | null>(null);
   const [pendingDelete, startDelete] = useTransition();
@@ -148,16 +137,37 @@ export function CollectionsView({
     });
   }
 
-  function handleAddSource(input: SourceInput) {
+  /** Add one or more picked folders as sources to a curated collection. The
+   * shared FolderPickerDialog returns descriptors decoupled from any collection;
+   * each becomes an addCollectionSource on the bound collection (a small multi-
+   * add improvement over the old single-folder picker). These stay curated:
+   * addCollectionSource never sets is_auto_folder, so it defaults false. */
+  function handleAddFolders(collectionId: string, folders: FolderDescriptor[]) {
     if (pendingAddSource) return;
     startAddSource(async () => {
-      const result = await addCollectionSource(input);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
+      let added = 0;
+      for (const folder of folders) {
+        const result = await addCollectionSource({
+          collectionId,
+          connectionId: folder.connectionId,
+          rootReference: folder.rootReference,
+          pathNames: folder.pathNames,
+          recursive: folder.recursive,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          break;
+        }
+        added += 1;
       }
-      toast.success("Source added. Run sync to build the inventory.");
-      router.refresh();
+      if (added > 0) {
+        toast.success(
+          added === 1
+            ? "Source added. Run sync to build the inventory."
+            : `${added} sources added. Run sync to build the inventory.`,
+        );
+        router.refresh();
+      }
       setPickerFor(null);
     });
   }
@@ -281,12 +291,11 @@ export function CollectionsView({
       ) : null}
 
       {pickerFor ? (
-        <SourcePickerDialog
-          collectionId={pickerFor}
+        <FolderPickerDialog
           connections={eligibleConnections}
           pending={pendingAddSource}
           onClose={() => setPickerFor(null)}
-          onSubmit={handleAddSource}
+          onConfirm={(folders) => handleAddFolders(pickerFor, folders)}
         />
       ) : null}
 
@@ -812,280 +821,6 @@ function CollectionFormDialog({
             disabled={pending || name.trim().length === 0}
           >
             {pending ? "Saving…" : editing ? "Save changes" : "Create collection"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Source picker: live folder browser over the MCP enumeration
-// ---------------------------------------------------------------------------
-
-type Crumb = { id: string | null; name: string };
-
-/**
- * Browses a repository and hands the chosen folder UP — the add-source
- * mutation and the refresh run in the parent's transition (see
- * CollectionsView), because this dialog unmounts on success and an
- * unmounting component's transition drops its scheduled router.refresh().
- */
-function SourcePickerDialog({
-  collectionId,
-  connections,
-  pending,
-  onClose,
-  onSubmit,
-}: {
-  collectionId: string;
-  connections: EligibleSourceConnection[];
-  pending: boolean;
-  onClose: () => void;
-  onSubmit: (input: SourceInput) => void;
-}) {
-  // The repository is picked explicitly (even when only one qualifies): the
-  // selection doubles as confirmation of which repository is being browsed,
-  // and it keeps every fetch in an event handler — no load effect at all.
-  const [connectionId, setConnectionId] = useState<string | null>(null);
-  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: null, name: "Top level" }]);
-  // null = this folder hasn't loaded yet (the skeleton state); the listing is
-  // reset to null in the NAVIGATION handlers, and every state write in
-  // loadPage happens after the await, so the load effect performs no
-  // synchronous setState.
-  const [entries, setEntries] = useState<BrowseEntry[] | null>(null);
-  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [browseError, setBrowseError] = useState<string | null>(null);
-  const [recursive, setRecursive] = useState(true);
-
-  const currentFolder = crumbs[crumbs.length - 1];
-  const connection = connections.find((c) => c.connectionId === connectionId);
-
-  async function loadPage(
-    targetConnectionId: string,
-    folderId: string | null,
-    pageToken: string | null,
-    append: boolean,
-  ) {
-    const result = await browseSourceFolder({
-      connectionId: targetConnectionId,
-      folderId,
-      pageToken,
-    });
-    if (!result.ok) {
-      setBrowseError(result.error);
-      if (!append) setEntries([]);
-      return;
-    }
-    setBrowseError(null);
-    setEntries((prev) =>
-      append ? [...(prev ?? []), ...result.page.entries] : result.page.entries,
-    );
-    setNextPageToken(result.page.nextPageToken);
-  }
-
-  function clearListing() {
-    setEntries(null);
-    setNextPageToken(null);
-    setBrowseError(null);
-  }
-
-  async function showMore() {
-    if (!connection || !nextPageToken || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      await loadPage(connection.connectionId, currentFolder.id, nextPageToken, true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
-
-  // Every fetch starts from an event handler (select, descend, breadcrumb
-  // jump) — there is no load effect, so nothing can set state from one.
-  function selectConnection(id: string) {
-    clearListing();
-    setCrumbs([{ id: null, name: "Top level" }]);
-    setConnectionId(id);
-    void loadPage(id, null, null, false);
-  }
-
-  function descend(entry: BrowseEntry) {
-    if (!connectionId) return;
-    clearListing();
-    setCrumbs((prev) => [...prev, { id: entry.id, name: entry.name }]);
-    void loadPage(connectionId, entry.id, null, false);
-  }
-
-  function jumpTo(index: number) {
-    if (!connectionId) return;
-    const target = crumbs[index];
-    clearListing();
-    setCrumbs((prev) => prev.slice(0, index + 1));
-    void loadPage(connectionId, target.id, null, false);
-  }
-
-  function handleAdd() {
-    if (!connectionId || !currentFolder.id || pending) return;
-    onSubmit({
-      collectionId,
-      connectionId,
-      rootReference: currentFolder.id,
-      pathNames: crumbs.slice(1).map((crumb) => crumb.name),
-      recursive,
-    });
-  }
-
-  const folderCount = (entries ?? []).filter((entry) => entry.isFolder).length;
-  const documentCount = (entries ?? []).length - folderCount;
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Add a source</DialogTitle>
-          <DialogDescription>
-            Browse a connected repository and pick the folder this collection
-            draws from. The folder is referenced by its stable id, so renames
-            and moves don&rsquo;t break it.
-          </DialogDescription>
-        </DialogHeader>
-
-        {!connection ? (
-          <div className="flex flex-col gap-2">
-            {connections.map((candidate) => (
-              <button
-                key={candidate.connectionId}
-                type="button"
-                onClick={() => selectConnection(candidate.connectionId)}
-                className="flex items-center rounded-lg border border-hairline bg-paper-2 px-4 py-3 text-left text-[13.5px] font-medium text-foreground transition-colors duration-hover ease-soft hover:bg-secondary motion-reduce:transition-none"
-              >
-                {candidate.displayName}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {/* Breadcrumb: server name, then the path walked. */}
-            <p className="flex flex-wrap items-center gap-1 text-[12.5px] text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {connection.displayName}
-              </span>
-              {crumbs.map((crumb, index) => (
-                <span key={`${crumb.id ?? "root"}-${index}`} className="flex items-center gap-1">
-                  <span aria-hidden="true">/</span>
-                  {index < crumbs.length - 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => jumpTo(index)}
-                      className="rounded font-medium text-foreground underline-offset-2 hover:underline"
-                    >
-                      {crumb.name}
-                    </button>
-                  ) : (
-                    <span className="font-medium text-foreground">{crumb.name}</span>
-                  )}
-                </span>
-              ))}
-            </p>
-
-            <div className="max-h-[260px] overflow-y-auto rounded-lg border border-hairline bg-background">
-              {entries === null && !browseError ? (
-                // Network-backed loading standard: chrome + skeletons
-                // immediately, content cross-fades into the same layout.
-                <ul aria-hidden="true" className="flex flex-col">
-                  {[0, 1, 2, 3, 4].map((row) => (
-                    <li key={row} className="border-b border-hairline px-4 py-2.5 last:border-b-0">
-                      <span className="block h-[14px] w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-                    </li>
-                  ))}
-                </ul>
-              ) : browseError ? (
-                <p role="alert" className="px-4 py-3 text-[13px] leading-[1.5] text-warn-fg">
-                  {browseError}
-                </p>
-              ) : entries === null || entries.length === 0 ? (
-                <p className="px-4 py-3 text-[13px] text-muted-foreground">
-                  This folder is empty.
-                </p>
-              ) : (
-                <ul className="flex flex-col duration-200 animate-in fade-in-0 motion-reduce:animate-none">
-                  {entries.map((entry) => (
-                    <li key={entry.id} className="border-b border-hairline last:border-b-0">
-                      {entry.isFolder ? (
-                        <button
-                          type="button"
-                          onClick={() => descend(entry)}
-                          className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-foreground transition-colors duration-hover ease-soft hover:bg-paper-2 motion-reduce:transition-none"
-                        >
-                          <span className="min-w-0 truncate">{entry.name}</span>
-                          <span aria-hidden="true" className="shrink-0 text-muted-foreground">
-                            →
-                          </span>
-                        </button>
-                      ) : (
-                        <p className="truncate px-4 py-2.5 text-[13px] text-muted-foreground">
-                          {entry.name}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                  {nextPageToken ? (
-                    <li className="px-4 py-2.5">
-                      <button
-                        type="button"
-                        disabled={loadingMore}
-                        onClick={() => void showMore()}
-                        className="text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60 motion-reduce:transition-none"
-                      >
-                        {loadingMore ? "Loading…" : "Show more"}
-                      </button>
-                    </li>
-                  ) : null}
-                </ul>
-              )}
-            </div>
-
-            {/* Honest scope preview for the level being looked at. */}
-            {entries !== null ? (
-              <p className="text-[12px] leading-[1.5] text-caption">
-                On this level: {folderCount}{" "}
-                {folderCount === 1 ? "folder" : "folders"}, {documentCount}{" "}
-                {documentCount === 1 ? "document" : "documents"}
-                {nextPageToken ? ", with more not yet shown" : ""}.
-                {nextPageToken
-                  ? " Large folders are fine; the sync walks them in pages."
-                  : ""}
-              </p>
-            ) : null}
-
-            <label className="flex items-center gap-2 text-[13px] text-foreground">
-              <input
-                type="checkbox"
-                className="accent-primary"
-                checked={recursive}
-                onChange={(event) => setRecursive(event.target.checked)}
-              />
-              Include subfolders
-            </label>
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleAdd}
-            disabled={pending || !connection || currentFolder.id === null}
-            title={
-              currentFolder.id === null
-                ? "Open a folder first; the top level can't be a source"
-                : undefined
-            }
-          >
-            {pending ? "Adding…" : "Use this folder"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -5,8 +5,8 @@ import { HelpLink } from "@/components/workspace/help-link";
 import { isCurrentUserSuperAdmin, requireAuthUser } from "@/lib/auth/access";
 import {
   getEligibleSourceConnections,
+  getManageableCollections,
   getOrgDepartmentsForPicker,
-  getVisibleCollections,
 } from "@/lib/knowledge/collections-data";
 
 export const metadata: Metadata = {
@@ -26,19 +26,14 @@ export const metadata: Metadata = {
  * the viewer belongs to). Super admins get the management surface; everyone
  * else gets the same cards read-only.
  */
-export default async function CollectionsPage({
-  searchParams,
-}: {
-  // `?schema=<collectionId>` deep-links from the Structured Query empty state
-  // straight to defining a schema on that collection (admins only).
-  searchParams: Promise<{ schema?: string }>;
-}) {
+export default async function CollectionsPage() {
   await requireAuthUser();
   const isSuperAdmin = await isCurrentUserSuperAdmin();
-  const { schema } = await searchParams;
 
+  // Curated collections only: the invisible auto-folder collections that
+  // folder-picking creates are backing records, never managed here (Step 3c).
   const [collections, departments, eligibleConnections] = await Promise.all([
-    getVisibleCollections(),
+    getManageableCollections(),
     isSuperAdmin ? getOrgDepartmentsForPicker() : Promise.resolve([]),
     isSuperAdmin ? getEligibleSourceConnections() : Promise.resolve([]),
   ]);
@@ -65,7 +60,6 @@ export default async function CollectionsPage({
         departments={departments}
         eligibleConnections={eligibleConnections}
         canEdit={isSuperAdmin}
-        initialSchemaCollectionId={isSuperAdmin ? schema : undefined}
       />
     </main>
   );
