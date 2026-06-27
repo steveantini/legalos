@@ -6,10 +6,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import {
-  ResearchAskComposer,
-  type ScopeOption,
-} from "@/components/knowledge/research-ask-composer";
+import { FolderPickerDialog } from "@/components/knowledge/folder-picker-dialog";
+import { ResearchAskComposer } from "@/components/knowledge/research-ask-composer";
 import {
   ResearchRunLive,
   type LiveRunInitial,
@@ -24,16 +22,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { deleteResearchRun, startResearchRun } from "@/lib/actions/research";
-import type { ResearchRunView } from "@/lib/knowledge/research/shared";
+import { syncCollection } from "@/lib/actions/collections";
+import {
+  addResearchFolders,
+  deleteResearchRun,
+  startResearchRun,
+} from "@/lib/actions/research";
+import type { EligibleSourceConnection } from "@/lib/knowledge/collections-data";
+import type { FolderDescriptor } from "@/lib/knowledge/collections-shared";
+import type { ResearchRunView, ScopeOption } from "@/lib/knowledge/research/shared";
+import type { SyncCursor } from "@/lib/knowledge/sync";
 
 /**
- * The Research surface (Knowledge arc Step 2; hierarchy polish): the ask is
- * the REUSABLE ResearchAskComposer (question hero, compact scope grid, live
- * selection feedback), this view owns the start transition and the handoff
- * to the live segmented run, and past runs list below, reopenable. The
- * composer's reusability is deliberate: follow-up refinement (the named next
- * feature) re-mounts it beneath an answer without touching this page.
+ * The Research surface (Knowledge folders rework, Step 2): folder-picking is the
+ * scoping act. The view owns the available folders + the selection, lets admins
+ * add folders from a connected drive (find-or-create an invisible folder-backed
+ * collection per pick, then best-effort sync), and hands the selected folder
+ * collection ids to the unchanged research engine via startResearchRun. Members
+ * pick from already-available folders (no add affordance). Past runs sit below.
  */
 
 export type { ScopeOption };
@@ -56,10 +62,16 @@ export function ResearchView({
   collections,
   cap,
   runs,
+  canSetUpFolders,
+  connections,
 }: {
   collections: ScopeOption[];
   cap: number;
   runs: ResearchRunView[];
+  /** Whether the viewer may add new folders (the admin path; step 2). */
+  canSetUpFolders: boolean;
+  /** Eligible connections for the folder picker (admins only). */
+  connections: EligibleSourceConnection[];
 }) {
   const router = useRouter();
   const [liveRun, setLiveRun] = useState<LiveRunInitial | null>(null);
@@ -68,22 +80,66 @@ export function ResearchView({
     collectionNames: string[];
   } | null>(null);
   const [pendingStart, startStart] = useTransition();
-  // Deletion runs in THIS mounted view's transition (the b88a37f lesson),
-  // with the established confirm dialog.
+  // Selection is owned here so a freshly added folder can auto-select; available
+  // folders merge the server list with optimistically-added picks (which dedupe
+  // out once router.refresh brings them into the server list).
+  const [selected, setSelected] = useState<string[]>([]);
+  const [extras, setExtras] = useState<ScopeOption[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pendingAdd, startAdd] = useTransition();
   const [deleteTarget, setDeleteTarget] = useState<ResearchRunView | null>(null);
   const [pendingDelete, startDelete] = useTransition();
 
-  function handleDeleteRun(run: ResearchRunView) {
-    if (pendingDelete) return;
-    startDelete(async () => {
-      const result = await deleteResearchRun(run.id);
+  const available: ScopeOption[] = [
+    ...collections,
+    ...extras.filter((e) => !collections.some((c) => c.id === e.id)),
+  ];
+
+  function handleToggle(id: string) {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  }
+
+  /** Best-effort, fire-and-forget sync after a folder is added. Research reads
+   * live, so this only freshens the preview count; failures never block a run. */
+  function bestEffortSync(collectionId: string) {
+    void (async () => {
+      try {
+        let cursor: SyncCursor | null = null;
+        let sourceIds: string[] | null = null;
+        for (let i = 0; i < 30; i += 1) {
+          const result = await syncCollection({ collectionId, cursor, sourceIds });
+          if (!result.ok || result.completed) break;
+          cursor = result.cursor;
+          sourceIds = result.sourceIds;
+        }
+      } catch {
+        // Sync is best-effort; the run works against live documents regardless.
+      }
+      router.refresh();
+    })();
+  }
+
+  function handlePickerConfirm(folders: FolderDescriptor[]) {
+    if (pendingAdd || folders.length === 0) return;
+    startAdd(async () => {
+      const result = await addResearchFolders({ folders });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
-      toast.success("Run deleted. Usage records are retained.");
-      router.refresh();
-      setDeleteTarget(null);
+      setExtras((prev) => {
+        const known = new Set(prev.map((e) => e.id));
+        return [...prev, ...result.scopeOptions.filter((s) => !known.has(s.id))];
+      });
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const s of result.scopeOptions) next.add(s.id);
+        return [...next];
+      });
+      setPickerOpen(false);
+      for (const s of result.scopeOptions) bestEffortSync(s.id);
     });
   }
 
@@ -97,11 +153,10 @@ export function ResearchView({
       }
       setAsked({
         question,
-        collectionNames: collections
+        collectionNames: available
           .filter((c) => collectionIds.includes(c.id))
           .map((c) => c.name),
       });
-      // Hand off to the live runner; it advances the run from planning.
       setLiveRun({
         runId: result.runId,
         status: "planning",
@@ -114,6 +169,20 @@ export function ResearchView({
         basis: null,
         failureReason: null,
       });
+    });
+  }
+
+  function handleDeleteRun(run: ResearchRunView) {
+    if (pendingDelete) return;
+    startDelete(async () => {
+      const result = await deleteResearchRun(run.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Run deleted. Usage records are retained.");
+      router.refresh();
+      setDeleteTarget(null);
     });
   }
 
@@ -152,27 +221,15 @@ export function ResearchView({
 
   return (
     <div className="flex flex-col gap-8">
-      {collections.length === 0 ? (
-        <p className="max-w-[60ch] rounded-lg bg-paper-2 px-5 py-4 text-[13.5px] leading-[1.5] text-muted-foreground">
-          Research runs over your collections, and there are none visible to
-          you yet. Start in{" "}
-          <Link
-            href="/workspace/knowledge/collections"
-            className="font-medium text-foreground underline-offset-2 hover:underline"
-          >
-            Collections
-          </Link>
-          , where administrators draw scopes over the repositories your team
-          already uses.
-        </p>
-      ) : (
-        <ResearchAskComposer
-          collections={collections}
-          cap={cap}
-          pending={pendingStart}
-          onRun={handleRun}
-        />
-      )}
+      <ResearchAskComposer
+        collections={available}
+        selected={selected}
+        onToggle={handleToggle}
+        onAddFolders={canSetUpFolders ? () => setPickerOpen(true) : undefined}
+        cap={cap}
+        pending={pendingStart}
+        onRun={handleRun}
+      />
 
       {/* Zone 2: history. A quiet hairline marks the break from the scope zone
           above; the rows are flat at rest so the zone recedes as reference
@@ -217,9 +274,6 @@ export function ResearchView({
                       </span>
                     </span>
                   </Link>
-                  {/* Delete sits OUTSIDE the link (no nested interactives).
-                      Settled runs only; an in-progress run cancels first.
-                      Quiet muted icon so it recedes behind the row content. */}
                   {terminal ? (
                     <button
                       type="button"
@@ -235,6 +289,15 @@ export function ResearchView({
             })}
           </div>
         </section>
+      ) : null}
+
+      {pickerOpen ? (
+        <FolderPickerDialog
+          connections={connections}
+          pending={pendingAdd}
+          onClose={() => setPickerOpen(false)}
+          onConfirm={handlePickerConfirm}
+        />
       ) : null}
 
       <Dialog

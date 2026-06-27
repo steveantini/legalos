@@ -6,6 +6,19 @@
  * the tests pin the math.
  */
 
+/** One scope option the Research composer offers: a folder-backed (or legacy
+ * admin-curated) collection the user can ask over. Lives here, client-safe, so
+ * the composer, the view, and the server actions share one shape. */
+export type ScopeOption = {
+  id: string;
+  name: string;
+  description: string;
+  /** Source provenance paths, always shown (the transparency rule). */
+  provenance: string[];
+  documentCount: number;
+  lastSyncedAt: string | null;
+};
+
 /** A citation in the established sources idiom (messages.sources, 0014). */
 export type ResearchCitation = {
   id: string;

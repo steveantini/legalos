@@ -8,11 +8,14 @@ import {
   isCurrentUserSuperAdmin,
   requireAuthUser,
 } from "@/lib/auth/access";
+import { ensureFolderCollection } from "@/lib/actions/collections";
+import type { FolderDescriptor } from "@/lib/knowledge/collections-shared";
 import { getVisibleCollections } from "@/lib/knowledge/collections-data";
 import {
   advanceResearchRun,
   type AdvanceResult,
 } from "@/lib/knowledge/research/engine";
+import type { ScopeOption } from "@/lib/knowledge/research/shared";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -42,6 +45,64 @@ const startSchema = z.object({
   question: z.string().trim().min(8, "Ask a fuller question.").max(600),
   collectionIds: z.array(z.string().uuid()).min(1).max(20),
 });
+
+const addFoldersSchema = z.object({
+  folders: z
+    .array(
+      z.object({
+        connectionId: z.string().uuid(),
+        rootReference: z.string().min(1).max(1024),
+        pathNames: z.array(z.string()).max(64),
+        recursive: z.boolean(),
+        displayName: z.string().max(500),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+
+/**
+ * Folder-picking in Research (Step 2): find-or-create the invisible folder-backed
+ * collection for each picked folder, then return them as scope options. Gated by
+ * `ensureFolderCollection` (super admin in step 2; the admin path), so a member
+ * cannot create folders here, they pick from already-visible ones. The research
+ * engine is unchanged; this only resolves picked folders into collection ids the
+ * existing `startResearchRun` accepts.
+ */
+export async function addResearchFolders(input: {
+  folders: FolderDescriptor[];
+}): Promise<{ ok: true; scopeOptions: ScopeOption[] } | { ok: false; error: string }> {
+  await requireAuthUser();
+  const parsed = addFoldersSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
+
+  const ids: string[] = [];
+  for (const folder of parsed.data.folders) {
+    const result = await ensureFolderCollection({
+      connectionId: folder.connectionId,
+      rootReference: folder.rootReference,
+      pathNames: folder.pathNames,
+      recursive: folder.recursive,
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+    if (result.collectionId) ids.push(result.collectionId);
+  }
+
+  // Read the ensured collections back as scope options (RLS-scoped), so names,
+  // provenance, and any already-synced counts are accurate.
+  const visible = await getVisibleCollections();
+  const scopeOptions: ScopeOption[] = visible
+    .filter((c) => ids.includes(c.id))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      provenance: c.sources.map((s) => s.displayPath),
+      documentCount: c.presentCount,
+      lastSyncedAt: c.lastSyncedAt,
+    }));
+  return { ok: true, scopeOptions };
+}
 
 const runIdSchema = z.string().uuid();
 

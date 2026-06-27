@@ -519,11 +519,14 @@ export const DOC_PAGES: DocPage[] = [
           <p>
             On the Research page, write your question, pick the folders to read,
             and review the preview: how many documents are in scope and roughly
-            how long the run will take. Then run it. Research reads every
-            document in scope live, where it lives, and never copies it; legalOS
-            stores no full text of your documents and builds no search index over
-            them. What it keeps for an answer is the findings and a short
-            supporting quote from each document, so you can verify the result.
+            how long the run will take. Then run it. If you administer the
+            workspace, you can add folders straight from a connected drive here;
+            everyone else picks from the folders already available. Research
+            reads every document in scope live, where it lives, and never copies
+            it; legalOS stores no full text of your documents and builds no
+            search index over them. What it keeps for an answer is the findings
+            and a short supporting quote from each document, so you can verify
+            the result.
           </p>
         </MarketingSection>
         <MarketingSection title="When a run is too large">

@@ -17,6 +17,11 @@ import type {
   SyncResult,
 } from "@/lib/knowledge/collections-shared";
 import {
+  ensureFolderCollectionCore,
+  synthesizeFolderName,
+  type FolderKey,
+} from "@/lib/knowledge/folder-collections";
+import {
   computeDisplayPath,
   listRemoteFolderChildren,
   type EnumerationTarget,
@@ -375,6 +380,119 @@ export async function addCollectionSource(
 
   revalidatePath(COLLECTIONS_PATH);
   return { ok: true };
+}
+
+/**
+ * THE single gate for creating folder-backed collections (Step 2). Today: super
+ * admin only (the admin path). Step 2b loosens this in ONE place (member
+ * self-service via `organizations.member_self_service_folders`, behind the new
+ * private-visibility tier + RLS); nothing else decides who may create folders.
+ */
+async function canSetUpFolders(): Promise<boolean> {
+  return isCurrentUserSuperAdmin();
+}
+
+const ensureFolderInputSchema = z.object({
+  connectionId: z.string().uuid(),
+  rootReference: z.string().min(1).max(1024),
+  pathNames: z.array(z.string()).max(64),
+  recursive: z.boolean(),
+});
+
+/**
+ * Find-or-create the INVISIBLE folder-backed collection for one picked folder,
+ * idempotently (Step 2). Picking the same folder twice returns the same
+ * collection, never a duplicate: the reuse lookup matches an existing auto-folder
+ * source on (connection_id, root_reference), and the partial unique index
+ * (migration 20260627100000) is the concurrency backstop, on which a losing race
+ * drops the orphan collection and reuses the winner. Synthesizes the name from
+ * the folder's path and defaults visibility to 'org' (the admin path). Gated by
+ * canSetUpFolders so step 2b can open it to members in one place.
+ */
+export async function ensureFolderCollection(input: {
+  connectionId: string;
+  rootReference: string;
+  pathNames: string[];
+  recursive: boolean;
+}): Promise<CollectionActionResult> {
+  await requireAuthUser();
+  if (!(await canSetUpFolders())) return { ok: false, error: NOT_ALLOWED };
+  const parsed = ensureFolderInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
+
+  const profile = await getCurrentUserProfile();
+  if (!profile?.organization_id) return { ok: false, error: GENERIC_ERROR };
+
+  const target = await resolveEnumerationTarget(parsed.data.connectionId);
+  if (!target) {
+    return { ok: false, error: "That connection can't back a folder right now." };
+  }
+  const serverName =
+    getTrustedMcpServer(target.serverId)?.displayName ?? target.serverId;
+  const displayPath = [serverName, ...parsed.data.pathNames].join(" / ").slice(0, 500);
+  const name = synthesizeFolderName(parsed.data.pathNames, serverName);
+
+  const supabase = await createSupabaseServerClient();
+  const organizationId = profile.organization_id;
+  const createdById = profile.id;
+
+  const findExisting = async (k: FolderKey): Promise<string | null> => {
+    const { data } = await supabase
+      .from("collection_sources")
+      .select("collection_id")
+      .eq("connection_id", k.connectionId)
+      .eq("root_reference", k.rootReference)
+      .eq("is_auto_folder", true)
+      .limit(1)
+      .maybeSingle();
+    return data ? (data as { collection_id: string }).collection_id : null;
+  };
+
+  const create = async (k: FolderKey): Promise<string> => {
+    const { data: created, error: createError } = await supabase
+      .from("collections")
+      .insert({
+        organization_id: organizationId,
+        name,
+        description: "",
+        visibility: "org",
+        created_by_user_id: createdById,
+        is_auto_folder: true,
+      })
+      .select("id")
+      .single();
+    if (createError || !created) throw new Error("create-collection-failed");
+    const collectionId = (created as { id: string }).id;
+
+    const { error: sourceError } = await supabase.from("collection_sources").insert({
+      collection_id: collectionId,
+      connection_id: k.connectionId,
+      root_reference: k.rootReference,
+      display_path: displayPath,
+      recursive: parsed.data.recursive,
+      is_auto_folder: true,
+    });
+    if (sourceError) {
+      // Lost the concurrency race against the partial unique index, or a
+      // transient failure: drop the orphan collection and reuse the winner.
+      await supabase.from("collections").delete().eq("id", collectionId);
+      const winner = await findExisting(k);
+      if (winner) return winner;
+      throw new Error("create-source-failed");
+    }
+    return collectionId;
+  };
+
+  try {
+    const collectionId = await ensureFolderCollectionCore(
+      { connectionId: parsed.data.connectionId, rootReference: parsed.data.rootReference },
+      { findExisting, create },
+    );
+    revalidatePath(COLLECTIONS_PATH);
+    return { ok: true, collectionId };
+  } catch {
+    return { ok: false, error: GENERIC_ERROR };
+  }
 }
 
 /** Remove a source (its inventory rows cascade with it). */

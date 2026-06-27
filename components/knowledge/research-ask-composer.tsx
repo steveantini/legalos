@@ -10,6 +10,7 @@ import {
   estimateResearchPreview,
   RESEARCH_DOC_CAP_WHY,
   type ResearchPreview,
+  type ScopeOption,
 } from "@/lib/knowledge/research/shared";
 
 /**
@@ -36,14 +37,7 @@ import {
  * are exactly the engine's.
  */
 
-export type ScopeOption = {
-  id: string;
-  name: string;
-  description: string;
-  provenance: string[];
-  documentCount: number;
-  lastSyncedAt: string | null;
-};
+export type { ScopeOption };
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
@@ -61,18 +55,26 @@ function relativeTime(iso: string): string {
 
 export function ResearchAskComposer({
   collections,
+  selected,
+  onToggle,
+  onAddFolders,
   cap,
   pending,
   onRun,
 }: {
   collections: ScopeOption[];
+  /** Controlled selection (owned by the view, so picked folders auto-select). */
+  selected: string[];
+  onToggle: (id: string) => void;
+  /** Admin-only: open the folder picker to add new folders. Omitted for members
+   * (step 2), who pick from the already-available folders. */
+  onAddFolders?: () => void;
   cap: number;
   pending: boolean;
   onRun: (question: string, collectionIds: string[]) => void;
 }) {
   const questionId = useId();
   const [question, setQuestion] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
 
   const selectedCollections = collections.filter((c) =>
     selected.includes(c.id),
@@ -89,12 +91,6 @@ export function ResearchAskComposer({
     !preview.overCap &&
     !pending;
 
-  function toggleCollection(id: string) {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
-  }
-
   // The section subline IS the live selection summary — guidance with
   // nothing selected, the running estimate once scopes are picked, in the
   // units that matter to the asker: documents and time. No money: usage is
@@ -103,11 +99,11 @@ export function ResearchAskComposer({
   // never disagree.
   const scopeSummary = preview
     ? `${selectedCollections.length} ${
-        selectedCollections.length === 1 ? "collection" : "collections"
+        selectedCollections.length === 1 ? "folder" : "folders"
       } · ~${preview.documentCount} ${
         preview.documentCount === 1 ? "document" : "documents"
       } · roughly ${preview.estMinutesLow}–${preview.estMinutesHigh} minutes.`
-    : "Select at least one collection to begin.";
+    : "Pick folders to begin.";
 
   return (
     <div className="flex flex-col gap-6">
@@ -149,8 +145,8 @@ export function ResearchAskComposer({
         description={<span aria-live="polite">{scopeSummary}</span>}
       >
         {/* Single-column stack of the shared scope card (same treatment as
-            Structured Query, minus the fields), so the two pages are siblings.
-            The source path renders in plain sans, not monospace. */}
+            Structured Query, minus the fields). Pick folders to scope the run;
+            admins can add new folders from a connected drive. */}
         <div className="flex flex-col gap-2">
           {collections.map((collection) => (
             <CollectionScopeCard
@@ -159,7 +155,7 @@ export function ResearchAskComposer({
               documentCount={collection.documentCount}
               provenance={collection.provenance}
               selected={selected.includes(collection.id)}
-              onSelect={() => toggleCollection(collection.id)}
+              onSelect={() => onToggle(collection.id)}
               inputType="checkbox"
               title={
                 collection.lastSyncedAt
@@ -168,6 +164,26 @@ export function ResearchAskComposer({
               }
             />
           ))}
+          {collections.length === 0 ? (
+            <p className="rounded-lg bg-paper-2 px-4 py-3 text-[13px] leading-[1.5] text-muted-foreground">
+              {onAddFolders
+                ? "No folders yet. Add folders from a connected drive to ask over them."
+                : "No folders are available to you yet. An administrator can add folders your team can ask over."}
+            </p>
+          ) : null}
+          {onAddFolders ? (
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onAddFolders}
+                disabled={pending}
+              >
+                Add folders from a drive
+              </Button>
+            </div>
+          ) : null}
         </div>
       </CollapsibleSection>
 
@@ -198,7 +214,7 @@ export function ResearchAskComposer({
             <p className="text-[13px] leading-[1.5] text-foreground">
               About {preview.documentCount}{" "}
               {preview.documentCount === 1 ? "document" : "documents"} across
-              your selected collections. Give it a moment once you start,
+              your selected folders. Give it a moment once you start,
               we&rsquo;ll confirm the exact count as we go.
             </p>
             <p className="mt-1 text-[11.5px] leading-[1.5] text-caption">

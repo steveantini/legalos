@@ -48,6 +48,22 @@ export type SourceInput = {
   recursive: boolean;
 };
 
+/**
+ * One folder a user picked, decoupled from any collection (Step 2). The shared
+ * folder picker returns a list of these; each caller decides what to do with
+ * them (Research find-or-creates an invisible folder-backed collection per
+ * descriptor). `displayName` is the folder's own name, for in-UI display before
+ * the server resolves the full provenance path.
+ */
+export type FolderDescriptor = {
+  connectionId: string;
+  rootReference: string;
+  /** Breadcrumb names, root-first (server name is prepended server-side). */
+  pathNames: string[];
+  recursive: boolean;
+  displayName: string;
+};
+
 /** One sync invocation's outcome. The client loops while `completed` is false. */
 export type SyncProgress = {
   completed: boolean;
