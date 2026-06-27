@@ -35,6 +35,36 @@ export type QueryableCollection = {
   preparationState: CollectionPreparationState;
 };
 
+/**
+ * A document KIND resolved for asking (Step 3b): the shared schema and the SET
+ * of the viewer's visible folders that belong to it. Structured Query asks over
+ * a kind, so an ask runs across every folder of the kind, not one folder. A
+ * representative folder id is persisted with the saved question, so a re-run can
+ * re-resolve the same kind over current data.
+ */
+export type QueryableKind = {
+  schemaId: string;
+  schemaName: string;
+  attributes: QueryableAttribute[];
+  /** Every visible folder belonging to this kind (the ask scope). */
+  folderIds: string[];
+  /** A stable folder id persisted with a saved question, so re-run re-resolves. */
+  representativeCollectionId: string;
+  documentCount: number;
+  /** The kind-wide preparation state, for the answer's stale-data notice. */
+  preparationState: CollectionPreparationState;
+};
+
+/** An existing kind an admin can point folders at, for the reuse-led setup
+ * (Step 3b guided depth): its id, name, the fields it tracks, and how many
+ * folders already belong to it. */
+export type DocumentKindSummary = {
+  schemaId: string;
+  schemaName: string;
+  fieldLabels: string[];
+  folderCount: number;
+};
+
 /** One matched document with the supporting citation(s) that make the count
  * CHECKABLE: the value the engine matched on plus the verbatim quote behind it,
  * and whether that quote was verified against the source (commit 3). */

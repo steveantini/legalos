@@ -61,10 +61,19 @@ export type CollectionView = {
   lastSyncedAt: string | null;
   /**
    * The collection's Structured Query schema attributes (empty when none is
-   * defined). Only admins receive these: the collection_schemas read policy is
-   * admin-only, so a non-admin read returns nothing and the field stays empty.
+   * defined). Readable to any member who can see the collection: the
+   * collection_schemas read policy composes collection visibility (Step 3a), so
+   * a member querying a visible folder receives its kind's fields.
    */
   schemaAttributes: CollectionAttribute[];
+  /**
+   * The id and name of the KIND this collection belongs to (its shared
+   * `collection_schemas` row, Step 3a), or null when no kind is assigned. Many
+   * folders can point at one kind; Structured Query groups by these to ask over
+   * a kind rather than a single folder.
+   */
+  schemaId: string | null;
+  schemaName: string | null;
   /**
    * The DERIVED preparation state (Structured Query commit 3): whether the
    * collection's documents have been extracted against its current schema, and
@@ -163,6 +172,8 @@ async function getConnectionDisplayMap(
  * display, plus the id and version the derived-staleness computation needs. */
 type SchemaEntry = {
   id: string;
+  /** The kind's name (Step 3a); null in the pre-3a legacy fallback. */
+  name: string | null;
   version: number;
   attributes: CollectionAttribute[];
 };
@@ -194,7 +205,7 @@ async function getCollectionSchemaMap(): Promise<Map<string, SchemaEntry>> {
 
   const { data: schemas, error: schemasError } = await supabase
     .from("collection_schemas")
-    .select("id, version, attributes");
+    .select("id, name, version, attributes");
   if (schemasError) {
     if (!isUndefinedTableError(schemasError)) {
       console.error("collection_schemas read failed", { code: schemasError.code });
@@ -202,10 +213,15 @@ async function getCollectionSchemaMap(): Promise<Map<string, SchemaEntry>> {
     return new Map();
   }
   const byId = new Map<string, SchemaEntry>(
-    ((schemas ?? []) as { id: string; version: number; attributes: unknown }[]).map(
+    ((schemas ?? []) as { id: string; name: string | null; version: number; attributes: unknown }[]).map(
       (s) => [
         s.id,
-        { id: s.id, version: s.version, attributes: parseCollectionAttributes(s.attributes) },
+        {
+          id: s.id,
+          name: s.name,
+          version: s.version,
+          attributes: parseCollectionAttributes(s.attributes),
+        },
       ],
     ),
   );
@@ -242,6 +258,7 @@ async function getCollectionSchemaMapLegacy(): Promise<Map<string, SchemaEntry>>
       row.collection_id,
       {
         id: row.id,
+        name: null,
         version: row.version,
         attributes: parseCollectionAttributes(row.attributes),
       },
@@ -434,6 +451,8 @@ export async function getVisibleCollections(): Promise<CollectionView[]> {
         missingCount: missing.count ?? 0,
         lastSyncedAt: row.last_synced_at,
         schemaAttributes: schemaMap.get(row.id)?.attributes ?? [],
+        schemaId: schemaMap.get(row.id)?.id ?? null,
+        schemaName: schemaMap.get(row.id)?.name ?? null,
         preparationState: preparationStates.get(row.id) ?? "no_schema",
       };
     }),

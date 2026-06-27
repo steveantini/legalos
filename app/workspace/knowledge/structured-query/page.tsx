@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 import { StructuredQueryView } from "@/components/knowledge/structured-query-view";
 import { HelpLink } from "@/components/workspace/help-link";
 import { isCurrentUserSuperAdmin, requireAuthUser } from "@/lib/auth/access";
+import { getEligibleSourceConnections } from "@/lib/knowledge/collections-data";
 import { listSchemaSuggestions } from "@/lib/knowledge/schema-suggestions";
 import {
-  getStructuredQuerySetup,
+  getStructuredQueryFolders,
   listStructuredQueries,
 } from "@/lib/knowledge/structured-query";
 
@@ -15,12 +16,14 @@ export const metadata: Metadata = {
 
 /**
  * Knowledge → Structured Query (the user-facing launch of Structured Query). Ask
- * an exact question in plain language about the fields a collection tracks; a
+ * an exact question in plain language about the fields a document kind tracks; a
  * model translates it into a structured query, the pure deterministic engine
  * counts, and the answer comes back exact, with the interpreted query shown and
  * a supporting citation per matching document. This is the EXACT, repeatable
- * sibling of Research's read-and-reason: you define the fields and prepare the
- * collection (in Collections), then ask precise questions here.
+ * sibling of Research's read-and-reason: pick the folders to ask over, they
+ * resolve to the document KIND they share (Step 3b), and you ask the kind.
+ * Admins set up an unprepared kind in-flow (define fields or reuse one, then
+ * prepare); members ask over kinds an admin has set up.
  *
  * One bounded model call per ask (the translation); this maxDuration keeps that
  * request comfortably inside the platform budget.
@@ -30,11 +33,12 @@ export const maxDuration = 60;
 export default async function StructuredQueryPage() {
   await requireAuthUser();
 
-  const [setup, history, suggestions, canDefineSchemas] = await Promise.all([
-    getStructuredQuerySetup(),
+  const canSetUpFolders = await isCurrentUserSuperAdmin();
+  const [folders, history, suggestions, connections] = await Promise.all([
+    getStructuredQueryFolders(),
     listStructuredQueries(),
     listSchemaSuggestions(),
-    isCurrentUserSuperAdmin(),
+    canSetUpFolders ? getEligibleSourceConnections() : Promise.resolve([]),
   ]);
 
   return (
@@ -57,9 +61,9 @@ export default async function StructuredQueryPage() {
       </header>
 
       <StructuredQueryView
-        collections={setup.queryable}
-        schemalessCollections={setup.schemaless}
-        canDefineSchemas={canDefineSchemas}
+        folders={folders}
+        canSetUpFolders={canSetUpFolders}
+        connections={connections}
         history={history}
         suggestions={suggestions}
       />

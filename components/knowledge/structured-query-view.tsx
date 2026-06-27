@@ -1,16 +1,16 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { FolderPickerDialog } from "@/components/knowledge/folder-picker-dialog";
 import { SchemaSuggestionReview } from "@/components/knowledge/schema-suggestion-review";
 import { StructuredQueryComposer } from "@/components/knowledge/structured-query-composer";
+import { StructuredQueryGuidedDepth } from "@/components/knowledge/structured-query-guided-depth";
 import { StructuredQueryResultView } from "@/components/knowledge/structured-query-result";
-import { Button, buttonVariants } from "@/components/ui/button";
-import type { SchemaSuggestionView } from "@/lib/knowledge/schema-suggestions-shared";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -20,24 +20,40 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  addStructuredQueryFolders,
   askStructuredQuestion,
   deleteStructuredQuery,
   rerunStructuredQuery,
 } from "@/lib/actions/structured-query";
+import { syncCollection } from "@/lib/actions/collections";
+import type { EligibleSourceConnection } from "@/lib/knowledge/collections-data";
+import type { FolderDescriptor } from "@/lib/knowledge/collections-shared";
+import {
+  groupFoldersByKind,
+  type KindGroup,
+  type QueryFolder,
+} from "@/lib/knowledge/document-kinds";
+import type { SchemaSuggestionView } from "@/lib/knowledge/schema-suggestions-shared";
 import type {
   PresentedResult,
-  QueryableCollection,
   StructuredQueryHistoryItem,
 } from "@/lib/knowledge/structured-query-shared";
+import type { SyncCursor } from "@/lib/knowledge/sync";
 
 /**
- * The Structured Query surface (commit 5): the reusable composer, the result
- * presentation, and the history of recent questions. Mirrors the Research view's
- * shape on purpose (sibling under Knowledge, and a clean future merge), but the
- * work is a single synchronous ask, not a segmented run, so there is no live
- * loop: the action translates, runs the pure engine, and returns the full
- * answer. History makes persistence visible and re-runnable.
+ * The Structured Query surface (folders rework, Step 3b). Folder-picking is the
+ * scoping act; the picks resolve to a document KIND, and the ask runs over the
+ * whole kind. The view owns the available folders, the selection, the chosen
+ * kind, and the ask/result/history. Three resolution states drive what renders
+ * below the composer: one set-up, prepared kind → ask; the picks span several
+ * kinds → choose one; a kind isn't set up or prepared → guided depth (admins) or
+ * an honest wait (members). Mirrors the Research view's shape on purpose.
  */
+
+/** Distinguish the "not set up yet" group (schemaId null) from "no kind chosen". */
+function groupKey(group: KindGroup): string {
+  return group.schemaId ?? "__unset__";
+}
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
@@ -54,49 +70,123 @@ function relativeTime(iso: string): string {
 }
 
 export function StructuredQueryView({
-  collections,
-  schemalessCollections,
-  canDefineSchemas,
+  folders,
+  canSetUpFolders,
+  connections,
   history,
   suggestions,
 }: {
-  collections: QueryableCollection[];
-  /** Visible, synced collections that have NO schema yet (an admin's next step
-   * is to define one). Used only to choose the right empty state. */
-  schemalessCollections: { id: string; name: string }[];
-  /** Whether the viewer may define schemas (the super-admin schema-write gate). */
-  canDefineSchemas: boolean;
+  folders: QueryFolder[];
+  /** Whether the viewer may add folders and set up kinds (the admin path). */
+  canSetUpFolders: boolean;
+  /** Eligible connections for the folder picker (admins only). */
+  connections: EligibleSourceConnection[];
   history: StructuredQueryHistoryItem[];
   suggestions: SchemaSuggestionView[];
 }) {
   const router = useRouter();
   const [result, setResult] = useState<PresentedResult | null>(null);
-  const [lastCollectionId, setLastCollectionId] = useState<string | null>(null);
-  const [prefill, setPrefill] = useState<{ question: string; collectionId: string } | null>(
-    null,
-  );
+  const [lastSchemaId, setLastSchemaId] = useState<string | null>(null);
+  const [prefillQuestion, setPrefillQuestion] = useState("");
   const [pending, startAsk] = useTransition();
+
+  // Selection is owned here so a freshly added folder auto-selects; available
+  // folders merge the server list with optimistically-added picks (which dedupe
+  // out once router.refresh brings them into the server list).
+  const [selected, setSelected] = useState<string[]>([]);
+  const [extras, setExtras] = useState<QueryFolder[]>([]);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pendingAdd, startAdd] = useTransition();
+
   const [deleteTarget, setDeleteTarget] = useState<StructuredQueryHistoryItem | null>(null);
   const [pendingDelete, startDelete] = useTransition();
 
-  function handleRun(question: string, collectionId: string) {
+  const available: QueryFolder[] = [
+    ...folders,
+    ...extras.filter((e) => !folders.some((f) => f.id === e.id)),
+  ];
+
+  // Resolve the picked folders to the kind(s) they share.
+  const selectedFolders = available.filter((f) => selected.includes(f.id));
+  const groups = groupFoldersByKind(selectedFolders);
+  const activeGroup =
+    groups.length === 1
+      ? groups[0]
+      : groups.find((g) => groupKey(g) === activeKey) ?? null;
+  const askable =
+    activeGroup && activeGroup.hasSchema && activeGroup.prepared ? activeGroup : null;
+
+  function handleToggle(id: string) {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+    // A change in scope can change the resolved kind; let it re-resolve.
+    setActiveKey(null);
+  }
+
+  /** Best-effort, fire-and-forget sync after a folder is added, so it has an
+   * inventory to prepare. Failures never block setup. */
+  function bestEffortSync(collectionId: string) {
+    void (async () => {
+      try {
+        let cursor: SyncCursor | null = null;
+        let sourceIds: string[] | null = null;
+        for (let i = 0; i < 30; i += 1) {
+          const result = await syncCollection({ collectionId, cursor, sourceIds });
+          if (!result.ok || result.completed) break;
+          cursor = result.cursor;
+          sourceIds = result.sourceIds;
+        }
+      } catch {
+        // Best-effort; preparation reconciles the inventory regardless.
+      }
+      router.refresh();
+    })();
+  }
+
+  function handlePickerConfirm(picked: FolderDescriptor[]) {
+    if (pendingAdd || picked.length === 0) return;
+    startAdd(async () => {
+      const result = await addStructuredQueryFolders({ folders: picked });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setExtras((prev) => {
+        const known = new Set(prev.map((e) => e.id));
+        return [...prev, ...result.folders.filter((f) => !known.has(f.id))];
+      });
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const f of result.folders) next.add(f.id);
+        return [...next];
+      });
+      setActiveKey(null);
+      setPickerOpen(false);
+      for (const f of result.folders) bestEffortSync(f.id);
+    });
+  }
+
+  function handleRun(question: string, schemaId: string) {
     if (pending) return;
-    setLastCollectionId(collectionId);
+    setLastSchemaId(schemaId);
     startAsk(async () => {
-      const response = await askStructuredQuestion({ collectionId, question });
+      const response = await askStructuredQuestion({ schemaId, question });
       if (!response.ok) {
         toast.error(response.error);
         return;
       }
       setResult(response.result);
-      setPrefill(null);
       router.refresh(); // the new question joins the history
     });
   }
 
   function handleRerun(item: StructuredQueryHistoryItem) {
     if (pending) return;
-    setLastCollectionId(item.collectionId);
+    setLastSchemaId(
+      available.find((f) => f.id === item.collectionId)?.schemaId ?? null,
+    );
     startAsk(async () => {
       const response = await rerunStructuredQuery(item.id);
       if (!response.ok) {
@@ -104,17 +194,20 @@ export function StructuredQueryView({
         return;
       }
       setResult(response.result);
-      setPrefill(null);
       router.refresh();
     });
   }
 
   function handleAdjust() {
-    if (result) {
-      setPrefill({
-        question: result.question,
-        collectionId: lastCollectionId ?? "",
-      });
+    if (!result) return;
+    setPrefillQuestion(result.question);
+    // Re-scope to the kind the answer ran over, so the composer reappears ready.
+    if (lastSchemaId) {
+      const kindFolders = available
+        .filter((f) => f.schemaId === lastSchemaId)
+        .map((f) => f.id);
+      if (kindFolders.length > 0) setSelected(kindFolders);
+      setActiveKey(lastSchemaId);
     }
     setResult(null);
   }
@@ -134,14 +227,17 @@ export function StructuredQueryView({
   }
 
   if (result) {
+    // The representative folder of the answer's kind, for the gap → suggest flow.
+    const representativeId =
+      available.find((f) => f.schemaId === lastSchemaId)?.id ?? null;
     return (
       <StructuredQueryResultView
         result={result}
-        collectionId={lastCollectionId}
+        collectionId={representativeId}
         onAdjust={handleAdjust}
         onAskAnother={() => {
           setResult(null);
-          setPrefill(null);
+          setPrefillQuestion("");
         }}
       />
     );
@@ -149,20 +245,39 @@ export function StructuredQueryView({
 
   return (
     <div className="flex flex-col gap-8">
-      {collections.length === 0 ? (
-        <StructuredQueryEmptyState
-          canDefineSchemas={canDefineSchemas}
-          schemalessCollections={schemalessCollections}
-        />
-      ) : (
-        <StructuredQueryComposer
-          collections={collections}
-          pending={pending}
-          onRun={handleRun}
-          initialQuestion={prefill?.question ?? ""}
-          initialCollectionId={prefill?.collectionId ?? null}
-        />
-      )}
+      <StructuredQueryComposer
+        folders={available}
+        selected={selected}
+        onToggle={handleToggle}
+        onAddFolders={canSetUpFolders ? () => setPickerOpen(true) : undefined}
+        askSchemaId={askable?.schemaId ?? null}
+        askKindName={askable?.schemaName ?? null}
+        askFields={askable?.attributes ?? []}
+        pending={pending}
+        onRun={handleRun}
+        initialQuestion={prefillQuestion}
+      />
+
+      {/* Disambiguation: the picks span several kinds. Choose one to ask about. */}
+      {groups.length > 1 ? (
+        <KindChooser groups={groups} activeKey={activeKey} onPick={setActiveKey} />
+      ) : null}
+
+      {/* Guided depth: the chosen kind isn't askable yet. Admins set it up here;
+          members get an honest wait. */}
+      {activeGroup && !askable ? (
+        canSetUpFolders ? (
+          <StructuredQueryGuidedDepth group={activeGroup} />
+        ) : (
+          <p className="max-w-[75ch] rounded-xl border border-hairline bg-paper-2 p-5 text-[14px] leading-[1.55] text-muted-foreground">
+            {activeGroup.folderIds.length === 1
+              ? "This folder isn't"
+              : "These folders aren't"}{" "}
+            set up to query yet. Once an administrator sets up the document kind,
+            you can ask precise questions about it here.
+          </p>
+        )
+      ) : null}
 
       {suggestions.length > 0 ? (
         <section aria-labelledby="structured-query-suggestions">
@@ -186,8 +301,7 @@ export function StructuredQueryView({
       ) : null}
 
       {/* Zone 2: history. A quiet hairline marks the break from the scope zone
-          above; the rows are flat at rest (no fill) so the zone recedes as
-          reference material. */}
+          above; the rows are flat at rest so the zone recedes as reference. */}
       {history.length > 0 ? (
         <section
           aria-labelledby="structured-query-history"
@@ -218,7 +332,7 @@ export function StructuredQueryView({
                     <span className="mt-0.5 block truncate text-[11.5px] text-caption">
                       {item.understood
                         ? `${item.matchedCount ?? 0} of ${item.totalCount ?? 0} · ${item.interpretedSummary}`
-                        : "Not tracked by this collection"}{" "}
+                        : "Not tracked by this document kind"}{" "}
                       · {item.collectionName} · {relativeTime(item.createdAt)}
                     </span>
                   </span>
@@ -235,6 +349,15 @@ export function StructuredQueryView({
             ))}
           </div>
         </section>
+      ) : null}
+
+      {pickerOpen ? (
+        <FolderPickerDialog
+          connections={connections}
+          pending={pendingAdd}
+          onClose={() => setPickerOpen(false)}
+          onConfirm={handlePickerConfirm}
+        />
       ) : null}
 
       <Dialog
@@ -275,87 +398,60 @@ export function StructuredQueryView({
   );
 }
 
-/**
- * The state-aware, role-aware empty state. The composer gate is SCHEMA-DEFINED
- * (a collection with `schemaAttributes.length > 0`), never preparation, so an
- * empty surface means no visible collection has a schema yet. Three honest
- * situations, each with the precise next action:
- *  A) an admin with synced collection(s) but no schema → define the fields
- *     (deep-linked to define-schema on the specific collection when there's one);
- *  B) an admin with no collections at all → set up a collection first;
- *  C) a member with nothing set up → honest wait-for-admin, no dead-end button.
- */
-function StructuredQueryEmptyState({
-  canDefineSchemas,
-  schemalessCollections,
+/** The "which kind?" chooser, shown when the picked folders span several kinds.
+ * Each option states the kind and whether it's ready, so the choice is honest. */
+function KindChooser({
+  groups,
+  activeKey,
+  onPick,
 }: {
-  canDefineSchemas: boolean;
-  schemalessCollections: { id: string; name: string }[];
-}) {
-  // STATE C — the viewer cannot define schemas and nothing is set up for them.
-  if (!canDefineSchemas) {
-    return (
-      <EmptyCard>
-        Your team hasn&rsquo;t set up any fields to query yet. Once an
-        administrator does, this is where you&rsquo;ll ask precise questions about
-        your documents.
-      </EmptyCard>
-    );
-  }
-
-  // STATE B — an admin with no collections at all.
-  if (schemalessCollections.length === 0) {
-    return (
-      <EmptyCard action={{ href: "/workspace/knowledge/collections", label: "Set up a collection" }}>
-        Set up a collection of documents first, then define the fields you want
-        to track, and you can ask exact questions about them here.
-      </EmptyCard>
-    );
-  }
-
-  // STATE A — an admin with synced collection(s), but none has a schema yet.
-  // Deep-link to define-schema on the specific collection when there is one.
-  const single = schemalessCollections.length === 1 ? schemalessCollections[0] : null;
-  const action = single
-    ? { href: `/workspace/knowledge/collections?schema=${single.id}`, label: "Define fields" }
-    : { href: "/workspace/knowledge/collections", label: "Define fields" };
-  return (
-    <EmptyCard action={action}>
-      {single ? (
-        <>
-          <span className="font-medium text-foreground">{single.name}</span> is
-          synced and ready. Define the fields you want to track, like agreement
-          type or effective date, and you can start asking exact questions about
-          them.
-        </>
-      ) : (
-        <>
-          Your collections are synced and ready. Define the fields you want to
-          track on one, like agreement type or effective date, and you can start
-          asking exact questions about them.
-        </>
-      )}
-    </EmptyCard>
-  );
-}
-
-/** A muted empty-state card with an optional primary action that reads as a
- * single obvious next click (a button-styled link). */
-function EmptyCard({
-  children,
-  action,
-}: {
-  children: ReactNode;
-  action?: { href: string; label: string };
+  groups: KindGroup[];
+  activeKey: string | null;
+  onPick: (key: string) => void;
 }) {
   return (
-    <div className="flex max-w-[62ch] flex-col items-start gap-3 rounded-lg bg-paper-2 px-5 py-4">
-      <p className="text-[13.5px] leading-[1.5] text-muted-foreground">{children}</p>
-      {action ? (
-        <Link href={action.href} className={buttonVariants()}>
-          {action.label}
-        </Link>
-      ) : null}
-    </div>
+    <section aria-labelledby="structured-query-kinds">
+      <h2
+        id="structured-query-kinds"
+        className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
+      >
+        These folders track different things. Pick one to ask about.
+      </h2>
+      <div className="mt-2 flex flex-col gap-2">
+        {groups.map((group) => {
+          const key = group.schemaId ?? "__unset__";
+          const ready = group.hasSchema && group.prepared;
+          const status = !group.hasSchema
+            ? "not set up"
+            : group.prepared
+              ? "ready"
+              : "needs preparing";
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onPick(key)}
+              aria-pressed={activeKey === key}
+              className={`rounded-lg border px-4 py-3 text-left transition-colors duration-hover ease-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none ${
+                activeKey === key
+                  ? "border-hairline-strong bg-secondary"
+                  : "border-hairline bg-paper-2 hover:bg-secondary"
+              }`}
+            >
+              <span className="block text-[13.5px] font-medium text-foreground">
+                {group.schemaName ?? "Not set up yet"}
+              </span>
+              <span className="mt-0.5 block text-[11.5px] text-caption">
+                {group.folderIds.length}{" "}
+                {group.folderIds.length === 1 ? "folder" : "folders"} ·{" "}
+                {group.documentCount}{" "}
+                {group.documentCount === 1 ? "document" : "documents"} ·{" "}
+                <span className={ready ? "text-caption" : "text-warn-fg"}>{status}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

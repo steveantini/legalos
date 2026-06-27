@@ -5226,3 +5226,34 @@ Status: Accepted
 **Scope fence honored / forward notes:** no UX change (3b); member self-service / the private tier (2b) — and 2b's RLS must extend the same private tier to `collection_schemas` read (a schema readable to the owner of its private folders), recorded for sequencing; picker convergence / legacy route retirement later; the extraction-key change deferred.
 
 **Consequences:** One additive migration (drop the 1:1 UNIQUE + FK-to-SET-NULL, the schema entity + `name`, `collections.schema_id`, the backfill, the read-RLS rewrite), authored under the tracked workflow and applied via `db push`; read surfaces tolerate the pre-migration window, admin write/prepare actions assume it applied. One pure helper + tests (`dedupeDocumentRefsById`), the `loadSchemaSetDocuments` set-union loader, and the save/setup-read/prepare/query plumbing moved onto the `schema_id` pointer. 3b (the Structured Query folder-picking + guided-depth UX on this foundation) follows.
+
+## D-210 — Knowledge folders rework, Step 3b: Structured Query folder-picking + role-aware guided depth (on the 3a per-set foundation)
+
+Date: 2026-06-27
+Status: Accepted
+
+**Context:** Step 3b of the folders arc (ROADMAP 1c), the UX on top of 3a's per-set "document kind" data model (D-209). Structured Query becomes folder-first like Research: you PICK FOLDERS, those resolve to the KIND(s) they share, and you ask the kind. No data-model change (3a did it); no migration; the pure engine (`runStructuredQuery`, D-200) and `runCollectionStructuredQuery` (already a folder-set loader) are untouched.
+
+**Resolve-to-kind (the pure layer).** A new pure, unit-tested module `lib/knowledge/document-kinds.ts`: `groupFoldersByKind(folders)` groups the picked folders by `schemaId` (folders with no kind collapse into a single `schemaId: null` group, sorted last); each `KindGroup` carries `hasSchema` (a kind with at least one field) and `prepared` (at least one folder has prepared data). `aggregatePreparationState(states)` reduces a kind's folders to the single, most-cautionary-truthful preparation state for the answer's stale-data notice (any `needs_updating` wins, else `ready`, else the most informative not-yet-prepared state). Both are I/O-free and pinned by tests, the same discipline as the deterministic engine.
+
+**The three states the surface branches on:**
+- **One set-up, prepared kind → ASK.** The composer enables, the question runs over the WHOLE kind.
+- **Picks span several kinds → "which kind?"** A chooser lists each group (name or "Not set up yet", folder/doc counts, ready / needs preparing / not set up); choosing one sets the active kind.
+- **A kind isn't set up or prepared → guided depth.** Admins set it up in-flow; members get an honest "an administrator can set this up."
+
+**Ask scoping (the resolved design fork — flag for the operator).** An ask is scoped to the CHOSEN KIND = every one of the viewer's visible folders sharing that `schema_id`, NOT only the picked subset. The action `askStructuredQuestion({ schemaId, question })` re-resolves the kind server-side (`resolveKindBySchemaId`), translates against the kind's fields, runs the pure engine over the kind's full folder set, and persists a REPRESENTATIVE `collection_id` (the kind's first folder) into `structured_queries` (unchanged single-`collection_id` column, so no migration). Re-run resolves the kind from that representative (`resolveKindByCollectionId`), reflecting any folders added to or removed from the kind since. The alternative (strict picked-subset scoping, persisting the exact id list) would need a schema/columns change; chosen against per "no data-model change." If strict-subset scoping is wanted, that is the change to make.
+
+**Role-aware guided depth (admin), reuse-led.** `StructuredQueryGuidedDepth` (super admin via the single `canSetUpFolders` gate, exported from `lib/actions/collections.ts`):
+- NOT SET UP → reuse an existing kind in one click (`listDocumentKinds` → `pointFoldersAtKind`), or define a new one (the shared schema builder → `createDocumentKind`, one entity pointed at the whole picked set).
+- SET UP, NOT PREPARED → prepare it (the shared client-driven loop). Inline field-editing is deliberately NOT offered here: the member-safe `QueryableAttribute` projection drops the admin's extraction `description`, so editing from the projected shape would blank it; field edits stay in Collections.
+Members never reach these actions (the view renders the honest wait instead).
+
+**REUSE, not rebuild (relocations).** The schema builder moved out of `collections-view.tsx` into a shared `components/knowledge/schema-builder-dialog.tsx`, generalized with an optional name field (Collections edits a folder's fields with no name; Structured Query names a new KIND). The prepare loop moved into a shared hook `components/knowledge/use-prepare-loop.ts`, used by both Collections and the guided depth, so the two surfaces prepare identically. The zod attribute schema, the stable-key derivation, and the prepare segmentation are unchanged.
+
+**Folder-picking.** `addStructuredQueryFolders` mirrors Research's `addResearchFolders` (find-or-create the invisible folder-backed collection per pick via `ensureFolderCollection`, the same single gate), with a best-effort sync so a freshly added folder has an inventory to prepare. The shared `FolderPickerDialog` is reused as-is.
+
+**Deep-links / route.** The old schema-defined empty state that deep-linked to `/workspace/knowledge/collections?schema=<id>` is replaced by in-flow guided depth, so no Structured Query surface now links out to Collections for setup. The Collections route stays routed (it still honors the `?schema=` param) for residual governance; its full retirement remains gated on the Policy & access arc.
+
+**Reads changed (no migration):** `collections-data` now exposes `schemaId`/`schemaName` per collection (the kind pointer + name, member-readable for a visible folder via the 3a read policy); `getStructuredQueryFolders` projects every visible folder to a `QueryFolder`; `loadMatchedCitations` widened to a folder-id set (titles read across the kind, deduped by anchor). `getStructuredQuerySetup` (the single-collection setup read) was removed; `getQueryableCollections` is kept (the gap → suggest flow still uses it).
+
+**Consequences:** One pure module + tests (`document-kinds`), two relocated shared pieces (schema-builder dialog, prepare-loop hook), the folder/kind-resolving view + composer + guided-depth components, and four server actions (`addStructuredQueryFolders`, `listDocumentKinds`, `pointFoldersAtKind`, `createDocumentKind`) plus the kind-scoped ask/re-run. No migration, no engine change. Gates green (tsc, eslint incl. no-em-dash, 749 tests, build). Forward: strict-subset scoping if the operator wants it; member self-service (2b); legacy route retirement (Policy & access arc); the deferred global extraction-key watch-item (D-209).

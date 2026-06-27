@@ -5,52 +5,80 @@ import { useId, useState } from "react";
 import { CollectionScopeCard } from "@/components/knowledge/collection-scope-card";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
+import type { QueryFolder } from "@/lib/knowledge/document-kinds";
 import {
   QUESTION_MAX_LENGTH,
   QUESTION_MIN_LENGTH,
-  type QueryableCollection,
+  type QueryableAttribute,
 } from "@/lib/knowledge/structured-query-shared";
 
 /**
- * The Structured Query ask composer (commit 5), a deliberate SIBLING of the
- * Research composer: the QUESTION IS THE HERO, with scope as supporting cast.
- * Two things make it read as the EXACT tool rather than a second search box,
- * quietly and without a lecture: scope is a SINGLE collection (a structured
- * question is answered against one collection's defined fields), and the chosen
- * collection's queryable FIELDS are shown plainly beneath it, so a member sees
- * exactly what they can ask about before they ask. Precision is conveyed by
- * showing the fields and (after asking) the interpreted query and citations, not
- * by explaining determinism.
+ * The Structured Query ask composer (Step 3b), a deliberate SIBLING of the
+ * Research composer: the QUESTION IS THE HERO, with folder scope as supporting
+ * cast. Folder-picking is the scoping act (members pick from available folders;
+ * admins can add more from a connected drive). The picked folders resolve to a
+ * document KIND in the view above this; when one set-up, prepared kind is
+ * resolved, this composer enables the ask and shows the fields you can ask about.
+ * When the picks don't resolve to one askable kind, the Ask button stays disabled
+ * and the view renders the next step (choose a kind, or set one up) below.
  */
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export function StructuredQueryComposer({
-  collections,
+  folders,
+  selected,
+  onToggle,
+  onAddFolders,
+  askSchemaId,
+  askKindName,
+  askFields,
   pending,
   onRun,
   initialQuestion = "",
-  initialCollectionId = null,
 }: {
-  collections: QueryableCollection[];
+  folders: QueryFolder[];
+  /** Controlled selection (owned by the view, so picked folders auto-select). */
+  selected: string[];
+  onToggle: (id: string) => void;
+  /** Admin-only: open the folder picker to add new folders. Omitted for members. */
+  onAddFolders?: () => void;
+  /** The resolved askable kind's schema id, or null when the ask isn't ready. */
+  askSchemaId: string | null;
+  askKindName: string | null;
+  askFields: QueryableAttribute[];
   pending: boolean;
-  onRun: (question: string, collectionId: string) => void;
+  onRun: (question: string, schemaId: string) => void;
   initialQuestion?: string;
-  initialCollectionId?: string | null;
 }) {
   const questionId = useId();
   const [question, setQuestion] = useState(initialQuestion);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initialCollectionId ?? (collections.length === 1 ? collections[0].id : null),
-  );
   // The composer initializes from props on mount; the surface unmounts it while
   // an answer is shown, so an "adjust" prefill is adopted on the next mount with
-  // no effect needed (and no cascading-render setState-in-effect).
+  // no effect needed.
 
-  const selected = collections.find((c) => c.id === selectedId) ?? null;
   const canRun =
-    question.trim().length >= QUESTION_MIN_LENGTH && selected !== null && !pending;
+    question.trim().length >= QUESTION_MIN_LENGTH && askSchemaId !== null && !pending;
 
-  const scopeSummary = selected
-    ? `Asking over ${selected.name}.`
-    : "Choose one collection to ask about.";
+  const scopeSummary = askSchemaId
+    ? `Asking over ${askKindName} · ${askFields.length} ${
+        askFields.length === 1 ? "field" : "fields"
+      }.`
+    : selected.length > 0
+      ? "Choose the document kind to ask, below."
+      : "Pick folders to ask over.";
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,7 +99,7 @@ export function StructuredQueryComposer({
         <div className="flex items-center justify-end px-5 pb-3.5 pt-1">
           <Button
             type="button"
-            onClick={() => canRun && selected && onRun(question.trim(), selected.id)}
+            onClick={() => canRun && askSchemaId && onRun(question.trim(), askSchemaId)}
             disabled={!canRun}
           >
             {pending ? "Asking…" : "Ask"}
@@ -79,35 +107,53 @@ export function StructuredQueryComposer({
         </div>
       </div>
 
-      {/* Scope (Zone 1): the single collection and what it tracks, as ONE card.
-          The tracked-field pills live inside the card (the merge), so there is
-          no separate "tracks these fields" box. A single-column stack gives the
-          pills room and matches the Research scope treatment. */}
+      {/* Supporting cast: the folders to ask over, as the launchpad's collapsible
+          scope section. The subline is the live summary; once the picks resolve
+          to one prepared kind, it states the kind and how many fields it tracks. */}
       <CollapsibleSection
-        title="Collection"
+        title="Folders"
         sectionKey="structured-query-scope"
         defaultCollapsed={false}
         description={<span aria-live="polite">{scopeSummary}</span>}
       >
         <div className="flex flex-col gap-2">
-          {collections.map((collection) => (
+          {folders.map((folder) => (
             <CollectionScopeCard
-              key={collection.id}
-              name={collection.name}
-              documentCount={collection.documentCount}
-              provenance={collection.provenance}
-              fields={collection.attributes.map((attribute) => attribute.label)}
-              selected={selectedId === collection.id}
-              onSelect={() => setSelectedId(collection.id)}
-              inputType="radio"
-              inputName="structured-query-collection"
-              // With a single collection the sole card is always auto-selected,
-              // so the darker selected shade distinguishes nothing and only adds
-              // weight; show the lighter resting shade (matching Research) and
-              // only apply the selected treatment when there is a choice to make.
-              showSelectedStyle={collections.length > 1}
+              key={folder.id}
+              name={folder.name}
+              documentCount={folder.documentCount}
+              provenance={folder.provenance}
+              fields={folder.attributes.map((attribute) => attribute.label)}
+              selected={selected.includes(folder.id)}
+              onSelect={() => onToggle(folder.id)}
+              inputType="checkbox"
+              title={
+                folder.lastSyncedAt
+                  ? `Synced ${relativeTime(folder.lastSyncedAt)}`
+                  : "Not synced yet"
+              }
             />
           ))}
+          {folders.length === 0 ? (
+            <p className="rounded-lg bg-paper-2 px-4 py-3 text-[13px] leading-[1.5] text-muted-foreground">
+              {onAddFolders
+                ? "No folders yet. Add folders from a connected drive to ask over them."
+                : "No folders are available to you yet. An administrator can set up folders your team can ask over."}
+            </p>
+          ) : null}
+          {onAddFolders ? (
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onAddFolders}
+                disabled={pending}
+              >
+                Add folders from a drive
+              </Button>
+            </div>
+          ) : null}
         </div>
       </CollapsibleSection>
     </div>

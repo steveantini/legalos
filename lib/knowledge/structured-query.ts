@@ -17,11 +17,16 @@ import {
 } from "@/lib/knowledge/attribute-draft";
 import { COLLECTION_ATTRIBUTE_TYPES, type CollectionAttributeType } from "@/lib/knowledge/collection-schema";
 import { getVisibleCollections, type CollectionView } from "@/lib/knowledge/collections-data";
+import {
+  aggregatePreparationState,
+  type QueryFolder,
+} from "@/lib/knowledge/document-kinds";
 import type { ProposedAttribute } from "@/lib/knowledge/schema-suggestions-shared";
 import type {
   MatchedDocument,
   QueryableAttribute,
   QueryableCollection,
+  QueryableKind,
   StructuredQueryHistoryItem,
 } from "@/lib/knowledge/structured-query-shared";
 import {
@@ -320,17 +325,19 @@ type CitationValue = MatchedDocument["values"][number];
  * Returns one entry per input id, in the given order.
  */
 export async function loadMatchedCitations(
-  collectionId: string,
+  collectionIds: string[],
   documentIds: string[],
   referencedAttributes: QueryableAttribute[],
 ): Promise<MatchedDocument[]> {
-  if (documentIds.length === 0) return [];
+  if (documentIds.length === 0 || collectionIds.length === 0) return [];
   const supabase = await createSupabaseServerClient();
 
+  // A document can sit in more than one folder of the kind; titles are read
+  // across the whole set and deduped by anchor (the Map below keeps one).
   const { data: invData } = await supabase
     .from("collection_documents")
     .select("document_id, title")
-    .eq("collection_id", collectionId)
+    .in("collection_id", collectionIds)
     .in("document_id", documentIds);
   const titleByDoc = new Map<string, string>();
   for (const raw of invData ?? []) {
@@ -414,28 +421,79 @@ export async function getQueryableCollections(): Promise<QueryableCollection[]> 
     .map(toQueryableCollection);
 }
 
-/**
- * The setup inputs the Structured Query surface needs to choose a state-aware
- * empty state (commit: state-aware empty states). From ONE visible-collections
- * read it returns both the QUERYABLE collections (a schema is defined, so the
- * composer renders) and the SCHEMALESS ones (visible, synced, but no schema yet,
- * so an admin's next step is to define one). The composer gate is schema-defined
- * (`queryable`), never preparation — a schema'd-but-unprepared collection is
- * queryable and surfaces its own "not prepared" notice on an answer.
- */
-export async function getStructuredQuerySetup(): Promise<{
-  queryable: QueryableCollection[];
-  schemaless: { id: string; name: string }[];
-}> {
-  const collections = await getVisibleCollections();
+// ---------------------------------------------------------------------------
+// Folders + kinds (the Step 3b scoping model: pick folders → resolve to a kind)
+// ---------------------------------------------------------------------------
+
+function toQueryFolder(c: CollectionView): QueryFolder {
   return {
-    queryable: collections
-      .filter((c) => c.schemaAttributes.length > 0)
-      .map(toQueryableCollection),
-    schemaless: collections
-      .filter((c) => c.schemaAttributes.length === 0)
-      .map((c) => ({ id: c.id, name: c.name })),
+    id: c.id,
+    name: c.name,
+    provenance: c.sources.map((s) => s.displayPath),
+    documentCount: c.presentCount,
+    lastSyncedAt: c.lastSyncedAt,
+    schemaId: c.schemaId,
+    schemaName: c.schemaName,
+    attributes: c.schemaAttributes.map((a) => ({
+      key: a.key,
+      label: a.label,
+      type: a.type,
+      ...(a.options && a.options.length > 0 ? { options: a.options } : {}),
+    })),
+    preparationState: c.preparationState,
   };
+}
+
+/**
+ * Every folder the current user can ask over (RLS decides visibility), each
+ * carrying the KIND it belongs to. The Structured Query surface groups these by
+ * kind to choose between asking, disambiguating, and setting one up. ONE
+ * visible-collections read backs the whole surface.
+ */
+export async function getStructuredQueryFolders(): Promise<QueryFolder[]> {
+  const collections = await getVisibleCollections();
+  return collections.map(toQueryFolder);
+}
+
+/** Assemble a kind from the folders that share `schemaId`. Null when no visible
+ * folder belongs to the kind or the kind defines no fields. */
+function resolveKindFromFolders(
+  folders: QueryFolder[],
+  schemaId: string,
+): QueryableKind | null {
+  const set = folders.filter((f) => f.schemaId === schemaId);
+  if (set.length === 0) return null;
+  const withFields = set.find((f) => f.attributes.length > 0);
+  if (!withFields) return null;
+  return {
+    schemaId,
+    schemaName: withFields.schemaName ?? "this document kind",
+    attributes: withFields.attributes,
+    folderIds: set.map((f) => f.id),
+    representativeCollectionId: set[0].id,
+    documentCount: set.reduce((sum, f) => sum + f.documentCount, 0),
+    preparationState: aggregatePreparationState(set.map((f) => f.preparationState)),
+  };
+}
+
+/** The kind for a given schema id, resolved over the viewer's visible folders. */
+export async function resolveKindBySchemaId(
+  schemaId: string,
+): Promise<QueryableKind | null> {
+  const folders = await getStructuredQueryFolders();
+  return resolveKindFromFolders(folders, schemaId);
+}
+
+/** The kind a saved question's representative folder belongs to (for re-run),
+ * resolved over the viewer's CURRENT visible folders so a re-run reflects any
+ * folders added to or removed from the kind since. */
+export async function resolveKindByCollectionId(
+  collectionId: string,
+): Promise<QueryableKind | null> {
+  const folders = await getStructuredQueryFolders();
+  const folder = folders.find((f) => f.id === collectionId);
+  if (!folder?.schemaId) return null;
+  return resolveKindFromFolders(folders, folder.schemaId);
 }
 
 /**

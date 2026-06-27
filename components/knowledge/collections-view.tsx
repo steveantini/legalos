@@ -15,29 +15,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SchemaBuilderDialog } from "@/components/knowledge/schema-builder-dialog";
+import { usePrepareLoop } from "@/components/knowledge/use-prepare-loop";
 import {
   addCollectionSource,
   browseSourceFolder,
   deleteCollection,
-  prepareCollection,
   removeCollectionSource,
   saveCollection,
   saveCollectionSchema,
   syncCollection,
 } from "@/lib/actions/collections";
-import {
-  composePreparationBasis,
-  type PreparationTally,
-} from "@/lib/knowledge/extraction/extract";
-import {
-  COLLECTION_ATTRIBUTE_TYPES,
-  makeUniqueAttributeKey,
-  MAX_COLLECTION_ATTRIBUTES,
-  slugifyAttributeKey,
-  type CollectionAttribute,
-  type CollectionAttributeType,
-  type CollectionSchemaInput,
-} from "@/lib/knowledge/collection-schema";
+import { type CollectionSchemaInput } from "@/lib/knowledge/collection-schema";
 import type {
   BrowseEntry,
   CollectionInput,
@@ -124,11 +113,10 @@ export function CollectionsView({
   const [syncProgress, setSyncProgress] = useState<
     Record<string, { documents: number }>
   >({});
-  // Per-collection preparation progress; presence = running. `verb` follows the
-  // state (Prepare on first run, Update after).
-  const [prepProgress, setPrepProgress] = useState<
-    Record<string, { prepared: number; total: number; verb: "Prepare" | "Update" }>
-  >({});
+  // Per-collection preparation progress + the client-driven loop, shared with
+  // Structured Query's guided-depth setup (presence = running; `verb` follows
+  // the state, Prepare on first run, Update after).
+  const { prepProgress, runPrepare } = usePrepareLoop();
 
   const canAddSources = eligibleConnections.length > 0;
 
@@ -225,73 +213,6 @@ export function CollectionsView({
     }
   }
 
-  async function runPrepare(
-    collectionId: string,
-    verb: "Prepare" | "Update",
-  ) {
-    if (prepProgress[collectionId]) return;
-    setPrepProgress((prev) => ({
-      ...prev,
-      [collectionId]: { prepared: 0, total: 0, verb },
-    }));
-    let failedDocumentIds: string[] | null = null;
-    let total = 0;
-    const acc: PreparationTally = {
-      documentsPrepared: 0,
-      documentsUnreadable: 0,
-      attributesFound: 0,
-      attributesNotFound: 0,
-      attributesUnverified: 0,
-      attributesReadIncomplete: 0,
-    };
-    // A generous backstop (segments of 4 documents each), matching runSync.
-    const MAX_SEGMENTS = 400;
-    try {
-      for (let segment = 0; segment < MAX_SEGMENTS; segment += 1) {
-        const result = await prepareCollection({ collectionId, failedDocumentIds });
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
-        if (segment === 0) total = result.documentsStale;
-        acc.documentsPrepared += result.tally.documentsPrepared;
-        acc.documentsUnreadable += result.tally.documentsUnreadable;
-        acc.attributesFound += result.tally.attributesFound;
-        acc.attributesNotFound += result.tally.attributesNotFound;
-        acc.attributesUnverified += result.tally.attributesUnverified;
-        acc.attributesReadIncomplete += result.tally.attributesReadIncomplete;
-        failedDocumentIds = result.failedDocumentIds;
-        setPrepProgress((prev) => ({
-          ...prev,
-          [collectionId]: {
-            prepared: acc.documentsPrepared + acc.documentsUnreadable,
-            total,
-            verb,
-          },
-        }));
-        if (result.completed) {
-          toast.success(
-            total === 0
-              ? "Already up to date."
-              : composePreparationBasis(acc, total),
-          );
-          router.refresh();
-          return;
-        }
-      }
-      toast.error(
-        "Preparation is taking unusually long and paused for now. Run Update to continue.",
-      );
-      router.refresh();
-    } finally {
-      setPrepProgress((prev) => {
-        const next = { ...prev };
-        delete next[collectionId];
-        return next;
-      });
-    }
-  }
-
   function handleDelete(collection: CollectionViewModel) {
     if (pendingDelete) return;
     startDelete(async () => {
@@ -371,10 +292,14 @@ export function CollectionsView({
 
       {schemaFor ? (
         <SchemaBuilderDialog
-          collection={schemaFor}
+          title={`Define fields for “${schemaFor.name}”`}
+          description="Attributes describe what to extract from this collection's documents: a name, a type, and a plain-language description. Nothing is extracted yet; this saves the definition."
+          initialAttributes={schemaFor.schemaAttributes}
           pending={pendingSchema}
           onClose={() => setSchemaFor(null)}
-          onSubmit={handleSaveSchema}
+          onSubmit={(input) =>
+            handleSaveSchema({ collectionId: schemaFor.id, attributes: input.attributes })
+          }
         />
       ) : null}
 
@@ -1161,318 +1086,6 @@ function SourcePickerDialog({
             }
           >
             {pending ? "Adding…" : "Use this folder"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Schema builder: define the attributes to extract (Structured Query, commit 2)
-// ---------------------------------------------------------------------------
-
-const ATTRIBUTE_TYPE_LABEL: Record<CollectionAttributeType, string> = {
-  text: "Text",
-  number: "Number",
-  date: "Date",
-  boolean: "Yes / no",
-  enum: "One of a set",
-};
-
-/** A draft attribute as the builder edits it; `key` is "" until first saved. */
-type DraftAttribute = {
-  clientId: string;
-  key: string;
-  label: string;
-  type: CollectionAttributeType;
-  description: string;
-  /** Comma-separated options for an enum attribute; ignored otherwise. */
-  optionsText: string;
-};
-
-/** Split the comma-separated options field into a clean, de-duplicated list. */
-function parseOptionsText(text: string): string[] {
-  const seen = new Set<string>();
-  const options: string[] = [];
-  for (const raw of text.split(",")) {
-    const option = raw.trim();
-    if (option && !seen.has(option)) {
-      seen.add(option);
-      options.push(option);
-    }
-  }
-  return options;
-}
-
-function toDraft(attribute: CollectionAttribute): DraftAttribute {
-  return {
-    clientId: crypto.randomUUID(),
-    key: attribute.key,
-    label: attribute.label,
-    type: attribute.type,
-    description: attribute.description,
-    optionsText: (attribute.options ?? []).join(", "),
-  };
-}
-
-/**
- * Defines a collection's schema and hands the result UP — the mutation and the
- * refresh run in the parent's transition (see CollectionsView), because this
- * dialog unmounts on success and an unmounting component's transition drops its
- * scheduled router.refresh().
- *
- * Keys are STABLE: an attribute loaded with a key keeps it across label edits;
- * only brand-new attributes get a key derived from their label at save time.
- * This is what keeps commit 3's extracted values (keyed by attribute) from being
- * orphaned when an admin renames a label.
- */
-function SchemaBuilderDialog({
-  collection,
-  pending,
-  onClose,
-  onSubmit,
-}: {
-  collection: CollectionViewModel;
-  pending: boolean;
-  onClose: () => void;
-  onSubmit: (input: CollectionSchemaInput) => void;
-}) {
-  const [drafts, setDrafts] = useState<DraftAttribute[]>(() =>
-    collection.schemaAttributes.map(toDraft),
-  );
-
-  const atMax = drafts.length >= MAX_COLLECTION_ATTRIBUTES;
-
-  function addAttribute() {
-    if (atMax) return;
-    setDrafts((prev) => [
-      ...prev,
-      {
-        clientId: crypto.randomUUID(),
-        key: "",
-        label: "",
-        type: "text",
-        description: "",
-        optionsText: "",
-      },
-    ]);
-  }
-
-  function updateAttribute(clientId: string, patch: Partial<DraftAttribute>) {
-    setDrafts((prev) =>
-      prev.map((draft) => (draft.clientId === clientId ? { ...draft, ...patch } : draft)),
-    );
-  }
-
-  function removeAttribute(clientId: string) {
-    setDrafts((prev) => prev.filter((draft) => draft.clientId !== clientId));
-  }
-
-  const incomplete = drafts.some(
-    (draft) =>
-      draft.label.trim().length === 0 ||
-      draft.description.trim().length === 0 ||
-      (draft.type === "enum" && parseOptionsText(draft.optionsText).length === 0),
-  );
-
-  function handleSave() {
-    if (pending || incomplete) return;
-    // Assign keys: existing keys are preserved; new attributes derive a unique
-    // key from their label now (and never change it again).
-    const used = new Set<string>();
-    for (const draft of drafts) {
-      if (draft.key) used.add(draft.key);
-    }
-    const attributes: CollectionAttribute[] = drafts.map((draft) => {
-      let key = draft.key;
-      if (!key) {
-        key = makeUniqueAttributeKey(draft.label, used);
-        used.add(key);
-      }
-      const base = {
-        key,
-        label: draft.label.trim(),
-        type: draft.type,
-        description: draft.description.trim(),
-      };
-      return draft.type === "enum"
-        ? { ...base, options: parseOptionsText(draft.optionsText) }
-        : base;
-    });
-    onSubmit({ collectionId: collection.id, attributes });
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Define schema for “{collection.name}”</DialogTitle>
-          <DialogDescription>
-            Attributes describe what to extract from this collection&rsquo;s
-            documents: a name, a type, and a plain-language description.
-            Nothing is extracted yet; this saves the definition.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex max-h-[52vh] flex-col gap-3 overflow-y-auto">
-          {drafts.length === 0 ? (
-            <p className="rounded-lg bg-paper-2 px-4 py-3 text-[13px] leading-[1.5] text-muted-foreground">
-              No attributes yet. Add one to describe a fact to pull from each
-              document, like a counterparty, an effective date, or an agreement
-              type.
-            </p>
-          ) : (
-            drafts.map((draft) => {
-              const keyPreview = draft.key || slugifyAttributeKey(draft.label);
-              return (
-                <div
-                  key={draft.clientId}
-                  className="rounded-xl border border-hairline bg-paper-2 p-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <label
-                        htmlFor={`attr-label-${draft.clientId}`}
-                        className="text-[12.5px] font-medium text-foreground"
-                      >
-                        Name
-                      </label>
-                      <Input
-                        id={`attr-label-${draft.clientId}`}
-                        value={draft.label}
-                        onChange={(event) =>
-                          updateAttribute(draft.clientId, { label: event.target.value })
-                        }
-                        placeholder="Effective date"
-                        className="mt-1.5 bg-background"
-                        maxLength={80}
-                      />
-                    </div>
-                    <div className="w-[150px] shrink-0">
-                      <label
-                        htmlFor={`attr-type-${draft.clientId}`}
-                        className="text-[12.5px] font-medium text-foreground"
-                      >
-                        Type
-                      </label>
-                      <select
-                        id={`attr-type-${draft.clientId}`}
-                        value={draft.type}
-                        onChange={(event) =>
-                          updateAttribute(draft.clientId, {
-                            type: event.target.value as CollectionAttributeType,
-                          })
-                        }
-                        className="mt-1.5 h-9 w-full rounded-lg border border-input bg-background px-2.5 text-[13px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                      >
-                        {COLLECTION_ATTRIBUTE_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {ATTRIBUTE_TYPE_LABEL[type]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeAttribute(draft.clientId)}
-                      aria-label="Remove attribute"
-                      className="mt-6 shrink-0 text-[13px] font-medium text-muted-foreground transition-colors hover:text-destructive motion-reduce:transition-none"
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <div className="mt-3">
-                    <label
-                      htmlFor={`attr-desc-${draft.clientId}`}
-                      className="text-[12.5px] font-medium text-foreground"
-                    >
-                      Description
-                    </label>
-                    <Textarea
-                      id={`attr-desc-${draft.clientId}`}
-                      value={draft.description}
-                      onChange={(event) =>
-                        updateAttribute(draft.clientId, { description: event.target.value })
-                      }
-                      placeholder="The contract version number, often labeled Version or v near the title."
-                      className="mt-1.5 bg-background"
-                      rows={2}
-                      maxLength={500}
-                    />
-                  </div>
-
-                  {draft.type === "enum" ? (
-                    <div className="mt-3">
-                      <label
-                        htmlFor={`attr-options-${draft.clientId}`}
-                        className="text-[12.5px] font-medium text-foreground"
-                      >
-                        Options
-                      </label>
-                      <Input
-                        id={`attr-options-${draft.clientId}`}
-                        value={draft.optionsText}
-                        onChange={(event) =>
-                          updateAttribute(draft.clientId, { optionsText: event.target.value })
-                        }
-                        placeholder="NDA, MSA, SOW"
-                        className="mt-1.5 bg-background"
-                      />
-                      <p className="mt-1 text-[11.5px] text-caption">
-                        Separate the allowed values with commas.
-                      </p>
-                    </div>
-                  ) : null}
-
-                  <p className="mt-3 font-mono text-[11px] text-caption">
-                    key: {keyPreview}
-                    {draft.key ? "" : " (set on save)"}
-                  </p>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addAttribute}
-            disabled={atMax}
-            title={
-              atMax
-                ? `A schema can define at most ${MAX_COLLECTION_ATTRIBUTES} attributes.`
-                : undefined
-            }
-          >
-            Add attribute
-          </Button>
-          {atMax ? (
-            <p className="text-[11.5px] text-caption">
-              Maximum of {MAX_COLLECTION_ATTRIBUTES} reached.
-            </p>
-          ) : null}
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={pending || incomplete}
-            title={
-              incomplete
-                ? "Give every attribute a name and a description (and options for a one-of type)."
-                : undefined
-            }
-          >
-            {pending ? "Saving…" : "Save schema"}
           </Button>
         </DialogFooter>
       </DialogContent>

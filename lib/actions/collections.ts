@@ -402,7 +402,7 @@ export async function addCollectionSource(
  * self-service via `organizations.member_self_service_folders`, behind the new
  * private-visibility tier + RLS); nothing else decides who may create folders.
  */
-async function canSetUpFolders(): Promise<boolean> {
+export async function canSetUpFolders(): Promise<boolean> {
   return isCurrentUserSuperAdmin();
 }
 
