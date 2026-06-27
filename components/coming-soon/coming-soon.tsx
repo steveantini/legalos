@@ -8,7 +8,7 @@ type AreaCopy = {
 const AREA_COPY: Record<string, AreaCopy> = {
   knowledge: {
     label: "Knowledge",
-    copy: "Your team’s knowledge, where it already lives. Collections draw named scopes over the repositories you use; Research answers questions across them.",
+    copy: "Your team’s knowledge, where it already lives. Point legalOS at folders in the drives you already use, then ask: Research reads and reasons, Structured Query answers exactly.",
   },
   matters: {
     label: "Matters & Deals",

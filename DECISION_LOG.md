@@ -5152,3 +5152,24 @@ Status: Accepted
 **Currency:** the three in-product Knowledge descriptions carry the explicit vocabulary; the marketing `/features` tour and the `/documentation` guide already carry the same contrast in plain language ("reads and reasons" vs. counts "the same way every time") and were left as-is, keeping the explicit jargon on the in-product surfaces where the AI-literate audience is and not forcing it onto the broader prospect-facing tour.
 
 **Consequences:** Three description edits (Knowledge landing intro, Research page intro, Structured Query page intro). The Structured Query closing was merged rather than appended so its existing "exact, repeatable companion" line and the new deterministic sentence do not say the same thing twice. No code, behavior, or layout change.
+
+## D-207 — Knowledge folders rework, Step 1: reframe off the "Collections" managed concept (currency + framing groundwork)
+
+Date: 2026-06-27
+Status: Accepted
+
+**Context:** A read-only investigation confirmed the target Knowledge model: folder-picking becomes the primary, universal act; "Collections" stops being a user-managed section/object; the `collections` machinery stays as INVISIBLE infrastructure; folder-access governance moves to Policy & access; Structured Query's define-fields + prepare stays as OPT-IN DEPTH. This is the lowest-risk opener of that arc (ROADMAP 1c): decouple copy/nav/docs from the managed-Collections concept BEFORE the flow rework, so stale wording does not fight the new flow. **Copy / nav / docs / roadmap ONLY** — no flow, picker, sync, governance UI, data-model, or route/table change.
+
+**Decision:**
+- **Nav:** removed the "Collections" rail leaf (the Knowledge rail is now Research + Structured Query) and the "Collections" card on the Knowledge landing (the landing now presents the two tools and the pick-folders model). The deterministic / non-deterministic framing (D-206) is preserved.
+- **"named scope(s)" eliminated** everywhere it appeared (the two in `collections-view.tsx`, `coming-soon.tsx`, two in `documentation.tsx`, and a sixth on the collections route's own page header that the initial scan missed), replaced with plain folders language.
+- **Docs/features reframed** off "create/manage a Collection": the `/features` Knowledge copy, the user "Knowledge and Research" documentation guide, the README, and FEATURES_CLAIMS now describe pointing legalOS at folders in your connected drives and asking. The admin guide was retitled "Setting up Knowledge" and rewritten off the managed-object step-by-step (which also assumed the now-removed nav) toward the model: connect a cloud drive, point at folders, the optional define-fields/prepare depth, governance moving to Policy & access, and an explicit "a simpler setup is on the way" note. The Research-vs-Structured-Query (reasoned/non-deterministic vs. exact/deterministic) explanation is KEPT and well-documented throughout.
+- **Accuracy guardrails:** copy describes only what is real, point at folders in your connected (cloud) drives and ask. It does NOT claim local drives (cloud-only today) or automatic sync (not built).
+
+**Backend untouched, route left intact.** The `collections` / `collection_documents` / `collection_schemas` / `documents` / `document_extractions` tables, the collections route (`/workspace/knowledge/collections`), and its view are NOT changed or deleted; the route is only removed from the nav. Existing deep-links into the route are deliberately left working pending the flow rework: the Structured Query empty-state "Define fields" deep-link (`?schema=<id>`, D-203), the Research and Structured Query empty-state "Set up" links, and the workspace breadcrumb's collections match. They get reworked when the picker moves into the tools.
+
+**Governance direction recorded (being built, not deferred):** folder-access governance will live in Policy & access, defaulting to admin-sets-up-the-folders, with a super-admin TOGGLE to enable member self-service. This is part of the active arc, defaulted to admin-only.
+
+**Deferred arcs recorded (ROADMAP 1c):** local drives (net-new connection architecture; cloud/OAuth/MCP only today), automatic/background sync (no scheduler infra; interim is auto-sync-on-pick), and the Policy & access page rework (break it into focused subsections with per-subsection help; follows this arc because this arc adds folder governance there).
+
+**Consequences:** Pure copy/nav/docs/roadmap. The Knowledge concept is decoupled from "Collections-as-managed" ahead of the flow rework; the next step lifts the folder picker into Research and Structured Query and auto-creates the invisible collection. No `tsc`/test surface changed beyond copy; the deterministic framing and all feature claims that remain true are preserved.

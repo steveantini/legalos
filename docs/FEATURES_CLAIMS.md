@@ -64,7 +64,7 @@ Last full truth pass: 2026-06-12 (D-157).
 
 | Claim | Source |
 |---|---|
-| Collections drawn over repositories you already use (drive-agnostic copy); every collection shows its sources; legalOS keeps a metadata-only inventory, files never move and their contents are never stored | D-152 (Step 1; transparency rule; Drive enumeration verified live), D-195 (copy clarified, drive-agnostic) |
+| You point legalOS at folders in your connected (cloud) drives and ask across the folders you choose (drive-agnostic copy); the source path of every folder is shown; legalOS keeps a metadata-only inventory, files never move and their contents are never stored | D-152 (Step 1; transparency rule; Drive enumeration verified live), D-195 (copy clarified, drive-agnostic), D-207 (reframed off the "Collections" managed concept to the folders model) |
 | Citation-backed answers with per-document findings; documents read live and never copied; legalOS stores no full document text and builds no search index; what it keeps for an answer is the findings plus a short verbatim supporting quote (≤600 chars) per document, so the answer is verifiable | D-153 (the engine; findings-only persistence), D-195 (corrected from the earlier "nothing copied or stored" overstatement to the verifiable-quote framing) |
 | Agents use the same capability inline; larger questions point at the Research page | D-155 (the native tool, 15-document inline cap, honest handoff) |
 | Honest preview before each run; unreadable documents reported plainly | D-153 (preview + basis lines) |

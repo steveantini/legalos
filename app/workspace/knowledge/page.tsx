@@ -8,17 +8,17 @@ export const metadata: Metadata = {
 };
 
 /**
- * Group landing for the Knowledge resource group — three leaves, ordered
- * setup-before-use: Collections (admin-drawn, transparently-sourced scopes
- * over connected repositories) come first because you create a Collection so
- * you can ask over it; then the two question tools, Research (citation-backed
- * read-and-reason answers across collections) and Structured Query (exact,
- * repeatable counts over a collection's prepared fields). The former Vault
- * leaf dissolved into Collections; Sources was superseded by the connector
- * catalog and its governance. Copy mirrors the rail's `RESOURCE_GROUPS`
- * Knowledge leaves, drive-agnostic and em-dash-free per the external-copy
- * convention; the product name routes through PRODUCT_NAME so a rename flows
- * through.
+ * Group landing for the Knowledge resource group. The user model is "pick
+ * folders, ask": you point legalOS at folders in the drives you already use,
+ * then ask with one of two tools, Research (citation-backed read-and-reason
+ * answers, non-deterministic) and Structured Query (exact, repeatable answers
+ * over fields you set up, deterministic). The former managed "Collections"
+ * section is gone from the nav and is no longer a user-facing concept (the
+ * backend inventory stays as invisible infrastructure); folder-picking moves
+ * into each tool, and folder-access governance moves into Policy & access, in
+ * later steps. Copy mirrors the rail's `RESOURCE_GROUPS` Knowledge leaves,
+ * drive-agnostic and em-dash-free per the external-copy convention; the product
+ * name routes through PRODUCT_NAME so a rename flows through.
  */
 const KNOWLEDGE_CHILDREN: ReadonlyArray<{
   title: string;
@@ -26,19 +26,14 @@ const KNOWLEDGE_CHILDREN: ReadonlyArray<{
   description: string;
 }> = [
   {
-    title: "Collections",
-    href: "/workspace/knowledge/collections",
-    description: `Point ${PRODUCT_NAME} at the folders your team already uses, in whatever drive they live in. A Collection is just a named set of documents, the folders you want ${PRODUCT_NAME} to work with, like your contracts or your policy library. ${PRODUCT_NAME} keeps an inventory of what's there and where it lives; your files never move and their contents are never stored.`,
-  },
-  {
     title: "Research",
     href: "/workspace/knowledge/research",
-    description: `Ask a question across the Collections you choose and get a clear answer backed by citations, with a short supporting quote from each document so you can verify it. Your documents are read live from where they live, never copied, and ${PRODUCT_NAME} tells you plainly if anything couldn't be read.`,
+    description: `Ask a question across the folders you choose and get a clear answer backed by citations, with a short supporting quote from each document so you can verify it. Your documents are read live from where they live, never copied, and ${PRODUCT_NAME} tells you plainly if anything couldn't be read.`,
   },
   {
     title: "Structured Query",
     href: "/workspace/knowledge/structured-query",
-    description: `Ask an exact question in plain language about the fields a Collection tracks, like how many agreements are NDAs or how many auto-renew, and get a precise count you can check. ${PRODUCT_NAME} shows you how it read your question and a supporting quote from each matching document. It is the exact, repeatable companion to Research's read-and-reason answers.`,
+    description: `Ask an exact question in plain language about fields you set up, like how many agreements are NDAs or how many auto-renew, and get a precise count you can check. ${PRODUCT_NAME} shows you how it read your question and a supporting quote from each matching document. It is the exact, repeatable companion to Research's read-and-reason answers.`,
   },
 ];
 export default function KnowledgePage() {
@@ -51,17 +46,17 @@ export default function KnowledgePage() {
           </h1>
           <p className="mt-[14px] max-w-[62ch] text-[14.5px] leading-[1.5] text-muted-foreground">
             Your team&rsquo;s documents, searchable in plain language, without
-            moving them. Two ways to ask across them: Research reads and reasons
+            moving them. Point {PRODUCT_NAME} at folders in the drives you
+            already use, then ask. Two ways to ask: Research reads and reasons
             (it is non-deterministic, weighing and interpreting like a careful
             analyst), and Structured Query answers exactly (it is deterministic,
             so the same question always returns the same precise, repeatable
-            result). Set up Collections first, then use whichever fits the
-            question.
+            result).
           </p>
         </div>
         <HelpLink topic="knowledge" className="mt-3" />
       </header>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {/* Live children: same card geometry as the coming-soon family, but
             real navigation targets with the standard hover-deepen. */}
         {KNOWLEDGE_CHILDREN.map((child) => (

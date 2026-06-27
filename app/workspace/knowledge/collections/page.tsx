@@ -51,8 +51,8 @@ export default async function CollectionsPage({
             Collections
           </h1>
           <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            Named scopes over the repositories your team already uses. Every
-            collection shows exactly where its documents live; legalOS keeps an
+            The folders from your connected drives that your team can ask over.
+            Each shows exactly where its documents live; legalOS keeps an
             inventory, never the documents themselves.
           </p>
         </div>

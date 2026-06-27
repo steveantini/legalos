@@ -175,13 +175,12 @@ export default function FeaturesPage() {
         <p>
           <LeadIn>legalOS doesn&rsquo;t ask you to migrate</LeadIn>{" "}your
           knowledge. It lives scattered across drives, document systems, and
-          contract repositories. Administrators draw named Collections over
-          the repositories you already use, like a contracts folder in the
-          drive you already have, and every collection shows exactly where its
-          documents live: legalOS keeps an inventory of what&rsquo;s there,
-          your files never move, and their contents are never stored. Then
-          anyone can ask an institutional question across the collections they
-          choose, like which of our vendor agreements auto-renew, and get a
+          contract repositories. You point legalOS at folders in the drives you
+          already use, like a contracts folder in the drive you already have, and
+          ask across them. Your files never move and their contents are never
+          stored: legalOS keeps an inventory of what&rsquo;s there, not the
+          documents themselves. Ask an institutional question across the folders
+          you choose, like which of our vendor agreements auto-renew, and get a
           clear answer backed by citations, with a short supporting quote from
           each document so you can verify it. Every document in scope is read
           live, where it lives, and never copied; legalOS stores no full text
@@ -198,24 +197,23 @@ export default function FeaturesPage() {
         </p>
         <p>
           <LeadIn>When you need an exact answer</LeadIn>, not a reasoned one,
-          ask a Structured Query. Define the fields worth tracking in a
-          collection, like agreement type, effective date, or whether a
-          contract auto-renews, prepare it once, then ask in plain language how
-          many agreements are NDAs, or how many auto-renew, and get a precise
-          count you can check. legalOS shows you how it read your question and a
+          ask a Structured Query. Set up the fields worth tracking across a set
+          of folders, like agreement type, effective date, or whether a contract
+          auto-renews, prepare them once, then ask in plain language how many
+          agreements are NDAs, or how many auto-renew, and get a precise count
+          you can check. legalOS shows you how it read your question and a
           supporting quote from each matching document, and it is honest about
           what it could not find. It is the exact, repeatable companion to
           Research: where Research reads and reasons, Structured Query counts,
           the same way every time.
         </p>
         <p>
-          And when you ask about something a collection doesn&rsquo;t track yet,
-          it says so and lets you suggest it. legalOS drafts the new field for an
-          administrator to review and approve; once approved and the collection
-          is updated, that field is tracked permanently and becomes exactly
-          queryable, extracted with the same cited evidence as every other field,
-          never guessed on the fly. Your collections grow to fit the questions
-          your team actually asks.
+          And when you ask about something not tracked yet, it says so and lets
+          you suggest it. legalOS drafts the new field for an administrator to
+          review and approve; once approved and the documents are updated, that
+          field is tracked permanently and becomes exactly queryable, extracted
+          with the same cited evidence as every other field, never guessed on the
+          fly. What you track grows to fit the questions your team actually asks.
         </p>
       </MarketingSection>
 

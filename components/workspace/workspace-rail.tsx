@@ -99,19 +99,14 @@ const RESOURCE_GROUPS: ReadonlyArray<RailGroup> = [
     caption: "Knowledge",
     landingHref: "/workspace/knowledge",
     groupKey: "knowledge",
-    // The settled Knowledge shape, ordered setup-before-use: Collections
-    // (admin-drawn scopes over connected repositories) come first because you
-    // create a Collection so you can ask over it; then the two question tools,
-    // Research (read-and-reason answers with citations) and Structured Query
-    // (exact, repeatable counts over a collection's prepared fields). The
-    // former Vault leaf dissolved into Collections; Sources was superseded by
-    // the connector catalog + governance.
+    // Knowledge is the two question tools: Research (read-and-reason answers
+    // with citations, non-deterministic) and Structured Query (exact, repeatable
+    // answers over fields you set up, deterministic). The user model is "pick
+    // folders, ask": folder-picking moves into each tool (a later step), and
+    // folder-access governance moves into Policy & access. The former managed
+    // "Collections" section is removed from the nav; its backend stays as
+    // invisible infrastructure and its route is repurposed by the flow rework.
     leaves: [
-      {
-        label: "Collections",
-        slug: "knowledge-collections",
-        href: "/workspace/knowledge/collections",
-      },
       {
         label: "Research",
         slug: "knowledge-research",

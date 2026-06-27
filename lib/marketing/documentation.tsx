@@ -498,32 +498,32 @@ export const DOC_PAGES: DocPage[] = [
     slug: "knowledge",
     group: "users",
     title: "Knowledge and Research",
-    summary: "Collections of your team’s documents, citation-backed answers across them, and exact questions over the fields they track.",
+    summary: "Pick folders from your connected drives, get citation-backed answers across them, and ask exact questions over fields you set up.",
     audience: "For everyone",
-    lead: "Your team’s documents stay where they live. Collections give them a shape, Research asks reasoned questions across them, and Structured Query answers exact questions over the fields a collection tracks.",
+    lead: "Your team’s documents stay where they live. You point legalOS at folders in the drives you already use, then ask: Research gives reasoned answers across them, and Structured Query answers exact questions over fields you set up.",
     body: (
       <>
-        <MarketingSection title="Collections, as you see them">
+        <MarketingSection title="The folders you ask over">
           <p>
-            A collection is a named scope your administrators draw over the
-            repositories your team already uses, like a contracts folder in
-            Google Drive. Every collection shows exactly where its documents
-            live, down to the folder, along with a document count and when it
-            was last synced. Some collections are visible to the whole
-            organization; others only to certain departments, which is why
-            your list may differ from a colleague&rsquo;s.
+            You work over folders from the drives your team already uses, like a
+            contracts folder in Google Drive. You choose which folders to ask
+            over inside Research and Structured Query, and each shows exactly
+            where its documents live, down to the folder, so you always know what
+            you are asking across. Your administrators connect the folders that
+            are available and may limit some to certain departments, which is why
+            your list may differ from a colleague&rsquo;s. Your files never move
+            and their contents are never stored.
           </p>
         </MarketingSection>
         <MarketingSection title="Asking a question">
           <p>
-            On the Research page, write your question, pick the collections to
-            read, and review the preview: how many documents are in scope and
-            roughly how long the run will take. Then run it. Research reads
-            every document in scope live, where it lives, and never copies it;
-            legalOS stores no full text of your documents and builds no search
-            index over them. What it keeps for an answer is the findings and a
-            short supporting quote from each document, so you can verify the
-            result.
+            On the Research page, write your question, pick the folders to read,
+            and review the preview: how many documents are in scope and roughly
+            how long the run will take. Then run it. Research reads every
+            document in scope live, where it lives, and never copies it; legalOS
+            stores no full text of your documents and builds no search index over
+            them. What it keeps for an answer is the findings and a short
+            supporting quote from each document, so you can verify the result.
           </p>
         </MarketingSection>
         <MarketingSection title="When a run is too large">
@@ -534,7 +534,7 @@ export const DOC_PAGES: DocPage[] = [
             many documents one run may read, set by your administrators for the
             workspace (1 to 1000, 200 by default). If your scope is over it,
             the run tells you the count and the limit and asks you to narrow
-            your collections or question, or an admin can raise the limit in
+            your folders or question, or an admin can raise the limit in
             Policy and access. The second is structural: legalOS scans your
             folders live each time, so it is never working from a stale
             picture, and a very large or deeply nested folder structure cannot
@@ -569,11 +569,12 @@ export const DOC_PAGES: DocPage[] = [
           <p>
             Research reads and reasons; Structured Query counts. When you need an
             exact, repeatable answer, like how many agreements are NDAs or how
-            many auto-renew, use Structured Query. It works over the fields a
-            collection tracks: an administrator defines those fields (agreement
-            type, effective date, whether a contract auto-renews) and prepares
-            the collection once, and the page shows you which fields you can ask
-            about. You ask in plain language; legalOS translates your question
+            many auto-renew, use Structured Query. It works over fields you set
+            up for a set of folders: an administrator defines those fields
+            (agreement type, effective date, whether a contract auto-renews) and
+            prepares the documents once, and the page shows you which fields you
+            can ask about. You ask in plain language; legalOS translates your
+            question
             into an exact query, shows you how it read it (&ldquo;Counting
             documents where Agreement type is NDA&rdquo;), and runs it the same
             way every time, so the same question over the same data always gives
@@ -586,20 +587,20 @@ export const DOC_PAGES: DocPage[] = [
             wasn&rsquo;t found, and whether any document was only partially read.
             Each matching document is listed with its supporting quote, so the
             count is something you can check, not just trust. If you ask about
-            something the collection doesn&rsquo;t track, it tells you plainly
-            and names what it does track. If the collection&rsquo;s data
-            needs updating, the answer says so rather than resting silently on
-            stale extractions. Your recent questions are kept and can be re-run.
+            something not tracked, it tells you plainly and names what it does
+            track. If the data needs updating, the answer says so rather than
+            resting silently on stale extractions. Your recent questions are kept
+            and can be re-run.
           </p>
           <p>
-            If you ask about something the collection doesn&rsquo;t track yet, it
-            tells you and offers to start tracking it. You suggest the field;
-            legalOS drafts its definition (a name, a type, and a description of
-            what to find), and an administrator reviews and edits that draft
-            before approving it. On approval the field is added to the
-            collection&rsquo;s schema, which marks the collection as needing an
-            update; an administrator then runs Update (the same deliberate step
-            as any other change, so extraction is never a surprise cost), and
+            If you ask about something not tracked yet, it tells you and offers
+            to start tracking it. You suggest the field; legalOS drafts its
+            definition (a name, a type, and a description of what to find), and an
+            administrator reviews and edits that draft before approving it. On
+            approval the field is added to the fields for those folders, which
+            marks the documents as needing an update; an administrator then runs
+            Update (the same deliberate step as any other change, so extraction is
+            never a surprise cost), and
             once it finishes the new field is a permanent, exactly-queryable
             attribute backed by citations like every other. It is added the
             careful way, defined and then extracted with evidence, never answered
@@ -616,9 +617,9 @@ export const DOC_PAGES: DocPage[] = [
                 vendor agreements auto-renew?&rdquo;
               </li>
               <li>
-                In Scope, tick the collections to read. The summary line
-                updates as you choose: collections, about how many documents,
-                and roughly how long.
+                In Scope, tick the folders to read. The summary line updates as
+                you choose: folders, about how many documents, and roughly how
+                long.
               </li>
               <li>
                 Select Run research and watch progress as documents are read,
@@ -631,8 +632,8 @@ export const DOC_PAGES: DocPage[] = [
             <ol className="mt-2 list-decimal space-y-1.5 pl-5">
               <li>Open Knowledge in the rail and pick Structured Query.</li>
               <li>
-                Choose one collection. The fields it tracks appear beneath it, so
-                you know what you can ask about.
+                Choose the folders to ask over. The fields you can ask about
+                appear beneath them, so you know what is available.
               </li>
               <li>
                 Ask in plain language, like &ldquo;how many agreements are
@@ -644,10 +645,10 @@ export const DOC_PAGES: DocPage[] = [
                 Re-run a recent question any time from the list below.
               </li>
               <li>
-                If the collection doesn&rsquo;t track what you asked about, select
-                Suggest tracking it. An administrator reviews the drafted field
-                and approves it; after they run Update on the collection, ask your
-                question again and it will be answered.
+                If what you asked about is not tracked yet, select Suggest
+                tracking it. An administrator reviews the drafted field and
+                approves it; after they run Update, ask your question again and it
+                will be answered.
               </li>
             </ol>
           </div>
@@ -1164,177 +1165,76 @@ export const DOC_PAGES: DocPage[] = [
   {
     slug: "collections",
     group: "admins",
-    title: "Managing collections",
-    summary: "Drawing scopes over repositories, syncing the inventory, and department visibility.",
+    title: "Setting up Knowledge",
+    summary: "Connecting cloud drives, choosing the folders your team can ask over, and the optional setup for exact answers.",
     audience: "For administrators",
-    lead: "Collections are the shape you give the organization’s knowledge: named scopes over connected repositories, transparent about their sources, holding an inventory and never the documents.",
+    lead: "Knowledge works over folders in the drives your organization already uses. You connect a drive, point at the folders your team should be able to ask over, and those documents become available in Research and Structured Query. Files never move and their contents are never stored, only a metadata inventory.",
     body: (
       <>
-        <MarketingSection title="Creating a collection">
+        <MarketingSection title="Pointing at folders">
           <p>
-            Name it, describe it, and choose who sees it: everyone, or
-            specific departments, enforced at the database, not just hidden in
-            the interface. Then add sources by browsing a connected repository
-            to a folder. The folder is referenced by its stable identifier, so
-            renames and moves don&rsquo;t break it, and its path is shown as
-            provenance everywhere the collection appears.
+            Connect a cloud drive (Google Drive today) and point at the folders
+            your team works with by browsing to them. A folder is referenced by
+            its stable identifier, so renames and moves do not break it, and its
+            path is shown as provenance wherever it appears. legalOS keeps a
+            metadata-only inventory of what is there (titles, types, sizes,
+            links), never document content, and reads documents live at question
+            time, so it always works from the current files. Search-style
+            sources, like a public case-law service, are not folder material;
+            they belong to a different, future part of Research.
           </p>
         </MarketingSection>
-        <MarketingSection title="Syncing the inventory">
+        <MarketingSection title="Who can use which folders">
           <p>
-            Sync walks each source and records an inventory: titles, types,
-            sizes, and links, never document content. Documents that disappear
-            upstream are marked missing rather than silently dropped, and very
-            large trees sync in bounded passes with live progress. The
-            inventory powers previews and counts; research itself always reads
-            live, so a slightly stale inventory only affects the preview
-            numbers.
+            Folder access is governed: some folders can be available to everyone
+            in the organization, others limited to certain departments, enforced
+            at the database, not just hidden in the interface. This governance is
+            moving into Policy &amp; access, where an administrator will manage
+            which drives are connected, which folders are available, and who can
+            use them, with a setting to let members add their own folders or keep
+            that admin-only. That surface is on the way; the exact steps will live
+            here as it lands.
           </p>
         </MarketingSection>
-        <MarketingSection title="Which repositories qualify">
+        <MarketingSection title="Research and Structured Query">
           <p>
-            A collection source needs a repository that can be enumerated,
-            listed folder by folder with stable identifiers. Google Drive
-            qualifies and is verified live; Box is supported per its
-            documentation. Search-style sources, like a public case-law
-            service, are not collection material; they belong to a different,
-            future part of Research.
+            Two tools ask over the folders you choose, and they differ by design.
+            Research reads and reasons: it is non-deterministic, weighing and
+            interpreting like a careful analyst, the right tool when a question
+            needs judgment rather than a count. Structured Query answers exactly:
+            it is deterministic, so the same question returns the same precise,
+            repeatable count every time. Both read documents live and cite a
+            short supporting quote so an answer is verifiable.
           </p>
         </MarketingSection>
-        <MarketingSection title="Defining a schema">
+        <MarketingSection title="Optional depth: exact answers">
           <p>
-            A collection can carry a schema: the set of attributes worth pulling
-            from its documents. Each attribute is a name, a type (text, number,
-            date, yes/no, or one of a fixed set), and a plain-language
-            description of what to extract, like &ldquo;the contract version
-            number, often labeled Version near the title.&rdquo; The description
-            is what later finds the attribute, so it is worth writing well. An
-            attribute&rsquo;s name can be edited freely; its stable identifier is
-            fixed the first time you save, so renaming never loses anything tied
-            to it. Defining a schema does not extract anything on its own; it is
-            the definition that a later step will read.
+            Structured Query has an optional setup applied to a set of folders, so
+            it can answer exact questions over them. You define the fields worth
+            tracking, each a name, a type (text, number, date, yes/no, or one of a
+            fixed set), and a plain-language description of what to extract, like
+            &ldquo;the contract version number, often labeled Version near the
+            title.&rdquo; The description is what later finds the field, so it is
+            worth writing well, and a field&rsquo;s name can be edited freely
+            without losing anything tied to it. Then Prepare reads each document
+            and pulls those fields out, storing each value with a short verbatim
+            quote that is checked against the source, so a value you can see is a
+            value you can trace. A field not present in a document is recorded as
+            not found rather than guessed. The first run is Prepare; afterwards
+            Update re-reads only what changed (a document edited upstream, or a
+            field you added), and leaves current data as it is. This depth is
+            opt-in: Research needs none of it.
           </p>
         </MarketingSection>
-        <MarketingSection title="Preparing a collection">
+        <MarketingSection title="A simpler setup is on the way">
           <p>
-            Once a collection has a schema and a synced inventory, Prepare reads
-            each document and pulls out the defined attributes, storing each
-            value with a short verbatim quote from the document that supports it.
-            Every quote is checked against the source text, so a value you can
-            see is a value you can trace. When an attribute is not in a document,
-            it is recorded as not found rather than guessed, and if a document
-            was too long to read in full, that is noted too. The first run is
-            called Prepare; afterwards the button reads Update, and it only does
-            the work that is needed: a document is re-read when it has changed
-            upstream or when you have changed the schema, and is otherwise left
-            as it is. The card shows where things stand, not prepared, ready, or
-            needs updating, so you always know whether the structured data is
-            current. Prepare is separate from Sync: Sync refreshes the list of
-            documents, Prepare refreshes the data extracted from them. A sync
-            never extracts; it only keeps the inventory current, which is what
-            lets Update know what has changed.
+            The Knowledge setup is being simplified around a single idea: pick
+            folders, ask. Folder-picking is moving directly into Research and
+            Structured Query, and folder-access governance into Policy &amp;
+            access. The mechanics above (point at folders, define fields, prepare)
+            stay; how you reach them is what gets cleaner. This guide will gain the
+            exact, current steps as those pieces land.
           </p>
-        </MarketingSection>
-        <MarketingSection title="How to">
-          <p className="text-[13.5px] text-muted-foreground">
-            Managing collections is super admin only; everyone else sees the
-            same cards read-only.
-          </p>
-          <div>
-            <p className="font-medium text-foreground">Create a collection</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>Open Knowledge, pick Collections, and select New collection.</li>
-              <li>Name it and describe what belongs in it.</li>
-              <li>
-                Under Who can see it, choose Everyone in the organization or
-                Specific departments; visibility is enforced at the database.
-              </li>
-              <li>Select Create collection. Sources come next.</li>
-            </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Add a source</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>
-                Select Add source on the collection&rsquo;s card. If the
-                button isn&rsquo;t there, connect a repository like Google
-                Drive in Policy &amp; access first.
-              </li>
-              <li>Pick the connected repository.</li>
-              <li>
-                Browse to the folder the collection should draw from; the
-                breadcrumb shows where you are.
-              </li>
-              <li>
-                Select Add source. The folder is referenced by its stable
-                identifier, so renames and moves won&rsquo;t break it.
-              </li>
-            </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Sync the inventory</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>Select Sync on the collection&rsquo;s card.</li>
-              <li>
-                Progress shows live; large trees sync in bounded passes. The
-                result is an inventory of titles and metadata, never document
-                content.
-              </li>
-              <li>
-                Re-sync whenever the repository has moved on; documents gone
-                upstream are marked missing rather than silently dropped.
-              </li>
-            </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Define a schema</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>Select Define schema on the collection&rsquo;s card.</li>
-              <li>
-                Add an attribute, then give it a name, a type, and a
-                description of what to extract. For a one-of type, list the
-                allowed values separated by commas.
-              </li>
-              <li>
-                Select Save schema. Nothing is extracted yet; you are defining
-                what to extract. The card shows how many attributes are defined.
-              </li>
-            </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Prepare the structured data</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>
-                With a schema defined and the inventory synced, select Prepare
-                on the collection&rsquo;s card. (After the first run the button
-                reads Update.)
-              </li>
-              <li>
-                Progress shows live as it reads each document and extracts the
-                attributes. When it finishes, you see how many documents were
-                prepared, how many could not be read, and how many values were
-                found.
-              </li>
-              <li>
-                Run Update whenever documents or the schema have changed; it
-                re-reads only what is stale and leaves current data as it is.
-              </li>
-            </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Edit or delete a collection</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>
-                Edit on the card changes its name, description, and
-                visibility.
-              </li>
-              <li>
-                Delete removes the collection and its inventory only; the
-                documents themselves live in your repositories and are not
-                touched.
-              </li>
-            </ol>
-          </div>
         </MarketingSection>
       </>
     ),

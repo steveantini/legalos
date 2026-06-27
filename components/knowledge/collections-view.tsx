@@ -325,8 +325,8 @@ export function CollectionsView({
       {collections.length === 0 ? (
         <p className="max-w-[60ch] rounded-lg bg-paper-2 px-5 py-4 text-[13.5px] leading-[1.5] text-muted-foreground">
           {canEdit
-            ? "No collections yet. Create one to draw a named scope over a connected repository, like a contracts folder in Google Drive."
-            : "No collections are visible to you yet. Your administrators create them over the repositories your team uses."}
+            ? "Nothing here yet. Point at a folder in a connected drive, like a contracts folder in Google Drive, to start working with its documents."
+            : "Nothing is available to you yet. Your administrators connect the folders your team works with."}
         </p>
       ) : (
         <div className="flex flex-col gap-4">
@@ -784,8 +784,8 @@ function CollectionFormDialog({
             {editing ? "Edit collection" : "New collection"}
           </DialogTitle>
           <DialogDescription>
-            A named scope over your connected repositories. Sources are added
-            after saving.
+            A set of folders from your connected drives. Folders are added after
+            saving.
           </DialogDescription>
         </DialogHeader>
 
