@@ -60,7 +60,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * METADATA ONLY: titles, types, sizes, timestamps, links — never content.
  */
 
-const COLLECTIONS_PATH = "/workspace/knowledge/collections";
+// Curated-collection management now lives in Policy & access (Phase B); the old
+// /workspace/knowledge/collections route redirects. Revalidate where the manager
+// renders. (Client router.refresh() covers the live refresh; this is the
+// server-side belt-and-suspenders.)
+const COLLECTIONS_PATH = "/workspace/admin/policy";
 const NOT_ALLOWED = "Only super admins can manage collections.";
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 

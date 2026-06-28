@@ -1,66 +1,22 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { CollectionsView } from "@/components/knowledge/collections-view";
-import { HelpLink } from "@/components/workspace/help-link";
-import { isCurrentUserSuperAdmin, requireAuthUser } from "@/lib/auth/access";
-import {
-  getEligibleSourceConnections,
-  getManageableCollections,
-  getOrgDepartmentsForPicker,
-} from "@/lib/knowledge/collections-data";
-
-export const metadata: Metadata = {
-  title: "Collections",
-};
+import { isCurrentUserAdmin, requireAuthUser } from "@/lib/auth/access";
 
 /**
- * Knowledge → Collections (Knowledge arc Step 1): the named, governed scopes
- * an administrator draws over the repositories the team already uses. Every
- * collection shows its real sources transparently ("Google Drive / Legal /
- * Playbooks"); the only thing legalOS stores is a document inventory
- * (titles and metadata, captured by an admin-clicked sync) — content stays
- * in the repository.
+ * The legacy Collections route is retired (Policy & access arc, Phase B). Curated
+ * folder-collection management moved into Policy & access → Knowledge & access,
+ * so this route now redirects, role-aware: admins to the relocated manager (the
+ * admin section 404s non-admins, so a blanket redirect would strand members),
+ * everyone else to the Knowledge landing with the two tools.
  *
- * Visibility is the DATABASE's answer: the page renders whatever the
- * RLS-scoped read returns (org-wide collections, plus department-scoped ones
- * the viewer belongs to). Super admins get the management surface; everyone
- * else gets the same cards read-only.
+ * Members lose the old read-only curated view here BY DESIGN; they still see
+ * curated collections as folders where they use them, in Research and Structured
+ * Query.
  */
 export default async function CollectionsPage() {
   await requireAuthUser();
-  const isSuperAdmin = await isCurrentUserSuperAdmin();
-
-  // Curated collections only: the invisible auto-folder collections that
-  // folder-picking creates are backing records, never managed here (Step 3c).
-  const [collections, departments, eligibleConnections] = await Promise.all([
-    getManageableCollections(),
-    isSuperAdmin ? getOrgDepartmentsForPicker() : Promise.resolve([]),
-    isSuperAdmin ? getEligibleSourceConnections() : Promise.resolve([]),
-  ]);
-
-  return (
-    <main className="flex flex-col gap-9">
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="max-w-[22ch] text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
-            Collections
-          </h1>
-          <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            The folders from your connected drives that your team can ask over.
-            Each shows exactly where its documents live; legalOS keeps an
-            inventory, never the documents themselves.
-          </p>
-        </div>
-        {/* Admins get the managing guide; everyone else the user-facing one. */}
-        <HelpLink topic={isSuperAdmin ? "collections" : "knowledge"} className="mt-3" />
-      </header>
-
-      <CollectionsView
-        collections={collections}
-        departments={departments}
-        eligibleConnections={eligibleConnections}
-        canEdit={isSuperAdmin}
-      />
-    </main>
+  const isAdmin = await isCurrentUserAdmin();
+  redirect(
+    isAdmin ? "/workspace/admin/policy#knowledge-access" : "/workspace/knowledge",
   );
 }

@@ -131,10 +131,8 @@ const ROUTE_TABLE: ReadonlyArray<RouteEntry> = [
     match: "/workspace/knowledge",
     segments: () => [HOME_SEGMENT, "Knowledge"],
   },
-  {
-    match: "/workspace/knowledge/collections",
-    segments: () => [HOME_SEGMENT, "Knowledge", "Collections"],
-  },
+  // /workspace/knowledge/collections is retired (Phase B): it redirects, so no
+  // breadcrumb entry. Curated management lives under Policy & access.
   {
     match: "/workspace/knowledge/research",
     segments: () => [HOME_SEGMENT, "Knowledge", "Research"],

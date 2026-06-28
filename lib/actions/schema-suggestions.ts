@@ -37,7 +37,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  */
 
 const STRUCTURED_QUERY_PATH = "/workspace/knowledge/structured-query";
-const COLLECTIONS_PATH = "/workspace/knowledge/collections";
+// Curated-collection management moved to Policy & access (Phase B); revalidate there.
+const COLLECTIONS_PATH = "/workspace/admin/policy";
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 const NOT_ALLOWED = "Only an administrator can approve a suggested field.";
 

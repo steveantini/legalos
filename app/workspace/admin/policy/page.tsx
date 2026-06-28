@@ -9,9 +9,15 @@ import { McpConnectionsEditor } from "@/components/admin/policy/mcp-connections-
 import { ModelConnectionEditor } from "@/components/admin/policy/model-connection-editor";
 import { PolicyEditor } from "@/components/admin/policy/policy-editor";
 import { ResearchCapEditor } from "@/components/admin/policy/research-cap-editor";
+import { CollectionsView } from "@/components/knowledge/collections-view";
 import { HelpLink } from "@/components/workspace/help-link";
 import type { HelpTopic } from "@/lib/workspace/help-links";
 import { cn } from "@/lib/utils";
+import {
+  getEligibleSourceConnections,
+  getManageableCollections,
+  getOrgDepartmentsForPicker,
+} from "@/lib/knowledge/collections-data";
 import { getResearchDocumentCap } from "@/lib/knowledge/research/engine";
 import {
   getCurrentUserProfile,
@@ -86,6 +92,16 @@ export default async function AdminPolicyPage({
   // so the connections are present on first paint — no client fetch to sequence.
   const orgDefaultModel = await getOrganizationDefaultModel();
   const researchDocumentCap = await getResearchDocumentCap();
+
+  // Knowledge & access → curated folder collections (relocated here in Phase B).
+  // The curated-only read (is_auto_folder = false) excludes the invisible
+  // folder-picking backings; departments + eligible connections are loaded only
+  // for the editing posture, mirroring the retired Collections page.
+  const manageableCollections = await getManageableCollections();
+  const collectionDepartments = canEdit ? await getOrgDepartmentsForPicker() : [];
+  const eligibleSourceConnections = canEdit
+    ? await getEligibleSourceConnections()
+    : [];
   const anthropicModelConnection = await getOrgModelConnectionState(
     "anthropic",
     organizationId,
@@ -246,6 +262,33 @@ export default async function AdminPolicyPage({
         topic="knowledge-access"
       />
       <ResearchCapEditor initialCap={researchDocumentCap} canEdit={canEdit} />
+
+      {/* Curated folder collections, relocated from the retired Collections route
+          (Phase B). A quiet sub-heading keeps it distinct from the research cap
+          under the one Knowledge & access help drawer; the manager and its
+          actions are unchanged. */}
+      <section aria-labelledby="policy-folder-collections" className="mt-12">
+        <h2
+          id="policy-folder-collections"
+          className="text-[17px] font-medium tracking-[-0.005em] text-foreground"
+        >
+          Folder collections
+        </h2>
+        <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-muted-foreground">
+          The named collections an administrator curates over connected drives.
+          Folders picked directly in Research and Structured Query are managed
+          there; these curated collections are the way to scope a set of folders
+          to specific departments.
+        </p>
+        <div className="mt-5">
+          <CollectionsView
+            collections={manageableCollections}
+            departments={collectionDepartments}
+            eligibleConnections={eligibleSourceConnections}
+            canEdit={canEdit}
+          />
+        </div>
+      </section>
     </>
   );
 }

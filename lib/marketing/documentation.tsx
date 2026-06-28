@@ -1222,14 +1222,13 @@ export const DOC_PAGES: DocPage[] = [
         </MarketingSection>
         <MarketingSection title="Who can use which folders">
           <p>
-            Folder access is governed: some folders can be available to everyone
-            in the organization, others limited to certain departments, enforced
-            at the database, not just hidden in the interface. This governance is
-            moving into Policy &amp; access, where an administrator will manage
-            which drives are connected, which folders are available, and who can
-            use them, with a setting to let members add their own folders or keep
-            that admin-only. That surface is on the way; the exact steps will live
-            here as it lands.
+            Folder access is governed: some folders are available to everyone in
+            the organization, others limited to certain departments, enforced at
+            the database, not just hidden in the interface. An administrator
+            manages the curated folder collections, which drives they draw from,
+            and who can see them, under Policy and access in the Knowledge and
+            access area. Letting members add their own folders is a setting still
+            on the way; today setting up folders is administrator-only.
           </p>
         </MarketingSection>
         <MarketingSection title="Research and Structured Query">
@@ -1262,14 +1261,15 @@ export const DOC_PAGES: DocPage[] = [
             opt-in: Research needs none of it.
           </p>
         </MarketingSection>
-        <MarketingSection title="A simpler setup is on the way">
+        <MarketingSection title="How the pieces fit">
           <p>
-            The Knowledge setup is being simplified around a single idea: pick
-            folders, ask. Folder-picking is moving directly into Research and
-            Structured Query, and folder-access governance into Policy &amp;
-            access. The mechanics above (point at folders, define fields, prepare)
-            stay; how you reach them is what gets cleaner. This guide will gain the
-            exact, current steps as those pieces land.
+            The setup is organized around one idea: pick folders, ask. You pick
+            folders directly in Research and Structured Query, where you use
+            them, and Structured Query&rsquo;s define-fields and prepare are
+            available right there as opt-in depth. An administrator curates the
+            named folder collections and their access centrally, under Policy and
+            access in the Knowledge and access area; the legacy Collections page
+            now sends you to whichever of those is right for your role.
           </p>
         </MarketingSection>
       </>
@@ -1314,6 +1314,19 @@ export const DOC_PAGES: DocPage[] = [
             Visibility is enforced at the database, so a folder a person
             can&rsquo;t see never appears in Research or Structured Query for
             them, and never leaks through a question.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="Folder collections">
+          <p>
+            This area also holds the curated folder collections: the named sets
+            of drive folders an administrator manages, each scoped to the whole
+            organization or to specific departments. Here you create a
+            collection, add or remove the drive folders it draws from, set who
+            can see it, sync its document inventory, and prepare it for exact
+            answers. Folders people pick directly in Research and Structured
+            Query are managed there; these curated collections are the way to
+            scope a set of folders to specific departments. Creating and editing
+            them is super admin only; other administrators see them read-only.
           </p>
         </MarketingSection>
         <MarketingSection title="How to">
