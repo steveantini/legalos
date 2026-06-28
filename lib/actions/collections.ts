@@ -406,8 +406,51 @@ export async function addCollectionSource(
  * self-service via `organizations.member_self_service_folders`, behind the new
  * private-visibility tier + RLS); nothing else decides who may create folders.
  */
+/**
+ * Whether the caller's org has turned member self-service folders ON. Read via
+ * the RLS server client (a member may read their own org row), mirroring
+ * isCurrentUserInDemoOrg. Defaults false; the toggle has NO UI yet (Phase C1
+ * ships dark), so this is false in production everywhere.
+ */
+async function memberSelfServiceEnabled(): Promise<boolean> {
+  const profile = await getCurrentUserProfile();
+  if (!profile?.organization_id) return false;
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("organizations")
+    .select("member_self_service_folders")
+    .eq("id", profile.organization_id)
+    .maybeSingle();
+  return (
+    (data as { member_self_service_folders: boolean } | null)
+      ?.member_self_service_folders === true
+  );
+}
+
 export async function canSetUpFolders(): Promise<boolean> {
-  return isCurrentUserSuperAdmin();
+  return (await isCurrentUserSuperAdmin()) || (await memberSelfServiceEnabled());
+}
+
+/**
+ * The server resolves the folder-setup SCOPE so "members can set up folders" can
+ * NEVER leak into org-wide or another member's scope: super admin -> org (owner
+ * null, the admin path); a member with the toggle on -> private + self-owned;
+ * otherwise not allowed. ensureFolderCollection (and any create path) uses this
+ * and never trusts a client-supplied visibility.
+ */
+export async function resolveFolderSetupScope(): Promise<{
+  allowed: boolean;
+  visibility: "org" | "private";
+  ownerUserId: string | null;
+}> {
+  if (await isCurrentUserSuperAdmin()) {
+    return { allowed: true, visibility: "org", ownerUserId: null };
+  }
+  const profile = await getCurrentUserProfile();
+  if (profile?.id && (await memberSelfServiceEnabled())) {
+    return { allowed: true, visibility: "private", ownerUserId: profile.id };
+  }
+  return { allowed: false, visibility: "private", ownerUserId: null };
 }
 
 const ensureFolderInputSchema = z.object({
@@ -434,7 +477,10 @@ export async function ensureFolderCollection(input: {
   recursive: boolean;
 }): Promise<CollectionActionResult> {
   await requireAuthUser();
-  if (!(await canSetUpFolders())) return { ok: false, error: NOT_ALLOWED };
+  // The server picks the scope (org for admins, private+self for members with
+  // the toggle on); a client can never choose visibility.
+  const scope = await resolveFolderSetupScope();
+  if (!scope.allowed) return { ok: false, error: NOT_ALLOWED };
   const parsed = ensureFolderInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
 
@@ -454,15 +500,21 @@ export async function ensureFolderCollection(input: {
   const organizationId = profile.organization_id;
   const createdById = profile.id;
 
+  // The dedup is scoped per owner for private (one folder PER OWNER) and
+  // org-wide for org (owner null), matching the two partial unique indexes. So a
+  // member re-picking their folder reuses their OWN private collection, and two
+  // members picking the same folder get separate ones.
   const findExisting = async (k: FolderKey): Promise<string | null> => {
-    const { data } = await supabase
+    const base = supabase
       .from("collection_sources")
       .select("collection_id")
       .eq("connection_id", k.connectionId)
       .eq("root_reference", k.rootReference)
-      .eq("is_auto_folder", true)
-      .limit(1)
-      .maybeSingle();
+      .eq("is_auto_folder", true);
+    const scoped = scope.ownerUserId
+      ? base.eq("owner_user_id", scope.ownerUserId)
+      : base.is("owner_user_id", null);
+    const { data } = await scoped.limit(1).maybeSingle();
     return data ? (data as { collection_id: string }).collection_id : null;
   };
 
@@ -473,7 +525,7 @@ export async function ensureFolderCollection(input: {
         organization_id: organizationId,
         name,
         description: "",
-        visibility: "org",
+        visibility: scope.visibility,
         created_by_user_id: createdById,
         is_auto_folder: true,
       })
@@ -489,6 +541,7 @@ export async function ensureFolderCollection(input: {
       display_path: displayPath,
       recursive: parsed.data.recursive,
       is_auto_folder: true,
+      owner_user_id: scope.ownerUserId,
     });
     if (sourceError) {
       // Lost the concurrency race against the partial unique index, or a
@@ -554,9 +607,6 @@ export async function syncCollection(input: {
   sourceIds: string[] | null;
 }): Promise<SyncResult> {
   await requireAuthUser();
-  if (!(await isCurrentUserSuperAdmin())) {
-    return { ok: false, error: NOT_ALLOWED };
-  }
   const parsed = syncInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const { collectionId, cursor, sourceIds } = parsed.data;
@@ -565,16 +615,35 @@ export async function syncCollection(input: {
 
   // The collection's organization scopes the canonical document anchors the
   // sync materializes below (the anchor identity is org + connection +
-  // external_id). RLS guarantees a super admin only reaches their own org's
-  // collections, so this read both authorizes and supplies the org id.
+  // external_id). RLS guarantees the caller only reaches collections they can
+  // see, so this read both authorizes and supplies the org id, visibility, and
+  // owner the gate below needs.
   const { data: collectionRow, error: collectionError } = await supabase
     .from("collections")
-    .select("organization_id")
+    .select("organization_id, visibility, created_by_user_id")
     .eq("id", collectionId)
     .single();
   if (collectionError || !collectionRow) return { ok: false, error: GENERIC_ERROR };
-  const organizationId = (collectionRow as { organization_id: string })
-    .organization_id;
+  const collection = collectionRow as {
+    organization_id: string;
+    visibility: string;
+    created_by_user_id: string | null;
+  };
+  const organizationId = collection.organization_id;
+
+  // Authorize: super admin (the unchanged direct-write path), or a member who
+  // OWNS this private collection with the toggle on (the definer path). Members
+  // materialize the shared anchor + inventory only through the SECURITY DEFINER
+  // RPCs, which re-check ownership in the database.
+  const profile = await getCurrentUserProfile();
+  const isSuper = await isCurrentUserSuperAdmin();
+  const ownsPrivate =
+    collection.visibility === "private" &&
+    !!profile?.id &&
+    collection.created_by_user_id === profile.id &&
+    (await memberSelfServiceEnabled());
+  if (!isSuper && !ownsPrivate) return { ok: false, error: NOT_ALLOWED };
+  const usePrivatePath = !isSuper;
 
   const { data: sourceRows, error: sourcesError } = await supabase
     .from("collection_sources")
@@ -662,6 +731,44 @@ export async function syncCollection(input: {
         for (let i = 0; i < entries.length; i += UPSERT_CHUNK) {
           const slice = entries.slice(i, i + UPSERT_CHUNK);
 
+          // Member-private path: the shared anchor + inventory are written ONLY
+          // through the SECURITY DEFINER RPCs, which re-check ownership and
+          // derive org / validate connection against the owned collection, so a
+          // member can never write an arbitrary anchor. (Direct super-admin
+          // path follows below, unchanged.)
+          if (usePrivatePath) {
+            const anchorRows = buildAnchorRows(
+              organizationId,
+              connectionId,
+              slice,
+              nowIso,
+            );
+            const { data: anchorData, error: anchorErr } = await supabase.rpc(
+              "sync_upsert_private_anchors",
+              { p_collection_id: collectionId, p_rows: anchorRows },
+            );
+            if (anchorErr) throw new Error("anchor write failed");
+            const linked = new Map(
+              (anchorData as { id: string; external_id: string }[]).map((r) => [
+                r.external_id,
+                r.id,
+              ]),
+            );
+            const inventory = buildInventoryRows(
+              collectionId,
+              source.id,
+              slice,
+              nowIso,
+              linked,
+            );
+            const { error: invErr } = await supabase.rpc(
+              "sync_upsert_private_inventory",
+              { p_collection_id: collectionId, p_rows: inventory },
+            );
+            if (invErr) throw new Error("inventory write failed");
+            continue;
+          }
+
           // 1) Canonical anchors first: one row per (org, connection,
           //    external_id), so a file shared across collections is extracted
           //    once later, never twice. Metadata is refreshed to this sync.
@@ -729,12 +836,23 @@ export async function syncCollection(input: {
 
       finalizeSource: async (source, watermarkIso) => {
         // Only a COMPLETED walk marks the unseen as missing (never dropped).
-        await supabase
-          .from("collection_documents")
-          .update({ status: "missing" })
-          .eq("collection_source_id", source.id)
-          .eq("status", "present")
-          .lt("last_seen_at", watermarkIso);
+        // Member-private goes through the definer (collection_documents write is
+        // super-admin-only under RLS); the source stamp below is a member-RLS
+        // write the owner is permitted.
+        if (usePrivatePath) {
+          await supabase.rpc("sync_finalize_private_source", {
+            p_collection_id: collectionId,
+            p_source_id: source.id,
+            p_watermark: watermarkIso,
+          });
+        } else {
+          await supabase
+            .from("collection_documents")
+            .update({ status: "missing" })
+            .eq("collection_source_id", source.id)
+            .eq("status", "present")
+            .lt("last_seen_at", watermarkIso);
+        }
 
         // Recompute display provenance best-effort; keep the cached path
         // when the walk can't resolve it.

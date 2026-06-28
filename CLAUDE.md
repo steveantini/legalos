@@ -214,7 +214,7 @@ This ban is now lint-enforced (D-167): the custom rule `local/no-em-dash-in-jsx-
 ## Testing
 
 - **Unit tests:** colocated as `*.test.ts` next to the code they test. Business logic, auth helpers, and validation schemas are always tested.
-- **Integration tests:** Supabase RLS policies are tested against a local Supabase instance. Every policy has at least one positive and one negative test.
+- **Integration tests (RLS):** the current proof for RLS is a self-contained adversarial SQL suite under `supabase/tests/` (role/JWT impersonation, positive + negative assertions, self-cleaning), run against a database with the migration applied (a Supabase branch). There is NOT yet a CI harness that applies migrations to a local Supabase and runs these automatically; that durable harness is a captured roadmap follow-on. Vitest decision-table tests (e.g. `lib/auth/folder-access-policy.test.ts`) prove the policy LOGIC, not the SQL execution. The standard remains: every policy gets at least one positive and one negative test, in the SQL suite.
 - **E2E tests:** Playwright for critical flows — login, department access, agent chat, admin dashboard. Kept small and stable.
 - **What must be tested:** all RLS policies, all server actions, all role checks, all validation schemas.
 - **What can be tested lightly:** presentational components, static pages.
