@@ -5309,3 +5309,10 @@ Status: Accepted
 **Currency:** the "Setting up Knowledge" guide's two forward-looking sections are updated to present tense (governance now in Policy & access → Knowledge & access; the simpler setup has landed), and the "Knowledge and access" guide gains a "Folder collections" section describing the relocated manager.
 
 **Consequences:** Pure relocation + a redirect. No migration, no engine change, no action/RLS/visibility change; curated remains the only department-scoping path, intact. Gates green (tsc 0, eslint 0 incl. no-em-dash, 749 tests, build). Phase C (member self-service: the `private` visibility tier + owner-scoped RLS across the five Knowledge tables + wiring `member_self_service_folders` into `canSetUpFolders` + the toggle UI in Knowledge & access) is next and is the arc's riskiest part. The curated-vs-folder-picking model decision remains deferred.
+
+## D-214 — Intent: document the Claude for Legal relationship and our vendored/governed usage model
+
+Date: 2026-06-28
+Status: Accepted (capture only, not built)
+
+**Decision:** We intend to add a short documentation/help guide explaining what Claude for Legal is (`github.com/anthropics/claude-for-legal`, Apache-2.0, Anthropic's suite of legal practice-area plugins/skills/agents/MCP connectors, officially usable two ways: Claude Cowork/Code plugins, or via the Managed Agents API) and, the distinguishing point, HOW legalOS uses it: we vendor/fork the repo and run these agents INSIDE our own governed platform (our brand, access controls, deterministic-operations layer, and policies), keeping control of the repo/version, the governance, and the surface, rather than having customers connect directly to Claude Cowork/Code and install plugins themselves. The guide must be accurate and non-overclaiming, honest about what is our governance layer vs. the underlying Anthropic reference agents, with Apache-2.0 attribution where appropriate. Captured in ROADMAP (documentation arc). No code or doc written here; this records the intent so it is not forgotten.
