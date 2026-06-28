@@ -55,16 +55,23 @@ values
   (:uSA, :org1, 'sa@test.local', 'super_admin'),
   (:uC,  :org2, 'c@test.local',  'user');
 
+-- The org connection the private folder source and document anchors hang off:
+-- collection_sources.connection_id and documents.connection_id both FK to it.
+insert into public.connections (id, organization_id, provider_id, capability_category, scope, status, created_by_user_id)
+values (:connX, :org1, 'google-drive', 'file-storage', 'org', 'active', :uSA);
+
 -- A's private folder-backed collection + its owned auto-folder source over
 -- (connX, rootF), plus an org-wide collection, an anchor doc in A's private
 -- collection, and a schema A owns pointed at by A's private collection.
+-- Insert the schema first: collections.schema_id has a non-deferrable FK to
+-- collection_schemas, so A's schema must exist before A's collection points at it.
+insert into public.collection_schemas (id, organization_id, name, attributes, created_by_user_id)
+values (:schemaA, :org1, 'A kind', '[]'::jsonb, :uA);
+
 insert into public.collections (id, organization_id, name, description, visibility, created_by_user_id, is_auto_folder, schema_id)
 values
   (:colAP,  :org1, 'A private', '', 'private', :uA, true, :schemaA),
   (:colOrg, :org1, 'Org wide',  '', 'org',     :uSA, false, null);
-
-insert into public.collection_schemas (id, organization_id, name, attributes, created_by_user_id)
-values (:schemaA, :org1, 'A kind', '[]'::jsonb, :uA);
 
 insert into public.collection_sources (collection_id, connection_id, root_reference, display_path, recursive, is_auto_folder, owner_user_id)
 values (:colAP, :connX, 'rootF', 'Drive / A', true, true, :uA);
