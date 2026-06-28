@@ -5274,3 +5274,21 @@ Status: Accepted
 **4. Dead pre-migration fallback removed.** 3a (`collections.schema_id`) is applied and live, so `getCollectionSchemaMapLegacy` and the `isUndefinedColumnError` fallback branch in `getCollectionSchemaMap` were dead. Removed both (and the now-unused import).
 
 **Consequences:** A net code reduction (the duplicate picker and two dead paths gone), one cleaner read split (`loadCollections` core + the visible/manageable exports), and no migration, no engine change, no governance change. Gates green (tsc, eslint incl. no-em-dash, 749 tests, build). Forward (all still deferred to the Policy & access arc): route retirement, governance removal, and the curated-vs-folder-picking model decision; member self-service (2b); the global extraction-key watch-item (D-209).
+
+## D-212 — Policy & access arc, Phase A: three helped subsections (presentation only)
+
+Date: 2026-06-28
+Status: Accepted
+
+**Context:** The Policy & access page had grown into one long scroll of six unrelated editor components (~2,115 lines across the editors) with a single page-level help link. The arc restructures it and, in later phases, gives folder governance a home here (Phase B: route retirement + curated-collection governance; Phase C: member self-service / the private tier). Phase A is the safe, high-value first step: grouping + per-subsection help, no behavior, action, or RLS change.
+
+**Decision.** The six editors are grouped into three anchored subsections on the one scrollable page (not tabs), each with a quiet uppercase zone-label header (the Knowledge-pages luxury-hierarchy idiom), an anchor id (`#models`, `#connections`, `#knowledge-access`), a one-line description, and its OWN `HelpLink`:
+- **Models** (`topic: "models"`) — `ModelConnectionEditor` + `DefaultModelEditor`.
+- **Connections** (`topic: "connections"`, reused) — `PolicyEditor` (allowed connections) + `McpConnectionsEditor` + `ContentProvidersEditor`.
+- **Knowledge & access** (`topic: "knowledge-access"`) — `ResearchCapEditor` (folder governance + the member toggle slot in here in B/C).
+
+The single page-level `HelpLink topic="policy"` is removed in favor of the three. The MCP editor's pre-existing inline `HelpLink topic="connections"` is removed (its import too), folded into the Connections subsection header so there is no duplicate help affordance.
+
+**Help content (the real cost, authored not stubbed).** Two new topics added to `HELP_TOPICS` (`models → /documentation/policy-models`, `knowledge-access → /documentation/knowledge-access`); the lockstep test (`help-links.test.ts`) requires each to resolve to a real published guide, so both guides were written, not stubbed. The old `policy` guide was REPURPOSED into a short overview of the three areas (kept, not orphaned: still in the docs hub, the `policy` topic retained), and its detail DISTRIBUTED: a new "Models" guide (model connection + default model + how-tos), the existing "Connections" guide EXTENDED with allowed-connections/capability-ceiling and content-libraries sections + how-tos, and a new "Knowledge and access" guide (the research cap, with the deterministic Structured Query / non-deterministic Research framing, plus folder visibility). House doc voice, no em dashes.
+
+**Consequences:** Pure presentation + documentation. Every editor is unchanged behaviorally (only the MCP editor's duplicate help link was removed); super_admin gating and the read-only posture are untouched; no server action, schema, or RLS change. Gates green (tsc 0, eslint 0 incl. no-em-dash, 749 tests, build). Phase B (relocate curated-collection governance into the Knowledge & access subsection, then retire the `/workspace/knowledge/collections` route) and Phase C (member self-service: the `private` visibility tier + owner-scoped RLS across collections/sources/documents/collection_schemas/the document anchor + wiring `member_self_service_folders` into `canSetUpFolders`) follow; the private-tier RLS is the arc's riskiest part.

@@ -31,10 +31,14 @@ export const HELP_TOPICS = {
   calendar: "/documentation/calendar",
   /** People and roles. */
   people: "/documentation/people",
-  /** Policy and access. */
+  /** Policy and access (the umbrella overview of the three subsections). */
   policy: "/documentation/policy",
-  /** Connections and credential custody. */
+  /** Policy & access → Models: the model connection (managed or BYO key) and the default model. */
+  models: "/documentation/policy-models",
+  /** Connections and credential custody (Policy & access → Connections). */
   connections: "/documentation/connections",
+  /** Policy & access → Knowledge & access: the research cap and folder access. */
+  "knowledge-access": "/documentation/knowledge-access",
   /** Insights and the calculator. */
   insights: "/documentation/insights",
   /** The audit log. */

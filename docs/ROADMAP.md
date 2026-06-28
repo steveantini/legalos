@@ -136,7 +136,16 @@ Make folder-picking the primary, universal act and retire "Collections" as a use
 **Deferred future arcs (captured, not built here):**
 - **Local drives.** Today is cloud / OAuth / MCP only (Google Drive live; Box via the C4L catalog); there is no local-filesystem connection concept anywhere. The operator's "cloud or local" needs a net-new connection architecture (likely a desktop agent or a fundamentally different connection type). Largest and riskiest; its own arc. Do NOT claim local drives in copy meanwhile.
 - **Automatic / background sync.** Sync is manual today (a client-driven segmented loop); there is no scheduler or background-job infrastructure in the app. The interim is auto-sync-on-pick (run the existing loop invisibly when a folder is picked or opened); true background sync needs a scheduler + a server-side segment-advance loop + a run-context / RLS decision (sync is super-admin-gated today). Its own arc. Do NOT claim automatic sync in copy meanwhile.
-- **Policy & access rework.** Break the long Policy & access page into focused subsections, each with its own per-subsection help. This is the next arc AFTER the Knowledge folders arc, because the Knowledge arc ADDS folder-access governance into Policy & access, so the page breakup should follow it.
+
+## 1d. Policy & access arc (active, multi-phase)
+
+The page restructure plus the new home for folder governance (absorbing the deferred Knowledge-folders items: member self-service 2b, route retirement, the curated-vs-folder-picking decision).
+
+**Phase A SHIPPED (D-212): three helped subsections (presentation only).** The six editors are grouped into Models (`#models`), Connections (`#connections`), and Knowledge & access (`#knowledge-access`) on the one scrollable page, each with a quiet zone-label header and its OWN help drawer. The page-level `topic="policy"` help link is replaced by the three; the MCP editor's duplicate inline help link is folded into the Connections header. Help docs authored to match: new "Models" and "Knowledge and access" guides, an expanded "Connections" guide, and the "Policy and access" guide repurposed as a short overview (kept, not orphaned). No behavior, action, or RLS change.
+
+**Next:**
+- **Phase B — folder-governance home + route retirement.** Relocate the curated-collection governance (create / edit visibility+departments / delete) into the Knowledge & access subsection, then redirect/retire `/workspace/knowledge/collections` (its setup actions stay, used by the in-flow surfaces). The curated model stays (only department-scoping path today).
+- **Phase C — member self-service (2b), the riskiest part.** The `private` visibility tier (CHECK-constraint change) + owner-scoped read/write RLS across `collections`, `collection_sources`, `collection_documents`, `collection_schemas`, and the `documents` anchor (the last two are admin-only-read today and need an owner read branch) + wiring `organizations.member_self_service_folders` into the single `canSetUpFolders` gate (members create `private`, owner-scoped, never `org`) + the toggle UI in the Knowledge & access subsection.
 
 ## 2. Connector follow-ups (deferred from the connector hub arc)
 

@@ -958,61 +958,71 @@ export const DOC_PAGES: DocPage[] = [
     slug: "policy",
     group: "admins",
     title: "Policy and access",
-    summary: "The organization’s levers: model, connections, capability ceiling, content, and the research cap.",
+    summary: "The organization’s governance, in three areas: Models, Connections, and Knowledge and access.",
     audience: "For administrators",
-    lead: "Policy and access is one page holding the organization’s governance levers, each enforced server-side and at the database, not just in the interface.",
+    lead: "Policy and access is one page holding the organization’s governance, grouped into three areas. Every lever is super admin only and enforced server-side and at the database, not just in the interface; org admins see the same page read-only.",
     body: (
       <>
-        <MarketingSection title="The model and whose key">
+        <MarketingSection title="Models">
           <p>
-            Choose which AI provider powers the organization and whose
-            credentials it runs on: the managed legalOS key, or your own
-            provider key, validated before it is stored, encrypted at rest,
-            and never shown again. Separately, set the default model new
-            agents start with; existing agents and conversations keep theirs.
+            The engine your agents run on: which provider powers the
+            organization and whose key it uses (the managed legalOS key or your
+            own), and the default model new agents start with. The focused guide
+            is Models.
           </p>
         </MarketingSection>
-        <MarketingSection title="Allowed connections and the capability ceiling">
+        <MarketingSection title="Connections">
           <p>
-            Decide which kinds of connections the organization permits, from
-            file storage and mail through MCP servers, and set the capability
-            ceiling: whether agents may act read-only or read-and-write.
-            Tightening the policy takes effect immediately, even for
-            connections granted earlier.
+            What your agents can reach: the standing guardrail of which
+            connection categories are allowed and the read-only or
+            read-and-write ceiling, the trusted MCP servers you connect, and the
+            curated content libraries you show. The focused guide is Connections.
           </p>
         </MarketingSection>
-        <MarketingSection title="The research document cap">
+        <MarketingSection title="Knowledge and access">
           <p>
-            How many documents a single research run may read, 200 by default,
-            adjustable from 1 to 1000. A scope over the limit is declined
-            before it runs, with the limit named, so each run stays fast,
-            focused, and a deliberate choice. The ceiling reflects how much one
-            run can read live and well, not a storage limit.
+            The governance around Knowledge: how many documents one research run
+            may read, and who can see each folder your team works with. The
+            focused guide is Knowledge and access.
           </p>
         </MarketingSection>
-        <MarketingSection title="Content libraries">
+      </>
+    ),
+  },
+  {
+    slug: "policy-models",
+    group: "admins",
+    title: "Models",
+    summary: "The model connection (managed or your own key) and the default model new agents start with.",
+    audience: "For administrators",
+    lead: "Models is where you choose the engine your agents run on: which provider powers the organization, whose key it uses, and which model new agents start with. It is the first area of Policy and access.",
+    body: (
+      <>
+        <MarketingSection title="The model connection and whose key">
           <p>
-            Turn curated content libraries, like Claude for Legal, on or off
-            for the organization. Off genuinely hides that library&rsquo;s
-            agents everywhere; a quiet line shows when each library was last
-            updated from its source.
+            Choose whether your agents run on legalOS managed models or your
+            organization&rsquo;s own provider key. Bring your own key and it is
+            validated with the provider before it is stored, encrypted at rest,
+            and never shown again; what you see afterward is a masked hint and
+            the active source, never the secret. With your own key, inference
+            runs under your organization&rsquo;s own provider agreement and data
+            boundary. You can switch back to managed, replace the key, or remove
+            it from the same card at any time.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="The default model">
+          <p>
+            Set the model new agents start with. Changing it does not touch
+            existing agents or running conversations; they keep the model they
+            were created with, so a default change is never a silent
+            rewrite of past work. When no default is set, the system flagship
+            applies.
           </p>
         </MarketingSection>
         <MarketingSection title="How to">
           <p className="text-[13.5px] text-muted-foreground">
-            Every lever on this page is super admin only; org admins see the
-            same page read-only.
+            Both controls are super admin only; org admins see them read-only.
           </p>
-          <div>
-            <p className="font-medium text-foreground">Set the default model</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>Open Policy &amp; access and find Default model.</li>
-              <li>
-                Pick from the list and it saves. New agents start on it;
-                existing agents and running conversations are untouched.
-              </li>
-            </ol>
-          </div>
           <div>
             <p className="font-medium text-foreground">Bring your own provider key</p>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5">
@@ -1029,41 +1039,12 @@ export const DOC_PAGES: DocPage[] = [
             </ol>
           </div>
           <div>
-            <p className="font-medium text-foreground">Set the capability ceiling and allowed categories</p>
+            <p className="font-medium text-foreground">Set the default model</p>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Under Default model, pick from the list and it saves.</li>
               <li>
-                Under Allowed connections, set the most any connection can
-                do: Read only, or Read and write.
-              </li>
-              <li>
-                Toggle the categories your organization permits, from file
-                storage and mail through MCP servers.
-              </li>
-              <li>
-                Tightening takes effect immediately, including for
-                connections granted earlier.
-              </li>
-            </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Set the research document cap</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>Under Research, set Documents per run (1 to 1000).</li>
-              <li>
-                Select Save. A research scope over the limit is declined
-                before it runs, with the limit named.
-              </li>
-            </ol>
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Turn a content library on or off</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-              <li>
-                Under Content, toggle the library, like Claude for Legal.
-              </li>
-              <li>
-                Off hides that library&rsquo;s agents everywhere in the
-                organization until you turn it back on.
+                New agents start on it; existing agents and running
+                conversations are untouched.
               </li>
             </ol>
           </div>
@@ -1080,6 +1061,19 @@ export const DOC_PAGES: DocPage[] = [
     lead: "legalOS connects only to systems it has vetted: official first-party servers from a pre-vetted catalog, or a server your own organization hosts. There is deliberately no way to connect an arbitrary third party.",
     body: (
       <>
+        <MarketingSection title="Allowed connections and the capability ceiling">
+          <p>
+            Before any specific server, a standing guardrail decides what the
+            organization permits at all: which connection categories are
+            allowed, from file storage and mail through MCP servers, and the
+            capability ceiling, whether agents may act read-only or
+            read-and-write. The ceiling is the most any connection can do,
+            regardless of what an individual connection could otherwise offer.
+            Tightening the policy takes effect immediately, including for
+            connections granted earlier, so it is a real revocation, not just a
+            setting for new connections.
+          </p>
+        </MarketingSection>
         <MarketingSection title="The catalog">
           <p>
             The catalog covers the systems legal teams live in: contract
@@ -1112,7 +1106,36 @@ export const DOC_PAGES: DocPage[] = [
             secrets.
           </p>
         </MarketingSection>
+        <MarketingSection title="Content libraries">
+          <p>
+            Alongside connected systems, you decide which curated content
+            libraries, like Claude for Legal, the organization shows. Turning a
+            library off genuinely hides its agents everywhere in the
+            organization, not just from a list; a quiet line shows when each
+            library was last updated from its source.
+          </p>
+        </MarketingSection>
         <MarketingSection title="How to">
+          <div>
+            <p className="font-medium text-foreground">Set the capability ceiling and allowed categories</p>
+            <p className="mt-1 text-[13.5px] text-muted-foreground">
+              Super admin only; org admins see the policy read-only.
+            </p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>
+                Under Allowed connections, set the most any connection can do:
+                Read only, or Read and write.
+              </li>
+              <li>
+                Toggle the categories your organization permits, from file
+                storage and mail through MCP servers.
+              </li>
+              <li>
+                Tightening takes effect immediately, including for connections
+                granted earlier.
+              </li>
+            </ol>
+          </div>
           <div>
             <p className="font-medium text-foreground">Connect a system from the catalog</p>
             <p className="mt-1 text-[13.5px] text-muted-foreground">
@@ -1158,6 +1181,16 @@ export const DOC_PAGES: DocPage[] = [
               <li>
                 A server showing Needs reconnect has lost its grant; select
                 Reconnect and sign in again.
+              </li>
+            </ol>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Turn a content library on or off</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Under Content, toggle the library, like Claude for Legal.</li>
+              <li>
+                Off hides that library&rsquo;s agents everywhere in the
+                organization until you turn it back on.
               </li>
             </ol>
           </div>
@@ -1238,6 +1271,65 @@ export const DOC_PAGES: DocPage[] = [
             stay; how you reach them is what gets cleaner. This guide will gain the
             exact, current steps as those pieces land.
           </p>
+        </MarketingSection>
+      </>
+    ),
+  },
+  {
+    slug: "knowledge-access",
+    group: "admins",
+    title: "Knowledge and access",
+    summary: "The research document cap, and who can see each folder your team works with.",
+    audience: "For administrators",
+    lead: "Knowledge and access is the third area of Policy and access: the governance around Knowledge. Today it holds the research document cap and the visibility of the folders your team asks over.",
+    body: (
+      <>
+        <MarketingSection title="The research document cap">
+          <p>
+            How many documents a single research run may read, 200 by default,
+            adjustable from 1 to 1000. A scope over the limit is declined before
+            it runs, with the limit named, so each run stays fast, focused, and a
+            deliberate choice. The ceiling reflects how much one run can read
+            live and well, not a storage limit: Research reads each document in
+            scope where it lives and never copies it.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="Why the cap is on Research, not Structured Query">
+          <p>
+            The two Knowledge tools answer differently. Research is
+            non-deterministic: it reads and reasons over your documents, weighing
+            and interpreting, so a run&rsquo;s cost scales with how many it reads,
+            which is what the cap bounds. Structured Query is the deterministic
+            sibling: it counts over fields you prepared ahead of time, so the
+            same question over the same data returns the same answer every time,
+            without re-reading every document. The cap governs the read-and-reason
+            work, where bounding scope keeps each run honest and fast.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="Folder access">
+          <p>
+            Who can ask over a folder follows who can see it. A folder set up for
+            the whole organization is visible to everyone; a folder scoped to
+            specific departments is visible only to people in those departments.
+            Visibility is enforced at the database, so a folder a person
+            can&rsquo;t see never appears in Research or Structured Query for
+            them, and never leaks through a question.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="How to">
+          <p className="text-[13.5px] text-muted-foreground">
+            The research cap is super admin only; org admins see it read-only.
+          </p>
+          <div>
+            <p className="font-medium text-foreground">Set the research document cap</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>Under Research, set Documents per run (1 to 1000).</li>
+              <li>
+                Select Save. A research scope over the limit is declined before
+                it runs, with the limit named.
+              </li>
+            </ol>
+          </div>
         </MarketingSection>
       </>
     ),

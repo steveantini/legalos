@@ -10,6 +10,8 @@ import { ModelConnectionEditor } from "@/components/admin/policy/model-connectio
 import { PolicyEditor } from "@/components/admin/policy/policy-editor";
 import { ResearchCapEditor } from "@/components/admin/policy/research-cap-editor";
 import { HelpLink } from "@/components/workspace/help-link";
+import type { HelpTopic } from "@/lib/workspace/help-links";
+import { cn } from "@/lib/utils";
 import { getResearchDocumentCap } from "@/lib/knowledge/research/engine";
 import {
   getCurrentUserProfile,
@@ -158,29 +160,38 @@ export default async function AdminPolicyPage({
 
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
-            Policy & access
-          </h1>
-          <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            Set up the engine your agents run on, then what they can reach: the
-            model and whose key powers it, then which connections and trusted
-            servers it can use.
-          </p>
-        </div>
-        <HelpLink topic="policy" className="mt-3" />
+      <header className="min-w-0">
+        <h1 className="text-[44px] font-normal leading-[1.02] tracking-[-0.03em] text-foreground">
+          Policy & access
+        </h1>
+        <p className="mt-[14px] max-w-[60ch] text-[14.5px] leading-[1.5] text-muted-foreground">
+          The organization&rsquo;s governance, in three areas: the models your
+          agents run on, what they can reach, and the controls around Knowledge.
+          Each area has its own guide.
+        </p>
       </header>
 
-      {/* The engine: whose key / which provider, then which model new agents start on. */}
+      {/* Models: whose key / which provider, then which model new agents start on. */}
+      <PolicySubsectionHeader
+        id="models"
+        title="Models"
+        description="The engine your agents run on."
+        topic="models"
+        first
+      />
       <ModelConnectionEditor
         anthropicState={anthropicModelConnection}
         canEdit={canEdit}
       />
-
       <DefaultModelEditor currentModelId={orgDefaultModel} canEdit={canEdit} />
 
-      {/* The reach: the standing connection guardrail, then the connected servers. */}
+      {/* Connections: the standing guardrail, the connected servers, the libraries. */}
+      <PolicySubsectionHeader
+        id="connections"
+        title="Connections"
+        description="What your agents can reach, and the content libraries you show."
+        topic="connections"
+      />
       {loadFailed ? (
         <p
           role="alert"
@@ -222,12 +233,59 @@ export default async function AdminPolicyPage({
         }
       />
 
-      {/* Research governance: the per-run document cap (Knowledge arc Step 2). */}
-      <ResearchCapEditor initialCap={researchDocumentCap} canEdit={canEdit} />
-
       {/* Content: the org-level half of vendor-content governance — which curated
           libraries the org shows, and when they were last updated. */}
       <ContentProvidersEditor providers={contentProviders} canEdit={canEdit} />
+
+      {/* Knowledge & access: the research cap today; folder governance and member
+          self-service land in this subsection in Phases B and C. */}
+      <PolicySubsectionHeader
+        id="knowledge-access"
+        title="Knowledge & access"
+        description="The governance around Knowledge."
+        topic="knowledge-access"
+      />
+      <ResearchCapEditor initialCap={researchDocumentCap} canEdit={canEdit} />
     </>
+  );
+}
+
+/**
+ * A quiet subsection header for the Policy & access page: an uppercase zone
+ * label (the Knowledge-pages luxury-hierarchy idiom) with the subsection's own
+ * help drawer on the right, and a hairline break between zones. Presentation
+ * only; it groups the existing editors without changing any of them.
+ */
+function PolicySubsectionHeader({
+  id,
+  title,
+  description,
+  topic,
+  first = false,
+}: {
+  id: string;
+  title: string;
+  description: string;
+  topic: HelpTopic;
+  first?: boolean;
+}) {
+  return (
+    <div
+      id={id}
+      className={cn(
+        "flex items-end justify-between gap-4 scroll-mt-6",
+        first ? "mt-14" : "mt-20 border-t border-hairline pt-12",
+      )}
+    >
+      <div className="min-w-0">
+        <h2 className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          {title}
+        </h2>
+        <p className="mt-1.5 max-w-[60ch] text-[13px] leading-[1.5] text-caption">
+          {description}
+        </p>
+      </div>
+      <HelpLink topic={topic} />
+    </div>
   );
 }
