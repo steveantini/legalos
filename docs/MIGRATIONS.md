@@ -25,6 +25,16 @@ public tables + 9 `operator_*` analytics views all match; spot-checked
 column-level). These files stay exactly as they are. New migrations follow the
 CLI's timestamped naming (below), so the ledger and file order agree from here on.
 
+> One deliberate exception (2026-06-28, D-217): `0044`'s `connection_policy`
+> seed was changed to be org-guarded so the chain replays cleanly from empty
+> (`0066` previously aborted on a from-zero DB; `0066` itself is untouched). This
+> is drift-NEUTRAL on production: `0044` is already in the remote applied ledger,
+> so `db push` never re-runs it and prod's end-state is byte-identical. The edit
+> only affects fresh-DB replays. Proof-of-record is a local `supabase db reset`
+> from empty. `0066` is the only migration with this shape today; the durable
+> structural fix for the latent class is squashing to a HEAD-state baseline (see
+> D-217).
+
 > Seed DATA is a separate concern from SCHEMA. The built-in "Powered by legalOS"
 > agents and the Claude for Legal library exist in production only because their
 > seeding SCRIPTS were hand-run (they are not in committed seed SQL). That

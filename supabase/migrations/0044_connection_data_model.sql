@@ -229,9 +229,16 @@ create policy connection_policy_super_admin_write
 -- Seed: default policy row (permissive but safe)
 -- ============================================================================
 -- All current categories and available providers allowed; read-only ceiling.
--- Idempotent via the singleton id and on-conflict-do-nothing.
-
-insert into public.connection_policy (id) values (1)
+-- Idempotent via the singleton id and on-conflict-do-nothing. Guarded on an
+-- org existing: on a from-empty replay (fresh branch / local reset / DR rebuild)
+-- no organization exists yet, so no row is seeded and 0066's later
+-- `set not null` on connection_policy.organization_id has nothing to violate.
+-- When 0044 was applied to production an org already existed, so the row was
+-- seeded exactly as before (prod end-state byte-identical). An org created
+-- later with no policy row behaves identically via PERMISSIVE_DEFAULT_POLICY
+-- (lib/connections/policy.ts). 0066 stays untouched. See D-217.
+insert into public.connection_policy (id)
+select 1 where exists (select 1 from public.organizations)
 on conflict (id) do nothing;
 
 
