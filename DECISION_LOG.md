@@ -5359,3 +5359,18 @@ Status: Accepted
 **Two real defects in the committed suite, found by running it and fixed** (both would also fail under psql): the setup inserted `collections` before `collection_schemas` though `collections.schema_id` is a non-deferrable FK (reordered: schema first); and it fabricated a `connections` id for the private source/anchor without ever inserting the `connections` row both `collection_sources` and `documents` FK to (added an org-scoped file-storage connection fixture). The risks anticipated in advance (extra NOT-NULL `auth.users` columns; missing definer columns like `size_bytes`/`status`/`document_id`) did NOT materialize on this schema.
 
 **Consequences:** C1 is proven and cleared to merge and ship dark. The proof surfaced a latent migration-history fragility at `0066` (recorded separately as D-217, fix deferred) and confirmed the MCP `read_only` guard is no longer in effect (also noted in D-217).
+
+## D-217 — Latent migration-history fragility: `0066` fails to replay on an empty database
+
+Date: 2026-06-28
+Status: Accepted (finding recorded; fix deliberately deferred — see ROADMAP)
+
+**Context:** Surfaced while creating a fresh Supabase branch for the C1 proof (D-216). The branch came up `MIGRATIONS_FAILED`, stuck at `0065`, missing the entire Knowledge schema.
+
+**The defect:** `0066_org_scope_connections_and_policy.sql` backfills the singleton `connection_policy` row to "the oldest non-demo org" and then runs `alter column organization_id set not null`. On a fresh/empty database there are NO organizations, so the backfill subquery returns NULL, the seeded `connection_policy` row keeps a NULL `organization_id`, and the `SET NOT NULL` aborts. (The `connections` half of the same migration is unaffected only because a fresh DB has zero connection rows.) Production is fine — it was built incrementally with a real org present when 0066 ran — but ANY from-zero replay hits this: a `with_data:false` Supabase branch, a fresh local/dev setup, or a disaster-recovery rebuild.
+
+**Why it matters:** the migration history is supposed to be replayable from zero. This is real latent fragility, not a one-off branch quirk: the next person who spins up a clean environment hits the same wall. The proof run worked around it by deleting the orphan `connection_policy` row and re-running the rebase (which then replayed cleanly to head); that workaround is NOT a fix and is not committed anywhere.
+
+**Decision:** record the finding now; do NOT fix as part of C1 (out of scope, and the C1 proof is unblocked). The fix is a NEW forward migration (migrations are immutable once merged — 0066 is not edited) that makes 0066's intent replay-safe on an empty DB: skip / no-op the `connection_policy` backfill + `SET NOT NULL` when there are no organizations, and likewise guard any other early backfill that assumes a seeded org. Captured as a ROADMAP item under the migration-workflow area.
+
+**Operational note (MCP write path) — addresses the standing caution:** the same proof run found the Supabase MCP `read_only` guard is no longer in effect; `execute_sql` and `apply_migration` writes succeeded against the branch. This is the known "a plugin update can silently revert `read_only`" risk. We should NOT casually rely on write access through the MCP, and especially not for production writes; the standard remains the operator-run `supabase db push` workflow (D-192/3/4). Re-assert the read-only posture on the MCP config when convenient.
