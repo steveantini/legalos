@@ -1,4 +1,4 @@
-import { MarketingSection } from "@/components/marketing/marketing-page";
+import { MarketingProseLink, MarketingSection } from "@/components/marketing/marketing-page";
 
 /**
  * The public documentation's content (Documentation arc Step 1, D-158): one
@@ -1566,6 +1566,137 @@ export const DOC_PAGES: DocPage[] = [
               </li>
             </ol>
           </div>
+        </MarketingSection>
+      </>
+    ),
+  },
+  {
+    slug: "claude-for-legal",
+    group: "admins",
+    title: "Claude for Legal",
+    summary: "What Claude for Legal is, how legalOS governs it, and how it differs from the agents legalOS builds itself.",
+    audience: "For administrators",
+    lead: "Claude for Legal is a library of legal agents that Anthropic publishes as open source. legalOS imports a copy of it, curates it, and runs it inside the same governed platform as the rest of your agents, so your team gets a ready-made practice-area library without giving up the controls.",
+    body: (
+      <>
+        <MarketingSection title="What Claude for Legal is">
+          <p>
+            Claude for Legal is Anthropic&rsquo;s open-source suite of legal
+            agents and skills, organized by practice area, across commercial,
+            corporate, employment, privacy, regulatory, AI governance, IP, and
+            litigation work, among others. Anthropic publishes it under the
+            Apache 2.0 license at{" "}
+            <MarketingProseLink href="https://github.com/anthropics/claude-for-legal">
+              github.com/anthropics/claude-for-legal
+            </MarketingProseLink>
+            . The agents are Anthropic&rsquo;s work, and the credit for them is
+            Anthropic&rsquo;s; legalOS uses that published library, it does not
+            author it.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="How legalOS uses it">
+          <p>
+            legalOS imports a copy of the Claude for Legal agents, curates which
+            of them fit a chat-with-an-agent surface, and runs them inside its
+            own governed platform, under your brand, your access controls, and
+            the policies you set. Your team gets a vetted practice-area library
+            that behaves like every other agent in legalOS, rather than going
+            elsewhere, installing plugins, and managing that themselves. The
+            library is something your organization chooses to show and curate; it
+            is brought in deliberately and kept under your governance, not wired
+            to update on its own.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="Where it sits among your agents">
+          <p>
+            On each department launchpad your agents are grouped, and the groups
+            have different origins worth keeping straight.{" "}
+            <strong>Approved agents</strong>{" "}are your department&rsquo;s own,
+            vetted by your team.{" "}<strong>Powered by legalOS</strong>{" "}are
+            agents legalOS builds and ships itself: first-party, general-purpose
+            tools, fully managed so they cannot be edited, and yours to copy into
+            an editable version. These are not Claude for Legal; they are
+            legalOS&rsquo;s own.{" "}<strong>Claude for Legal</strong>{" "}is the
+            curated library described here, Anthropic&rsquo;s agents governed by
+            legalOS.{" "}<strong>My agents</strong>{" "}are the ones your own
+            people create. The workspace guide walks through all of the groups;
+            this guide is about the Claude for Legal one.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="How legalOS keeps control">
+          <p>
+            Running Claude for Legal inside legalOS, rather than alongside it,
+            means the same controls apply to it as to everything else.
+          </p>
+          <p>
+            <strong>The agents stay as vetted.</strong>{" "}A Claude for Legal
+            agent&rsquo;s wording, its name, description, and instructions, is
+            managed and shown read-only, so it stays the version it was vetted
+            as. An administrator can still adjust the operational settings that
+            are yours to set, like which model it runs on and the references it
+            draws from, and anyone can copy one into a fully editable My agent.
+            The Powered by legalOS agents are stricter still: fully locked, copy
+            to change.
+          </p>
+          <p>
+            <strong>The trustworthy work is code, not the model.</strong>{" "}
+            legalOS&rsquo;s most exact operations, like Document Comparison and
+            Structured Query, do not ask the model to be careful and hope. The
+            comparison or the count is computed in plain code first, and that
+            result is handed to the model as something it must explain and cannot
+            change. The answer you can check is produced by deterministic code;
+            the model puts it into words. This is the strongest sense in which
+            legalOS keeps control: the part that has to be right is not left to a
+            model&rsquo;s judgment.
+          </p>
+          <p>
+            <strong>Access is governed, per organization.</strong>{" "}Who can
+            use what is enforced by roles and at the database, not just in the
+            interface: people see only the departments they are given, only
+            administrators reach the governance surfaces, and Policy and access
+            holds the organization&rsquo;s levers in one place, including the
+            ceiling on what a connected system an agent uses may do. Claude for
+            Legal agents live inside that same boundary.
+          </p>
+          <p>
+            <strong>The model and its cost are yours.</strong>{" "}You set the
+            default model your agents run on, and you choose whether they run on
+            the legalOS managed key or your organization&rsquo;s own provider
+            key. With your own key, inference runs under your own provider
+            agreement and your own cost, for Claude for Legal agents the same as
+            any other.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="Turning the library on or off">
+          <p>
+            Whether the Claude for Legal library shows at all is your decision,
+            made in Policy and access under Connections, in the Content area
+            where the organization&rsquo;s curated content libraries are listed.
+            Turn it off and its agents stop appearing across the departments;
+            turn it on and they return. The Connections guide covers that control
+            in full.
+          </p>
+        </MarketingSection>
+        <MarketingSection title="Privacy and attribution">
+          <p>
+            Claude for Legal agents run on the same Anthropic API as the rest of
+            legalOS, and under Anthropic&rsquo;s standard API terms that means
+            your inputs are not used to train the model. That is a property of
+            the API being called, not a switch legalOS adds. As with any agent,
+            when one proposes an action that would change something outside
+            legalOS, like sending a message through a connected system, that
+            specific write waits for a person to approve it; reading and
+            reasoning are not gated this way.
+          </p>
+          <p>
+            Claude for Legal is used under the Apache 2.0 license (
+            <MarketingProseLink href="https://www.apache.org/licenses/LICENSE-2.0">
+              apache.org/licenses/LICENSE-2.0
+            </MarketingProseLink>
+            ), and the credit for the agents belongs to Anthropic. This page
+            records that provenance and credit; it is not itself the project&rsquo;s
+            formal license notice.
+          </p>
         </MarketingSection>
       </>
     ),
