@@ -571,15 +571,15 @@ export const DOC_PAGES: DocPage[] = [
         <MarketingSection title="Structured Query: exact questions">
           <p>
             Research reads and reasons; Structured Query counts. When you need an
-            exact, repeatable answer, like how many agreements are NDAs or how
-            many auto-renew, use Structured Query. It works over fields you set
+            exact, repeatable answer, like how many agreements expire in 2026 or
+            how many auto-renew, use Structured Query. It works over fields you set
             up for a set of folders: an administrator defines those fields
             (agreement type, effective date, whether a contract auto-renews) and
             prepares the documents once, and the page shows you which fields you
             can ask about. You ask in plain language; legalOS translates your
             question
             into an exact query, shows you how it read it (&ldquo;Counting
-            documents where Agreement type is NDA&rdquo;), and runs it the same
+            documents where Auto-renews is yes&rdquo;), and runs it the same
             way every time, so the same question over the same data always gives
             the same count.
           </p>
@@ -639,8 +639,8 @@ export const DOC_PAGES: DocPage[] = [
                 appear beneath them, so you know what is available.
               </li>
               <li>
-                Ask in plain language, like &ldquo;how many agreements are
-                NDAs?&rdquo; or &ldquo;how many auto-renew?&rdquo;
+                Ask in plain language, like &ldquo;how many agreements expire in
+                2026?&rdquo; or &ldquo;how many auto-renew?&rdquo;
               </li>
               <li>
                 Read the exact count, check the interpreted query shown beneath

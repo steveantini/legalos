@@ -91,7 +91,7 @@ export function StructuredQueryComposer({
           id={questionId}
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder="How many agreements are NDAs?"
+          placeholder="How many agreements expire in 2026?"
           rows={3}
           maxLength={QUESTION_MAX_LENGTH}
           className="block w-full resize-none bg-transparent px-5 pt-4 text-[16px] leading-[1.55] text-foreground outline-none placeholder:text-muted-foreground/70 field-sizing-content min-h-[5.2em] max-h-[12em]"

@@ -61,7 +61,7 @@ const SURFACE_PATH = "/workspace/knowledge/structured-query";
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 const NOT_ALLOWED = "Only super admins can set up document kinds.";
 const UNPARSEABLE_MESSAGE =
-  "I couldn't turn that into an exact query. Try rephrasing, for example: how many agreements are NDAs, or how many auto-renew?";
+  "I couldn't turn that into an exact query. Try rephrasing, for example: how many agreements expire in 2026, or how many auto-renew?";
 
 const askSchema = z.object({
   schemaId: z.string().uuid(),

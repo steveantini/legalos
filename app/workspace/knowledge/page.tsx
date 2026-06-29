@@ -33,7 +33,7 @@ const KNOWLEDGE_CHILDREN: ReadonlyArray<{
   {
     title: "Structured Query",
     href: "/workspace/knowledge/structured-query",
-    description: `Ask an exact question in plain language about fields you set up, like how many agreements are NDAs or how many auto-renew, and get a precise count you can check. ${PRODUCT_NAME} shows you how it read your question and a supporting quote from each matching document. It is the exact, repeatable companion to Research's read-and-reason answers.`,
+    description: `Ask an exact question in plain language about fields you set up, like how many agreements expire in 2026 or how many auto-renew, and get a precise count you can check. ${PRODUCT_NAME} shows you how it read your question and a supporting quote from each matching document. It is the exact, repeatable companion to Research's read-and-reason answers.`,
   },
 ];
 export default function KnowledgePage() {
