@@ -200,8 +200,8 @@ export default function FeaturesPage() {
           ask a Structured Query. Set up the fields worth tracking across a set
           of folders, like agreement type, effective date, or whether a contract
           auto-renews, prepare them once, then ask in plain language how many
-          agreements are NDAs, or how many auto-renew, and get a precise count
-          you can check. legalOS shows you how it read your question and a
+          agreements expire in 2026, or how many auto-renew, and get a precise
+          count you can check. legalOS shows you how it read your question and a
           supporting quote from each matching document, and it is honest about
           what it could not find. It is the exact, repeatable companion to
           Research: where Research reads and reasons, Structured Query counts,
