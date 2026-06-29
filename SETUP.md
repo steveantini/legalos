@@ -319,7 +319,7 @@ To remove a department, soft-delete it by setting `deleted_at` (the read paths f
 
 ### Agents
 
-Agents can be created and edited in-app today (users fork and own My agents; admins manage Approved agents). You can also seed agents directly in SQL, which is how the baseline Commercial agents and the Claude for Legal imports are provisioned:
+Agents can be created and edited in-app today (users fork and own My agents; admins manage Approved agents). You can also seed agents directly in SQL, which is how the baseline Commercial agents are provisioned. (The Claude for Legal tier is NOT seeded in SQL: it is brought in by the operator-run import script `scripts/import-c4l-plugin.ts`, which reads the upstream `SKILL.md` content and upserts it as agent rows, and is absent from a fresh database until that import is run. See `NOTICE` for its Apache-2.0 attribution.) Example baseline agent seed:
 
 ```sql
 insert into agents (

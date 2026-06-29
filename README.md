@@ -45,3 +45,10 @@ Features and surfaces deliberately deferred. Capturing intent here so it isn't l
 ## License
 
 TBD. A license file will be added before the first public release.
+
+**Third-party content.** legalOS imports agent content from Anthropic's
+open-source [Claude for Legal](https://github.com/anthropics/claude-for-legal)
+(Apache-2.0). Attribution for that content is recorded in [`NOTICE`](./NOTICE).
+That file is a good-faith baseline, not a verified-sufficient legal
+determination; the precise Apache-2.0 obligations are flagged there for human
+review (see `DECISION_LOG.md`, D-214).

@@ -1,0 +1,61 @@
+NOTICE
+======
+
+Third-party content attribution for legalOS.
+
+This file records attribution for third-party content incorporated into
+legalOS. It is a good-faith baseline added so that attribution exists where
+none did before. It is NOT a verified-sufficient legal determination — see
+"Human review" at the end.
+
+
+--------------------------------------------------------------------------
+Claude for Legal
+--------------------------------------------------------------------------
+
+Portions of the agent content in legalOS — the "Claude for Legal" agent tier,
+identified in the database by a `source_origin` of the form
+`claude-for-legal:<plugin>/<skill>` — are imported from:
+
+    Claude for Legal
+    https://github.com/anthropics/claude-for-legal
+    Copyright (c) Anthropic
+    Licensed under the Apache License, Version 2.0
+
+legalOS imports the skill definitions (the `SKILL.md` content) from that
+repository and runs them as agents inside its own governed platform. This
+content is used under the terms of the Apache License, Version 2.0. A copy of
+the License is available at:
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+In accordance with Apache-2.0 section 4, the copyright and license notice
+above is retained. The exact upstream copyright-holder text, and any NOTICE
+file distributed with the upstream work, should be reproduced here verbatim;
+if the upstream repository carries or later changes a NOTICE, this file must be
+updated to match it.
+
+Note on scope: the six first-party "Powered by legalOS" agents are NOT Claude
+for Legal content. They are legalOS's own, original, vertical-neutral agents
+authored in this repository (see `lib/content/builtin-agents-seed.ts`) and are
+not covered by this attribution.
+
+
+--------------------------------------------------------------------------
+Human review (IMPORTANT — not yet legally confirmed)
+--------------------------------------------------------------------------
+
+This attribution was added because Claude for Legal content (Apache-2.0) is
+imported and displayed in legalOS and no attribution previously existed. It is
+strictly better than the prior state of nothing, but it is NOT a verified
+determination that it fully satisfies Apache-2.0.
+
+The precise Apache-2.0 section 4 obligations for how legalOS uses the imported
+`SKILL.md` content — in particular whether this constitutes redistribution of
+"Derivative Works," what (if anything) the upstream NOTICE file requires to be
+reproduced verbatim, and where the notice must be surfaced (repo, product UI,
+or both) — should be confirmed by a person with IP/licensing knowledge before
+relying on it for a public release.
+
+See `DECISION_LOG.md` (D-214) for context and the documentation arc this
+belongs to.
