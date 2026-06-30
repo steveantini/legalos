@@ -26,7 +26,7 @@ const PUBLIC_PATHS = ["/login", "/auth", "/demo", "/api/support"];
  * anonymously (before D-126 they were accidentally login-gated, bouncing
  * visitors to /login). `/security`, `/integrations`, and `/connections`
  * stay listed even though they now permanently redirect (to /trust and
- * to /features#connections), and `/blog` even though it temporarily
+ * to /features#governance), and `/blog` even though it temporarily
  * redirects to /about (retired shell, D-159): the proxy runs first, and
  * an anonymous hit must reach the route's redirect instead of a /login
  * bounce.

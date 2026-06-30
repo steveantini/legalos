@@ -15,93 +15,91 @@ The README's capability paragraph makes the same claims with engineering
 nuance; it reconciles on the same rule. The deeper security claims live in
 `docs/SECURITY_ARCHITECTURE.md` and the /trust pages (D-126/D-129).
 
-Last full truth pass: 2026-06-12 (D-157).
+The page was reorganized into six sections (D-218): the workspace, agents and
+departments, knowledge, workflows, admin and governance, and control. Document
+Comparison folded into Agents; Connections and Measurement folded into Admin and
+governance; the standalone `#document-comparison`, `#connections`, and
+`#measurement` anchors retired (the `/connections` and `/integrations` redirects
+remapped to `#governance`). Two staleness fixes baked in: the false
+"conversations that pick up where they left off" claim removed (no
+conversation-history UI exists), and connected-tool use framed as a governed
+capability (reading open, writes built to pause) rather than asserting agents
+actively run connected tools today.
+
+Last full truth pass: 2026-06-30 (D-218, the six-section reorg).
 
 ## The workspace (`#workspace`)
 
 | Claim | Source |
 |---|---|
 | Launchpad organized by department; access-scoped views | D-074 IA; the workspace home arc |
-| Conversations kept and resumable | Native chat (D-023 onward) |
 | References attached; agent works from your documents | Agent/message attachments (0007-era; D-067 live Drive reads) |
 | Any response downloads as a document | Per-message Word export (D-054; `formatted_outputs`) |
 | Deleted work recoverable for thirty days | Soft delete + 30-day undo (trash surface) |
-| A Desk of personal content feeds: add a Substack, podcast, or news source by URL, see its latest post as a card linking out | D-173 (`desk_feeds`, 384f467; cards + server-side cached, safe-fetch guarded) |
+| Today: connect Google Calendar in one click; the day's schedule appears on the home, read-only, merged across visible calendars in time order with a live now-and-next marker; never writes | D-174 (`google-calendar` adapter on the Drive OAuth path, `calendar.events.readonly` + `calendar.calendarlist.readonly`, multi-calendar merge, Today card); D-176 (now/next island, per-calendar color, meta) |
+| Impact: the home shows your own measured usage (agent runs, most-used agent), and the hours/cost given back once an admin sets up the productivity calculator; measured vs. estimate labeled | D-143 (Impact cells; agent-runs/top-agent always measured, hours/cost gated on the task book); D-142/D-145 (the honesty line) |
+| Matters (coming soon): active matters/deals will sync from a CLM or matter-management tool, read-only; shown as the available-soon preview today | `components/workspace/home/matters-section.tsx` (`isMattersConnected` returns false; the available-soon card is the only state; rich view built and dormant); roadmap item 2 (CLM/matter-management adapter not yet built) |
+| A Desk of personal content feeds: add a newsletter, podcast, or news source by URL, see its latest post as a card linking out | D-173 (`desk_feeds`, 384f467; cards + server-side cached, safe-fetch guarded) |
 | Any link resolves: a feed, an ordinary page (feed auto-discovered), or an Apple Podcasts show (resolved to its feed) | D-173 (autodiscovery 659a479; Apple Podcasts lookup 93b4ea4) |
 | Feeds are personal and user-managed (add/remove, up to 12); admin-curated role-scoped Desk content is the named future layer, not shipped | D-173 (owner-scoped RLS; sibling-table architecture for the future layer) |
+
+(Removed: "Conversations kept and resumable." Conversations persist in the DB and a thread rehydrates on a hard reload via `?c=`, but there is NO conversation-history UI for a user to discover or resume past conversations, and opening an agent starts a fresh conversation; the `ConversationCard` built for a "Continue working" row is dead code. The page no longer claims it.)
 
 ## Agents and departments (`#agents`)
 
 | Claim | Source |
 |---|---|
-| Thirteen departments across four practice clusters | Departments seed; CLAUDE.md overview |
-| Four clearly marked agent tiers: Approved agents (department-vetted), Powered by legalOS (free first-party, fully locked, copy-to-own), the Claude for Legal curated library, My agents | D-149 (the Approved-agents rename + group sublines, 28668d4); the tiered architecture; C4L import (D-051/D-110–D-114); the legalOS system tier (D-180 plumbing, D-181 the five General Tools agents, D-186/D-187 Document Comparison as the sixth — the first to carry a deterministic pre-step) |
+| Departments across four practice clusters (deal work, regulatory and compliance, specialized practice, operations); the copy states no hard number | Departments seed: **eleven** active by default (Commercial, Corporate, Regulatory, Privacy, AI Governance, Product, Employment, IP, Litigation, Operations, General Tools); Public Sector and Compliance soft-deleted in migration 0043 (the old "thirteen" is stale) |
+| Four clearly marked agent tiers: Approved agents (department-vetted), Powered by legalOS (free first-party, fully locked, copy-to-own), a curated library of Anthropic's Claude for Legal agents imported and governed inside legalOS, My agents | D-149 (the Approved-agents rename + group sublines, 28668d4); the tiered architecture; C4L import (D-051/D-110–D-114); the legalOS system tier (D-180/D-181); the C4L framing (imports/curates/governs, not vendor/fork) recorded in D-214 |
 | Anyone creates an agent with instructions and references | User-owned My agents; the agent form |
 | Access follows roles | RBAC + `user_department_roles` (0001) |
-| Document comparison: a deterministic comparison returning both a plain-language explanation of what changed and what matters AND a visual redline of the exact changes, both from one comparison so they agree | D-185 (engine), D-186 (pre-step pattern, prose), D-187 (agent), D-189 (visual redline renderer); `#document-comparison` |
+| General Tools, the built-ins that ship free: general-purpose agents ready to use and yours to copy (a summarizer, a clause/term extractor, an obligations reviewer, a plain-language rewriter, and more) | D-181 (the General Tools agents, `lib/content/builtin-agents-seed.ts`, fully-locked first-party, copy-to-own) |
+| Document Comparison: the first built-in, with a deterministic comparison returning both a plain-language explanation AND a visual redline, both from one comparison so they agree; changes found by code, not guessed; "the part that has to be right is not left to a model's judgment" | D-185 (engine), D-186 (deterministic pre-step pattern), D-187 (agent), D-189 (visual redline). Folded into Agents (the `#document-comparison` anchor retired) |
+
+## Knowledge (`#knowledge`)
+
+| Claim | Source |
+|---|---|
+| Knowledge management without moving your knowledge: files stay a single source of truth, read where they live so legalOS always works from the current version (version control intact), no one reasoning from a drifted copy; files never move, contents never stored, only a metadata inventory | D-152 (folders model, metadata-only inventory, transparency rule), D-195/D-207 (drive-agnostic, off the "Collections" concept), D-218 (the single-source-of-truth / version-control framing) |
+| Research, for questions that need judgment (non-deterministic): a citation-backed answer across the folders you choose, and for each document it draws on it shows the exact line it used so you can check against the source | D-153 (the engine; findings-only persistence; live reads, no full text, no search index), D-218 (the "exact line it used / check against the source" framing) |
+| Agents use the same capability inline; larger questions point at the Research page (governed capability, not asserted as always-on) | D-155 (the native tool, 15-document inline cap, honest handoff); softened framing in c4cbd6c |
+| Honest preview before each run; unreadable documents reported plainly | D-153 (preview + basis lines) |
+| Structured Query, for questions that need a count (deterministic): ask in plain language, get a precise count you can check, with a supporting quote per matching document | D-197/D-198/D-199 (anchor, schema, extraction with verified citations), D-200 (the pure deterministic engine), D-201 (the NL question surface), D-209/D-210 (per-set document kind + folder-picking) |
+| Schema-grows-on-demand: ask about something not tracked, suggest it; an admin reviews and approves the new field before it becomes permanently queryable, citation-backed, never an on-the-fly guess | D-202 (member-suggests/admin-approves; model-drafted definition with admin review before commit; reuses Prepare/Update) |
 
 ## Workflows (`#workflows`)
 
 | Claim | Source |
 |---|---|
 | No-code builder; start from a template or scratch | D-118 (builder), D-124/D-125 (templates) |
-| Supervised or autonomous runs; writes always pause for approval | D-117 (autonomy + approved writes), D-121/D-122 |
+| Supervised or autonomous runs; any step that would change something outside legalOS pauses for approval before it acts | D-117 (autonomy + approved writes), D-121/D-122 |
 | Complete step-by-step run record with approval provenance | D-116/D-119 (run + step-run audit) |
-
-## Connections (`#connections`)
-
-| Claim | Source |
-|---|---|
-| Pre-vetted connector catalog: contract lifecycle, document management, e-discovery, court data and research, productivity (named examples) | D-150 (the C4L harvest, 932637d); drift detection D-151 |
-| Enabling = a toggle plus your credentials, trusted boundary | D-089 (trusted-only registry), D-092 (governed connect flow) |
-| Google Workspace verified end to end; the rest pre-vetted rather than live-tested, verified as enabled | D-106 (Google proven live); D-150 status split (CourtListener AVAILABLE pending the operator vet) |
-| Connect Google Calendar in one click; today's schedule, gathered across every visible calendar and merged in time order, appears on the home with per-calendar color, each event's location and length, join and open-in-Google links, and a live now/next indicator, read-only, never writes | D-174 (`google-calendar` adapter on the Drive OAuth path, `calendar.events.readonly` + `calendar.calendarlist.readonly`, all-day events handled, multi-calendar merge, Today card); D-176 (per-calendar palette color, location/duration meta, join/open-in-Google links, client now/next island) |
-| Reads run free; writes pause for per-action approval | D-105 (gated loop), D-107/D-108 (write confirmation) |
-| First-party or self-hosted servers only; encrypted credentials, never in the browser | D-089, D-093, `connection_secrets` custody |
-| Model-agnostic: managed or bring-your-own provider account | D-085–D-088 (models-as-a-connection, BYO key) |
-
-## Knowledge (`#knowledge`)
-
-| Claim | Source |
-|---|---|
-| You point legalOS at folders in your connected (cloud) drives and ask across the folders you choose (drive-agnostic copy); the source path of every folder is shown; legalOS keeps a metadata-only inventory, files never move and their contents are never stored | D-152 (Step 1; transparency rule; Drive enumeration verified live), D-195 (copy clarified, drive-agnostic), D-207 (reframed off the "Collections" managed concept to the folders model) |
-| Citation-backed answers with per-document findings; documents read live and never copied; legalOS stores no full document text and builds no search index; what it keeps for an answer is the findings plus a short verbatim supporting quote (≤600 chars) per document, so the answer is verifiable | D-153 (the engine; findings-only persistence), D-195 (corrected from the earlier "nothing copied or stored" overstatement to the verifiable-quote framing) |
-| Agents use the same capability inline; larger questions point at the Research page | D-155 (the native tool, 15-document inline cap, honest handoff) |
-| Honest preview before each run; unreadable documents reported plainly | D-153 (preview + basis lines) |
-| Structured Query: pick the folders to ask over, legalOS resolves the document KIND they share, and you ask an exact question in plain language about that kind's defined fields and get a precise count you can check; the exact/repeatable companion to Research's read-and-reason | D-197/D-198/D-199 (anchor, schema, extraction with verified citations), D-200 (the pure deterministic query engine), D-201 (the NL question surface: model translates to the IR, pure engine counts, interpreted query shown and re-runnable), D-209 (schema generalized to a per-set document kind), D-210 (folder-picking + role-aware guided depth: pick folders → resolve to a kind → ask the kind; admins set up kinds in-flow) |
-| The interpreted query is shown in plain language and the count's honesty caveats (unverified citations, not-found, partially-read, unprepared) are reachable, not hidden; each matching document carries its supporting quote | D-200 (engine caveats + matched ids), D-201 (presentation: exact lead, reachable caveats, per-document citations, stale-data notice) |
-| Asking about a field the collection does not track is answered honestly by naming what it does track (no opaque failure) | D-201 (the honest-gap response; the phase-two schema-grows-on-demand seam) |
-| Schema-grows-on-demand: a member can suggest tracking a missing field; a model drafts it; an admin reviews/edits and approves; on approval it is added and (after a deliberate Update) becomes a permanent, citation-backed, exactly-queryable field, never an on-the-fly guess | D-202 (member-suggests/admin-approves via a single changeable approval gate; model-drafted definition with admin review/edit before commit; reuses derived-staleness + Prepare/Update, no new extraction and no auto-run) |
-
-## Measurement (`#measurement`)
-
-| Claim | Source |
-|---|---|
-| Personal impact on the home page (runs, most-used agent, hours/cost given back) | D-143 (Impact cells) |
-| Leader view of adoption and engagement, real measured usage | D-082/D-144 (Insights) |
-| Built-in calculator: measured usage × your assumptions, agent-mapped and measured-only (no manual-estimate volume) | D-142 (hybrid calculator); D-177 (manual-estimate path removed, calculator agent-mapped only) |
-| Measured vs. estimate labeled everywhere | The D-142/D-145 honesty line |
 
 ## Admin and governance (`#governance`)
 
 | Claim | Source |
 |---|---|
-| Roles with least-privilege rules; invitations; reversible deactivation | D-079/D-080/D-081 (People) |
-| Policy & access: connection categories, default model, read-only vs read-and-write, the research document cap | D-076 (categories), D-078 (default model), D-153 (research cap) |
-| Role changes and deactivations recorded to a readable audit log | D-083 (audit log) |
+| The control surface splits into two halves you see in the product: Govern and Measure | D-074 (admin IA: the GOVERN/MEASURE captioned groups); `lib/admin/nav.ts` |
+| Govern · People: least-privilege roles, invitations, reversible deactivation | D-079/D-080/D-081 (People) |
+| Govern · Policy and access: which connection kinds are permitted, default model, read-only vs read-and-write, the research document cap | D-076 (categories), D-078 (default model), D-153 (research cap) |
+| Govern · Connections live here: a pre-vetted catalog (contract lifecycle, document management, e-discovery, court data, productivity); Google Workspace verified end to end, the rest pre-vetted and verified as each customer enables it | D-150 (the C4L connector harvest, 932637d), D-151 (drift detection), D-106 (Google proven live), D-150 status split (AVAILABLE vs VERIFIED) |
+| Govern · Connections reach only official first-party servers or servers your own organization hosts; reading is open while any change-making action is built to pause for a person to approve | D-089/D-093 (trusted registry + self-hosted path), `connection_secrets` custody; D-105 (gated loop), D-107/D-108 (write confirmation); softened "built to pause" framing in c4cbd6c (governed capability, gated by `MCP_AGENT_TOOLS_ENABLED`) |
+| Govern · Audit log records privileged actions (role changes, deactivations) for administrators to read | D-083 (audit log) |
+| Measure · Insights: adoption and engagement from real, measured usage | D-082/D-144 (Insights) |
+| Measure · Productivity: estimates time and cost saved, combining measured usage with assumptions you control (salary, time per task); measured vs. estimate labeled wherever a number shows | D-142 (hybrid calculator), D-177 (agent-mapped, measured-only volume), D-142/D-145 (the honesty line) |
+| Measure · Evals: how you check that outputs meet your standard | `app/workspace/admin/evals/page.tsx` + `lib/admin/nav.ts` (the Evals MEASURE item). NOTE: Evals A5 is a coming-soon stub (`AdminComingSoon`), deferred as an open design question; the copy describes its purpose, not a shipped surface. Flag for the next truth pass if it must be marked coming-soon explicitly |
 
 ## Control on your terms (`#control`)
 
 | Claim | Source |
 |---|---|
 | Meets you where you are: reaches the systems you already run, first-party or servers your own organization hosts | D-089/D-093 (trusted registry + self-hosted MCP path, `SELF_HOSTED_SERVER_ID_PREFIX`) |
-| Model-agnostic by design; run on the models you choose, not a single engine wired in | D-085–D-088 (models-as-a-connection seam, `lib/llm/models.ts`); the agent-form model picker. NO on-prem deployment claimed: models run managed or under your own provider account, not a legalOS on-prem install |
-| Your models, your call: managed or bring-your-own provider account, under your own agreement and data boundary; you hold model choice and cost exposure, no vendor lock-in | D-087 (BYO-key branch, `lib/llm/model-credential.ts`); D-136 (per-org BYO scoping) |
-| Experts in command: domain experts keep agency; the autonomy dial runs supervised to autonomous, but any action that would change something outside legalOS pauses for approval in EVERY mode, including the most autonomous | D-117 (`AutonomyLevel`; `lib/workflows/engine.ts` "pauses for approval in EVERY autonomy mode"); D-105/D-107 (the chat write-confirmation) |
-| Summary: control over the models you run on, the privacy of your work, and the connection to the tools you use | The three facets above |
+| Model-agnostic by design: managed AI or bring-your-own provider account under your own agreement and data boundary; you hold model choice and cost exposure, no lock-in. NO on-prem deployment claimed | D-085–D-088 (models-as-a-connection, `lib/llm/models.ts`); D-087 (BYO-key, `lib/llm/model-credential.ts`); D-136 (per-org BYO scoping) |
+| Experts stay in command: across every autonomy mode, anything that would change something outside legalOS waits for a human to approve | D-117 (`AutonomyLevel`; `lib/workflows/engine.ts` pauses in EVERY mode); D-105/D-107 (the chat write-confirmation) |
+| Summary: control over the models you run on, the privacy of your work, and the connection to the tools you use | The facets above |
 
 ## Closing claims
 
 | Claim | Source |
 |---|---|
-| "Everything above describes shipped capability" | The D-126 standing rule; this map is its enforcement |
+| "Everything above is shipped capability, except where it is marked coming soon" | The D-126 standing rule; this map is its enforcement. The one "coming soon" marker is Matters; Evals is the deferred A5 (see the note above) |

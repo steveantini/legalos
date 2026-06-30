@@ -10,46 +10,34 @@ import {
 export const metadata: Metadata = {
   title: "Features",
   description:
-    "A tour of legalOS: the workspace, agents organized the way a legal team is, workflows under human approval, governed connections, knowledge that answers from your own documents, measurement that shows you the value, the admin surface that makes it all safe to use, and the control that keeps it all on your terms.",
+    "A tour of legalOS: the workspace, agents organized the way a legal team is, knowledge that answers from your own documents, workflows under human approval, the admin and governance surface, and the control that keeps it all on your terms.",
 };
 
 /**
- * Features marketing page: the product tour. One section per shipped
- * capability, each a tight honest description in the shared editorial
- * register. The Connections section absorbs the substance of the former
- * standalone /connections page (which now 308-redirects here, D-146);
- * its claims were verified against the connection and MCP code in D-127
- * and carry over unchanged in meaning, with the pre-vetted connector
- * catalog story added in D-150 (its status claims, Google verified and
- * the rest pre-vetted, mirror the registry's catalog metadata exactly).
- * The Knowledge section (D-156, the arc close) sits after Connections —
- * it is built on them — and claims only shipped reality: collections
- * over connected repositories, live reading with citations, the in-chat
- * tool; no web or trusted-source blending is claimed.
- * The Measurement section is the
- * story relocated from the landing (D-145/D-146), keeping its
- * measured-vs-estimated honesty line. The Control section (D-167-era, after
- * governance, the tour's culminating differentiator) gathers the
- * control-and-flexibility theme into one place: meets-you-where-you-are
- * (first-party or self-hosted servers; model-agnostic by design),
- * your-models-your-call (managed or BYO key, no lock-in), and
- * experts-in-command (the autonomy dial stated honestly, with the writes-pause
- * rule that holds in every mode). No on-prem deployment is claimed: models run
- * managed or under your own provider account, not as a legalOS on-prem install.
+ * Features marketing page: the product tour, reorganized into six sections
+ * (D-218): the workspace, agents and departments, knowledge, workflows, admin
+ * and governance, and control on your terms. Document Comparison folded into
+ * Agents (the built-ins beat); Connections folded into Governance (where
+ * connections actually live in the product); Measurement folded into
+ * Governance as the MEASURE half. Each section claims only shipped reality and
+ * carries an anchor id so it is directly linkable; the former /connections page
+ * 308-redirects to #governance (D-146 remapped). The sections are the future
+ * home for per-feature demo videos: an embed slots in at the top of a section's
+ * body when real footage exists. Deliberately no placeholder video UI now
+ * (honest-state). Claims are mapped in docs/FEATURES_CLAIMS.md (D-157).
  *
- * Each section carries an anchor id so it is directly linkable. The
- * sections are also the future home for per-feature demo videos: an
- * embed will slot in at the top of a section’s body when real footage
- * exists. Deliberately no placeholder video UI now (honest-state).
+ * Two staleness fixes are baked into this copy: the false "conversations that
+ * pick up where they left off" claim is removed (no conversation-history UI
+ * exists), and connected-tool use is framed as a governed capability (reading
+ * open, writes built to pause for approval) rather than asserting agents
+ * actively run connected tools today, matching the softened docs (c4cbd6c).
  */
 /**
- * A short run-in lead-in: the opening phrase of a section's body, emphasized so
- * a skimming reader catches the feature's essence in one pass. Reuses the page's
- * existing weight (font-semibold) and color (text-foreground) at body size, so
- * it lifts from the body's text-ink-2 yet stays clearly subordinate to the 28px
- * section headings. Where the sentence continues with a space (not a comma or
- * semicolon), the caller uses the {" "} idiom so the space survives the build
- * (the SWC newline-after-element drop, D-167).
+ * A short run-in lead-in or an inline bolded term: emphasized so a skimming
+ * reader catches the essence in one pass. Reuses the page's weight
+ * (font-semibold) and color (text-foreground) at body size. Where the sentence
+ * continues with a space, the caller uses the {" "} idiom so the space survives
+ * the build (the SWC newline-after-element drop, D-167).
  */
 function LeadIn({ children }: { children: React.ReactNode }) {
   return <strong className="font-semibold text-foreground">{children}</strong>;
@@ -60,240 +48,180 @@ export default function FeaturesPage() {
     <MarketingPageShell
       label="Product · Features"
       title="Features"
-      lead="One place for a legal team’s daily work: agents organized the way your department is, workflows that run under human approval, connections to the systems you already use, knowledge that answers from your own documents, and measurement that shows you the value you’re getting. Here is the tour."
+      lead="One place for a legal team’s daily work: agents organized the way your department is, workflows that run under human approval, knowledge that answers from your own documents, and the controls and measurement that make it safe to adopt. Here is the tour."
     >
       <MarketingSection id="workspace" title="The workspace">
         <p>
-          <LeadIn>legalOS opens to a single home</LeadIn>{" "}for the day’s
-          work. The launchpad
-          presents your agents organized by department, so a commercial lawyer
-          and a privacy lawyer each see the work that is theirs, alongside the
-          conversations they have going. Conversations are kept and pick up
-          where they left off, references can be attached so an agent works
-          from your documents, and any response can be downloaded as a
-          document. Deleted work is recoverable for thirty days.
+          <LeadIn>A single home for the day’s work.</LeadIn>{" "}legalOS opens to
+          a launchpad that presents your agents organized by department, so a
+          commercial lawyer and a privacy lawyer each see the work that is
+          theirs. Attach references so an agent works from your documents,
+          download any response as a document, and recover deleted work for
+          thirty days.
+        </p>
+        <p>
+          <LeadIn>Today, your schedule on your home.</LeadIn>{" "}Connect Google
+          Calendar in one click and the day’s schedule appears on your home,
+          read only, merged across your calendars in time order with a live
+          now-and-next marker. legalOS never writes to your calendar.
+        </p>
+        <p>
+          <LeadIn>Impact, the value you can see.</LeadIn>{" "}Your home shows your
+          own measured usage: your agent runs and your most-used agent, and once
+          an administrator sets up the productivity calculator, the hours and
+          cost given back. Usage is measured; the return is an estimate you
+          shape, and legalOS labels which is which.
+        </p>
+        <p>
+          <LeadIn>Matters (coming soon).</LeadIn>{" "}Your active matters and
+          deals will sync from your CLM or matter-management tool, with status,
+          deadlines, and value in flight. legalOS reads your system of record;
+          it never writes to it.
         </p>
         <p>
           <LeadIn>A Desk for the reading you follow.</LeadIn>{" "}Add the
-          Substacks, podcasts, and news sources you keep up with by pasting a
-          link: a feed, an ordinary page (legalOS finds the feed for you), or an
-          Apple Podcasts show (resolved to the show’s feed). Each source becomes
-          a card with its latest post, linking out to read it. The feeds are
-          personal to you and managed by you. Curated reading chosen for your
-          role may join your own feeds here in time.
+          newsletters, podcasts, and news sources you keep up with by pasting a
+          link, and each becomes a card with its latest post. The feeds are
+          personal to you and managed by you.
         </p>
       </MarketingSection>
 
       <MarketingSection id="agents" title="Agents and departments">
         <p>
-          <LeadIn>A department of AI specialists</LeadIn>, organized the way a
-          legal team is.
-          legalOS ships with thirteen departments spanning deal work,
-          regulatory and compliance, specialized practice areas, and
-          operations, each with its agents in four clearly marked tiers:
-          Approved agents your department has vetted and tested, agents
-          powered by legalOS that ship free and you copy to make your own, a
-          curated library of Anthropic&rsquo;s legal agents ready to use, and My
-          agents, the ones your own people create by giving them instructions
-          and references. A new user reads the trust model at a glance, and
-          access follows roles, so each person sees the departments that are
-          theirs.
-        </p>
-      </MarketingSection>
-
-      <MarketingSection id="document-comparison" title="Document comparison">
-        <p>
-          <LeadIn>See exactly what changed between two versions</LeadIn>, and what
-          it means. Give the Document Comparison agent an original and a revised
-          document and it returns two things from one comparison: a plain-language
-          explanation of what changed and which changes matter, leading with the
-          consequential ones (a deadline, an amount, a party, a defined term) and
-          grouping the minor edits, and a visual redline that marks every
-          insertion and deletion inline so you can verify each change in place. The
-          difference here is trust: the changes are found by deterministic code, not
-          guessed by a model, so the comparison cannot miss a change or invent one,
-          and the explanation and the redline are built from the same result, so
-          they always agree. It is one of the agents that ship free with the
-          product, ready to use and yours to copy.
-        </p>
-      </MarketingSection>
-
-      <MarketingSection id="workflows" title="Workflows">
-        <p>
-          <LeadIn>Multi-step legal work</LeadIn>, built without code and run
-          under human approval. A workflow chains agents into a repeatable process: you
-          assemble it in a no-code builder, start it from a template or from
-          scratch, and run it supervised or autonomously. Either way, any
-          step that would change something outside legalOS pauses for a
-          person to approve before it acts. Every run keeps a complete
-          step-by-step record of what ran, what was approved, and by whom.
-        </p>
-      </MarketingSection>
-
-      <MarketingSection id="connections" title="Connections">
-        <p>
-          <LeadIn>legalOS works with the systems</LeadIn>{" "}your team already
-          uses, and it ships
-          knowing what those are. A pre-vetted catalog covers the tools legal
-          teams live in: contract lifecycle systems like Ironclad and DocuSign,
-          document management like iManage and Box, e-discovery like Everlaw,
-          court data and research like CourtListener and Trellis, and the
-          productivity layer around them, Google Workspace, Slack, and Linear
-          among others. Enabling one is a toggle plus your credentials, inside
-          the same trusted boundary. Google Workspace is verified end to end
-          today; the rest of the catalog is pre-vetted rather than live-tested,
-          and each connector is verified as customers enable it.
+          <LeadIn>Your AI counsel, organized the way a legal team is.</LeadIn>
+          {" "}legalOS arranges its agents into departments spanning deal work,
+          regulatory and compliance, specialized practice areas, and operations,
+          each holding its agents in four clearly marked tiers: Approved agents
+          your department has vetted and tested; agents powered by legalOS that
+          ship free and you copy to make your own; a curated library of
+          Anthropic’s Claude for Legal agents, imported and governed inside
+          legalOS; and My agents, the ones your own people create. A new user
+          reads the trust model at a glance, and access follows roles, so each
+          person sees the departments that are theirs.
         </p>
         <p>
-          <LeadIn>Your calendar, on your home.</LeadIn>{" "}Connect Google
-          Calendar in one click and today&rsquo;s schedule appears on your home,
-          gathered across every calendar you keep visible and merged in time
-          order, each event color-coded by its calendar and showing its
-          location and length, with a live line marking now and the next meeting
-          up. Read-only: legalOS shows your meetings for the day and never
-          writes to your calendar.
-        </p>
-        <p>
-          Reading is open; acting requires a hand on the wheel: an agent reads
-          connected information directly, but any action that would change
-          something, like sending an email or creating a file, pauses for a
-          person to approve before it runs.
-        </p>
-        <p>
-          Connections are governed, not a free-for-all. Your administrators
-          decide what is connected and what agents may reach, legalOS
-          connects only to official first-party servers or to servers your
-          own organization hosts, and credentials are encrypted and never
-          exposed to the browser. legalOS is also model-agnostic by design:
-          you can use AI through legalOS directly or bring your own model
-          provider account, in which case the work runs under your own
-          agreement and your own data boundary.
+          <LeadIn>General Tools, the built-ins that ship free.</LeadIn>{" "}Every
+          legalOS comes with a set of general-purpose agents ready to use and
+          yours to copy: a summarizer, a clause and term extractor, an
+          obligations reviewer, a plain-language rewriter, and more. The first
+          one we built, and the one that proves the idea behind the rest, is
+          Document Comparison: give it an original and a revised document and it
+          returns a plain-language explanation of what changed and a visual
+          redline marking every edit in place. Its changes are found by
+          deterministic code, not guessed by a model, so it cannot miss a change
+          or invent one. It is the first of a deterministic core where the part
+          that has to be right is not left to a model’s judgment.
         </p>
       </MarketingSection>
 
       <MarketingSection id="knowledge" title="Knowledge">
         <p>
-          <LeadIn>legalOS doesn&rsquo;t ask you to migrate</LeadIn>{" "}your
-          knowledge. It lives scattered across drives, document systems, and
-          contract repositories. You point legalOS at folders in the drives you
-          already use, like a contracts folder in the drive you already have, and
-          ask across them. Your files never move and their contents are never
-          stored: legalOS keeps an inventory of what&rsquo;s there, not the
-          documents themselves. Ask an institutional question across the folders
-          you choose, like which of our vendor agreements auto-renew, and get a
-          clear answer backed by citations, and for each document it draws on,
-          it shows you the exact line it used, so you can check the answer
-          against the source yourself. Every document in scope is read
-          live, where it lives, and never copied; legalOS stores no full text
-          and builds no search index over your documents, keeping only the
-          findings and the short cited quotes that back up an answer.
+          <LeadIn>Knowledge management without moving your knowledge.</LeadIn>
+          {" "}Your documents already live across the drives your team uses, and
+          legalOS leaves them there. It reads them where they live, so your
+          files stay a{" "}
+          <LeadIn>single source of truth</LeadIn>: legalOS always works from the
+          current version, which keeps{" "}
+          <LeadIn>version control</LeadIn>{" "}intact and means no one is ever
+          reasoning from a copy that has drifted out of sync. Point it at the
+          folders you already use, then ask. Your files never move and their
+          contents are never stored, only a metadata inventory. There are two
+          ways to ask.
         </p>
         <p>
-          Your agents can draw on the same capability in conversation,
-          reading a small scope inline and citing the documents, with larger
-          questions pointed at the Research page built for them. Each run
-          shows an honest preview before it starts, and anything that
-          couldn&rsquo;t be read is reported plainly rather than silently
-          dropped.
+          <LeadIn>Research, for questions that need judgment.</LeadIn>{" "}
+          Research reads and reasons (non-deterministic: it weighs and
+          interprets like a careful analyst). Ask across the folders you choose
+          and get a clear answer backed by citations, and for each document it
+          draws on it shows you the exact line it used, so you can check the
+          answer against the source yourself.
         </p>
         <p>
-          <LeadIn>When you need an exact answer</LeadIn>, not a reasoned one,
-          ask a Structured Query. Set up the fields worth tracking across a set
-          of folders, like agreement type, effective date, or whether a contract
-          auto-renews, prepare them once, then ask in plain language how many
-          agreements expire in 2026, or how many auto-renew, and get a precise
-          count you can check. legalOS shows you how it read your question and a
-          supporting quote from each matching document, and it is honest about
-          what it could not find. It is the exact, repeatable companion to
-          Research: where Research reads and reasons, Structured Query counts,
-          the same way every time.
-        </p>
-        <p>
-          And when you ask about something not tracked yet, it says so and lets
-          you suggest it. legalOS drafts the new field for an administrator to
-          review and approve; once approved and the documents are updated, that
-          field is tracked permanently and becomes exactly queryable, extracted
-          with the same cited evidence as every other field, never guessed on the
-          fly. What you track grows to fit the questions your team actually asks.
+          <LeadIn>Structured Query, for questions that need a count.</LeadIn>
+          {" "}Structured Query answers exactly (deterministic: the same question
+          always returns the same precise, repeatable result). Ask in plain
+          language, like how many agreements expire in 2026 or how many
+          auto-renew, and get a precise count you can check, with a supporting
+          quote from each matching document. And when you ask about something
+          not tracked yet, it says so and lets you suggest it, then an
+          administrator reviews and approves the new field before it becomes
+          permanently queryable.
         </p>
       </MarketingSection>
 
-      <MarketingSection id="measurement" title="Measurement">
+      <MarketingSection id="workflows" title="Workflows">
         <p>
-          <LeadIn>legalOS doesn’t just do the work</LeadIn>; it shows you what
-          the work is
-          worth. Each person sees their own impact on their home page: their
-          runs, their most-used agent, and the hours and cost given back.
-          Leaders see how the team is adopting legalOS: who’s active, how
-          usage is trending, and where adoption hasn’t reached yet, all of it
-          real, measured usage. And a built-in calculator estimates your
-          return, combining measured usage with assumptions you control,
-          like salary and time saved per task.
-        </p>
-        <p>
-          Usage is measured. The return is an estimate you shape. legalOS
-          labels which is which, everywhere it shows a number.
+          <LeadIn>
+            Multi-step legal work, built without code and run under human
+            approval.
+          </LeadIn>{" "}A workflow chains agents into a repeatable process: you
+          assemble it in a no-code builder, start from a template or from
+          scratch, and run it supervised or autonomously. Either way, any step
+          that would change something outside legalOS pauses for a person to
+          approve before it acts. Every run keeps a complete step-by-step record
+          of what ran, what was approved, and by whom.
         </p>
       </MarketingSection>
 
       <MarketingSection id="governance" title="Admin and governance">
         <p>
-          <LeadIn>The control surface</LeadIn>{" "}that makes the rest safe to
-          use. Administrators manage who belongs and what they can reach: roles
-          with least-privilege rules, invitations, and reversible
-          deactivation. Policy and access sets what the organization allows:
-          which kinds of connections, which model new agents start with,
-          whether agents may act read-only or read-and-write, and how many
-          documents a single research run may read. Privileged actions like
-          role changes and deactivations are recorded to an audit log
-          administrators can read.
+          <LeadIn>The control surface that makes the rest safe to use.</LeadIn>
+          {" "}Administration in legalOS splits into two halves, the same two you
+          see in the product: govern who can do what, and measure what it is
+          worth.
+        </p>
+        <p>
+          <LeadIn>Govern.</LeadIn>{" "}<LeadIn>People</LeadIn>{" "}are managed
+          with least-privilege roles, invitations, and reversible deactivation.{" "}
+          <LeadIn>Policy and access</LeadIn>{" "}sets what the organization
+          allows: which kinds of connections are permitted, which model new
+          agents start with, whether agents act read-only or read-and-write, and
+          how many documents a single research run may read. This is also where
+          connections live: legalOS works with the systems your team already
+          uses, from a pre-vetted catalog covering contract lifecycle, document
+          management, e-discovery, court data, and the productivity tools around
+          them. Google Workspace is verified end to end today; the rest of the
+          catalog is pre-vetted and verified as each customer enables it.
+          Connections reach only official first-party servers or servers your
+          own organization hosts, and reading is open while any action that
+          would change something is built to pause for a person to approve. The{" "}
+          <LeadIn>Audit log</LeadIn>{" "}records privileged actions like role
+          changes and deactivations for administrators to read.
+        </p>
+        <p>
+          <LeadIn>Measure.</LeadIn>{" "}<LeadIn>Insights</LeadIn>{" "}show how the
+          organization is adopting legalOS, who is active and how usage is
+          trending, all from real, measured usage.{" "}
+          <LeadIn>Productivity</LeadIn>{" "}estimates the time and cost legalOS
+          saves, combining that measured usage with assumptions you control like
+          salary and time saved per task. Usage is measured; the return is an
+          estimate you shape, and legalOS labels which is which wherever it shows
+          a number. <LeadIn>Evals</LeadIn>{" "}are how you check that outputs meet
+          your standard.
         </p>
       </MarketingSection>
 
       <MarketingSection id="control" title="Control on your terms">
         <p>
-          legalOS shapes itself to how your team already operates, not the
-          other way around. A person with the expertise stays in command of the
-          work.
-        </p>
-        <p>
-          <LeadIn>Meets you where you are.</LeadIn>{" "}Instead of asking your
-          team to move its work
-          onto a fixed stack, legalOS reaches the systems you already run,
-          connecting to official first-party servers or to ones your own
-          organization hosts. It is model-agnostic by design, built to run on
-          the models you choose rather than a single engine wired in for you, so
-          your environment stays yours.
-        </p>
-        <p>
-          <LeadIn>Your models, your call.</LeadIn>{" "}Use the AI managed
-          through legalOS, or bring
-          your own model-provider account and run the work under your own
-          agreement and data boundary. Either way you hold the choice of model
-          and your exposure to its cost, instead of being locked to one
-          vendor&rsquo;s pricing. The model is a connection you control, not a
-          decision made for you.
-        </p>
-        <p>
-          <LeadIn>Experts stay in command.</LeadIn>{" "}The people with the
-          domain expertise keep
-          agency over their departments and over what the agents do. You decide
-          how much autonomy a run carries, from fully supervised to more
-          independent, and one line never moves: any action that would change
-          something outside legalOS pauses for a person to approve before it
-          happens, in every mode, including the most autonomous. legalOS takes
-          on the repetitive toil; the judgment stays human.
-        </p>
-        <p>
-          <LeadIn>Control where it counts:</LeadIn>{" "}the models you run on,
-          the privacy of your work, and the connection to the tools your team
-          already uses.
+          <LeadIn>
+            legalOS shapes itself to how your team already operates, not the
+            other way around.
+          </LeadIn>{" "}It reaches the systems you already run, connecting to
+          official first-party servers or to ones your own organization hosts.
+          It is model-agnostic by design: use the AI managed through legalOS, or
+          bring your own model-provider account and run the work under your own
+          agreement and data boundary, so you hold the choice of model and your
+          exposure to its cost. And a person with the expertise stays in command
+          of the work: across every autonomy mode, anything that would change
+          something outside legalOS waits for a human to approve. The model is a
+          connection you control, the privacy of your work stays yours, and the
+          expert keeps the final say.
         </p>
       </MarketingSection>
 
       <MarketingClosing>
-        Everything above describes shipped capability. For the deeper
-        security story, start with the{" "}
+        Everything above is shipped capability, except where it is marked coming
+        soon. For the deeper security story, start with the{" "}
         <MarketingProseLink href="/trust">Trust Center</MarketingProseLink>;
         when you want to see it for yourself,{" "}
         <MarketingProseLink href="/contact">get in touch</MarketingProseLink>.

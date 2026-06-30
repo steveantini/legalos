@@ -119,23 +119,23 @@ Every agent in the system is one of three tiers:
 
 The three tiers render as three sections on the department launchpad: Approved agents (Canonical), Claude for Legal (C4L), My agents (Personal). Each heading carries a one-line subline stating its trust posture (vetted by your department / Anthropic’s curated library / your own).
 
-### 13 departments organized into a four-group taxonomy
+### 11 departments organized into a four-group taxonomy
+
+The committed default ship is 11 departments. Public Sector and Compliance were soft-deleted in migration 0043 (read paths filter `deleted_at IS NULL`), so a fresh seed produces these 11; the historical "13" (with those two) is stale.
 
 | Position | Slug | Name | Cluster |
 |---|---|---|---|
 | 1 | commercial | Commercial | Deal & transactional |
 | 2 | corporate | Corporate | Deal & transactional |
 | 3 | regulatory | Regulatory | Regulatory & compliance |
-| 4 | public-sector | Public Sector | Regulatory & compliance |
-| 5 | compliance | Compliance | Regulatory & compliance |
-| 6 | privacy | Privacy | Regulatory & compliance |
-| 7 | ai-governance | AI Governance | Regulatory & compliance |
-| 8 | product | Product | Specialized practice |
-| 9 | employment | Employment | Specialized practice |
-| 10 | ip | IP | Specialized practice |
-| 11 | litigation | Litigation | Specialized practice |
-| 12 | operations | Operations | Operational & utility |
-| 13 | general-tools | General Tools | Operational & utility |
+| 4 | privacy | Privacy | Regulatory & compliance |
+| 5 | ai-governance | AI Governance | Regulatory & compliance |
+| 6 | product | Product | Specialized practice |
+| 7 | employment | Employment | Specialized practice |
+| 8 | ip | IP | Specialized practice |
+| 9 | litigation | Litigation | Specialized practice |
+| 10 | operations | Operations | Operational & utility |
+| 11 | general-tools | General Tools | Operational & utility |
 
 Department cards use a single neutral design treatment — content differentiates departments, not color. This is deliberate.
 

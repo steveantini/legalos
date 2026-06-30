@@ -110,7 +110,7 @@ interface MarketingSectionProps {
   title: string;
   /** Optional quiet subtitle line under the heading. */
   tagline?: string;
-  /** Optional anchor id so the section is directly linkable (e.g. /features#connections). */
+  /** Optional anchor id so the section is directly linkable (e.g. /features#governance). */
   id?: string;
   children: React.ReactNode;
 }
