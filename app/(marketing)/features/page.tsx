@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
 
 import {
+  AdminSurface,
+  DepartmentsSurface,
+  KnowledgeSurface,
+  WorkflowsSurface,
+  WorkspaceSurface,
+} from "@/components/landing/platform/platform-surfaces";
+import {
+  FeatureWindow,
+  RedlineDiagram,
+} from "@/components/marketing/feature-visual";
+import {
   MarketingClosing,
   MarketingPageShell,
   MarketingProseLink,
@@ -84,6 +95,9 @@ export default function FeaturesPage() {
           link, and each becomes a card with its latest post. The feeds are
           personal to you and managed by you.
         </p>
+        <FeatureWindow active="home" crumbs={["Home"]}>
+          <WorkspaceSurface />
+        </FeatureWindow>
       </MarketingSection>
 
       <MarketingSection id="agents" title="Agents and departments">
@@ -99,6 +113,9 @@ export default function FeaturesPage() {
           reads the trust model at a glance, and access follows roles, so each
           person sees the departments that are theirs.
         </p>
+        <FeatureWindow active="departments" crumbs={["Departments"]}>
+          <DepartmentsSurface />
+        </FeatureWindow>
         <p>
           <LeadIn>General Tools, the built-ins that ship free.</LeadIn>{" "}Every
           legalOS comes with a set of general-purpose agents ready to use and
@@ -112,6 +129,7 @@ export default function FeaturesPage() {
           or invent one. It is the first of a deterministic core where the part
           that has to be right is not left to a model’s judgment.
         </p>
+        <RedlineDiagram />
       </MarketingSection>
 
       <MarketingSection id="knowledge" title="Knowledge">
@@ -147,6 +165,12 @@ export default function FeaturesPage() {
           administrator reviews and approves the new field before it becomes
           permanently queryable.
         </p>
+        <FeatureWindow
+          active="knowledge-sq"
+          crumbs={["Knowledge", "Structured Query"]}
+        >
+          <KnowledgeSurface />
+        </FeatureWindow>
       </MarketingSection>
 
       <MarketingSection id="workflows" title="Workflows">
@@ -161,6 +185,12 @@ export default function FeaturesPage() {
           approve before it acts. Every run keeps a complete step-by-step record
           of what ran, what was approved, and by whom.
         </p>
+        <FeatureWindow
+          active="workflows"
+          crumbs={["Workflows", "Review an inbound NDA"]}
+        >
+          <WorkflowsSurface />
+        </FeatureWindow>
       </MarketingSection>
 
       <MarketingSection id="governance" title="Admin and governance">
@@ -199,6 +229,9 @@ export default function FeaturesPage() {
           a number. <LeadIn>Evals (coming soon)</LeadIn>{" "}will be how you
           check that outputs meet your standard.
         </p>
+        <FeatureWindow rail="admin" active="admin" crumbs={["Admin"]}>
+          <AdminSurface />
+        </FeatureWindow>
       </MarketingSection>
 
       <MarketingSection id="control" title="Control on your terms">
