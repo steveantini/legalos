@@ -282,10 +282,10 @@ export const DOC_PAGES: DocPage[] = [
           <p>
             An agent answers from its instructions, the conversation, and
             whatever you attach. Agents with web search enabled can also
-            search the open web, and when your organization has connected
-            systems like Google Workspace, agents can read from them too. A
-            quiet line in the conversation shows each tool call as it runs,
-            named plainly, like Google Drive: search files.
+            search the open web. legalOS can also connect agents to systems
+            your organization runs, like Google Workspace, under your
+            governance; when an agent uses a connected tool, a quiet line in
+            the conversation names the call, like Google Drive: search files.
           </p>
         </MarketingSection>
         <MarketingSection title="Citations and sources">
@@ -299,21 +299,22 @@ export const DOC_PAGES: DocPage[] = [
         </MarketingSection>
         <MarketingSection title="When an agent wants to act">
           <p>
-            Reading runs freely. Any action that would change something
-            outside legalOS, like sending an email or creating a file, pauses
-            the conversation and shows you exactly what the agent wants to do.
-            Nothing happens until you approve that specific action; decline
-            it, and the agent acknowledges and carries on without it. This is
-            not a setting you can turn off, and that is deliberate.
+            legalOS draws a hard line between reading and acting. By design,
+            reading is open, but any action that would change something
+            outside legalOS, like sending an email or creating a file, is built
+            to pause the conversation and show you exactly what the agent wants
+            to do. Nothing happens until you approve that specific action;
+            decline it, and the agent carries on without it. This is not a
+            setting you can turn off, and that is deliberate.
           </p>
         </MarketingSection>
         <MarketingSection title="Research in chat">
           <p>
-            If your organization uses Knowledge collections, an agent can
-            research them mid-conversation for small questions, reading up to
-            15 documents and citing what it finds. Bigger questions get an
-            honest answer instead: the agent will point you to the Research
-            page, which is built for corpus-scale work.
+            If your organization uses Knowledge collections and in-chat
+            research is available, an agent can research them mid-conversation
+            for small questions, reading up to 15 documents and citing what it
+            finds. For bigger questions, the agent points you to the Research
+            page, which is built for corpus-scale work and always available.
           </p>
         </MarketingSection>
         <MarketingSection title="Comparing two documents">
@@ -335,18 +336,19 @@ export const DOC_PAGES: DocPage[] = [
             <p className="font-medium text-foreground">Put an agent&rsquo;s tools to work</p>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5">
               <li>
-                Ask for something that needs them: current information for an
-                agent with Web search on, or a document in a connected system
-                (&ldquo;find our latest MSA in Drive&rdquo;).
-              </li>
-              <li>
-                The agent decides when to reach for a tool; each call shows as
-                a quiet line in the conversation, named plainly, like Google
-                Drive: search files.
-              </li>
-              <li>
-                Web search is enabled per agent: turn it on in the
+                For current information, ask an agent that has Web search on.
+                Web search is enabled per agent, so turn it on in the
                 agent&rsquo;s settings if yours doesn&rsquo;t have it.
+              </li>
+              <li>
+                When your organization has connected a system and policy allows
+                it, an agent can also reach into it, for example to find a
+                document in Drive (&ldquo;find our latest MSA in Drive&rdquo;).
+              </li>
+              <li>
+                The agent decides when to use a tool; each call shows as a
+                quiet line in the conversation, named plainly, like Google
+                Drive: search files.
               </li>
             </ol>
           </div>
@@ -1092,8 +1094,9 @@ export const DOC_PAGES: DocPage[] = [
             the organization&rsquo;s own account for that system, and approve
             the access it asks for. At connection, legalOS discovers what the
             server can do and shows you the tool list. Two policies must both
-            agree before agents can use it: the server is connected and
-            healthy, and the MCP category is allowed in Policy and access.
+            agree before a connected system is available to an agent: the
+            server is connected and healthy, and the MCP category is allowed in
+            Policy and access.
           </p>
         </MarketingSection>
         <MarketingSection title="Credential custody, in plain language">
@@ -1685,8 +1688,8 @@ export const DOC_PAGES: DocPage[] = [
             the API being called, not a switch legalOS adds. As with any agent,
             when one proposes an action that would change something outside
             legalOS, like sending a message through a connected system, that
-            specific write waits for a person to approve it; reading and
-            reasoning are not gated this way.
+            specific write is designed to wait for a person to approve it;
+            reading and reasoning are not gated this way.
           </p>
           <p>
             Claude for Legal is used under the Apache 2.0 license (
