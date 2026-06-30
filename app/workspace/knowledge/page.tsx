@@ -45,7 +45,7 @@ export default function KnowledgePage() {
             Knowledge
           </h1>
           <p className="mt-[14px] max-w-[62ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            Keep your documents as a single source of truth. {PRODUCT_NAME}
+            Keep your documents as a single source of truth. {PRODUCT_NAME}{" "}
             reads them where they live and always works from the current
             version, so nothing forks, drifts, or falls out of sync. Point{" "}
             {PRODUCT_NAME} at folders in the drives you already use, then ask.
