@@ -52,7 +52,7 @@ function Stat({
 }
 
 /* ── 1 · WORKSPACE (the real home's signature zones, height-controlled) ─ */
-export function WorkspaceSurface() {
+export function WorkspaceSurface({ compact = false }: { compact?: boolean }) {
   const today = [
     { time: "9:30", title: "Acme renewal sync", tag: "Google Meet", lit: true },
     { time: "1:00", title: "Board prep with Finance", tag: "Room 4", lit: false },
@@ -84,12 +84,17 @@ export function WorkspaceSurface() {
         <h1 className="font-sans text-[30px] font-normal leading-[1.04] tracking-[-0.03em] text-foreground">
           Good afternoon, <span className="text-primary">Olivia</span>.
         </h1>
-        <p className="max-w-[52ch] font-sans text-[13.5px] font-normal leading-[1.5] text-muted-foreground">
-          Welcome back to{" "}
-          <strong className="font-medium text-primary">legalOS</strong>, your
-          team&rsquo;s departments, knowledge, workflows, and integrations, all
-          in one place.
-        </p>
+        {/* The welcome subline is dropped in the compact /features slice so the
+            workspace window reads as a short window beside its prose; the full
+            landing surface keeps it. */}
+        {!compact ? (
+          <p className="max-w-[52ch] font-sans text-[13.5px] font-normal leading-[1.5] text-muted-foreground">
+            Welcome back to{" "}
+            <strong className="font-medium text-primary">legalOS</strong>, your
+            team&rsquo;s departments, knowledge, workflows, and integrations, all
+            in one place.
+          </p>
+        ) : null}
       </div>
 
       {/* today */}
@@ -145,27 +150,30 @@ export function WorkspaceSurface() {
         </div>
       </div>
 
-      {/* desk feeds */}
-      <div>
-        <Mono className="ml-0.5 text-[10px] tracking-[0.14em] text-caption">
-          YOUR DESK
-        </Mono>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          {desk.map((d) => (
-            <div
-              key={d.source}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3.5 shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)]"
-            >
-              <Mono className="text-[9px] tracking-[0.1em] text-caption">
-                {d.source}
-              </Mono>
-              <span className="font-sans text-[13px] font-normal leading-[1.4] text-foreground">
-                {d.title}
-              </span>
-            </div>
-          ))}
+      {/* desk feeds (full surface only; the compact /features slice shows just
+          today + impact so the window is a shorter block) */}
+      {!compact ? (
+        <div>
+          <Mono className="ml-0.5 text-[10px] tracking-[0.14em] text-caption">
+            YOUR DESK
+          </Mono>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {desk.map((d) => (
+              <div
+                key={d.source}
+                className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3.5 shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)]"
+              >
+                <Mono className="text-[9px] tracking-[0.1em] text-caption">
+                  {d.source}
+                </Mono>
+                <span className="font-sans text-[13px] font-normal leading-[1.4] text-foreground">
+                  {d.title}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -175,13 +183,20 @@ function DeptCard({
   name,
   description,
   count,
+  compact = false,
 }: {
   name: string;
   description: string;
   count: number;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex min-h-[150px] flex-col gap-3 rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)]">
+    <div
+      className={cn(
+        "flex flex-col gap-3 rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)]",
+        compact ? "" : "min-h-[150px]",
+      )}
+    >
       <h3 className="font-sans text-[17px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
         {name}
       </h3>
@@ -203,7 +218,11 @@ function DeptCard({
   );
 }
 
-export function DepartmentsSurface() {
+export function DepartmentsSurface({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const depts = [
     {
       name: "Commercial",
@@ -247,9 +266,13 @@ export function DepartmentsSurface() {
           marked tiers.
         </p>
       </div>
-      <div className="grid grid-cols-3 gap-3.5">
-        {depts.map((d) => (
-          <DeptCard key={d.name} {...d} />
+      {/* The compact /features slice shows a shorter 4-card grid; the full
+          landing surface shows all six. */}
+      <div
+        className={cn("grid gap-3.5", compact ? "grid-cols-2" : "grid-cols-3")}
+      >
+        {(compact ? depts.slice(0, 4) : depts).map((d) => (
+          <DeptCard key={d.name} {...d} compact={compact} />
         ))}
       </div>
     </div>
@@ -297,7 +320,7 @@ function ToolCard({
   );
 }
 
-export function KnowledgeSurface() {
+export function KnowledgeSurface({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex flex-col gap-[18px]">
       <div className="flex flex-col gap-2">
@@ -351,25 +374,30 @@ export function KnowledgeSurface() {
         </p>
       </div>
 
-      {/* one matching document, with citation */}
-      <div>
-        <Mono className="text-[10px] tracking-[0.08em] text-muted-foreground">
-          MATCHING DOCUMENTS
-        </Mono>
-        <div className="mt-2 rounded-[10px] border border-hairline bg-paper-2 px-3.5 py-3">
-          <p className="truncate font-sans text-[13px] font-medium leading-[1.3] text-foreground">
-            Vendor Master Agreement, Acme Corp
-          </p>
-          <div className="mt-1.5 font-sans text-[12px] font-normal leading-[1.5]">
-            <span className="text-muted-foreground">Expires:</span>{" "}
-            <span className="text-foreground">Aug 14, 2026</span>
-            <span className="mt-[3px] block border-l-2 border-hairline pl-2 text-caption">
-              &ldquo;…shall remain in effect until August 14, 2026…&rdquo;{" "}
-              <span className="text-caption">(verified against the source)</span>
-            </span>
+      {/* one matching document, with citation (full surface only; the compact
+          /features slice ends on the exact answer so the window is shorter) */}
+      {!compact ? (
+        <div>
+          <Mono className="text-[10px] tracking-[0.08em] text-muted-foreground">
+            MATCHING DOCUMENTS
+          </Mono>
+          <div className="mt-2 rounded-[10px] border border-hairline bg-paper-2 px-3.5 py-3">
+            <p className="truncate font-sans text-[13px] font-medium leading-[1.3] text-foreground">
+              Vendor Master Agreement, Acme Corp
+            </p>
+            <div className="mt-1.5 font-sans text-[12px] font-normal leading-[1.5]">
+              <span className="text-muted-foreground">Expires:</span>{" "}
+              <span className="text-foreground">Aug 14, 2026</span>
+              <span className="mt-[3px] block border-l-2 border-hairline pl-2 text-caption">
+                &ldquo;…shall remain in effect until August 14, 2026…&rdquo;{" "}
+                <span className="text-caption">
+                  (verified against the source)
+                </span>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

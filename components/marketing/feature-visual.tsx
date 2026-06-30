@@ -50,51 +50,35 @@ export function FeatureWindow({
 
 /**
  * One tour row: an anchored section whose heading + prose sit beside a window,
- * alternating which side the window takes, with a per-row dominance.
- *
- * Two knobs make each row clearly asymmetric (D-219 tuning):
- *  - The column split. Window-dominant rows give the window a 1.55fr track and
- *    the prose a 1fr track. Prose-dominant rows flip it: the prose takes a 1fr
- *    track (the wide remainder) and the window sits in an `auto` track sized to
- *    its (scaled) width, so the prose clearly dominates.
- *  - The window scale. A prose-dominant window is laid out at a comfortable
- *    internal width and zoomed DOWN to a smaller visual footprint, so it reads
- *    as a supporting visual yet stays legible (the surfaces need ~600px of
- *    internal width for the fixed-width rail, so we scale the box, not the
- *    layout). Window-dominant windows render at full fill, no zoom.
- *
- * On the 1180px collapse both variants behave the same: a single column with
- * the heading + prose above the window (no zoom), matching the landing.
+ * alternating which side the window takes. Every window gets the same width
+ * treatment (a 1.55fr track); the asymmetry between rows is VERTICAL, set by how
+ * much each surface shows (the workspace/agents/knowledge windows render a
+ * shorter slice via the surfaces' `compact` prop, so they read as short windows
+ * beside the prose, while workflows/governance stay tall). On the 1180px
+ * collapse: a single column with the heading + prose above the window.
  */
 export function FeatureRow({
   id,
   title,
   windowLeft = false,
-  proseDominant = false,
   visual,
   children,
 }: {
   id: string;
   title: string;
   windowLeft?: boolean;
-  proseDominant?: boolean;
   visual: ReactNode;
   children: ReactNode;
 }) {
-  const columns = proseDominant
-    ? windowLeft
-      ? "min-[1181px]:grid-cols-[auto_minmax(0,1fr)]"
-      : "min-[1181px]:grid-cols-[minmax(0,1fr)_auto]"
-    : windowLeft
-      ? "min-[1181px]:grid-cols-[1.55fr_minmax(0,1fr)]"
-      : "min-[1181px]:grid-cols-[minmax(0,1fr)_1.55fr]";
   return (
     <section
       id={id}
       className={cn(
         "mt-10 grid scroll-mt-6 grid-cols-1 items-start gap-7 border-t border-hairline pt-9",
         "min-[1181px]:items-center min-[1181px]:gap-12",
-        columns,
+        windowLeft
+          ? "min-[1181px]:grid-cols-[1.55fr_minmax(0,1fr)]"
+          : "min-[1181px]:grid-cols-[minmax(0,1fr)_1.55fr]",
       )}
     >
       <div
@@ -116,13 +100,7 @@ export function FeatureRow({
           windowLeft ? "min-[1181px]:order-1" : "min-[1181px]:order-2",
         )}
       >
-        {proseDominant ? (
-          <div className="min-[1181px]:w-[600px] min-[1181px]:[zoom:0.82]">
-            {visual}
-          </div>
-        ) : (
-          visual
-        )}
+        {visual}
       </div>
     </section>
   );
