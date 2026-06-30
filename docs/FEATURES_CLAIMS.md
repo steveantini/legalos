@@ -26,7 +26,7 @@ conversation-history UI exists), and connected-tool use framed as a governed
 capability (reading open, writes built to pause) rather than asserting agents
 actively run connected tools today.
 
-Each section now carries a product-window visual below its prose (D-219): the landing's reused AppWindow + surfaces (workspace, departments, knowledge/SQ-result, workflows, admin) and a new redline diagram in Agents. These are illustrative sample data (the same sample state as the landing windows), not claims, so they do not add rows here; the prose claims above are still the source of truth.
+Each visual section carries a product-window visual BESIDE its prose in the landing's alternating rhythm (D-219, switched from the below-the-prose layout): the landing's reused AppWindow + surfaces (workspace, departments, knowledge/SQ-result, workflows, admin). The control/close has no window. These are illustrative sample data (the same sample state as the landing windows), not claims, so they do not add rows here; the prose claims above are still the source of truth.
 
 Last full truth pass: 2026-06-30 (D-218, the six-section reorg; D-219 added the visuals).
 

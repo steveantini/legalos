@@ -2,24 +2,30 @@ import type { ReactNode } from "react";
 
 import {
   AppWindow,
-  Mono,
   type PlatformActive,
 } from "@/components/landing/platform/platform-chrome";
+import { cn } from "@/lib/utils";
 
 /**
- * Per-section product visuals for /features (D-219). Each section's visual is a
- * discrete block placed BELOW the section prose at the page's 736px reading
- * measure, so the elegant reading column is preserved. Modular by design: a
- * later switch to the landing's wide alternating beside-the-prose tour is a
- * layout change (reposition these blocks into a grid at a wider measure), not a
- * rebuild. The windows reuse the landing's AppWindow + surfaces verbatim, so the
- * two pages read as one family.
+ * The /features product tour, in the landing's beside-the-prose alternating
+ * rhythm (D-219, switched from the below-the-prose Option-2 layout). Each
+ * FeatureRow pairs a section's heading + prose with a reused landing window
+ * beside it, alternating sides down the page, so /features and the landing
+ * below-hero read as one family.
+ *
+ * Responsive: the single breakpoint is 1180px (matching the landing). Above it,
+ * two columns with the window alternating left/right. At or below it, a single
+ * column with the heading + prose ABOVE the window. The rows break out of the
+ * page's 736px reading column into a wider band (the widener in the page);
+ * the heading, lead, and the prose-strong close stay in the reading column.
  *
  * Static marketing pictures: no hover, no navigation, only the active rail item
- * highlighted (inherited from the landing components). On screens narrower than
- * the window's legible width the wrapper scrolls horizontally rather than
- * crushing the fixed-width rail.
+ * highlighted (inherited from the landing components). On screens too narrow for
+ * the fixed rail the window scrolls horizontally rather than crushing.
  */
+
+/** A reused landing window, sized to fill its row column. Scrolls horizontally
+ *  only when the column is narrower than the rail needs (small screens). */
 export function FeatureWindow({
   active,
   crumbs,
@@ -32,8 +38,8 @@ export function FeatureWindow({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto pt-2">
-      <div className="min-w-[680px]">
+    <div className="overflow-x-auto">
+      <div className="min-w-[520px]">
         <AppWindow active={active} crumbs={crumbs} rail={rail} compact>
           {children}
         </AppWindow>
@@ -42,78 +48,57 @@ export function FeatureWindow({
   );
 }
 
-/** One panel of the redline diagram: a mono-caps label, two faint body lines,
- *  and a short document snippet. */
-function RedlinePanel({
-  label,
+/**
+ * One tour row: an anchored section whose heading + prose sit beside a window,
+ * alternating which side the window takes. The window column gets the larger
+ * share so the surface stays legible; the prose column is the comfortable
+ * reading measure.
+ */
+export function FeatureRow({
+  id,
+  title,
+  windowLeft = false,
+  visual,
   children,
 }: {
-  label: string;
+  id: string;
+  title: string;
+  windowLeft?: boolean;
+  visual: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div className="flex-1 rounded-xl border border-hairline bg-paper-2 p-3.5">
-      <Mono className="text-[9px] tracking-[0.14em] text-caption">{label}</Mono>
-      <div className="mt-3 flex flex-col gap-2">
-        <span className="block h-1.5 w-full rounded bg-hairline-strong" />
-        <span className="block h-1.5 w-3/4 rounded bg-hairline-strong" />
-        <p className="mt-1 font-sans text-[12.5px] leading-snug text-ink-2">
-          {children}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function FlowArrow() {
-  return (
-    <span
-      aria-hidden
-      className="grid shrink-0 rotate-90 place-items-center self-center text-caption min-[600px]:rotate-0"
+    <section
+      id={id}
+      className={cn(
+        "mt-10 grid scroll-mt-6 grid-cols-1 items-start gap-7 border-t border-hairline pt-9",
+        "min-[1181px]:items-center min-[1181px]:gap-12",
+        windowLeft
+          ? "min-[1181px]:grid-cols-[1.55fr_1fr]"
+          : "min-[1181px]:grid-cols-[1fr_1.55fr]",
+      )}
     >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+      <div
+        className={cn(
+          "order-1 flex min-w-0 flex-col",
+          windowLeft ? "min-[1181px]:order-2" : "min-[1181px]:order-1",
+        )}
       >
-        <path d="M5 12h14" />
-        <path d="M13 6l6 6-6 6" />
-      </svg>
-    </span>
-  );
-}
-
-/**
- * The deterministic redline diagram: original, revised, and the marked redline
- * with the change called out in place. Navy is the only accent (a deletion is
- * struck in muted ink, an insertion is navy); same warm-paper, mono-caps DNA as
- * the windows. Reads as "see exactly what changed, found by code not guessed."
- */
-export function RedlineDiagram() {
-  return (
-    <figure className="pt-2">
-      <div className="flex flex-col gap-3 min-[600px]:flex-row min-[600px]:items-stretch">
-        <RedlinePanel label="ORIGINAL">…in effect until 2025…</RedlinePanel>
-        <FlowArrow />
-        <RedlinePanel label="REVISED">…in effect until 2026…</RedlinePanel>
-        <FlowArrow />
-        <RedlinePanel label="REDLINE">
-          …in effect until{" "}
-          <s className="text-caption decoration-caption">2025</s>{" "}
-          <span className="font-medium text-primary">2026</span>…
-        </RedlinePanel>
+        <h2 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground min-[720px]:text-[32px]">
+          {title}
+        </h2>
+        <div className="mt-5 space-y-4 text-[15px] leading-[1.75] text-ink-2">
+          {children}
+        </div>
       </div>
-      <figcaption className="mt-3 flex items-center gap-2">
-        <span aria-hidden className="size-1.5 rounded-full bg-primary" />
-        <Mono className="text-[9.5px] tracking-[0.1em] text-caption">
-          Found by code, not guessed; insertions and deletions marked in place
-        </Mono>
-      </figcaption>
-    </figure>
+      <div
+        className={cn(
+          "order-2 min-w-0",
+          windowLeft ? "min-[1181px]:order-1" : "min-[1181px]:order-2",
+        )}
+      >
+        {visual}
+      </div>
+    </section>
   );
 }
