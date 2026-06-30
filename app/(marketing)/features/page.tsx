@@ -69,6 +69,7 @@ export default function FeaturesPage() {
         <FeatureRow
           id="workspace"
           title="The workspace"
+          proseDominant
           visual={
             <FeatureWindow active="home" crumbs={["Home"]}>
               <WorkspaceSurface />
@@ -114,6 +115,7 @@ export default function FeaturesPage() {
           id="agents"
           title="Agents and departments"
           windowLeft
+          proseDominant
           visual={
             <FeatureWindow active="departments" crumbs={["Departments"]}>
               <DepartmentsSurface />
@@ -150,6 +152,7 @@ export default function FeaturesPage() {
         <FeatureRow
           id="knowledge"
           title="Knowledge"
+          proseDominant
           visual={
             <FeatureWindow
               active="knowledge-sq"
