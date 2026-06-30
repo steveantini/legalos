@@ -4,6 +4,8 @@ import { LandingArrival } from "@/components/landing/landing-arrival";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { LandingTopbar } from "@/components/landing/landing-topbar";
+import { ControlSection } from "@/components/landing/platform/control-section";
+import { PlatformSection } from "@/components/landing/platform/platform-section";
 import { getAuthUser } from "@/lib/auth/access";
 
 /**
@@ -52,6 +54,8 @@ export default async function RootLanding() {
       <LandingTopbar />
       <main>
         <LandingHero isSignedIn={isSignedIn} />
+        <PlatformSection />
+        <ControlSection />
       </main>
       <LandingFooter />
     </LandingArrival>
