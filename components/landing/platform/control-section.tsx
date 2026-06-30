@@ -15,7 +15,7 @@ const FACETS: { tag: string; title: string; body: string; chips: string[] }[] =
       tag: "MODEL-AGNOSTIC",
       title: "Run on the models you choose",
       body: "Managed through legalOS, or bring your own provider account under your own agreement and data boundary. No single engine wired in.",
-      chips: ["Claude", "Gemini", "GPT", "Your key"],
+      chips: ["Claude", "Gemini", "GPT", "Open Weight", "Your key"],
     },
     {
       tag: "CONNECT YOUR DRIVES",
@@ -100,7 +100,7 @@ export function ControlSection() {
               and a readable audit log of every change.
             </p>
           </div>
-          <AppWindow rail="admin" active="admin" crumbs={["Admin"]}>
+          <AppWindow rail="admin" active="admin" crumbs={["Admin"]} compact>
             <AdminSurface />
           </AppWindow>
         </div>

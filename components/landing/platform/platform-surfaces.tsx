@@ -1,6 +1,3 @@
-import { DepartmentCard } from "@/components/workspace/department-card";
-import { LandingRow } from "@/components/workspace/landing-row";
-import type { DepartmentWithAccess } from "@/lib/auth/access";
 import { ADMIN_NAV_GROUPS } from "@/lib/admin/nav";
 import { cn } from "@/lib/utils";
 
@@ -12,14 +9,12 @@ import { Mono } from "./platform-chrome";
  * recreations of the settled prototype (docs/design/landing/), in the real
  * Aperture tokens, with final illustrative copy.
  *
- * Reuse vs. rebuild (see the landing build report):
- *  - Departments reuses the real <DepartmentCard/> with mock props.
- *  - Admin mirrors the REAL admin page: the shipping <LandingRow/> and
- *    ADMIN_NAV_GROUPS copy, not the prototype's stat tiles.
- *  - The impact band and the Structured Query answer are presentational
- *    recreations (the production ImpactBandClient / StructuredQueryResultView
- *    carry interactive chrome that reads as dead controls inside a static
- *    marketing visual); they match the prototype exactly.
+ * These are STATIC marketing pictures: nothing inside a window navigates, and
+ * nothing carries a hover affordance that would imply it is clickable. The
+ * department cards and the admin rows are presentational (the shipping
+ * DepartmentCard and LandingRow both navigate and hover-deepen). The Admin
+ * window still MIRRORS the real admin page: the GOVERN and MEASURE groups use
+ * the shipped ADMIN_NAV_GROUPS copy, just rendered static and compact.
  */
 
 /* ── shared scalar stat (mirrors the metrics MetricStat) ─────────────── */
@@ -56,8 +51,12 @@ function Stat({
   );
 }
 
-/* ── 1 · WORKSPACE ───────────────────────────────────────────────────── */
+/* ── 1 · WORKSPACE (the real home's signature zones, height-controlled) ─ */
 export function WorkspaceSurface() {
+  const today = [
+    { time: "9:30", title: "Acme renewal sync", tag: "Google Meet", lit: true },
+    { time: "1:00", title: "Board prep with Finance", tag: "Room 4", lit: false },
+  ];
   const stats = [
     { label: "HOURS SAVED", value: "34", suffix: "hrs", hint: "this month" },
     {
@@ -67,16 +66,15 @@ export function WorkspaceSurface() {
     },
     { label: "AGENT RUNS", value: "128", hint: "this month" },
   ];
-  const needs = [
+  const desk = [
     {
-      type: "MSA",
-      title: "Acme Master Services Agreement",
-      due: "due in 3 days",
+      source: "STRATECHERY",
+      title: "The platform shift reshaping legal tooling",
     },
-    { type: "DPA", title: "Vendor data processing addendum", due: "due Friday" },
+    { source: "LAWFARE", title: "This week in privacy enforcement" },
   ];
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[22px]">
       <div className="flex flex-col gap-3">
         <h1 className="font-sans text-[30px] font-normal leading-[1.04] tracking-[-0.03em] text-foreground">
           Good afternoon, <span className="text-primary">Olivia</span>.
@@ -87,6 +85,39 @@ export function WorkspaceSurface() {
           team&rsquo;s departments, knowledge, workflows, and integrations, all
           in one place.
         </p>
+      </div>
+
+      {/* today */}
+      <div>
+        <Mono className="ml-0.5 text-[10px] tracking-[0.14em] text-caption">
+          TODAY
+        </Mono>
+        <div className="mt-3 overflow-hidden rounded-[14px] border border-border bg-card p-1.5 shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)]">
+          {today.map((e) => (
+            <div
+              key={e.title}
+              className="grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-lg px-3 py-2.5"
+            >
+              <span className="font-mono text-[11px] leading-none tabular-nums text-caption">
+                {e.time}
+              </span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    e.lit ? "bg-primary" : "bg-caption",
+                  )}
+                />
+                <span className="truncate font-sans text-[13px] font-normal leading-[1.25] text-foreground">
+                  {e.title}
+                </span>
+              </span>
+              <Mono className="text-[9px] tracking-[0.06em] text-caption">
+                {e.tag}
+              </Mono>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* impact band */}
@@ -109,110 +140,94 @@ export function WorkspaceSurface() {
         </div>
       </div>
 
-      {/* needs you */}
+      {/* desk feeds */}
       <div>
-        <div className="mb-1 flex items-baseline justify-between border-b border-hairline pb-2.5">
-          <span className="font-sans text-[14px] font-medium leading-none tracking-[-0.01em] text-foreground">
-            Needs you
-          </span>
-          <span className="font-sans text-[12px] font-medium leading-none text-primary">
-            All matters →
-          </span>
+        <Mono className="ml-0.5 text-[10px] tracking-[0.14em] text-caption">
+          YOUR DESK
+        </Mono>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {desk.map((d) => (
+            <div
+              key={d.source}
+              className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3.5 shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)]"
+            >
+              <Mono className="text-[9px] tracking-[0.1em] text-caption">
+                {d.source}
+              </Mono>
+              <span className="font-sans text-[13px] font-normal leading-[1.4] text-foreground">
+                {d.title}
+              </span>
+            </div>
+          ))}
         </div>
-        {needs.map((n) => (
-          <div
-            key={n.type}
-            className="grid grid-cols-[44px_1fr_auto] items-center gap-3.5 rounded-lg px-1.5 py-3 transition-colors duration-150 hover:bg-hairline"
-          >
-            <span className="inline-flex h-[22px] items-center justify-center rounded-md bg-foreground font-mono text-[9.5px] font-semibold tracking-[0.04em] text-primary-foreground">
-              {n.type}
-            </span>
-            <span className="truncate font-sans text-[13.5px] font-normal leading-[1.25] text-foreground">
-              {n.title}
-            </span>
-            <span className="font-sans text-[12px] font-normal leading-none text-muted-foreground">
-              {n.due}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );
 }
 
-/* ── 2 · DEPARTMENTS (reuses the real DepartmentCard) ────────────────── */
-type MockDept = { dept: DepartmentWithAccess; count: number };
-
-function mockDept(
-  slug: string,
-  name: string,
-  description: string,
-  sortOrder: number,
-): DepartmentWithAccess {
-  return {
-    id: `landing-${slug}`,
-    slug,
-    name,
-    description,
-    sort_order: sortOrder,
-    hasAccess: true,
-  };
+/* ── 2 · DEPARTMENTS (static cards, no navigation, no clickable hover) ─ */
+function DeptCard({
+  name,
+  description,
+  count,
+}: {
+  name: string;
+  description: string;
+  count: number;
+}) {
+  return (
+    <div className="flex min-h-[150px] flex-col gap-3 rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_rgba(26,24,22,0.02),0_1px_3px_rgba(26,24,22,0.04),0_8px_24px_-8px_rgba(26,24,22,0.06)]">
+      <h3 className="font-sans text-[17px] font-medium leading-[1.15] tracking-[-0.018em] text-foreground">
+        {name}
+      </h3>
+      <p className="flex-1 font-sans text-[12.5px] font-normal leading-[1.45] text-muted-foreground">
+        {description}
+      </p>
+      <div className="flex items-center justify-between border-t border-card-divider pt-[11px]">
+        <span className="font-mono text-[11px] leading-none tabular-nums text-caption">
+          {count} agents
+        </span>
+        <span
+          aria-hidden
+          className="grid size-[22px] place-items-center rounded-full bg-background font-sans text-[12px] leading-none text-foreground"
+        >
+          →
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function DepartmentsSurface() {
-  const depts: MockDept[] = [
+  const depts = [
     {
-      dept: mockDept(
-        "commercial",
-        "Commercial",
-        "Contracts, order forms, and renewals.",
-        1,
-      ),
+      name: "Commercial",
+      description: "Contracts, order forms, and renewals.",
       count: 15,
     },
     {
-      dept: mockDept(
-        "corporate",
-        "Corporate",
-        "Entities, equity, and governance.",
-        2,
-      ),
+      name: "Corporate",
+      description: "Entities, equity, and governance.",
       count: 11,
     },
     {
-      dept: mockDept(
-        "privacy",
-        "Privacy",
-        "DPAs, DSARs, and data transfers.",
-        3,
-      ),
+      name: "Privacy",
+      description: "DPAs, DSARs, and data transfers.",
       count: 8,
     },
     {
-      dept: mockDept(
-        "litigation",
-        "Litigation",
-        "Holds, disputes, and outside counsel.",
-        4,
-      ),
+      name: "Litigation",
+      description: "Holds, disputes, and outside counsel.",
       count: 18,
     },
     {
-      dept: mockDept(
-        "regulatory",
-        "Regulatory",
-        "Filings, monitoring, and policy.",
-        5,
-      ),
+      name: "Regulatory",
+      description: "Filings, monitoring, and policy.",
       count: 7,
     },
     {
-      dept: mockDept(
-        "employment",
-        "Employment",
-        "Offers, policies, and separations.",
-        6,
-      ),
+      name: "Employment",
+      description: "Offers, policies, and separations.",
       count: 17,
     },
   ];
@@ -228,13 +243,8 @@ export function DepartmentsSurface() {
         </p>
       </div>
       <div className="grid grid-cols-3 gap-3.5">
-        {depts.map(({ dept, count }) => (
-          <DepartmentCard
-            key={dept.slug}
-            department={dept}
-            agentCount={count}
-            canEdit={false}
-          />
+        {depts.map((d) => (
+          <DeptCard key={d.name} {...d} />
         ))}
       </div>
     </div>
@@ -518,7 +528,26 @@ export function WorkflowsSurface() {
   );
 }
 
-/* ── 5 · ADMIN (mirrors the REAL admin page) ─────────────────────────── */
+/* ── 5 · ADMIN (mirrors the REAL admin page, static and compact) ─────── */
+function AdminRowStatic({
+  label,
+  description,
+}: {
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="border-b border-hairline py-2.5 last:border-b-0">
+      <p className="font-sans text-[13px] font-medium leading-[1.2] text-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-sans text-[11.5px] font-normal leading-[1.4] text-caption">
+        {description}
+      </p>
+    </div>
+  );
+}
+
 function AuditPeek() {
   const rows: { title: string; detail: string; when: string }[] = [
     {
@@ -538,11 +567,11 @@ function AuditPeek() {
     },
   ];
   return (
-    <div className="rounded-[14px] border border-hairline bg-paper-2 p-[18px]">
+    <div className="rounded-[14px] border border-hairline bg-paper-2 px-[18px] py-3.5">
       <Mono className="text-[10px] tracking-[0.14em] text-caption">
         AUDIT LOG
       </Mono>
-      <div className="mt-3.5 flex flex-col gap-3">
+      <div className="mt-3 flex flex-col gap-2.5">
         {rows.map((r) => (
           <div key={r.title} className="flex items-start gap-2.5">
             <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
@@ -568,8 +597,8 @@ function AuditPeek() {
 
 export function AdminSurface() {
   return (
-    <div className="flex flex-col gap-[22px]">
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
         <h1 className="font-sans text-[22px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground">
           Admin
         </h1>
@@ -579,21 +608,20 @@ export function AdminSurface() {
         </p>
       </div>
 
-      {/* the real GOVERN / MEASURE grouped rows, rendered with the shipping
-          LandingRow and the shipped ADMIN_NAV_GROUPS copy */}
-      <div className="flex flex-col gap-5">
+      {/* the real GOVERN / MEASURE groups and shipped copy, static and two-up
+          to keep the backend a compact supporting beat */}
+      <div className="grid grid-cols-2 gap-x-8 gap-y-1">
         {ADMIN_NAV_GROUPS.map((group) => (
-          <div key={group.caption} className="flex flex-col gap-2">
+          <div key={group.caption}>
             <Mono className="text-[10px] tracking-[0.14em] text-caption">
               {group.caption}
             </Mono>
-            <div>
+            <div className="mt-1">
               {group.items.map((item) => (
-                <LandingRow
+                <AdminRowStatic
                   key={item.href}
                   label={item.label}
                   description={item.description}
-                  href={item.href}
                 />
               ))}
             </div>

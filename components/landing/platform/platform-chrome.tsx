@@ -72,10 +72,8 @@ function NavRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between rounded-lg px-2.5 py-[7px] transition-colors duration-150",
-        active
-          ? "bg-foreground text-primary-foreground"
-          : "text-ink-2 hover:bg-hairline",
+        "flex items-center justify-between rounded-lg px-2.5 py-[7px]",
+        active ? "bg-foreground text-primary-foreground" : "text-ink-2",
       )}
     >
       <span
@@ -127,23 +125,12 @@ const RAIL_BASE =
 
 /** Workspace rail (presentational mirror of WorkspaceRail). */
 function WorkspaceRailMock({ active }: { active: PlatformActive }) {
-  const departments = [
-    "Commercial",
-    "Corporate",
-    "Privacy",
-    "Litigation",
-    "Employment",
-  ];
   return (
     <nav className={RAIL_BASE} aria-hidden>
       <BrandRow />
       <div className="flex flex-col gap-[3px]">
-        <NavCaption>Departments</NavCaption>
-        {departments.map((d) => (
-          <NavRow key={d} active={active === "departments" && d === "Commercial"}>
-            {d}
-          </NavRow>
-        ))}
+        <NavRow active={active === "home"}>Home</NavRow>
+        <NavRow active={active === "departments"}>Departments</NavRow>
       </div>
       <div className="flex flex-col gap-[3px]">
         <NavCaption>Knowledge</NavCaption>
@@ -247,15 +234,23 @@ export function AppWindow({
   active,
   crumbs,
   rail = "workspace",
+  compact = false,
   children,
 }: {
   active: PlatformActive;
   crumbs: string[];
   rail?: "workspace" | "admin";
+  /** A shorter window with tighter main padding, for the backend beat. */
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-[440px] overflow-hidden rounded-2xl border border-hairline-strong bg-background shadow-[0_1px_2px_rgba(26,24,22,0.04),0_2px_8px_-2px_rgba(26,24,22,0.05),0_50px_80px_-44px_rgba(40,52,80,0.34)]">
+    <div
+      className={cn(
+        "flex overflow-hidden rounded-2xl border border-hairline-strong bg-background shadow-[0_1px_2px_rgba(26,24,22,0.04),0_2px_8px_-2px_rgba(26,24,22,0.05),0_50px_80px_-44px_rgba(40,52,80,0.34)]",
+        compact ? "min-h-[360px]" : "min-h-[440px]",
+      )}
+    >
       {rail === "admin" ? (
         <AdminRailMock active={active} />
       ) : (
@@ -263,7 +258,14 @@ export function AppWindow({
       )}
       <div className="flex min-w-0 flex-1 flex-col bg-background">
         <TopBar crumbs={crumbs} />
-        <div className="min-w-0 flex-1 px-7 pb-[30px] pt-[26px]">{children}</div>
+        <div
+          className={cn(
+            "min-w-0 flex-1 px-7",
+            compact ? "py-5" : "pb-[30px] pt-[26px]",
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

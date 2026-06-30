@@ -131,6 +131,10 @@ export function PlatformSection() {
                     : "min-[1181px]:grid-cols-[1.95fr_1fr]",
                 )}
               >
+                {/* Text first in DOM, so on collapse (single column) the
+                    number + eyebrow + title label always sits ABOVE its window,
+                    regardless of order utilities. */}
+                <AreaText area={area} reversed={reversed} />
                 <div
                   className={cn(
                     "order-2 min-w-0",
@@ -143,7 +147,6 @@ export function PlatformSection() {
                     <area.Surface />
                   </AppWindow>
                 </div>
-                <AreaText area={area} reversed={reversed} />
               </div>
             );
           })}
