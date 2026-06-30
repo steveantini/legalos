@@ -181,8 +181,9 @@ export default function FeaturesPage() {
           stored: legalOS keeps an inventory of what&rsquo;s there, not the
           documents themselves. Ask an institutional question across the folders
           you choose, like which of our vendor agreements auto-renew, and get a
-          clear answer backed by citations, with a short supporting quote from
-          each document so you can verify it. Every document in scope is read
+          clear answer backed by citations, and for each document it draws on,
+          it shows you the exact line it used, so you can check the answer
+          against the source yourself. Every document in scope is read
           live, where it lives, and never copied; legalOS stores no full text
           and builds no search index over your documents, keeping only the
           findings and the short cited quotes that back up an answer.

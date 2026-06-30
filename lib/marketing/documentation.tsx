@@ -527,8 +527,8 @@ export const DOC_PAGES: DocPage[] = [
             reads every document in scope live, where it lives, and never copies
             it; legalOS stores no full text of your documents and builds no
             search index over them. What it keeps for an answer is the findings
-            and a short supporting quote from each document, so you can verify
-            the result.
+            and the exact line from each document it used, so you can check the
+            result against the source.
           </p>
         </MarketingSection>
         <MarketingSection title="When a run is too large">
@@ -1237,10 +1237,10 @@ export const DOC_PAGES: DocPage[] = [
         <MarketingSection title="Research and Structured Query">
           <p>
             Two tools ask over the folders you choose, and they differ by design.
-            Research reads and reasons: it is non-deterministic, weighing and
+            Research reads and reasons: non-deterministic, weighing and
             interpreting like a careful analyst, the right tool when a question
             needs judgment rather than a count. Structured Query answers exactly:
-            it is deterministic, so the same question returns the same precise,
+            deterministic, so the same question returns the same precise,
             repeatable count every time. Both read documents live and cite a
             short supporting quote so an answer is verifiable.
           </p>

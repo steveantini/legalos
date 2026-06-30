@@ -305,7 +305,8 @@ export function KnowledgeSurface() {
           Knowledge
         </h1>
         <p className="max-w-[56ch] font-sans text-[13px] font-normal leading-[1.5] text-muted-foreground">
-          Your documents, searchable in plain language, without moving them.
+          Keep your documents as a single source of truth. legalOS reads them
+          where they live, always the current version.
         </p>
       </div>
 

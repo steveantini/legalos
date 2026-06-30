@@ -57,10 +57,11 @@ export default async function ResearchPage() {
             Research
           </h1>
           <p className="mt-[14px] max-w-[62ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            Pick the folders to ask over, then ask. Every document in scope is
-            read where it lives and the answer comes back with citations and
-            per-document findings. Research is non-deterministic by design: it
-            reads and reasons over your documents, weighing and interpreting
+            Choose your folders and ask. legalOS reads each document where it
+            lives and gives you an answer backed by citations, so you can see
+            exactly what it found in each one. Research is non-deterministic by
+            design: it reads and reasons over your documents, weighing and
+            interpreting
             rather than just matching, so it is the right tool when a question
             needs judgment, not a precise count.
           </p>

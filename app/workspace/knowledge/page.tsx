@@ -28,7 +28,7 @@ const KNOWLEDGE_CHILDREN: ReadonlyArray<{
   {
     title: "Research",
     href: "/workspace/knowledge/research",
-    description: `Ask a question across the folders you choose and get a clear answer backed by citations, with a short supporting quote from each document so you can verify it. Your documents are read live from where they live, never copied, and ${PRODUCT_NAME} tells you plainly if anything couldn't be read.`,
+    description: `Ask a question across the folders you choose and get a clear answer backed by citations, and for each document it draws on, it shows you the exact line it used, so you can check the answer against the source yourself. Your documents are read live from where they live, never copied, and ${PRODUCT_NAME} tells you plainly if anything couldn't be read.`,
   },
   {
     title: "Structured Query",
@@ -45,13 +45,14 @@ export default function KnowledgePage() {
             Knowledge
           </h1>
           <p className="mt-[14px] max-w-[62ch] text-[14.5px] leading-[1.5] text-muted-foreground">
-            Your team&rsquo;s documents, searchable in plain language, without
-            moving them. Point {PRODUCT_NAME} at folders in the drives you
-            already use, then ask. Two ways to ask: Research reads and reasons
-            (it is non-deterministic, weighing and interpreting like a careful
-            analyst), and Structured Query answers exactly (it is deterministic,
-            so the same question always returns the same precise, repeatable
-            result).
+            Keep your documents as a single source of truth. {PRODUCT_NAME}
+            reads them where they live and always works from the current
+            version, so nothing forks, drifts, or falls out of sync. Point{" "}
+            {PRODUCT_NAME} at folders in the drives you already use, then ask.
+            Two ways to ask: Research reads and reasons (non-deterministic: it
+            weighs and interprets like a careful analyst), and Structured Query
+            answers exactly (deterministic: the same question always returns the
+            same precise, repeatable result).
           </p>
         </div>
         <HelpLink topic="knowledge" className="mt-3" />
