@@ -123,14 +123,36 @@ function PersonaBlock({
 const RAIL_BASE =
   "flex w-[196px] shrink-0 flex-col gap-5 self-stretch border-r border-hairline bg-background px-3 py-5";
 
-/** Workspace rail (presentational mirror of WorkspaceRail). */
+/**
+ * Workspace rail (presentational mirror of the shipping WorkspaceRail).
+ * Mirrors the real structure: a bare top-level Home, then the practice areas
+ * listed under a DEPARTMENTS section heading (truncated for height), then the
+ * Knowledge / Workflows / Help sections.
+ */
 function WorkspaceRailMock({ active }: { active: PlatformActive }) {
+  const practiceAreas = [
+    "Commercial",
+    "Corporate",
+    "Privacy",
+    "Litigation",
+    "Regulatory",
+  ];
   return (
     <nav className={RAIL_BASE} aria-hidden>
       <BrandRow />
       <div className="flex flex-col gap-[3px]">
         <NavRow active={active === "home"}>Home</NavRow>
-        <NavRow active={active === "departments"}>Departments</NavRow>
+      </div>
+      <div className="flex flex-col gap-[3px]">
+        <NavCaption>Departments</NavCaption>
+        {practiceAreas.map((area) => (
+          <NavRow
+            key={area}
+            active={active === "departments" && area === "Commercial"}
+          >
+            {area}
+          </NavRow>
+        ))}
       </div>
       <div className="flex flex-col gap-[3px]">
         <NavCaption>Knowledge</NavCaption>

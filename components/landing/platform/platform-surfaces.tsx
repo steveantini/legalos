@@ -66,12 +66,17 @@ export function WorkspaceSurface() {
     },
     { label: "AGENT RUNS", value: "128", hint: "this month" },
   ];
+  // Fully invented, neutral, apolitical feed names. No real publication or
+  // show is referenced.
   const desk = [
     {
-      source: "STRATECHERY",
-      title: "The platform shift reshaping legal tooling",
+      source: "LEGAL AI PODCAST",
+      title: "How agents are reshaping in-house legal work",
     },
-    { source: "LAWFARE", title: "This week in privacy enforcement" },
+    {
+      source: "LEGAL OPERATIONS TECH DAILY",
+      title: "This week in legal operations and privacy",
+    },
   ];
   return (
     <div className="flex flex-col gap-[22px]">

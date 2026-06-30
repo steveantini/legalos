@@ -41,7 +41,7 @@ function Chip({ children }: { children: string }) {
 
 function Facet({ tag, title, body, chips }: (typeof FACETS)[number]) {
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className="flex min-w-0 flex-col gap-3.5">
       <Mono className="text-[11px] tracking-[0.18em] text-primary">{tag}</Mono>
       <h3 className="font-sans text-[21px] font-[450] leading-[1.2] tracking-[-0.02em] text-foreground">
         {title}
