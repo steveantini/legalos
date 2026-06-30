@@ -87,7 +87,7 @@ Last full truth pass: 2026-06-30 (D-218, the six-section reorg).
 | Govern · Audit log records privileged actions (role changes, deactivations) for administrators to read | D-083 (audit log) |
 | Measure · Insights: adoption and engagement from real, measured usage | D-082/D-144 (Insights) |
 | Measure · Productivity: estimates time and cost saved, combining measured usage with assumptions you control (salary, time per task); measured vs. estimate labeled wherever a number shows | D-142 (hybrid calculator), D-177 (agent-mapped, measured-only volume), D-142/D-145 (the honesty line) |
-| Measure · Evals: how you check that outputs meet your standard | `app/workspace/admin/evals/page.tsx` + `lib/admin/nav.ts` (the Evals MEASURE item). NOTE: Evals A5 is a coming-soon stub (`AdminComingSoon`), deferred as an open design question; the copy describes its purpose, not a shipped surface. Flag for the next truth pass if it must be marked coming-soon explicitly |
+| Measure · Evals (coming soon): will be how you check that outputs meet your standard; marked coming-soon on the page, not claimed as shipped | `app/workspace/admin/evals/page.tsx` + `lib/admin/nav.ts` (the Evals MEASURE item is a coming-soon stub, `AdminComingSoon`; A5 deferred as an open design question). The page now marks it "(coming soon)" with future tense, consistent with Matters |
 
 ## Control on your terms (`#control`)
 
@@ -102,4 +102,4 @@ Last full truth pass: 2026-06-30 (D-218, the six-section reorg).
 
 | Claim | Source |
 |---|---|
-| "Everything above is shipped capability, except where it is marked coming soon" | The D-126 standing rule; this map is its enforcement. The one "coming soon" marker is Matters; Evals is the deferred A5 (see the note above) |
+| "Everything above is shipped capability, except where it is marked coming soon" | The D-126 standing rule; this map is its enforcement. Two items carry the "(coming soon)" marker: Matters (CLM sync, roadmap item 2) and Evals (the deferred A5 stub) |

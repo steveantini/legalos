@@ -196,8 +196,8 @@ export default function FeaturesPage() {
           saves, combining that measured usage with assumptions you control like
           salary and time saved per task. Usage is measured; the return is an
           estimate you shape, and legalOS labels which is which wherever it shows
-          a number. <LeadIn>Evals</LeadIn>{" "}are how you check that outputs meet
-          your standard.
+          a number. <LeadIn>Evals (coming soon)</LeadIn>{" "}will be how you
+          check that outputs meet your standard.
         </p>
       </MarketingSection>
 
