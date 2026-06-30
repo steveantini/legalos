@@ -102,7 +102,15 @@ function AreaText({ area, reversed }: { area: Area; reversed: boolean }) {
 export function PlatformSection() {
   return (
     <section className="border-t border-hairline px-6 pb-[84px] pt-[76px] min-[720px]:px-10">
-      <div className="flex max-w-[1340px] flex-col gap-[60px]">
+      {/* Uniform scale-down of the whole section (header, rows, windows) to a
+          tighter, more comfortable size, with internal proportions identical.
+          zoom reflows layout (unlike transform: scale) and keeps text crisp;
+          the px padding stays on the section, so the left edge holds at 40px and
+          stays aligned with the hero. */}
+      <div
+        className="flex max-w-[1340px] flex-col gap-[60px]"
+        style={{ zoom: 0.85 }}
+      >
         <div className="flex max-w-[900px] flex-col gap-4">
           <Mono className="text-[11px] tracking-[0.2em] text-primary">
             INSIDE THE PLATFORM

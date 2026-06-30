@@ -542,11 +542,11 @@ function AdminRowStatic({
   description: string;
 }) {
   return (
-    <div className="border-b border-hairline py-2.5 last:border-b-0">
-      <p className="font-sans text-[13px] font-medium leading-[1.2] text-foreground">
+    <div className="border-b border-hairline py-[7px] last:border-b-0">
+      <p className="font-sans text-[12.5px] font-medium leading-[1.2] text-foreground">
         {label}
       </p>
-      <p className="mt-1 font-sans text-[11.5px] font-normal leading-[1.4] text-caption">
+      <p className="mt-0.5 font-sans text-[11px] font-normal leading-[1.35] text-caption">
         {description}
       </p>
     </div>
@@ -572,11 +572,11 @@ function AuditPeek() {
     },
   ];
   return (
-    <div className="rounded-[14px] border border-hairline bg-paper-2 px-[18px] py-3.5">
+    <div className="rounded-[14px] border border-hairline bg-paper-2 px-[18px] py-3">
       <Mono className="text-[10px] tracking-[0.14em] text-caption">
         AUDIT LOG
       </Mono>
-      <div className="mt-3 flex flex-col gap-2.5">
+      <div className="mt-2.5 flex flex-col gap-2">
         {rows.map((r) => (
           <div key={r.title} className="flex items-start gap-2.5">
             <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
@@ -602,7 +602,7 @@ function AuditPeek() {
 
 export function AdminSurface() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
         <h1 className="font-sans text-[22px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground">
           Admin

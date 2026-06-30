@@ -49,7 +49,10 @@ function Facet({ tag, title, body, chips }: (typeof FACETS)[number]) {
       <p className="max-w-[36ch] font-sans text-[14.5px] font-normal leading-[1.6] text-muted-foreground">
         {body}
       </p>
-      <div className="mt-0.5 flex flex-wrap gap-2">
+      {/* Capped to the body-text width so the chips wrap to match the
+          paragraph above them instead of running on one line past the text
+          column. max-w plus flex-wrap is what forces the wrap. */}
+      <div className="mt-0.5 flex max-w-[34ch] flex-wrap gap-2">
         {chips.map((chip) => (
           <Chip key={chip}>{chip}</Chip>
         ))}
@@ -61,7 +64,13 @@ function Facet({ tag, title, body, chips }: (typeof FACETS)[number]) {
 export function ControlSection() {
   return (
     <section className="border-t border-hairline bg-paper-2 px-6 pb-[84px] pt-[76px] min-[720px]:px-10">
-      <div className="flex max-w-[1340px] flex-col gap-[52px]">
+      {/* Same uniform scale-down as the platform section (see its note): zoom
+          the inner content, keep the padding on the section so the left edge
+          stays aligned with the hero. */}
+      <div
+        className="flex max-w-[1340px] flex-col gap-[52px]"
+        style={{ zoom: 0.85 }}
+      >
         <div className="flex max-w-[820px] flex-col gap-4">
           <Mono className="text-[11px] tracking-[0.2em] text-primary">
             CONTROL ON YOUR TERMS

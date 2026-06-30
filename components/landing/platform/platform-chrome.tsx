@@ -270,7 +270,7 @@ export function AppWindow({
     <div
       className={cn(
         "flex overflow-hidden rounded-2xl border border-hairline-strong bg-background shadow-[0_1px_2px_rgba(26,24,22,0.04),0_2px_8px_-2px_rgba(26,24,22,0.05),0_50px_80px_-44px_rgba(40,52,80,0.34)]",
-        compact ? "min-h-[360px]" : "min-h-[440px]",
+        compact ? "min-h-[300px]" : "min-h-[440px]",
       )}
     >
       {rail === "admin" ? (
@@ -283,7 +283,7 @@ export function AppWindow({
         <div
           className={cn(
             "min-w-0 flex-1 px-7",
-            compact ? "py-5" : "pb-[30px] pt-[26px]",
+            compact ? "py-4" : "pb-[30px] pt-[26px]",
           )}
         >
           {children}
