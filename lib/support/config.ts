@@ -7,4 +7,4 @@
  * LINE: set it to true and the assistant appears for every visitor, with
  * the rate limits, length caps, and the daily resting cap already in force.
  */
-export const SUPPORT_ASSISTANT_PUBLIC = false;
+export const SUPPORT_ASSISTANT_PUBLIC = true;
