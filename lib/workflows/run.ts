@@ -310,27 +310,74 @@ async function insertPendingApproval(
   }
 }
 
+/**
+ * Interactive run entry (v1: manual start). Resolves the caller's identity from
+ * the cookie session and delegates to the headless core `executeWorkflowRunWith`.
+ *
+ * BEHAVIOR-PRESERVING (D-220): this is byte-for-byte the same observable behavior
+ * as the pre-D-220 inlined version — the same return shape, the same error
+ * branches (including `unauthenticated`, returned BEFORE any DB client is
+ * created), the same op ordering, and the same never-throws contract (the outer
+ * try/catch still turns a thrown identity/client-resolution error into
+ * internal_error, exactly as the original single catch did).
+ */
 export async function executeWorkflowRun(params: {
   definitionId: string;
   runInput: unknown;
   autonomyLevel?: AutonomyLevel;
 }): Promise<WorkflowRunResult> {
-  const { definitionId, runInput } = params;
-  const autonomyLevel: AutonomyLevel = params.autonomyLevel ?? "supervised";
-
-  let runId: string | null = null;
-  let supabase: SupabaseServerClient | null = null;
-
   try {
     const profile = await getCurrentUserProfile();
     if (!profile || !profile.organization_id) {
       return { ok: false, error: "unauthenticated" };
     }
-    const organizationId = profile.organization_id;
-    const userId = profile.id;
+    const supabase = await createSupabaseServerClient();
+    return await executeWorkflowRunWith({
+      supabase,
+      organizationId: profile.organization_id,
+      userId: profile.id,
+      definitionId: params.definitionId,
+      runInput: params.runInput,
+      autonomyLevel: params.autonomyLevel,
+    });
+  } catch (err) {
+    console.error("executeWorkflowRun failed", err);
+    return { ok: false, error: "internal_error" };
+  }
+}
 
-    supabase = await createSupabaseServerClient();
+/**
+ * Headless run core (D-220): execute a workflow run given an already-resolved DB
+ * client + identity, so a caller with NO request session can drive a run exactly
+ * as the interactive path does. This is the reusable seam the watcher arc's
+ * scheduled-run cron (Stage 1) hangs off: it resolves the schedule's org + human
+ * owner and passes a service-role client with `userId = owner_user_id` (option
+ * 2c). Because the run's `triggered_by` is that human owner, the EXISTING
+ * owner-scoped RLS admits their pause/approve/resume/read with ZERO policy change.
+ *
+ * `supabase` is the client every read + write in the run flows through: the cookie
+ * (RLS-enforced) client for the interactive path, or the service-role client for
+ * the headless path — which bypasses RLS and therefore scopes the org itself, via
+ * the passed `organizationId` and the definition fetch below. Everything BELOW
+ * this seam (the pure engine, runAgent, resolveOrgMcpTools, executeMcpTool) is
+ * unchanged and already takes explicit org/user arguments.
+ *
+ * Never throws: any failure resolves to a typed { ok: false, error }.
+ */
+export async function executeWorkflowRunWith(params: {
+  supabase: SupabaseServerClient;
+  organizationId: string;
+  userId: string;
+  definitionId: string;
+  runInput: unknown;
+  autonomyLevel?: AutonomyLevel;
+}): Promise<WorkflowRunResult> {
+  const { supabase, organizationId, userId, definitionId, runInput } = params;
+  const autonomyLevel: AutonomyLevel = params.autonomyLevel ?? "supervised";
 
+  let runId: string | null = null;
+
+  try {
     const { data: defRow, error: defErr } = await supabase
       .from("workflow_definitions")
       .select("id, status, definition")
@@ -415,7 +462,9 @@ export async function executeWorkflowRun(params: {
     return { ok: true, runId: id, status: segment.status };
   } catch (err) {
     console.error("executeWorkflowRun failed", err);
-    if (runId && supabase) {
+    // `supabase` is a guaranteed param here; runId is set only after the run row
+    // inserts, so this mirrors the pre-D-220 `if (runId && supabase)` cleanup.
+    if (runId) {
       await supabase
         .from("workflow_runs")
         .update({

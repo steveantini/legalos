@@ -45,7 +45,11 @@ vi.mock("@/lib/connections/mcp/execute-tool", () => ({ executeMcpTool: vi.fn() }
 vi.mock("@/lib/connections/mcp/tool-classification", () => ({ classifyMcpTool: vi.fn() }));
 vi.mock("@/lib/workflows/agent-task", () => ({ composeAgentTask: (_i: string, x: string) => x }));
 
-import { executeWorkflowRun, resumeWorkflowApproval } from "./run";
+import {
+  executeWorkflowRun,
+  executeWorkflowRunWith,
+  resumeWorkflowApproval,
+} from "./run";
 
 interface Query {
   table: string;
@@ -249,6 +253,102 @@ describe("executeWorkflowRun — persistence orchestration", () => {
     expect(
       calls.some((c) => c.table === "workflow_pending_approvals" && c.op === "insert"),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// executeWorkflowRunWith — the headless core (D-220)
+// ---------------------------------------------------------------------------
+
+/** Like makeDb, but captures insert payloads so a test can assert what was
+ *  persisted (the base fake only records table + op). */
+function makeCapturingDb(
+  respond: (q: Query) => { data?: unknown; error?: unknown },
+  inserts: Array<{ table: string; payload: unknown }>,
+) {
+  return {
+    from(table: string) {
+      const q: Query = { table, op: "select", terminal: null, count: false };
+      const b = {
+        select() {
+          return b;
+        },
+        insert(payload: unknown) {
+          q.op = "insert";
+          inserts.push({ table, payload });
+          return b;
+        },
+        update() {
+          q.op = "update";
+          return b;
+        },
+        eq() {
+          return b;
+        },
+        neq() {
+          return b;
+        },
+        order() {
+          return b;
+        },
+        maybeSingle() {
+          q.terminal = "maybeSingle";
+          return Promise.resolve(respond(q));
+        },
+        single() {
+          q.terminal = "single";
+          return Promise.resolve(respond(q));
+        },
+        then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
+          if (!q.terminal) q.terminal = "list";
+          return Promise.resolve(respond(q)).then(resolve, reject);
+        },
+      };
+      return b;
+    },
+  };
+}
+
+describe("executeWorkflowRunWith — headless core", () => {
+  it("uses the passed client + identity, never the session, and attributes triggered_by to the passed owner (2c)", async () => {
+    const inserts: Array<{ table: string; payload: unknown }> = [];
+    const db = makeCapturingDb((q) => {
+      if (q.table === "workflow_definitions")
+        return {
+          data: { id: "d1", status: "active", definition: { steps: [] } },
+          error: null,
+        };
+      if (q.table === "workflow_runs" && q.op === "insert")
+        return { data: { id: "run-9" }, error: null };
+      return { data: null, error: null };
+    }, inserts);
+    mocks.runWorkflow.mockResolvedValue({
+      status: "completed",
+      steps: [],
+      pending: undefined,
+      error: null,
+    });
+
+    const r = await executeWorkflowRunWith({
+      supabase: db as never,
+      organizationId: "org-7",
+      userId: "owner-9",
+      definitionId: "d1",
+      runInput: "x",
+    });
+
+    expect(r).toEqual({ ok: true, runId: "run-9", status: "completed" });
+    // Headless: the cookie-session helpers are never consulted.
+    expect(mocks.getCurrentUserProfile).not.toHaveBeenCalled();
+    expect(mocks.createSupabaseServerClient).not.toHaveBeenCalled();
+    // Option 2c: the run row is attributed to the passed human owner + org.
+    const runInsert = inserts.find((i) => i.table === "workflow_runs");
+    const payload = runInsert?.payload as {
+      triggered_by?: string;
+      organization_id?: string;
+    };
+    expect(payload?.triggered_by).toBe("owner-9");
+    expect(payload?.organization_id).toBe("org-7");
   });
 });
 
