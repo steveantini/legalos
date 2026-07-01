@@ -21,6 +21,7 @@ import {
   type WorkflowEngineDeps,
 } from "@/lib/workflows/engine";
 import { composeAgentTask } from "@/lib/workflows/agent-task";
+import { isNativeAction, runNativeAction } from "@/lib/workflows/native-actions";
 import {
   asWorkflowDefinition,
   validateWorkflowDefinition,
@@ -186,6 +187,23 @@ function buildEngineDeps(args: {
       step: ToolActionStep,
       stepArgs: Record<string, unknown>,
     ): Promise<ToolActionOutcome> => {
+      // NATIVE ACTIONS (legalOS-internal deterministic effects) dispatch INLINE
+      // before the MCP target lookup — never routed to a server — mirroring the
+      // chat loop's research_collections native tool. They are internal effects
+      // (not external writes), so they execute inline and never pause for
+      // approval (the approval gate is for changes OUTSIDE legalOS).
+      if (isNativeAction(step.serverId, step.toolName)) {
+        const res = await runNativeAction({
+          toolName: step.toolName,
+          supabase,
+          organizationId,
+          workflowRunId,
+          args: stepArgs,
+        });
+        return res.ok
+          ? { kind: "executed", ok: true, output: res.output }
+          : { kind: "executed", ok: false, output: null, error: res.error };
+      }
       const target = mcp.targets.find((t) => t.serverId === step.serverId);
       const descriptor = target?.tools?.find((d) => d.name === step.toolName);
       if (!target || !descriptor) {
@@ -408,6 +426,10 @@ export async function executeWorkflowRunWith(params: {
         return Boolean(data);
       },
       classifyTool: async (serverId: string, toolName: string) => {
+        // A native action is a known, governed tool_action target: classify it
+        // "read" so validation passes and it never triggers the write-approval
+        // pause (it is an internal effect, executed inline by runToolActionStep).
+        if (isNativeAction(serverId, toolName)) return "read";
         const target = mcp.targets.find((t) => t.serverId === serverId);
         const descriptor = target?.tools?.find((d) => d.name === toolName);
         return descriptor ? classifyMcpTool(descriptor) : null;

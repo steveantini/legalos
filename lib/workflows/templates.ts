@@ -1,4 +1,8 @@
-import type { WorkflowStep } from "@/lib/workflows/types";
+import {
+  NATIVE_ACTIONS_SERVER_ID,
+  RENEWAL_SCAN_ACTION,
+} from "@/lib/workflows/native-actions-shared";
+import type { ValueSource, WorkflowStep } from "@/lib/workflows/types";
 
 /**
  * Starter workflow templates (Workflows arc Step 5).
@@ -43,6 +47,16 @@ export type TemplateStepSpec =
       type: "human_checkpoint";
       name: string;
       prompt: string;
+    }
+  | {
+      id: string;
+      type: "tool_action";
+      name: string;
+      /** MCP server id, or the reserved native serverId for an internal action. */
+      serverId: string;
+      toolName: string;
+      /** argName → value source (e.g. the watcher's config from the run input). */
+      argMapping?: Record<string, ValueSource>;
     };
 
 export type WorkflowTemplateSpec = {
@@ -174,16 +188,60 @@ export function resolveTemplateSteps(
 
   return {
     ok: true,
-    steps: spec.steps.map((s) =>
-      s.type === "agent"
-        ? {
-            id: s.id,
-            type: "agent",
-            name: s.name,
-            agentId: agentIdBySlug.get(s.agentSlug) as string,
-            instruction: s.instruction,
-          }
-        : { id: s.id, type: "human_checkpoint", name: s.name, prompt: s.prompt },
-    ),
+    steps: spec.steps.map((s): WorkflowStep => {
+      if (s.type === "agent") {
+        return {
+          id: s.id,
+          type: "agent",
+          name: s.name,
+          agentId: agentIdBySlug.get(s.agentSlug) as string,
+          instruction: s.instruction,
+        };
+      }
+      if (s.type === "tool_action") {
+        // No slug resolution — a tool_action references a server + tool directly
+        // (an MCP target, or the reserved native serverId for an internal action).
+        return {
+          id: s.id,
+          type: "tool_action",
+          name: s.name,
+          serverId: s.serverId,
+          toolName: s.toolName,
+          ...(s.argMapping ? { argMapping: s.argMapping } : {}),
+        };
+      }
+      return { id: s.id, type: "human_checkpoint", name: s.name, prompt: s.prompt };
+    }),
   };
 }
+
+/**
+ * The renewal watcher (watcher arc, Stage 2, D-221). Deliberately NOT in
+ * STARTER_WORKFLOW_TEMPLATES: Stage 2 ships dark, so this spec is not seeded into
+ * any org's Template Library gallery. The Stage-2 fixture seed forks it into an
+ * ACTIVE definition + a schedule directly (via resolveTemplateSteps + the same
+ * validator); Stage 3 surfaces it as a gallery template by adding it to the
+ * starter array.
+ *
+ * A single native-action step: the deterministic renewal scan + finding write,
+ * executed inline by the engine (dispatched through runToolActionStep before the
+ * MCP lookup). Its config rides the run input (mapped onto the `config` arg): the
+ * schedule provides { collectionId, windowDays, findingKind, isFixture } and the
+ * cron injects scheduleId at run time.
+ */
+export const RENEWAL_WATCHER_TEMPLATE: WorkflowTemplateSpec = {
+  slug: "renewal-watcher",
+  name: "Renewal watcher",
+  description:
+    "Scans a collection of agreements for expirations coming up within the window and records one finding per agreement that is due, so nothing renews or lapses unnoticed.",
+  steps: [
+    {
+      id: "scan-renewals",
+      type: "tool_action",
+      name: "Scan for upcoming renewals",
+      serverId: NATIVE_ACTIONS_SERVER_ID,
+      toolName: RENEWAL_SCAN_ACTION,
+      argMapping: { config: { source: "run_input" } },
+    },
+  ],
+};

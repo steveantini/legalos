@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { isNativeAction } from "./native-actions-shared";
 import { validateWorkflowDefinition } from "./validate";
 import {
+  RENEWAL_WATCHER_TEMPLATE,
   STARTER_WORKFLOW_TEMPLATES,
   resolveTemplateSteps,
 } from "./templates";
@@ -96,5 +98,31 @@ describe("STARTER_WORKFLOW_TEMPLATES", () => {
     expect(
       agentSteps[0].type === "agent" && agentSteps[0].instruction,
     ).toMatch(/identify what kind of contract/i);
+  });
+
+  it("is NOT among the starters (Stage 2 keeps the renewal watcher out of the gallery)", () => {
+    expect(
+      STARTER_WORKFLOW_TEMPLATES.some((t) => t.slug === RENEWAL_WATCHER_TEMPLATE.slug),
+    ).toBe(false);
+  });
+});
+
+describe("RENEWAL_WATCHER_TEMPLATE (D-221)", () => {
+  it("resolves with no agents and passes the real validator (its native tool classifies read)", async () => {
+    const resolved = resolveTemplateSteps(RENEWAL_WATCHER_TEMPLATE, new Map());
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    const validation = await validateWorkflowDefinition(
+      { steps: resolved.steps },
+      {
+        isAgentRunnable: async () => false,
+        classifyTool: async (serverId, toolName) =>
+          isNativeAction(serverId, toolName) ? "read" : null,
+      },
+    );
+    expect(validation).toEqual({ ok: true });
+    // A single native tool_action step (the deterministic scan-and-record effect).
+    expect(resolved.steps).toHaveLength(1);
+    expect(resolved.steps[0].type).toBe("tool_action");
   });
 });

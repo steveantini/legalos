@@ -13,6 +13,7 @@
     "import-c4l": "tsx scripts/import-c4l-plugin.ts",
     "seed-builtin-agents": "tsx scripts/seed-builtin-agents.ts",
     "seed-workflow-templates": "tsx scripts/seed-workflow-templates.ts",
+    "seed-renewal-watcher-fixture": "tsx scripts/seed-renewal-watcher-fixture.ts",
     "mint-demo-token": "tsx scripts/mint-demo-token.ts",
     "reset-demo-org": "tsx scripts/reset-demo-org.ts"
   },

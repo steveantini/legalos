@@ -26,6 +26,7 @@ vi.mock("@/lib/workflows/run", () => ({
 import {
   buildLiveTickDeps,
   isAuthorizedCronRequest,
+  isRunInFlight,
   isScheduleDue,
   runDueSchedules,
   type DueSchedule,
@@ -40,6 +41,7 @@ const DUE: DueSchedule = {
   autonomyLevel: "supervised",
   runInput: null,
   cadenceSeconds: 900,
+  lastRunId: null,
 };
 
 beforeEach(() => {
@@ -116,6 +118,7 @@ function tickDeps(over: Partial<ScheduleTickDeps> = {}): ScheduleTickDeps {
   return {
     now: () => Date.parse("2026-07-01T12:00:00.000Z"),
     selectDueSchedules: async () => [],
+    hasInFlightRun: async () => false,
     claimSchedule: async () => true,
     runSchedule: async () => {},
     ...over,
@@ -129,7 +132,7 @@ describe("runDueSchedules", () => {
     const result = await runDueSchedules(
       tickDeps({ selectDueSchedules: async () => [], claimSchedule, runSchedule }),
     );
-    expect(result).toEqual({ due: 0, claimed: 0, ran: 0 });
+    expect(result).toEqual({ due: 0, skipped: 0, claimed: 0, ran: 0 });
     expect(claimSchedule).not.toHaveBeenCalled();
     expect(runSchedule).not.toHaveBeenCalled();
   });
@@ -143,7 +146,7 @@ describe("runDueSchedules", () => {
         runSchedule,
       }),
     );
-    expect(result).toEqual({ due: 1, claimed: 1, ran: 1 });
+    expect(result).toEqual({ due: 1, skipped: 0, claimed: 1, ran: 1 });
     expect(runSchedule).toHaveBeenCalledWith(DUE);
   });
 
@@ -156,7 +159,24 @@ describe("runDueSchedules", () => {
         runSchedule,
       }),
     );
-    expect(result).toEqual({ due: 1, claimed: 0, ran: 0 });
+    expect(result).toEqual({ due: 1, skipped: 0, claimed: 0, ran: 0 });
+    expect(runSchedule).not.toHaveBeenCalled();
+  });
+
+  it("SKIPS a due schedule whose prior run is still in flight (overlap guard, Stage 2)", async () => {
+    const claimSchedule = vi.fn(async () => true);
+    const runSchedule = vi.fn(async () => {});
+    const result = await runDueSchedules(
+      tickDeps({
+        selectDueSchedules: async () => [DUE],
+        hasInFlightRun: async () => true, // prior run paused / not terminal
+        claimSchedule,
+        runSchedule,
+      }),
+    );
+    expect(result).toEqual({ due: 1, skipped: 1, claimed: 0, ran: 0 });
+    // Guard runs BEFORE the claim — neither the claim nor the run is attempted.
+    expect(claimSchedule).not.toHaveBeenCalled();
     expect(runSchedule).not.toHaveBeenCalled();
   });
 
@@ -230,6 +250,10 @@ function recordingAdmin(
   chain.update = (...a: unknown[]) => rec("update", ...a);
   chain.eq = (...a: unknown[]) => rec("eq", ...a);
   chain.lte = (...a: unknown[]) => rec("lte", ...a);
+  chain.maybeSingle = () => {
+    calls.push({ m: "maybeSingle", args: [] });
+    return Promise.resolve(result);
+  };
   chain.then = (
     resolve: (v: unknown) => unknown,
     reject?: (e: unknown) => unknown,
@@ -276,6 +300,7 @@ describe("buildLiveTickDeps", () => {
         autonomyLevel: "supervised",
         runInput: null,
         cadenceSeconds: 900,
+        lastRunId: null,
       },
     ]);
   });
@@ -310,14 +335,63 @@ describe("buildLiveTickDeps", () => {
       runId: "run-1",
       status: "completed",
     });
-    await buildLiveTickDeps().runSchedule(DUE);
+    await buildLiveTickDeps().runSchedule({ ...DUE, runInput: { collectionId: "c1" } });
     expect(mocks.executeWorkflowRunWith).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: "org-1",
         userId: "owner-1",
         definitionId: "def-1",
         autonomyLevel: "supervised",
+        // Stage 2: the schedule id is injected into the run input (alongside the
+        // schedule's own config) so the native watcher effect can stamp findings.
+        runInput: { collectionId: "c1", scheduleId: "sch-1" },
       }),
     );
+  });
+
+  it("hasInFlightRun: false when there is no prior run; reads status otherwise", async () => {
+    // No last run ⇒ nothing in flight, no query.
+    mocks.createSupabaseAdminClient.mockReturnValue(recordingAdmin({ data: null, error: null }, []));
+    expect(await buildLiveTickDeps().hasInFlightRun(DUE)).toBe(false);
+
+    // A prior run still running ⇒ in flight.
+    mocks.createSupabaseAdminClient.mockReturnValue(
+      recordingAdmin({ data: { status: "running" }, error: null }, []),
+    );
+    expect(
+      await buildLiveTickDeps().hasInFlightRun({ ...DUE, lastRunId: "run-9" }),
+    ).toBe(true);
+
+    // A prior run that completed ⇒ not in flight.
+    mocks.createSupabaseAdminClient.mockReturnValue(
+      recordingAdmin({ data: { status: "completed" }, error: null }, []),
+    );
+    expect(
+      await buildLiveTickDeps().hasInFlightRun({ ...DUE, lastRunId: "run-9" }),
+    ).toBe(false);
+
+    // A read error ⇒ fail SAFE (treat as in flight, so we skip rather than double-run).
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.createSupabaseAdminClient.mockReturnValue(
+      recordingAdmin({ data: null, error: { code: "XX000" } }, []),
+    );
+    expect(
+      await buildLiveTickDeps().hasInFlightRun({ ...DUE, lastRunId: "run-9" }),
+    ).toBe(true);
+  });
+});
+
+describe("isRunInFlight", () => {
+  it("treats pending / running / awaiting_approval as in flight", () => {
+    for (const s of ["pending", "running", "awaiting_approval"]) {
+      expect(isRunInFlight(s)).toBe(true);
+    }
+  });
+  it("treats terminal statuses and absent status as settled", () => {
+    for (const s of ["completed", "failed", "cancelled"]) {
+      expect(isRunInFlight(s)).toBe(false);
+    }
+    expect(isRunInFlight(null)).toBe(false);
+    expect(isRunInFlight(undefined)).toBe(false);
   });
 });

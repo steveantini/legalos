@@ -11,8 +11,10 @@ import type { AutonomyLevel } from "@/lib/workflows/types";
  * (executeWorkflowRunWith) attributing every run to the schedule's human owner
  * (option 2c).
  *
- * SHIPS DARK: workflow_schedules is empty in Stage 1, so `selectDueSchedules`
- * returns [] and the whole tick is a genuine no-op. Nothing writes the table yet.
+ * Stage 2 (D-221) adds the OVERLAP GUARD: a schedule whose prior run is still in
+ * flight (paused for days at an approval gate) is skipped, so it never spawns a
+ * second concurrent run. Until a schedule exists (the Stage-2 fixture seed is the
+ * first writer), `selectDueSchedules` returns [] and the tick is a genuine no-op.
  *
  * The orchestrator (`runDueSchedules`) is dependency-injected so it is unit-tested
  * over fakes with no DB — the same pattern the pure engine uses (runWorkflow with
@@ -30,7 +32,27 @@ export type DueSchedule = {
   autonomyLevel: AutonomyLevel;
   runInput: unknown;
   cadenceSeconds: number;
+  /** The most recent run this schedule spawned (Stage 1 last_run_id), or null —
+   *  the schedule↔run linkage the overlap guard (Stage 2, D-221) reads. */
+  lastRunId: string | null;
 };
+
+/**
+ * The workflow run statuses that are still IN FLIGHT (not terminal). Reuses the
+ * workflow run vocabulary (no new states): terminal = completed | failed |
+ * cancelled. The overlap guard skips a schedule whose last run is in flight, so a
+ * run paused for days at an approval gate never spawns a second concurrent run.
+ */
+const NON_TERMINAL_RUN_STATUSES = new Set<string>([
+  "pending",
+  "running",
+  "awaiting_approval",
+]);
+
+/** True when a run status is non-terminal (still in flight). */
+export function isRunInFlight(status: string | null | undefined): boolean {
+  return status != null && NON_TERMINAL_RUN_STATUSES.has(status);
+}
 
 /**
  * Bearer-secret auth for the cron route (net-new CRON_SECRET convention, D-220).
@@ -67,13 +89,21 @@ export function isScheduleDue(
 export type ScheduleTickDeps = {
   now: () => number;
   selectDueSchedules: (nowIso: string) => Promise<DueSchedule[]>;
+  /** Overlap guard (Stage 2, D-221): true iff the schedule's last run is still in
+   *  flight, in which case the tick SKIPS it (no claim, no second concurrent run). */
+  hasInFlightRun: (schedule: DueSchedule) => Promise<boolean>;
   /** Atomically claim a schedule for this tick. Returns true iff THIS caller won
    *  (rows-affected === 1). Only the winner proceeds to run. */
   claimSchedule: (schedule: DueSchedule, nowMs: number) => Promise<boolean>;
   runSchedule: (schedule: DueSchedule) => Promise<void>;
 };
 
-export type ScheduleTickResult = { due: number; claimed: number; ran: number };
+export type ScheduleTickResult = {
+  due: number;
+  skipped: number;
+  claimed: number;
+  ran: number;
+};
 
 /**
  * Run every due schedule for one cron tick. For each due schedule it CLAIMS
@@ -92,10 +122,18 @@ export async function runDueSchedules(
   const nowIso = new Date(nowMs).toISOString();
   const due = await deps.selectDueSchedules(nowIso);
 
+  let skipped = 0;
   let claimed = 0;
   let ran = 0;
   for (const schedule of due) {
     try {
+      // Overlap guard (Stage 2): if the prior run is still in flight (e.g. paused
+      // for days at an approval gate), skip this tick — do NOT claim or run, so
+      // the schedule never spawns a second concurrent run.
+      if (await deps.hasInFlightRun(schedule)) {
+        skipped += 1;
+        continue;
+      }
       const won = await deps.claimSchedule(schedule, nowMs);
       if (!won) continue;
       claimed += 1;
@@ -107,7 +145,7 @@ export async function runDueSchedules(
       console.error("schedule tick: a schedule failed", { scheduleId: schedule.id });
     }
   }
-  return { due: due.length, claimed, ran };
+  return { due: due.length, skipped, claimed, ran };
 }
 
 /**
@@ -127,7 +165,7 @@ export function buildLiveTickDeps(): ScheduleTickDeps {
       const { data, error } = await admin
         .from("workflow_schedules")
         .select(
-          "id, organization_id, workflow_definition_id, owner_user_id, autonomy_level, run_input, cadence_seconds",
+          "id, organization_id, workflow_definition_id, owner_user_id, autonomy_level, run_input, cadence_seconds, last_run_id",
         )
         .eq("enabled", true)
         .lte("next_run_at", nowIso);
@@ -143,7 +181,26 @@ export function buildLiveTickDeps(): ScheduleTickDeps {
         autonomyLevel: ((r.autonomy_level as AutonomyLevel) ?? "supervised"),
         runInput: (r.run_input as unknown) ?? null,
         cadenceSeconds: r.cadence_seconds as number,
+        lastRunId: (r.last_run_id as string | null) ?? null,
       }));
+    },
+
+    hasInFlightRun: async (schedule) => {
+      // No prior run ⇒ nothing in flight. Otherwise read that run's status and
+      // treat a non-terminal status as in flight (the overlap guard).
+      if (!schedule.lastRunId) return false;
+      const { data, error } = await admin
+        .from("workflow_runs")
+        .select("status")
+        .eq("id", schedule.lastRunId)
+        .maybeSingle();
+      if (error) {
+        console.error("workflow_runs status read failed", { code: error.code });
+        // Fail SAFE: if we cannot confirm the prior run settled, skip this tick
+        // rather than risk a concurrent second run.
+        return true;
+      }
+      return isRunInFlight((data as { status: string } | null)?.status);
     },
 
     claimSchedule: async (schedule, nowMs) => {
@@ -165,6 +222,14 @@ export function buildLiveTickDeps(): ScheduleTickDeps {
     },
 
     runSchedule: async (schedule) => {
+      // Inject the schedule id into the run input so a native watcher effect can
+      // stamp its findings with the schedule that produced them (Stage 2). The
+      // cron is the authoritative source of the triggering schedule id.
+      const base =
+        schedule.runInput && typeof schedule.runInput === "object"
+          ? (schedule.runInput as Record<string, unknown>)
+          : {};
+      const runInput = { ...base, scheduleId: schedule.id };
       const result = await executeWorkflowRunWith({
         supabase: admin,
         organizationId: schedule.organizationId,
@@ -172,7 +237,7 @@ export function buildLiveTickDeps(): ScheduleTickDeps {
         // existing owner-scoped RLS admits their pause/approve/resume/read.
         userId: schedule.ownerUserId,
         definitionId: schedule.workflowDefinitionId,
-        runInput: schedule.runInput,
+        runInput,
         autonomyLevel: schedule.autonomyLevel,
       });
       if (result.ok) {
