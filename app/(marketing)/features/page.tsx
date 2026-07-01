@@ -60,11 +60,14 @@ export default function FeaturesPage() {
       label="Product · Features"
       title="Features"
       lead="One place for a legal team’s daily work: agents organized the way your department is, workflows that run under human approval, knowledge that answers from your own documents, and the controls and measurement that make it safe to adopt. Here is the tour."
+      alignToWideBody
     >
       {/* The visual tour breaks out of the 736px reading column into a wider
           band (D-219) so each window sits beside its prose, alternating sides,
-          in the landing's rhythm. The heading/lead above and the prose-strong
-          close below stay in the reading column. */}
+          in the landing's rhythm. The header (eyebrow, title, lead) and back
+          link (via alignToWideBody), plus the prose-strong close below (its own
+          wrapper), all shift to that band's left edge at ≥1181px, so the whole
+          page reads down one left spine; the prose keeps a readable measure. */}
       <div className="min-[1181px]:-mx-[200px]">
         <FeatureRow
           id="workspace"
@@ -267,31 +270,36 @@ export default function FeaturesPage() {
         </FeatureRow>
       </div>
 
-      <MarketingSection id="control" title="Control on your terms">
-        <p>
-          <LeadIn>
-            legalOS shapes itself to how your team already operates, not the
-            other way around.
-          </LeadIn>{" "}It reaches the systems you already run, connecting to
-          official first-party servers or to ones your own organization hosts.
-          It is model-agnostic by design: use the AI managed through legalOS, or
-          bring your own model-provider account and run the work under your own
-          agreement and data boundary, so you hold the choice of model and your
-          exposure to its cost. And a person with the expertise stays in command
-          of the work: across every autonomy mode, anything that would change
-          something outside legalOS waits for a human to approve. The model is a
-          connection you control, the privacy of your work stays yours, and the
-          expert keeps the final say.
-        </p>
-      </MarketingSection>
+      {/* The close and back link share the header's spine: the same 200px
+          left shift at ≥1181px, measure preserved, so they align with the
+          FeatureRow band above rather than sitting inset in the reading column. */}
+      <div className="min-[1181px]:-ml-[200px] min-[1181px]:max-w-[736px]">
+        <MarketingSection id="control" title="Control on your terms">
+          <p>
+            <LeadIn>
+              legalOS shapes itself to how your team already operates, not the
+              other way around.
+            </LeadIn>{" "}It reaches the systems you already run, connecting to
+            official first-party servers or to ones your own organization hosts.
+            It is model-agnostic by design: use the AI managed through legalOS,
+            or bring your own model-provider account and run the work under your
+            own agreement and data boundary, so you hold the choice of model and
+            your exposure to its cost. And a person with the expertise stays in
+            command of the work: across every autonomy mode, anything that would
+            change something outside legalOS waits for a human to approve. The
+            model is a connection you control, the privacy of your work stays
+            yours, and the expert keeps the final say.
+          </p>
+        </MarketingSection>
 
-      <MarketingClosing>
-        Everything above is shipped capability, except where it is marked coming
-        soon. For the deeper security story, start with the{" "}
-        <MarketingProseLink href="/trust">Trust Center</MarketingProseLink>;
-        when you want to see it for yourself,{" "}
-        <MarketingProseLink href="/contact">get in touch</MarketingProseLink>.
-      </MarketingClosing>
+        <MarketingClosing>
+          Everything above is shipped capability, except where it is marked
+          coming soon. For the deeper security story, start with the{" "}
+          <MarketingProseLink href="/trust">Trust Center</MarketingProseLink>;
+          when you want to see it for yourself,{" "}
+          <MarketingProseLink href="/contact">get in touch</MarketingProseLink>.
+        </MarketingClosing>
+      </div>
     </MarketingPageShell>
   );
 }

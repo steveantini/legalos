@@ -38,6 +38,16 @@ interface MarketingPageShellProps {
   /** Back-link target; defaults to the landing. Sub-pages point at their hub. */
   backHref?: string;
   backLabel?: string;
+  /**
+   * Opt-in: align the shell-rendered header (eyebrow, title, lead) and the
+   * back link to a body that breaks out of the reading column into a wider
+   * band. The Features tour (D-219) widens its body by 200px each side via
+   * `-mx-[200px]` at ≥1181px; with this true, the header and back link shift
+   * left by the same 200px at the same breakpoint so the page reads down one
+   * left spine, and the lead keeps a readable measure. Default false leaves
+   * every other page's centered column exactly as it was.
+   */
+  alignToWideBody?: boolean;
   children: React.ReactNode;
 }
 
@@ -48,8 +58,17 @@ export function MarketingPageShell({
   lead,
   backHref = "/",
   backLabel = "← Back to legalOS",
+  alignToWideBody = false,
   children,
 }: MarketingPageShellProps) {
+  // When the body breaks out into a wider band (the Features tour, D-219),
+  // shift the header and back link left by the same 200px at the same 1181px
+  // breakpoint so the whole page shares one left spine. The lead is capped so
+  // it keeps a readable measure instead of stretching into the bled space.
+  const bleed = alignToWideBody ? " min-[1181px]:-ml-[200px]" : "";
+  const leadBleed = alignToWideBody
+    ? " min-[1181px]:-ml-[200px] min-[1181px]:max-w-[736px]"
+    : "";
   return (
     <div className="min-h-screen bg-background">
       <header className="px-6 pt-7 min-[720px]:px-10">
@@ -67,7 +86,9 @@ export function MarketingPageShell({
 
       <main className="px-6 pb-16 pt-10 min-[720px]:px-10 min-[720px]:pt-14">
         <div className="mx-auto w-full max-w-[736px]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
+          <p
+            className={`font-mono text-[11px] uppercase tracking-[0.16em] text-primary${bleed}`}
+          >
             {breadcrumb ? (
               <>
                 <Link
@@ -82,19 +103,23 @@ export function MarketingPageShell({
             {label}
           </p>
 
-          <h1 className="mt-5 text-5xl font-semibold leading-tight tracking-tight text-foreground md:text-6xl">
+          <h1
+            className={`mt-5 text-5xl font-semibold leading-tight tracking-tight text-foreground md:text-6xl${bleed}`}
+          >
             {title}
           </h1>
 
           {lead ? (
-            <p className="mt-6 text-[17px] leading-[1.65] text-ink-2">{lead}</p>
+            <p className={`mt-6 text-[17px] leading-[1.65] text-ink-2${leadBleed}`}>
+              {lead}
+            </p>
           ) : null}
 
           {children}
 
           <Link
             href={backHref}
-            className="mt-12 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className={`mt-12 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring${bleed}`}
           >
             {backLabel}
           </Link>
