@@ -15,8 +15,15 @@ import { safeNextPath } from "@/lib/url/safe-next";
  * design once public, and self-gating while in owner-only preview (the
  * route 404s non-owners itself), so the public flip never needs a proxy
  * edit.
+ * `/api/cron/` covers the Vercel Cron routes (D-222): the proxy passes
+ * them through, and each route's fail-closed CRON_SECRET bearer check
+ * (401 on a wrong or absent secret) is the real gate — the same
+ * public-but-self-defending model as `/api/support`. Without this
+ * exemption the sessionless cron tick 307-bounces to /login and never
+ * reaches the handler. The trailing slash keeps the prefix exact-scoped:
+ * a sibling path like `/api/cron-other` stays gated.
  */
-const PUBLIC_PATHS = ["/login", "/auth", "/demo", "/api/support"];
+const PUBLIC_PATHS = ["/login", "/auth", "/demo", "/api/support", "/api/cron/"];
 
 /**
  * Marketing pages, matched exactly. They live in the `app/(marketing)/`
