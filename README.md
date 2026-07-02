@@ -1,6 +1,6 @@
 # legalOS
 
-An operating system for legal departments. legalOS gives in-house lawyers and legal-ops teams a single, AI-native entry point for the workflows, agents, and tools they use day-to-day — built around how legal work actually happens, with role-based access, conversation history, attached references, per-message file attachments, web search, and per-message markdown download already in place.
+An operating system for legal departments. legalOS gives in-house lawyers and legal-ops teams a single, AI-native entry point for the workflows, agents, and tools they use day-to-day — built around how legal work actually happens, with role-based access, attached references, per-message file attachments, web search, and per-message markdown download already in place.
 
 This is open-source software you can fork and run for your own legal department, or adapt as the starting point for a multi-tenant SaaS.
 

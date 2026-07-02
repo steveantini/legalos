@@ -5479,3 +5479,16 @@ Status: Accepted (shipped)
 **D-157 reconciliation:** N/A — no user-facing behavior changed (an internal scheduling path became reachable; no surface, copy, or capability claim moved). Confirmed no /features, README capability, claims-map, or documentation-guide text is affected.
 
 **Gates:** tsc 0, lint 0, 822 tests (up from 819 — the three proxy exemption tests), build 0.
+
+## D-223 — The conversation-continuity claim swept from its last user-facing homes (docs corpus + README)
+
+Date: 2026-07-02
+Status: Accepted (shipped)
+
+**Context:** Stage 3 recon (the D-157 inheritance pass) found that the false "the thread picks up where it left off" claim D-218 removed from /features had survived in the docs corpus — and the docs corpus grounds the PUBLIC support assistant, so the product could assert an untrue capability to an anonymous visitor. The ground truth is unchanged from D-218: conversations persist in the DB and a thread rehydrates on a hard `?c=` reload, but there is no conversation-history UI to discover or resume past conversations, and opening an agent starts a fresh conversation.
+
+**The sweep found three live echoes, all fixed:** (1) the workspace guide's Conversations section (`lib/marketing/documentation.tsx`) — rewritten to reality: opening an agent starts fresh, messages are saved as part of the organization's work, each conversation records its starting model, "a browsable conversation history is not here yet", export what's worth keeping; (2) the same guide's "Start a conversation" how-to step — the false "leaving and returning picks up the same thread" clause removed (the D-218 idiom: remove the claim, don't replace it); (3) README line 3's capability list still shipped "conversation history" — dropped from the enumeration. NOT touched, verified true: the Research guide's "an interrupted run resumes where it left off" (a real, shipped D-153 behavior about research runs, not conversations). /features needed no change (D-218 had it right); FEATURES_CLAIMS.md's removal note gains a one-line pointer that the surviving echoes were swept here.
+
+**D-157 reconciliation:** this IS the reconciliation — copy-only, no behavior change; no new claim added, one stale claim removed from its last two homes.
+
+**Gates:** tsc 0, lint 0, 822 tests (unchanged), build 0.

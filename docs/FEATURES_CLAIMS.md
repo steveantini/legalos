@@ -45,7 +45,7 @@ Last full truth pass: 2026-06-30 (D-218, the six-section reorg; D-219 added the 
 | Any link resolves: a feed, an ordinary page (feed auto-discovered), or an Apple Podcasts show (resolved to its feed) | D-173 (autodiscovery 659a479; Apple Podcasts lookup 93b4ea4) |
 | Feeds are personal and user-managed (add/remove, up to 12); admin-curated role-scoped Desk content is the named future layer, not shipped | D-173 (owner-scoped RLS; sibling-table architecture for the future layer) |
 
-(Removed: "Conversations kept and resumable." Conversations persist in the DB and a thread rehydrates on a hard reload via `?c=`, but there is NO conversation-history UI for a user to discover or resume past conversations, and opening an agent starts a fresh conversation; the `ConversationCard` built for a "Continue working" row is dead code. The page no longer claims it.)
+(Removed: "Conversations kept and resumable." Conversations persist in the DB and a thread rehydrates on a hard reload via `?c=`, but there is NO conversation-history UI for a user to discover or resume past conversations, and opening an agent starts a fresh conversation; the `ConversationCard` built for a "Continue working" row is dead code. The page no longer claims it. The echoes that survived the D-218 sweep, in the docs-corpus workspace guide and the README capability line, were removed in D-223.)
 
 ## Agents and departments (`#agents`)
 

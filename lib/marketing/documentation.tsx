@@ -116,10 +116,12 @@ export const DOC_PAGES: DocPage[] = [
         </MarketingSection>
         <MarketingSection title="Conversations">
           <p>
-            Opening an agent starts or resumes a conversation. Conversations
-            are kept: leave and come back, and the thread picks up where it
-            left off. Each conversation remembers the model it started with,
-            so older work stays reproducible even as defaults change.
+            Opening an agent starts a fresh conversation. Your messages and
+            the agent&rsquo;s answers are saved as part of your
+            organization&rsquo;s work, and each conversation records the model
+            it started with, so older work stays reproducible even as defaults
+            change. A browsable conversation history is not here yet; when an
+            answer is worth keeping, export it before you move on.
           </p>
         </MarketingSection>
         <MarketingSection title="Attachments and exports">
@@ -231,10 +233,7 @@ export const DOC_PAGES: DocPage[] = [
             <p className="font-medium text-foreground">Start a conversation</p>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5">
               <li>Select an agent&rsquo;s card on the launchpad.</li>
-              <li>
-                Type in the composer and press Enter. The conversation is
-                kept; leaving and returning picks up the same thread.
-              </li>
+              <li>Type in the composer and press Enter.</li>
             </ol>
           </div>
           <div>
