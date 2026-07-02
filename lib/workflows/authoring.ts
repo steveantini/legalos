@@ -4,6 +4,7 @@ import { getCurrentUserProfile, isCurrentUserOrgAdmin } from "@/lib/auth/access"
 import { resolveOrgMcpTools } from "@/lib/connections/mcp/agent-tools";
 import { classifyMcpTool } from "@/lib/connections/mcp/tool-classification";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isNativeAction } from "@/lib/workflows/native-actions-shared";
 import { validateWorkflowDefinition } from "@/lib/workflows/validate";
 import type { WorkflowStep } from "@/lib/workflows/types";
 
@@ -84,6 +85,11 @@ export async function saveWorkflowDefinition(
           return Boolean(data);
         },
         classifyTool: async (serverId: string, toolName: string) => {
+          // A native action is a known, governed tool_action target: classify it
+          // "read" so an adopted watcher definition saves and re-saves cleanly
+          // (mirrors the engine's classify in run.ts, D-224). MCP validation is
+          // unchanged: unknown tools still fail.
+          if (isNativeAction(serverId, toolName)) return "read";
           const target = mcp.targets.find((t) => t.serverId === serverId);
           const descriptor = target?.tools?.find((d) => d.name === toolName);
           return descriptor ? classifyMcpTool(descriptor) : null;

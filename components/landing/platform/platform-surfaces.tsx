@@ -246,7 +246,11 @@ export function DepartmentsSurface({
     },
     {
       name: "Regulatory",
-      description: "Filings, monitoring, and policy.",
+      // "guidance", not "monitoring": this is illustrative sample data, and
+      // with real watcher copy in the product, "monitoring" here would read
+      // as an implied shipped capability (regulatory monitoring is deferred
+      // on the roadmap). D-224.
+      description: "Filings, guidance, and policy.",
       count: 7,
     },
     {

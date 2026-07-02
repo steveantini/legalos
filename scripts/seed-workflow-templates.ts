@@ -44,6 +44,7 @@ import { config } from "dotenv";
 
 import {
   STARTER_WORKFLOW_TEMPLATES,
+  classifyStarterTemplateTool,
   resolveTemplateSteps,
   type WorkflowTemplateSpec,
 } from "@/lib/workflows/templates";
@@ -178,7 +179,10 @@ async function seedTemplate(
     { steps: resolved.steps },
     {
       isAgentRunnable: async (agentId) => resolvedIds.has(agentId),
-      classifyTool: async () => null, // starter templates carry no tool steps
+      // Native actions classify "read" (the renewal watcher's scan step, D-224);
+      // anything else stays unknown — starter templates carry no MCP tool steps,
+      // and an MCP-referencing spec should fail here rather than seed broken.
+      classifyTool: classifyStarterTemplateTool,
     },
   );
   if (!validation.ok) {

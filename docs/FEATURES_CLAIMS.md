@@ -76,6 +76,7 @@ Last full truth pass: 2026-06-30 (D-218, the six-section reorg; D-219 added the 
 | No-code builder; start from a template or scratch | D-118 (builder), D-124/D-125 (templates) |
 | Supervised or autonomous runs; any step that would change something outside legalOS pauses for approval before it acts | D-117 (autonomy + approved writes), D-121/D-122 |
 | Complete step-by-step run record with approval provenance | D-116/D-119 (run + step-run audit) |
+| Scheduled watchers: adopt the renewal watcher from the template gallery (window + cadence chosen at adoption), and it runs on that schedule, owned by its adopter, pausable, under the same approval invariant (reads complete on their own; writes pause) | D-220 (scheduling + cron), D-221 (the renewal scan), D-222 (the cron reaches the route), D-224 (the adopt flow, Your watchers, pause/resume) |
 
 ## Admin and governance (`#governance`)
 

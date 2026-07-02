@@ -1,6 +1,7 @@
 import {
   NATIVE_ACTIONS_SERVER_ID,
   RENEWAL_SCAN_ACTION,
+  isNativeAction,
 } from "@/lib/workflows/native-actions-shared";
 import type { ValueSource, WorkflowStep } from "@/lib/workflows/types";
 
@@ -68,6 +69,39 @@ export type WorkflowTemplateSpec = {
 };
 
 /**
+ * The renewal watcher (watcher arc; built dark in Stage 2, D-221; admitted to
+ * the gallery in Stage 3a, D-224). Referenced by the starter array below, so
+ * the template seed materializes it as a gallery row per org, and kept as its
+ * own named export because two other consumers use the spec directly: the
+ * adopt flow (which creates an ACTIVE definition plus its workflow_schedules
+ * row in one deliberate step — a watcher without a schedule never fires) and
+ * the Stage-2 fixture seed. On the gallery card it is NOT forked with "Use
+ * this template"; the card routes to the adopt flow instead.
+ *
+ * A single native-action step: the deterministic renewal scan + finding write,
+ * executed inline by the engine (dispatched through runToolActionStep before the
+ * MCP lookup). Its config rides the run input (mapped onto the `config` arg): the
+ * schedule provides { collectionId, windowDays, findingKind } and the cron
+ * injects scheduleId at run time.
+ */
+export const RENEWAL_WATCHER_TEMPLATE: WorkflowTemplateSpec = {
+  slug: "renewal-watcher",
+  name: "Renewal watcher",
+  description:
+    "Scans a collection of agreements for expirations coming up within the window and records one finding per agreement that is due, so nothing renews or lapses unnoticed. Runs on a schedule you set when you adopt it.",
+  steps: [
+    {
+      id: "scan-renewals",
+      type: "tool_action",
+      name: "Scan for upcoming renewals",
+      serverId: NATIVE_ACTIONS_SERVER_ID,
+      toolName: RENEWAL_SCAN_ACTION,
+      argMapping: { config: { source: "run_input" } },
+    },
+  ],
+};
+
+/**
  * The seeded starters. Quality over quantity: each doubles as a guided
  * example of composing agent-centric workflows. Agent picks (resolved live
  * against the org at seed time; a template whose agent is missing is skipped
@@ -79,6 +113,8 @@ export type WorkflowTemplateSpec = {
  *     carries the classify-and-review direction instead).
  *   - c4l-commercial-legal-stakeholder-summary — the C4L summarize-for-people
  *     leaf, instructed per use to draft (and, with approval, send) the email.
+ * The renewal watcher (above) closes the array: no agents, one native action,
+ * adopted rather than forked (Stage 3a, D-224).
  */
 export const STARTER_WORKFLOW_TEMPLATES: WorkflowTemplateSpec[] = [
   {
@@ -157,6 +193,7 @@ export const STARTER_WORKFLOW_TEMPLATES: WorkflowTemplateSpec[] = [
       },
     ],
   },
+  RENEWAL_WATCHER_TEMPLATE,
 ];
 
 export type ResolvedTemplateSteps =
@@ -216,32 +253,16 @@ export function resolveTemplateSteps(
 }
 
 /**
- * The renewal watcher (watcher arc, Stage 2, D-221). Deliberately NOT in
- * STARTER_WORKFLOW_TEMPLATES: Stage 2 ships dark, so this spec is not seeded into
- * any org's Template Library gallery. The Stage-2 fixture seed forks it into an
- * ACTIVE definition + a schedule directly (via resolveTemplateSteps + the same
- * validator); Stage 3 surfaces it as a gallery template by adding it to the
- * starter array.
- *
- * A single native-action step: the deterministic renewal scan + finding write,
- * executed inline by the engine (dispatched through runToolActionStep before the
- * MCP lookup). Its config rides the run input (mapped onto the `config` arg): the
- * schedule provides { collectionId, windowDays, findingKind, isFixture } and the
- * cron injects scheduleId at run time.
+ * The tool classification the TEMPLATE SEED validates with (the same gate the
+ * engine applies at run start, run.ts): a native action is a known, governed
+ * tool_action target and classifies "read"; anything else is unknown here —
+ * starter templates carry no MCP tool steps, and an MCP-referencing spec should
+ * fail the seed's validation rather than seed a template the org may not be
+ * able to run. Exported so the seed script and its test share one definition.
  */
-export const RENEWAL_WATCHER_TEMPLATE: WorkflowTemplateSpec = {
-  slug: "renewal-watcher",
-  name: "Renewal watcher",
-  description:
-    "Scans a collection of agreements for expirations coming up within the window and records one finding per agreement that is due, so nothing renews or lapses unnoticed.",
-  steps: [
-    {
-      id: "scan-renewals",
-      type: "tool_action",
-      name: "Scan for upcoming renewals",
-      serverId: NATIVE_ACTIONS_SERVER_ID,
-      toolName: RENEWAL_SCAN_ACTION,
-      argMapping: { config: { source: "run_input" } },
-    },
-  ],
-};
+export async function classifyStarterTemplateTool(
+  serverId: string,
+  toolName: string,
+): Promise<"read" | null> {
+  return isNativeAction(serverId, toolName) ? "read" : null;
+}

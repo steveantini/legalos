@@ -415,6 +415,21 @@ export const DOC_PAGES: DocPage[] = [
             came out, and how long it took.
           </p>
         </MarketingSection>
+        <MarketingSection title="Watchers: workflows that run themselves">
+          <p>
+            Some workflows run on a schedule instead of waiting for someone to
+            press Run. A watcher, like the renewal watcher that scans a
+            collection of agreements for upcoming expirations, is adopted by an
+            administrator with a lookahead window and a cadence, and runs on
+            that schedule from then on. Every scheduled run belongs to the
+            person who adopted the watcher and follows the same rules as any
+            other run: reading completes on its own, and any action that would
+            change something outside legalOS still pauses for approval. The
+            Your watchers section on My Workflows shows each watcher&rsquo;s
+            schedule, owner, and last run; an administrator can pause or resume
+            one at any time.
+          </p>
+        </MarketingSection>
         <MarketingSection title="Supervised and autonomous">
           <p>
             A supervised run pauses at every checkpoint a workflow defines and
@@ -1375,15 +1390,23 @@ export const DOC_PAGES: DocPage[] = [
             Starter templates ship with the product and appear alongside My
             Workflows. A template is never run directly: using one forks it
             into your own draft to adapt, so the starting points stay clean.
+            The one exception is a watcher template, like the renewal watcher:
+            it is adopted rather than forked, one step that creates the active
+            watcher and the schedule that runs it together. You choose the
+            collection to watch, the lookahead window (60 days by default),
+            a daily or weekly cadence, and the autonomy its runs use; the
+            watcher is owned by whoever adopted it, and its runs are attributed
+            to them. Pause or resume it any time from Your watchers.
           </p>
         </MarketingSection>
         <MarketingSection title="Autonomy, honestly">
           <p>
-            Autonomy is chosen per run, not built into the workflow. The line
-            that never moves: writes pause for a person, at every autonomy
-            level. Deleting a workflow never deletes its history; every run
-            keeps its own copy of the steps it executed, and cost records are
-            kept as accounting facts.
+            Autonomy is chosen per run, not built into the workflow; for a
+            watcher it is chosen once at adoption and applied to every
+            scheduled run. The line that never moves: writes pause for a
+            person, at every autonomy level. Deleting a workflow never deletes
+            its history; every run keeps its own copy of the steps it executed,
+            and cost records are kept as accounting facts.
           </p>
         </MarketingSection>
         <MarketingSection title="How to">

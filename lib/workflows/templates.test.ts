@@ -5,6 +5,7 @@ import { validateWorkflowDefinition } from "./validate";
 import {
   RENEWAL_WATCHER_TEMPLATE,
   STARTER_WORKFLOW_TEMPLATES,
+  classifyStarterTemplateTool,
   resolveTemplateSteps,
 } from "./templates";
 
@@ -70,7 +71,7 @@ describe("STARTER_WORKFLOW_TEMPLATES", () => {
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
-  it("every spec resolves and passes the real definition validator", async () => {
+  it("every spec resolves and passes the real definition validator with the seed's classify", async () => {
     const agentMap = fullAgentMap();
     const agentIds = new Set(agentMap.values());
     for (const spec of STARTER_WORKFLOW_TEMPLATES) {
@@ -81,7 +82,10 @@ describe("STARTER_WORKFLOW_TEMPLATES", () => {
         { steps: resolved.steps },
         {
           isAgentRunnable: async (id) => agentIds.has(id),
-          classifyTool: async () => null,
+          // The exact classify the template seed validates with (D-224): the
+          // watcher's native scan step classifies read; nothing is weakened
+          // for MCP tools (see the classifyStarterTemplateTool suite below).
+          classifyTool: classifyStarterTemplateTool,
         },
       );
       expect(validation).toEqual({ ok: true });
@@ -100,10 +104,50 @@ describe("STARTER_WORKFLOW_TEMPLATES", () => {
     ).toMatch(/identify what kind of contract/i);
   });
 
-  it("is NOT among the starters (Stage 2 keeps the renewal watcher out of the gallery)", () => {
+  it("includes the renewal watcher (admitted to the gallery in Stage 3a, D-224)", () => {
     expect(
       STARTER_WORKFLOW_TEMPLATES.some((t) => t.slug === RENEWAL_WATCHER_TEMPLATE.slug),
-    ).toBe(false);
+    ).toBe(true);
+  });
+});
+
+describe("classifyStarterTemplateTool (the seed's validation classify, D-224)", () => {
+  it("classifies the watcher's native action as read", async () => {
+    const step = RENEWAL_WATCHER_TEMPLATE.steps[0];
+    if (step.type !== "tool_action") throw new Error("expected the scan step");
+    await expect(
+      classifyStarterTemplateTool(step.serverId, step.toolName),
+    ).resolves.toBe("read");
+  });
+
+  it("does not weaken validation for non-native tools (unknown stays null)", async () => {
+    await expect(
+      classifyStarterTemplateTool("gmail", "send_email"),
+    ).resolves.toBeNull();
+    await expect(
+      classifyStarterTemplateTool("native:legalos", "not_a_real_action"),
+    ).resolves.toBeNull();
+  });
+
+  it("a spec referencing an MCP tool still fails the seed's validation gate", async () => {
+    const validation = await validateWorkflowDefinition(
+      {
+        steps: [
+          {
+            id: "send",
+            type: "tool_action",
+            name: "Send an email",
+            serverId: "gmail",
+            toolName: "send_email",
+          },
+        ],
+      },
+      {
+        isAgentRunnable: async () => false,
+        classifyTool: classifyStarterTemplateTool,
+      },
+    );
+    expect(validation.ok).toBe(false);
   });
 });
 

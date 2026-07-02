@@ -16,6 +16,13 @@ import {
   type SaveWorkflowInput,
   type SaveWorkflowResult,
 } from "@/lib/workflows/authoring";
+import {
+  adoptRenewalWatcher as adoptRenewalWatcherImpl,
+  setWatcherEnabled as setWatcherEnabledImpl,
+  type AdoptWatcherResult,
+  type SetWatcherEnabledResult,
+} from "@/lib/workflows/watchers";
+import { adoptWatcherInputSchema } from "@/lib/workflows/watchers-shared";
 
 /**
  * Start a workflow run from a stored definition (Workflows arc, Steps 2-3). The
@@ -119,6 +126,44 @@ export async function forkWorkflowTemplate(
   const parsed = forkSchema.safeParse({ templateId });
   if (!parsed.success) return { ok: false, error: "invalid_input" };
   return forkWorkflowTemplateImpl(parsed.data.templateId);
+}
+
+/**
+ * Adopt a watcher template (watcher arc Stage 3a, D-224): one deliberate step
+ * that creates the ACTIVE definition and the schedule that runs it, owned by
+ * the adopting admin (option 2c). Org-admin gated inside the watchers layer
+ * (RLS re-enforces on both writes).
+ */
+export async function adoptRenewalWatcher(
+  input: unknown,
+): Promise<AdoptWatcherResult> {
+  const parsed = adoptWatcherInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid_input" };
+  return adoptRenewalWatcherImpl(parsed.data);
+}
+
+/**
+ * Pause / resume a watcher's schedule (the enabled flag). Org-admin gated
+ * inside the watchers layer (RLS re-enforces). Revalidates the workflows
+ * surface so the toggle's result is what the next paint shows.
+ */
+const setWatcherEnabledSchema = z.object({
+  scheduleId: z.string().uuid(),
+  enabled: z.boolean(),
+});
+
+export async function setWatcherEnabled(
+  scheduleId: string,
+  enabled: boolean,
+): Promise<SetWatcherEnabledResult> {
+  const parsed = setWatcherEnabledSchema.safeParse({ scheduleId, enabled });
+  if (!parsed.success) return { ok: false, error: "invalid_input" };
+  const result = await setWatcherEnabledImpl(
+    parsed.data.scheduleId,
+    parsed.data.enabled,
+  );
+  if (result.ok) revalidatePath("/workspace/workflows/my-workflows");
+  return result;
 }
 
 /**

@@ -7,33 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { startWorkflowRun } from "@/lib/actions/workflows";
+// Autonomy belongs to the RUN, not the definition (Step 3); the shared choices
+// carry the honest v1 contract wording (writes always pause for approval).
+import { AUTONOMY_CHOICES } from "@/lib/workflows/autonomy-choices";
 import { cn } from "@/lib/utils";
 
 type Autonomy = "supervised" | "autonomous";
-
-/**
- * The two run-level autonomy choices, explained plainly. Autonomy belongs to
- * the RUN, not the definition (Step 3): the honest v1 contract is that even an
- * autonomous run still pauses for approval before any write.
- */
-const AUTONOMY_CHOICES: Array<{
-  value: Autonomy;
-  title: string;
-  description: string;
-}> = [
-  {
-    value: "supervised",
-    title: "Supervised",
-    description:
-      "You approve along the way. The run pauses at every human checkpoint and before any action that changes a connected system.",
-  },
-  {
-    value: "autonomous",
-    title: "Autonomous",
-    description:
-      "Runs on its own. Checkpoints clear automatically, but the run still pauses for your approval before any action that changes a connected system.",
-  },
-];
 
 /** Map startWorkflowRun's error codes to honest, actionable copy. */
 function startErrorMessage(error: string, errors?: string[]): string {

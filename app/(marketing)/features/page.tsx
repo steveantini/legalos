@@ -218,7 +218,11 @@ export default function FeaturesPage() {
             scratch, and run it supervised or autonomously. Either way, any step
             that would change something outside legalOS pauses for a person to
             approve before it acts. Every run keeps a complete step-by-step
-            record of what ran, what was approved, and by whom.
+            record of what ran, what was approved, and by whom. Some workflows
+            run themselves: adopt a watcher, like the renewal watcher that scans
+            your agreements for upcoming expirations, and it runs on the
+            schedule you set, owned by the person who adopted it, under the same
+            approval rules as any other run.
           </p>
         </FeatureRow>
 

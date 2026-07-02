@@ -2,11 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CollapsibleSection } from "@/components/workspace/collapsible-section";
+import { ComingSoonCard } from "@/components/workspace/coming-soon-card";
 import { UseTemplateButton } from "@/components/workflows/use-template-button";
+import { WatcherEnabledToggle } from "@/components/workflows/watcher-enabled-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { HelpLink } from "@/components/workspace/help-link";
 import { getUserPreferenceAction } from "@/lib/actions/user-preferences";
-import { requireAuthUser, isCurrentUserOrgAdmin } from "@/lib/auth/access";
+import {
+  getCurrentUserProfile,
+  requireAuthUser,
+  isCurrentUserOrgAdmin,
+} from "@/lib/auth/access";
 import {
   workflowsCollapsedSectionsKey,
   type CollapsedSectionsValue,
@@ -16,6 +22,12 @@ import {
   workflowReadback,
   type ReadbackCapabilities,
 } from "@/lib/workflows/builder-view";
+import { formatRunTimestamp } from "@/lib/workflows/run-view";
+import {
+  cadenceLabelForSeconds,
+  isWatcherTemplateSlug,
+  windowDaysFromRunInput,
+} from "@/lib/workflows/watchers-shared";
 import type { WorkflowStep } from "@/lib/workflows/types";
 
 export const metadata: Metadata = {
@@ -35,7 +47,20 @@ type TemplateRow = {
   id: string;
   name: string;
   description: string | null;
+  template_slug: string | null;
   definition: { steps?: WorkflowStep[] } | null;
+};
+
+/** One adopted watcher: a schedule row plus the display fields the list shows. */
+type WatcherScheduleRow = {
+  id: string;
+  enabled: boolean;
+  cadence_seconds: number;
+  run_input: unknown;
+  last_run_at: string | null;
+  owner_user_id: string;
+  workflow_definition_id: string;
+  created_at: string;
 };
 
 const STATUS_LABEL: Record<WorkflowRow["status"], string> = {
@@ -77,6 +102,11 @@ function formatUpdated(iso: string): string {
  * the fork-only affordance. A template is a READ-ONLY starting point — "Use
  * this template" copies it into a user-owned draft; it is deliberately never
  * runnable or editable in place from this screen.
+ *
+ * WATCHER templates (Stage 3a, D-224) differ in one honest way: a quiet
+ * "Runs on a schedule" pill marks them as scheduled rather than run-now, and
+ * the affordance routes to the adopt flow (which creates the active watcher
+ * AND its schedule together) instead of the fork button.
  */
 function TemplateCard({
   template,
@@ -91,11 +121,19 @@ function TemplateCard({
     ? template.definition.steps
     : [];
   const readback = workflowReadback(steps, readbackCaps);
+  const isWatcher = isWatcherTemplateSlug(template.template_slug);
   return (
     <li className="rounded-[14px] border border-border bg-card p-5">
-      <h3 className="text-[17px] font-medium leading-[1.2] tracking-[-0.012em] text-foreground">
-        {template.name}
-      </h3>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-[17px] font-medium leading-[1.2] tracking-[-0.012em] text-foreground">
+          {template.name}
+        </h3>
+        {isWatcher ? (
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            Runs on a schedule
+          </span>
+        ) : null}
+      </div>
       {template.description ? (
         <p className="mt-1.5 text-[13.5px] leading-[1.45] text-muted-foreground">
           {template.description}
@@ -124,7 +162,20 @@ function TemplateCard({
       ) : null}
 
       <div className="mt-4 flex items-center gap-3">
-        {canAuthor ? (
+        {isWatcher ? (
+          canAuthor ? (
+            <Link
+              href={`/workspace/workflows/my-workflows/templates/${template.id}/adopt`}
+              className={buttonVariants({ size: "sm" })}
+            >
+              Adopt this watcher
+            </Link>
+          ) : (
+            <p className="text-[12.5px] text-muted-foreground">
+              An admin can adopt this watcher.
+            </p>
+          )
+        ) : canAuthor ? (
           <UseTemplateButton templateId={template.id} templateName={template.name} />
         ) : (
           <p className="text-[12.5px] text-muted-foreground">
@@ -158,26 +209,41 @@ function TemplateCard({
  */
 export default async function MyWorkflowsPage() {
   await requireAuthUser();
-  const canAuthor = await isCurrentUserOrgAdmin();
+  const [canAuthor, profile] = await Promise.all([
+    isCurrentUserOrgAdmin(),
+    getCurrentUserProfile(),
+  ]);
 
   const supabase = await createSupabaseServerClient();
-  const [workflowsRes, templatesRes, collapsedRes] = await Promise.all([
-    supabase
-      .from("workflow_definitions")
-      .select("id, name, description, status, definition, updated_at")
-      .neq("status", "template")
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("workflow_definitions")
-      .select("id, name, description, definition")
-      .eq("status", "template")
-      .order("name", { ascending: true }),
-    getUserPreferenceAction<CollapsedSectionsValue>(workflowsCollapsedSectionsKey),
-  ]);
+  const [workflowsRes, templatesRes, watchersRes, collapsedRes] =
+    await Promise.all([
+      supabase
+        .from("workflow_definitions")
+        .select("id, name, description, status, definition, updated_at")
+        .neq("status", "template")
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("workflow_definitions")
+        .select("id, name, description, template_slug, definition")
+        .eq("status", "template")
+        .order("name", { ascending: true }),
+      // Adopted watchers: the org's schedules (workflow_schedules_read is
+      // org-scoped, so members see the list; only admins get the controls).
+      supabase
+        .from("workflow_schedules")
+        .select(
+          "id, enabled, cadence_seconds, run_input, last_run_at, owner_user_id, workflow_definition_id, created_at",
+        )
+        .order("created_at", { ascending: false }),
+      getUserPreferenceAction<CollapsedSectionsValue>(workflowsCollapsedSectionsKey),
+    ]);
   const workflows = (workflowsRes.data ?? []) as WorkflowRow[];
   const templates = (templatesRes.data ?? []) as TemplateRow[];
+  const watchers = (watchersRes.data ?? []) as WatcherScheduleRow[];
   const templatesCollapsed =
     (collapsedRes.ok ? collapsedRes.value?.templates : undefined) ?? false;
+  const watchersCollapsed =
+    (collapsedRes.ok ? collapsedRes.value?.watchers : undefined) ?? false;
 
   // Agent names for the templates' plain-language readback (RLS-scoped).
   const agentIds = [
@@ -200,10 +266,57 @@ export default async function MyWorkflowsPage() {
         a.name,
       ]),
     ),
-    // Starter templates carry no tool steps; an empty map falls back to the
-    // chat-consistent tool label derivation inside the readback.
+    // The watcher's native scan step is the one tool step a starter template
+    // carries; anything else falls back to the chat-consistent tool label
+    // derivation inside the readback.
     toolByKey: new Map(),
   };
+
+  // Display fields for the watcher rows: the definition name (usually already
+  // in the workflows list — adopted watchers are active definitions) and the
+  // owner's name ("you" for the viewer; the users read policy may hide a
+  // non-peer owner from a member, in which case the row omits the owner).
+  const workflowNameById = new Map(workflows.map((w) => [w.id, w.name]));
+  const missingNameIds = [
+    ...new Set(
+      watchers
+        .map((w) => w.workflow_definition_id)
+        .filter((id) => !workflowNameById.has(id)),
+    ),
+  ];
+  const ownerIds = [
+    ...new Set(
+      watchers
+        .map((w) => w.owner_user_id)
+        .filter((id) => id !== profile?.id),
+    ),
+  ];
+  const [missingNamesRes, ownersRes] = await Promise.all([
+    missingNameIds.length > 0
+      ? supabase
+          .from("workflow_definitions")
+          .select("id, name")
+          .in("id", missingNameIds)
+      : Promise.resolve({ data: [] }),
+    ownerIds.length > 0
+      ? supabase.from("users").select("id, full_name, email").in("id", ownerIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  for (const row of (missingNamesRes.data ?? []) as Array<{
+    id: string;
+    name: string;
+  }>) {
+    workflowNameById.set(row.id, row.name);
+  }
+  const ownerNameById = new Map(
+    (
+      (ownersRes.data ?? []) as Array<{
+        id: string;
+        full_name: string | null;
+        email: string;
+      }>
+    ).map((u) => [u.id, u.full_name?.trim() || u.email]),
+  );
 
   const hasWorkflows = workflows.length > 0;
 
@@ -321,6 +434,103 @@ export default async function MyWorkflowsPage() {
           ) : null}
         </div>
       )}
+
+      {/* Your watchers (Stage 3a, D-224): the org's adopted watchers — each a
+          workflow on a schedule — plus the two watcher kinds that are named
+          but not built (the house ComingSoonCard convention). Always present:
+          with zero watchers the empty line points at the gallery below, and
+          the coming-soon pair honestly shows where this area is going. */}
+      <CollapsibleSection
+        title="Your watchers"
+        sectionKey="watchers"
+        preferenceKey={workflowsCollapsedSectionsKey}
+        defaultCollapsed={watchersCollapsed}
+        meta={
+          watchers.length > 0 ? (
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {watchers.length}
+            </span>
+          ) : undefined
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {watchers.length > 0 ? (
+            <ul className="flex flex-col gap-3">
+              {watchers.map((watcher) => {
+                const name =
+                  workflowNameById.get(watcher.workflow_definition_id) ??
+                  "Watcher";
+                const windowDays = windowDaysFromRunInput(watcher.run_input);
+                const owner =
+                  watcher.owner_user_id === profile?.id
+                    ? "you"
+                    : ownerNameById.get(watcher.owner_user_id);
+                return (
+                  <li
+                    key={watcher.id}
+                    className="rounded-[14px] border border-border bg-card p-5"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <Link
+                        href={`/workspace/workflows/my-workflows/${watcher.workflow_definition_id}/run`}
+                        className="text-[17px] font-medium leading-[1.2] tracking-[-0.012em] text-foreground hover:underline hover:underline-offset-4"
+                      >
+                        {name}
+                      </Link>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                        <span
+                          className={`size-1.5 rounded-full ${
+                            watcher.enabled
+                              ? "bg-emerald-500"
+                              : "bg-muted-foreground/40"
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {watcher.enabled ? "Active" : "Paused"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-[12px] text-muted-foreground">
+                      {cadenceLabelForSeconds(watcher.cadence_seconds)}
+                      {windowDays != null ? <> · {windowDays}-day window</> : null}
+                      {owner ? <> · Owned by {owner}</> : null}
+                      {" · "}
+                      {watcher.last_run_at
+                        ? `Last ran ${formatRunTimestamp(watcher.last_run_at)}`
+                        : "Hasn't run yet"}
+                    </p>
+                    {canAuthor ? (
+                      <div className="mt-4">
+                        <WatcherEnabledToggle
+                          scheduleId={watcher.id}
+                          enabled={watcher.enabled}
+                          watcherName={name}
+                        />
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="rounded-[14px] border border-dashed border-border bg-card/50 px-5 py-4">
+              <p className="text-[13px] leading-[1.5] text-muted-foreground">
+                No watchers yet. Adopt the renewal watcher from the templates
+                below and it will scan on its schedule from then on.
+              </p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ComingSoonCard
+              title="Docket watcher"
+              description="Will track new filings and status changes on the matters you follow, and record each as a finding."
+            />
+            <ComingSoonCard
+              title="Regulatory monitor"
+              description="Will watch the regulatory sources you choose and surface the changes relevant to your organization."
+            />
+          </div>
+        </div>
+      </CollapsibleSection>
 
       {/* The templates live in one always-present collapsible section, so the
           "Start from a template" header (chevron, label, count) travels with
